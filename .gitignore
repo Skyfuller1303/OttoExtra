@@ -14,7 +14,7 @@ saves/
 config/
 
 # Dist: gebaute JARs nicht versionieren, Ordner + README behalten
-dist/*.jar
+dist/*-sources.jar
 
 # Secrets
 *.env
