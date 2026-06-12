@@ -1,0 +1,104 @@
+plugins {
+    id 'fabric-loom' version "${loom_version}"
+    id 'java'
+}
+
+version = project.mod_version
+group = project.maven_group
+base { archivesName = project.archives_base_name }
+
+// Client-only Mod: saubere Trennung von gemeinsamem und Client-Code.
+// Dedicated-Server laedt dadurch keine Client-Klassen.
+loom {
+    splitEnvironmentSourceSets()
+
+    mods {
+        "ottoextra" {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.client
+        }
+    }
+
+    runs {
+        client {
+            // Voller Ottonien-Modpack (DH, voxy, c2me, Iris ...) im Dev-Run -> mehr Heap.
+            vmArg "-Xmx6G"
+            // DevAuth aktivieren (Microsoft-Login; Token-Cache in ~/.devauth)
+            vmArg "-Ddevauth.enabled=true"
+            vmArg "-Ddevauth.account=main"
+        }
+    }
+}
+
+repositories {
+    mavenCentral()
+    maven { name = 'TerraformersMC'; url = 'https://maven.terraformersmc.com/' } // ModMenu
+    maven { // DevAuth (Microsoft-Login im Dev-Client)
+        name = 'DevAuth'
+        url = 'https://pkgs.dev.azure.com/djtheredstoner/DevAuth/_packaging/public/maven/v1'
+    }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${minecraft_version}"
+    mappings "net.fabricmc:yarn:${yarn_mappings}:v2"
+    modImplementation "net.fabricmc:fabric-loader:${loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_version}"
+
+    // Optionale Integrationen — nur zum Kompilieren, keine harte Runtime-Dependency.
+    modCompileOnly "com.terraformersmc:modmenu:${modmenu_version}"
+
+    // Xaero Minimap: nur zum Kompilieren (Element-Renderer-API); Runtime kommt
+    // aus dem Modpack. Loom remappt die lokale Mod-JAR nach Yarn.
+    modCompileOnly files("libs/xaerominimap-fabric-1.21.11-25.3.12.jar")
+    modCompileOnly files("libs/xaerolib-fabric-1.21.11-1.1.15.jar")
+
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testImplementation sourceSets.client.output
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    // Nur Dev-Runtime: echter Microsoft-Login fuer runClient (Server-Join-Tests).
+    // Landet NICHT im gebauten JAR. Erster Start: Device-Code-Link in der Konsole.
+    modLocalRuntime "me.djtheredstoner:DevAuth-fabric:1.2.1"
+    // DevAuth braucht Apache HttpClient (wird von MC 1.21.11 nicht mehr mitgeliefert).
+    localRuntime "org.apache.httpcomponents:httpclient:4.5.14"
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+    withSourcesJar()
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 21
+    options.encoding = 'UTF-8'
+}
+
+processResources {
+    inputs.property "version", project.version
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version
+    }
+}
+
+// Sammelt die fertig remappten Build-Artefakte in ./dist (gut sichtbar fuer Releases).
+tasks.register('dist', Copy) {
+    group = 'build'
+    description = 'Kopiert die gebauten JARs nach ./dist.'
+    dependsOn tasks.named('build')
+    from(tasks.named('remapJar'))
+    from(tasks.named('remapSourcesJar'))
+    into layout.projectDirectory.dir('dist')
+    doFirst {
+        delete fileTree(layout.projectDirectory.dir('dist')) { include '*.jar' }
+    }
+}
+
+// Nach jedem 'build' automatisch nach dist spiegeln.
+tasks.named('build') { finalizedBy 'dist' }
+
+
+test {
+    useJUnitPlatform()
+}

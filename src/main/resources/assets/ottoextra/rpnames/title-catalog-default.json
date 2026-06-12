@@ -1,0 +1,1800 @@
+{
+  "schemaVersion": 1,
+  "defaultNameColor": "#c7a87f",
+  "wikiSource": "https://wiki.ottonien.com/w/St%C3%A4nde_und_Titel",
+  "categories": {
+    "system": {
+      "label": "System",
+      "color": "#bc4296"
+    },
+    "adel": {
+      "label": "Adel",
+      "color": "#b0a254"
+    },
+    "klerus": {
+      "label": "Klerus",
+      "color": "#c7505e"
+    },
+    "vorkoster": {
+      "label": "Vorkoster",
+      "color": "#e97749"
+    },
+    "custom": {
+      "label": "Custom",
+      "color": "#a17f5f"
+    },
+    "fertigkeit": {
+      "label": "Fertigkeit",
+      "color": "#a17f5f"
+    },
+    "allgemein": {
+      "label": "Allgemein",
+      "color": "#a17f5f"
+    },
+    "unclassified": {
+      "label": "Unklassifiziert",
+      "color": "#8a8a8a"
+    }
+  },
+  "titles": [
+    {
+      "id": "ruestmann",
+      "title": "Rüstmann",
+      "variants": [
+        "Rüstmann",
+        "Rüstfrau"
+      ],
+      "category": "custom",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "meisterschmied",
+      "title": "Meisterschmied",
+      "variants": [
+        "Meisterschmied",
+        "Meisterschmiedin"
+      ],
+      "category": "custom",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "drakensmid",
+      "title": "Drakensmid",
+      "variants": [
+        "Drakensmid",
+        "Drakensmidin"
+      ],
+      "category": "custom",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "draak",
+      "title": "Draak",
+      "variants": [
+        "Draak"
+      ],
+      "category": "custom",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "knochenwaechter",
+      "title": "Knochenwächter",
+      "variants": [
+        "Knochenwächter",
+        "Knochenwächterin"
+      ],
+      "category": "custom",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "raufbold",
+      "title": "Raufbold",
+      "variants": [
+        "Raufbold"
+      ],
+      "category": "custom",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "schattenbogner",
+      "title": "Schattenbogner",
+      "variants": [
+        "Schattenbogner",
+        "Schattenbognerin"
+      ],
+      "category": "custom",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "bluthund",
+      "title": "Bluthund",
+      "variants": [
+        "Bluthund",
+        "Bluthündin"
+      ],
+      "category": "custom",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "legat",
+      "title": "Legat",
+      "variants": [
+        "Legat",
+        "Legatin"
+      ],
+      "category": "custom",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "hanseat",
+      "title": "Hanseat",
+      "variants": [
+        "Hanseat",
+        "Hanseatin"
+      ],
+      "category": "custom",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "hafenmeister",
+      "title": "Hafenmeister",
+      "variants": [
+        "Hafenmeister",
+        "Hafenmeisterin"
+      ],
+      "category": "custom",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "havenmeester",
+      "title": "Havenmeester",
+      "variants": [
+        "Havenmeester",
+        "Havenmeesterin"
+      ],
+      "category": "custom",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "gefaehrte",
+      "title": "Gefährte",
+      "variants": [
+        "Gefährte",
+        "Gefährtin"
+      ],
+      "category": "custom",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "trugwolf",
+      "title": "Trugwolf",
+      "variants": [
+        "Trugwolf"
+      ],
+      "category": "custom",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "brettspiel_koenig",
+      "title": "Brettspiel König",
+      "variants": [
+        "Brettspiel König",
+        "Brettspiel Königin"
+      ],
+      "category": "custom",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "illuminierter",
+      "title": "Illuminierter",
+      "variants": [
+        "Illuminierter",
+        "Illuminierte"
+      ],
+      "category": "custom",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "wittenacher",
+      "title": "Wittenacher",
+      "variants": [
+        "Wittenacher",
+        "Wittenacherin"
+      ],
+      "category": "custom",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "zoellner",
+      "title": "Zöllner",
+      "variants": [
+        "Zöllner",
+        "Zöllnerin"
+      ],
+      "category": "custom",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "teufel",
+      "title": "Teufel",
+      "variants": [
+        "Teufel",
+        "Teufelin"
+      ],
+      "category": "custom",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "kriegsheld",
+      "title": "Kriegsheld",
+      "variants": [
+        "Kriegsheld",
+        "Kriegsheldin"
+      ],
+      "category": "custom",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "freisasse",
+      "title": "Freisasse",
+      "variants": [
+        "Freisasse"
+      ],
+      "category": "custom",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "fronbote",
+      "title": "Fronbote",
+      "variants": [
+        "Fronbote",
+        "Fronbotin"
+      ],
+      "category": "custom",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "schultheiss",
+      "title": "Schultheiß",
+      "variants": [
+        "Schultheiß"
+      ],
+      "category": "custom",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "wildhueter",
+      "title": "Wildhüter",
+      "variants": [
+        "Wildhüter",
+        "Wildhüterin"
+      ],
+      "category": "custom",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "geldverleiher",
+      "title": "Geldverleiher",
+      "variants": [
+        "Geldverleiher",
+        "Geldverleiherin"
+      ],
+      "category": "custom",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "garstiger_wicht",
+      "title": "Garstiger Wicht",
+      "variants": [
+        "Garstiger Wicht"
+      ],
+      "category": "custom",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "winzer",
+      "title": "Winzer",
+      "variants": [
+        "Winzer",
+        "Winzerin"
+      ],
+      "category": "custom",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "braumeister",
+      "title": "Braumeister",
+      "variants": [
+        "Braumeister",
+        "Braumeisterin"
+      ],
+      "category": "custom",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "maedchen_fuer_alles",
+      "title": "Mädchen für alles",
+      "variants": [
+        "Mädchen für alles"
+      ],
+      "category": "custom",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "ridder",
+      "title": "Ridder",
+      "variants": [
+        "Ridder"
+      ],
+      "category": "adel",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "freiin",
+      "title": "Freiin",
+      "variants": [
+        "Freiin"
+      ],
+      "category": "adel",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "schutzvogt",
+      "title": "Schutzvogt",
+      "variants": [
+        "Schutzvogt",
+        "Schutzvogtin"
+      ],
+      "category": "adel",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "kirchvogt",
+      "title": "Kirchvogt",
+      "variants": [
+        "Kirchvogt",
+        "Kirchvogtin"
+      ],
+      "category": "adel",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "kastellan",
+      "title": "Kastellan",
+      "variants": [
+        "Kastellan",
+        "Kastellanin"
+      ],
+      "category": "adel",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "knecht",
+      "title": "Knecht",
+      "variants": [
+        "Knecht",
+        "Magd"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "haeusler",
+      "title": "Häusler",
+      "variants": [
+        "Häusler",
+        "Häuslerin"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "solden_re",
+      "title": "Soldenære",
+      "variants": [
+        "Soldenære"
+      ],
+      "category": "custom",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "bauherr",
+      "title": "Bauherr",
+      "variants": [
+        "Bauherr",
+        "Bauherrin"
+      ],
+      "category": "custom",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "gamemaster",
+      "title": "Gamemaster",
+      "variants": [
+        "Gamemaster"
+      ],
+      "category": "system",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "developer",
+      "title": "Developer",
+      "variants": [
+        "Developer"
+      ],
+      "category": "system",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "vorkoster",
+      "title": "Vorkoster",
+      "variants": [
+        "Vorkoster",
+        "Vorkosterin"
+      ],
+      "category": "vorkoster",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "chronist",
+      "title": "Chronist",
+      "variants": [
+        "Chronist",
+        "Chronistin"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "reisender",
+      "title": "Reisender",
+      "variants": [
+        "Reisender",
+        "Reisende"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "bettler",
+      "title": "Bettler",
+      "variants": [
+        "Bettler",
+        "Bettlerin"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "pilger",
+      "title": "Pilger",
+      "variants": [
+        "Pilger",
+        "Pilgerin"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "marktschreier",
+      "title": "Marktschreier",
+      "variants": [
+        "Marktschreier",
+        "Marktschreierin"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "packesel",
+      "title": "Packesel",
+      "variants": [
+        "Packesel"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "waschweib",
+      "title": "Waschweib",
+      "variants": [
+        "Waschweib"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "kaufmann",
+      "title": "Kaufmann",
+      "variants": [
+        "Kaufmann",
+        "Kauffrau"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "rattenfaenger",
+      "title": "Rattenfänger",
+      "variants": [
+        "Rattenfänger",
+        "Rattenfängerin"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "querulant",
+      "title": "Querulant",
+      "variants": [
+        "Querulant",
+        "Querulantin"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "unruhestifter",
+      "title": "Unruhestifter",
+      "variants": [
+        "Unruhestifter",
+        "Unruhestifterin"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "streuner",
+      "title": "Streuner",
+      "variants": [
+        "Streuner",
+        "Streunerin"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "taugenichts",
+      "title": "Taugenichts",
+      "variants": [
+        "Taugenichts"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "draufgaenger",
+      "title": "Draufgänger",
+      "variants": [
+        "Draufgänger"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "streithahn",
+      "title": "Streithahn",
+      "variants": [
+        "Streithahn",
+        "Streithuhn"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "tagtraeumer",
+      "title": "Tagträumer",
+      "variants": [
+        "Tagträumer",
+        "Tagträumerin"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "spinner",
+      "title": "Spinner",
+      "variants": [
+        "Spinner",
+        "Spinnerin"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "tagedieb",
+      "title": "Tagedieb",
+      "variants": [
+        "Tagedieb",
+        "Tagediebin"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "wilder",
+      "title": "Wilder",
+      "variants": [
+        "Wilder",
+        "Wilde"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "dickkopf",
+      "title": "Dickkopf",
+      "variants": [
+        "Dickkopf"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "geizhals",
+      "title": "Geizhals",
+      "variants": [
+        "Geizhals"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "einsiedler",
+      "title": "Einsiedler",
+      "variants": [
+        "Einsiedler",
+        "Einsiedlerin"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "frechdachs",
+      "title": "Frechdachs",
+      "variants": [
+        "Frechdachs"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "denker",
+      "title": "Denker",
+      "variants": [
+        "Denker"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "taenzer",
+      "title": "Tänzer",
+      "variants": [
+        "Tänzer",
+        "Tänzerin"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "saenger",
+      "title": "Sänger",
+      "variants": [
+        "Sänger",
+        "Sängerin"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "hofnarr",
+      "title": "Hofnarr",
+      "variants": [
+        "Hofnarr",
+        "Hofnärrin"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "naturtalent",
+      "title": "Naturtalent",
+      "variants": [
+        "Naturtalent"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "luegner",
+      "title": "Lügner",
+      "variants": [
+        "Lügner",
+        "Lügnerin"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "abenteurer",
+      "title": "Abenteurer",
+      "variants": [
+        "Abenteurer",
+        "Abenteurerin"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "nachteule",
+      "title": "Nachteule",
+      "variants": [
+        "Nachteule"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "unhold",
+      "title": "Unhold",
+      "variants": [
+        "Unhold",
+        "Unholdin"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "poet",
+      "title": "Poet",
+      "variants": [
+        "Poet",
+        "Poetin"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "schoengeist",
+      "title": "Schöngeist",
+      "variants": [
+        "Schöngeist"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "knappe",
+      "title": "Knappe",
+      "variants": [
+        "Knappe",
+        "Knappin"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "gute_seele",
+      "title": "Gute Seele",
+      "variants": [
+        "Gute Seele"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "held",
+      "title": "Held",
+      "variants": [
+        "Held"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "dorfbewohner",
+      "title": "Dorfbewohner",
+      "variants": [
+        "Dorfbewohner",
+        "Dorfbewohnerin"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "GEFOLGE",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "wortfuehrer",
+      "title": "Wortführer",
+      "variants": [
+        "Wortführer",
+        "Wortführerin"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "GEFOLGE",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "lehnsmann",
+      "title": "Lehnsmann",
+      "variants": [
+        "Lehnsmann",
+        "Lehnsfrau"
+      ],
+      "category": "allgemein",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "GEFOLGE",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "vogt",
+      "title": "Vogt",
+      "variants": [
+        "Vogt",
+        "Vogtin"
+      ],
+      "category": "adel",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "GEFOLGE",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "ritter",
+      "title": "Ritter",
+      "variants": [
+        "Ritter",
+        "Dame"
+      ],
+      "category": "adel",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "GEFOLGE",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "freiherr",
+      "title": "Freiherr",
+      "variants": [
+        "Freiherr",
+        "Freifrau"
+      ],
+      "category": "adel",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "GEFOLGE",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "graf",
+      "title": "Graf",
+      "variants": [
+        "Graf",
+        "Gräfin"
+      ],
+      "category": "adel",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "GEFOLGE",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "moench",
+      "title": "Mönch",
+      "variants": [
+        "Mönch",
+        "Nonne"
+      ],
+      "category": "klerus",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "GEFOLGE",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "priester",
+      "title": "Priester",
+      "variants": [
+        "Priester",
+        "Priesterin"
+      ],
+      "category": "klerus",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "GEFOLGE",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "prior",
+      "title": "Prior",
+      "variants": [
+        "Prior",
+        "Priorin"
+      ],
+      "category": "klerus",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "GEFOLGE",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "abt",
+      "title": "Abt",
+      "variants": [
+        "Abt",
+        "Äbtissin"
+      ],
+      "category": "klerus",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "GEFOLGE",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "schwertknecht",
+      "title": "Schwertknecht",
+      "variants": [
+        "Schwertknecht"
+      ],
+      "category": "fertigkeit",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_ANFAENGER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "waffenknecht",
+      "title": "Waffenknecht",
+      "variants": [
+        "Waffenknecht",
+        "Waffenknechtin"
+      ],
+      "category": "fertigkeit",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_ANFAENGER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "spiessknecht",
+      "title": "Spießknecht",
+      "variants": [
+        "Spießknecht",
+        "Spießknechtin"
+      ],
+      "category": "fertigkeit",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_ANFAENGER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "schuetze",
+      "title": "Schütze",
+      "variants": [
+        "Schütze",
+        "Schützin"
+      ],
+      "category": "fertigkeit",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_ANFAENGER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "waffenschmied",
+      "title": "Waffenschmied",
+      "variants": [
+        "Waffenschmied",
+        "Waffenschmiedin"
+      ],
+      "category": "fertigkeit",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_ANFAENGER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "ruestungsmacher",
+      "title": "Rüstungsmacher",
+      "variants": [
+        "Rüstungsmacher",
+        "Rüstungsmacherin"
+      ],
+      "category": "fertigkeit",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_ANFAENGER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "zeugschmied",
+      "title": "Zeugschmied",
+      "variants": [
+        "Zeugschmied",
+        "Zeugschmiedin"
+      ],
+      "category": "fertigkeit",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_ANFAENGER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "bogner",
+      "title": "Bogner",
+      "variants": [
+        "Bogner",
+        "Bognerin"
+      ],
+      "category": "fertigkeit",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_ANFAENGER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "koch",
+      "title": "Koch",
+      "variants": [
+        "Koch",
+        "Köchin"
+      ],
+      "category": "fertigkeit",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_ANFAENGER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "bader",
+      "title": "Bader",
+      "variants": [
+        "Bader",
+        "Baderin"
+      ],
+      "category": "fertigkeit",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_ANFAENGER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "bergknecht",
+      "title": "Bergknecht",
+      "variants": [
+        "Bergknecht",
+        "Bergknechtin"
+      ],
+      "category": "fertigkeit",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_ANFAENGER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "kraeutersammler",
+      "title": "Kräutersammler",
+      "variants": [
+        "Kräutersammler",
+        "Kräutersammlerin"
+      ],
+      "category": "fertigkeit",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_ANFAENGER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "ackermann",
+      "title": "Ackermann",
+      "variants": [
+        "Ackermann",
+        "Ackerweib"
+      ],
+      "category": "fertigkeit",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_ANFAENGER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "hirte",
+      "title": "Hirte",
+      "variants": [
+        "Hirte",
+        "Hirtin"
+      ],
+      "category": "fertigkeit",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_ANFAENGER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "jaeger",
+      "title": "Jäger",
+      "variants": [
+        "Jäger",
+        "Jägerin"
+      ],
+      "category": "fertigkeit",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_ANFAENGER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "fischer",
+      "title": "Fischer",
+      "variants": [
+        "Fischer",
+        "Fischerin"
+      ],
+      "category": "fertigkeit",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_ANFAENGER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "laienbruder",
+      "title": "Laienbruder",
+      "variants": [
+        "Laienbruder",
+        "Laienschwester"
+      ],
+      "category": "klerus",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_ANFAENGER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "schreiber",
+      "title": "Schreiber",
+      "variants": [
+        "Schreiber",
+        "Schreiberin"
+      ],
+      "category": "fertigkeit",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_ANFAENGER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "dieb",
+      "title": "Dieb",
+      "variants": [
+        "Dieb",
+        "Diebin"
+      ],
+      "category": "fertigkeit",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_ANFAENGER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "fechtmeister",
+      "title": "Fechtmeister",
+      "variants": [
+        "Fechtmeister"
+      ],
+      "category": "fertigkeit",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_MEISTER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "wappner",
+      "title": "Wappner",
+      "variants": [
+        "Wappner"
+      ],
+      "category": "fertigkeit",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_MEISTER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "lanzentraeger",
+      "title": "Lanzenträger",
+      "variants": [
+        "Lanzenträger"
+      ],
+      "category": "fertigkeit",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_MEISTER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "meisterschuetze",
+      "title": "Meisterschütze",
+      "variants": [
+        "Meisterschütze"
+      ],
+      "category": "fertigkeit",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_MEISTER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "schildmeister",
+      "title": "Schildmeister",
+      "variants": [
+        "Schildmeister"
+      ],
+      "category": "fertigkeit",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_MEISTER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "waffenmeister",
+      "title": "Waffenmeister",
+      "variants": [
+        "Waffenmeister"
+      ],
+      "category": "fertigkeit",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_MEISTER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "ruestmeister",
+      "title": "Rüstmeister",
+      "variants": [
+        "Rüstmeister"
+      ],
+      "category": "fertigkeit",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_MEISTER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "zeugmeister",
+      "title": "Zeugmeister",
+      "variants": [
+        "Zeugmeister"
+      ],
+      "category": "fertigkeit",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_MEISTER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "meisterbogner",
+      "title": "Meisterbogner",
+      "variants": [
+        "Meisterbogner"
+      ],
+      "category": "fertigkeit",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_MEISTER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "mundkoch",
+      "title": "Mundkoch",
+      "variants": [
+        "Mundkoch"
+      ],
+      "category": "fertigkeit",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_MEISTER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "arzt",
+      "title": "Arzt",
+      "variants": [
+        "Arzt"
+      ],
+      "category": "fertigkeit",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_MEISTER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "bergmeister",
+      "title": "Bergmeister",
+      "variants": [
+        "Bergmeister"
+      ],
+      "category": "fertigkeit",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_MEISTER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "apotheker",
+      "title": "Apotheker",
+      "variants": [
+        "Apotheker"
+      ],
+      "category": "fertigkeit",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_MEISTER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "bauer",
+      "title": "Bauer",
+      "variants": [
+        "Bauer"
+      ],
+      "category": "fertigkeit",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_MEISTER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "viehbauer",
+      "title": "Viehbauer",
+      "variants": [
+        "Viehbauer"
+      ],
+      "category": "fertigkeit",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_MEISTER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "waidmann",
+      "title": "Waidmann",
+      "variants": [
+        "Waidmann"
+      ],
+      "category": "fertigkeit",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_MEISTER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "meisterfischer",
+      "title": "Meisterfischer",
+      "variants": [
+        "Meisterfischer"
+      ],
+      "category": "fertigkeit",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_MEISTER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "trunkenbold",
+      "title": "Trunkenbold",
+      "variants": [
+        "Trunkenbold"
+      ],
+      "category": "fertigkeit",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_MEISTER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "gelehrter",
+      "title": "Gelehrter",
+      "variants": [
+        "Gelehrter"
+      ],
+      "category": "klerus",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_MEISTER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "archivarius",
+      "title": "Archivarius",
+      "variants": [
+        "Archivarius"
+      ],
+      "category": "fertigkeit",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_MEISTER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "meisterdieb",
+      "title": "Meisterdieb",
+      "variants": [
+        "Meisterdieb"
+      ],
+      "category": "fertigkeit",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "FERTIGKEIT_MEISTER",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    }
+  ]
+}

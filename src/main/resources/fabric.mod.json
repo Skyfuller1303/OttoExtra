@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "id": "ottoextra",
+  "version": "${version}",
+  "name": "OttoExtra",
+  "description": "Ottonien Client-Komfort: Karte, Regionen, RP-Namen, Nametags, Briefe und Chatkanaele in einer modularen Mod. Ohne KI-Text-Helfer.",
+  "authors": [
+    "Skyfuller1303"
+  ],
+  "contact": {
+    "homepage": "https://github.com/Skyfuller1303/OttoExtra",
+    "sources": "https://github.com/Skyfuller1303/OttoExtra",
+    "issues": "https://github.com/Skyfuller1303/OttoExtra/issues"
+  },
+  "license": "MIT",
+  "icon": "assets/ottoextra/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "de.ottoextra.OttoExtraClient"
+    ],
+    "modmenu": [
+      "de.ottoextra.config.OttoExtraModMenuIntegration"
+    ]
+  },
+  "mixins": [
+    {
+      "config": "ottoextra.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=0.18.1",
+    "minecraft": "~1.21.11",
+    "java": ">=21",
+    "fabric-api": "*"
+  },
+  "suggests": {
+    "modmenu": "*",
+    "xaerominimap": "*",
+    "xaeroworldmap": "*"
+  },
+  "custom": {
+    "modmenu": {
+      "update_checker": false
+    }
+  }
+}

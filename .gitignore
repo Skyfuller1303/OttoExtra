@@ -1,0 +1,32 @@
+.gradle/
+build/
+out/
+run/
+.vscode/
+.idea/
+*.iml
+
+# Minecraft/Fabric runtime
+.minecraft/
+logs/
+crash-reports/
+saves/
+config/
+
+# Dist: gebaute JARs nicht versionieren, Ordner + README behalten
+dist/*.jar
+
+# Secrets
+*.env
+secrets.*
+apikey*
+api-key*
+tokens.*
+# IDE-Build-Output
+bin/
+
+# Logs
+*.log
+
+# Fremde Mod-JARs (Xaero, nur lokal zum Kompilieren) — nicht redistribuierbar
+libs/*.jar

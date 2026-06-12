@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "groups": {
+    "SYSTEM": {
+      "label": "System",
+      "priority": 1000,
+      "defaultTitleColor": "#FF5555",
+      "defaultNameColor": "#FFD6D6",
+      "titles": ["Developer", "Dev", "Gamemaster"]
+    },
+    "ADEL": {
+      "label": "Adel",
+      "priority": 800,
+      "defaultTitleColor": "#D6A64F",
+      "defaultNameColor": "#F1D18A",
+      "titles": ["Graf", "Gräfin", "Freiherr", "Freiin", "Kirchvogt", "Schutzvogt", "Vogt", "Kirchvögtin", "Schutzvögtin", "Vögtin"]
+    },
+    "KLERUS": {
+      "label": "Klerus",
+      "priority": 700,
+      "defaultTitleColor": "#A68BA2",
+      "defaultNameColor": "#C7B6BF",
+      "titles": ["Abt", "Äbtissin", "Nonne", "Mönch", "Priester", "Priesterin"]
+    },
+    "CUSTOM": {
+      "label": "Eigene Titel",
+      "priority": 100,
+      "defaultTitleColor": "#AAAAAA",
+      "defaultNameColor": "#DDDDDD",
+      "titles": []
+    }
+  }
+}
