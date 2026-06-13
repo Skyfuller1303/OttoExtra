@@ -98,6 +98,11 @@ public final class MapOverlayRenderer {
             }
         }
 
+        // NPC-Dörfer UNTER den Lehnsnamen/Wappen (diese sollen oben liegen)
+        if (cfg.showNpcVillages) {
+            drawNpcVillages(ctx, tr, view, cfg);
+        }
+
         if (drawNames || drawBanners) {
             for (LehenPolygon poly : LehenPolygonStore.polygons()) {
                 if (!poly.labelOwner() || !poly.intersects(qMinX, qMinZ, qMaxX, qMaxZ)) {
@@ -110,6 +115,28 @@ public final class MapOverlayRenderer {
 
         if (groupAlpha > 0.02f && (cfg.showNames || cfg.showBanners)) {
             drawGroupLabels(ctx, tr, view, cfg, groupAlpha);
+        }
+    }
+
+    /** NPC-Dörfer als kleine Text-Labels mit Markierungspunkt (immer sichtbar). */
+    private static void drawNpcVillages(DrawContext ctx, TextRenderer tr,
+                                        XaeroMapBridge.View view, OttoExtraConfig.Map cfg) {
+        if (cfg.npcVillages == null) {
+            return;
+        }
+        float scale = 0.55f;
+        for (OttoExtraConfig.NpcVillage v : cfg.npcVillages) {
+            if (v == null || v.name == null || v.name.isBlank()) {
+                continue;
+            }
+            float sx = view.screenX(v.x);
+            float sy = view.screenY(v.z);
+            if (sx < -64 || sy < -64 || sx > view.width() + 64 || sy > view.height() + 64) {
+                continue;
+            }
+            int cx = Math.round(sx);
+            int cy = Math.round(sy);
+            drawOutlinedText(ctx, tr, v.name, cx, cy, scale, COL_NAME, 1f);
         }
     }
 

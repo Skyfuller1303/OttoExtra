@@ -77,6 +77,10 @@ public final class OttoExtraConfig {
         public boolean showCalibrationArrows = false;
         /** Spieler-Aktivität (pulsierender Ring bei Versammlungen, Quelle: player_gathering). */
         public boolean showActivity = true;
+        /** NPC-Dörfer als kleine Labels auf der Worldmap. */
+        public boolean showNpcVillages = true;
+        /** Editierbare NPC-Dorf-Liste (Name + X/Z). */
+        public java.util.List<NpcVillage> npcVillages = defaultNpcVillages();
         /** Overlay nur auf dem Ottonien-Server (false = auf allen Servern/Welten). */
         public boolean onlyOnOttonien = true;
         /** Grenzlinien auch auf der Minimap. */
@@ -182,6 +186,32 @@ public final class OttoExtraConfig {
         public String nameHudColor = "#E6C8A9";
         public String stateHudColor = "#B8A88F";
         public String factionHudColor = "#FFFFFF";
+
+        private static java.util.List<NpcVillage> defaultNpcVillages() {
+            java.util.List<NpcVillage> v = new java.util.ArrayList<>();
+            v.add(new NpcVillage("Pfardorf", -630, 3450));
+            v.add(new NpcVillage("Pfuhldorf", 2150, 1700));
+            v.add(new NpcVillage("Küstgrab", 1860, -1580));
+            v.add(new NpcVillage("Mühlsverd", 2570, -4570));
+            v.add(new NpcVillage("Quelltal", -1220, -1980));
+            return v;
+        }
+    }
+
+    /** NPC-Dorf auf der Worldmap (Name + Weltkoordinaten). GSON-direkt. */
+    public static final class NpcVillage {
+        public String name = "";
+        public int x;
+        public int z;
+
+        public NpcVillage() {
+        }
+
+        public NpcVillage(String name, int x, int z) {
+            this.name = name;
+            this.x = x;
+            this.z = z;
+        }
     }
 
     public static final class Regions {

@@ -511,7 +511,9 @@ public final class RpNamesPeopleBookScreen extends Screen {
     }
 
     private Text flagLabel(String key, boolean on) {
-        return Text.translatable(key).copy().append(": " + (on ? "✔" : "✘"));
+        return Text.translatable(key).copy().append(": ")
+                .append(Text.translatable(on ? "ottoextra.rpbook.flag.on"
+                        : "ottoextra.rpbook.flag.off"));
     }
 
     private void updateChipState() {
@@ -1302,16 +1304,19 @@ public final class RpNamesPeopleBookScreen extends Screen {
         // Reset-Icon im jeweiligen Farbfeld -> diese Farbe auf Default
         if (tab == Tab.PEOPLE && selected != null && click.button() == 0) {
             for (int i = 0; i < colorFields.length; i++) {
-                TextFieldWidget f = colorFields[i];
-                if (f == null || !f.visible) {
-                    continue;
-                }
-                int ix = f.getX() + f.getWidth() - 15;
-                int iy = f.getY() - 1;
-                if (mx >= ix && mx <= ix + 16 && my >= iy && my <= iy + 16) {
-                    f.setText(defaultColorsFor(selected.title)[i]);
+                if (resetIconHit(colorFields[i], mx, my)) {
+                    colorFields[i].setText(defaultColorsFor(selected.title)[i]);
                     return true;
                 }
+            }
+            // RP-Name / Titel auf Serverstandard zurücksetzen (Feld leeren)
+            if (resetIconHit(rpNameField, mx, my)) {
+                rpNameField.setText("");
+                return true;
+            }
+            if (resetIconHit(titleField, mx, my)) {
+                titleField.setText("");
+                return true;
             }
         }
         if (tab != Tab.IMPORT && click.button() == 0 && mx >= listX() && mx <= listX() + listW()
@@ -1531,10 +1536,47 @@ public final class RpNamesPeopleBookScreen extends Screen {
             drawSwatch(ctx, f);
             if (f != null && selected != null) {
                 // Reset-Icon im Feld rechts (Klick -> diese Farbe auf Default)
-                ctx.drawTexture(net.minecraft.client.gl.RenderPipelines.GUI_TEXTURED, RESET_ICON,
-                        f.getX() + f.getWidth() - 15, f.getY() - 1, 0f, 0f, 16, 16, 16, 16);
+                drawResetIcon(ctx, f);
             }
         }
+        // Reset-Icon in RP-Name und Titel (Klick -> auf Serverstandard zurücksetzen)
+        if (selected != null) {
+            drawResetIcon(ctx, rpNameField);
+            drawResetIcon(ctx, titleField);
+        }
+    }
+
+    /** Reset-Icon-Größe: 70% der 16px-Textur. */
+    private static final int RESET_ICON_SIZE = 11;
+
+    private int resetIconX(TextFieldWidget f) {
+        return f.getX() + f.getWidth() - RESET_ICON_SIZE - 1;
+    }
+
+    private int resetIconY(TextFieldWidget f) {
+        return f.getY() + (f.getHeight() - RESET_ICON_SIZE) / 2;
+    }
+
+    private boolean resetIconHit(TextFieldWidget f, double mx, double my) {
+        if (f == null || !f.visible) {
+            return false;
+        }
+        int ix = resetIconX(f);
+        int iy = resetIconY(f);
+        return mx >= ix && mx <= ix + RESET_ICON_SIZE && my >= iy && my <= iy + RESET_ICON_SIZE;
+    }
+
+    private void drawResetIcon(DrawContext ctx, TextFieldWidget f) {
+        if (f == null) {
+            return;
+        }
+        var m = ctx.getMatrices();
+        m.pushMatrix();
+        m.translate(resetIconX(f), resetIconY(f));
+        m.scale(0.7f, 0.7f);
+        ctx.drawTexture(net.minecraft.client.gl.RenderPipelines.GUI_TEXTURED, RESET_ICON,
+                0, 0, 0f, 0f, 16, 16, 16, 16);
+        m.popMatrix();
     }
 
     private static final net.minecraft.util.Identifier RESET_ICON =

@@ -354,6 +354,8 @@ public final class SettingsRegistry {
                         () -> c.map.politicalFill, v -> c.map.politicalFill = v),
                 Option.bool("ottoextra.config.map.activity", "map.showActivity",
                         () -> c.map.showActivity, v -> c.map.showActivity = v),
+                Option.bool("ottoextra.config.map.npcVillages", "map.showNpcVillages",
+                        () -> c.map.showNpcVillages, v -> c.map.showNpcVillages = v),
                 Option.bool("ottoextra.config.map.onlyOttonien", "map.onlyOnOttonien",
                         () -> c.map.onlyOnOttonien, v -> c.map.onlyOnOttonien = v)
                         .tooltip("ottoextra.set.map.onlyOttonien.tip"));
