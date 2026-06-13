@@ -4,10 +4,13 @@ import de.ottoextra.OttoExtra;
 import de.ottoextra.OttoExtraContext;
 import de.ottoextra.OttoExtraModule;
 import de.ottoextra.config.OttoExtraConfig;
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.ChatScreen;
+import net.minecraft.client.option.KeyBinding;
+import net.minecraft.client.util.InputUtil;
 import org.lwjgl.glfw.GLFW;
 
 /**
@@ -26,6 +29,20 @@ public final class ChatModule implements OttoExtraModule {
 
     private int joinCountdown = -1;
 
+    /** Hotkeys je Kanal (Standard unbelegt — manuell in Steuerung binden). */
+    private KeyBinding keySprechen;
+    private KeyBinding keyFluestern;
+    private KeyBinding keyRufen;
+    private KeyBinding keyOfftopic;
+    private KeyBinding keyHilfe;
+
+    private KeyBinding channelKey(String id) {
+        KeyBinding key = new KeyBinding(id, InputUtil.Type.KEYSYM,
+                GLFW.GLFW_KEY_UNKNOWN, KeyBinding.Category.MISC);
+        KeyBindingHelper.registerKeyBinding(key);
+        return key;
+    }
+
     @Override
     public String id() {
         return "chat";
@@ -39,6 +56,12 @@ public final class ChatModule implements OttoExtraModule {
     @Override
     public void onInitializeClient(OttoExtraContext context) {
         ChatChannelState.init(context.config().chat, context::isOnOttonien);
+
+        keySprechen = channelKey("key.ottoextra.channel_sprechen");
+        keyFluestern = channelKey("key.ottoextra.channel_fluestern");
+        keyRufen = channelKey("key.ottoextra.channel_rufen");
+        keyOfftopic = channelKey("key.ottoextra.channel_offtopic");
+        keyHilfe = channelKey("key.ottoextra.channel_hilfe");
 
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
             if (!(screen instanceof ChatScreen)) {
@@ -67,6 +90,7 @@ public final class ChatModule implements OttoExtraModule {
 
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK
                 .register(client -> {
+                    handleChannelHotkeys();
                     if (joinCountdown > 0 && client.player != null) {
                         if (--joinCountdown == 0 && ChatChannelState.buttonActive()
                                 && context.config().chat.autoSprechenOnJoin
@@ -77,6 +101,28 @@ public final class ChatModule implements OttoExtraModule {
                 });
 
         OttoExtra.LOGGER.info("[chat] initialisiert (Kanal-Button: Sprechen/Flüstern/Rufen + OOC).");
+    }
+
+    /** Kanal-Hotkeys abfragen; nur auf Ottonien (Button aktiv) wirksam. */
+    private void handleChannelHotkeys() {
+        boolean active = ChatChannelState.buttonActive();
+        pollChannelKey(keySprechen, ChatChannelState.ChatChannel.SPRECHEN, active);
+        pollChannelKey(keyFluestern, ChatChannelState.ChatChannel.FLUESTERN, active);
+        pollChannelKey(keyRufen, ChatChannelState.ChatChannel.RUFEN, active);
+        pollChannelKey(keyOfftopic, ChatChannelState.ChatChannel.OFFTOPIC, active);
+        pollChannelKey(keyHilfe, ChatChannelState.ChatChannel.HILFE, active);
+    }
+
+    private void pollChannelKey(KeyBinding key, ChatChannelState.ChatChannel channel,
+                                boolean active) {
+        if (key == null) {
+            return;
+        }
+        while (key.wasPressed()) {
+            if (active) {
+                ChatChannelState.selectChannel(channel);
+            }
+        }
     }
 
     @Override

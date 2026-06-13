@@ -52,17 +52,19 @@ public final class TablistNameFormatter {
             return tinted[0] ? t : null;
         }
 
-        // RP-Namen aus: optional nur den aktuellen Titel voranstellen
+        // RP-Namen aus: nur Titel voranstellen (mit Override-Farbe)
         if (!cfg.tablistEnabled) {
             Text base = original != null ? original : Text.literal(account);
+            if (profile.hasTitle()) {
+                // Eigenen Titel (Override-Farbe) + Accountname rendern, Server-Titel
+                // ersetzen -> Titelfarbe greift auch ohne RP-Namen
+                String nameColor = firstNonBlank(profile.colors.tabNameColor, defaultName);
+                return Text.empty().append(titlePrefix(profile))
+                        .append(colored(account, nameColor));
+            }
             boolean[] tinted = {false};
             MutableText coloredBase = rebuildReplacing(base, account, account, defaultName, tinted);
-            Text shown = tinted[0] ? coloredBase : base;
-            if (!profile.hasTitle() || serverShowsTitle(base, account, null)) {
-                return tinted[0] ? shown : null;
-            }
-            // Neutraler Wurzelknoten: sonst erbt der Name den Titel-Style
-            return Text.empty().append(titlePrefix(profile)).append(shown);
+            return tinted[0] ? coloredBase : null;
         }
         String replacement;
         String color;
@@ -78,6 +80,12 @@ public final class TablistNameFormatter {
         }
 
         Text base = original != null ? original : Text.literal(account);
+        // Eigener Titel vorhanden: Titel (Override-Farbe) + Name komplett selbst
+        // rendern und den Server-Titel ersetzen -> unsere Titelfarbe greift im Tab.
+        if (cfg.tablistShowTitle && profile.hasTitle()) {
+            return Text.empty().append(titlePrefix(profile))
+                    .append(colored(replacement, color));
+        }
         boolean[] replaced = {false};
         MutableText rebuilt = rebuildReplacing(base, account, replacement, color, replaced);
         if (!replaced[0] && profile.hasRpName()) {
@@ -86,13 +94,6 @@ public final class TablistNameFormatter {
         }
         if (!replaced[0]) {
             return null; // weder Account- noch RP-Name im Original -> nichts erfinden
-        }
-        // Lokalen Titel nur voranstellen, wenn der Server gar keinen Titel-Prefix
-        // vor dem Namen zeigt (sonst doppelter Titel — Server-Titel ist live/maßgeblich)
-        if (cfg.tablistShowTitle && profile.hasTitle()
-                && !serverShowsTitle(base, account, profile.rpName)) {
-            // Neutraler Wurzelknoten: sonst erbt der Name den Titel-Style
-            return Text.empty().append(titlePrefix(profile)).append(rebuilt);
         }
         return rebuilt;
     }

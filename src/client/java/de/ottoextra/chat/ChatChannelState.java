@@ -65,6 +65,13 @@ public final class ChatChannelState {
 
     // ---- Klick-Logik -----------------------------------------------------------
 
+    /** Direkt auf einen Kanal wechseln (für Hotkeys): State setzen + Befehl senden. */
+    public static void selectChannel(ChatChannel channel) {
+        if (channel != null) {
+            switchToChannel(channel);
+        }
+    }
+
     public static void clickChannelButton(boolean shiftDown) {
         if (shiftDown) {
             cycleOocChannel();

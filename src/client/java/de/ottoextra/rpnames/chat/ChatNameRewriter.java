@@ -32,10 +32,10 @@ public final class ChatNameRewriter {
 
     public Text rewrite(Text message, OttoExtraConfig.RpNames cfg) {
         try {
-            boolean[] replaced = {false};
-            Text rebuilt = rebuild(message, cfg, replaced, new StringBuilder());
-            if (replaced[0]) {
-                return rebuilt;
+            // Sprecher (Account-Knoten mit bekanntem Profil) suchen
+            SpeakerInfo si = findSpeaker(message, cfg, new StringBuilder());
+            if (si != null) {
+                return rebuild(message, si, new int[]{0});
             }
             return plainFallback(message, cfg).orElse(message);
         } catch (Throwable t) {
@@ -43,50 +43,63 @@ public final class ChatNameRewriter {
         }
     }
 
+    /** Gefundener Sprecher + Position seines Account-Knotens im Flach-Text. */
+    private record SpeakerInfo(Text node, LocalRpProfile profile, int accountStart,
+                               int titleZoneStart) {
+    }
+
+    /**
+     * Erster Knoten, dessen Eigentext einem bekannten Profil entspricht (Sprecher).
+     * {@code flat} = Pre-Order-Konkatenation der Eigentexte davor → liefert die
+     * Startposition + den Beginn der Server-Titel-Zone (nach der letzten {@code ]}).
+     */
+    private SpeakerInfo findSpeaker(Text node, OttoExtraConfig.RpNames cfg, StringBuilder flat) {
+        String own = ownText(node);
+        String trimmed = own.trim();
+        if (!trimmed.isEmpty()) {
+            LocalRpProfile p = store.findByName(trimmed).orElse(null);
+            if (p != null && p.showInChat && (p.hasRpName() || cfg.showUnknownAsUnknown)) {
+                int bracket = flat.lastIndexOf("]");
+                return new SpeakerInfo(node, p, flat.length(), bracket >= 0 ? bracket + 1 : 0);
+            }
+        }
+        flat.append(own);
+        for (Text sibling : node.getSiblings()) {
+            SpeakerInfo r = findSpeaker(sibling, cfg, flat);
+            if (r != null) {
+                return r;
+            }
+        }
+        return null;
+    }
+
     // ---- Komponenten-Rebuild ---------------------------------------------------
 
     /**
-     * {@code emitted} sammelt den Klartext aller Knoten VOR dem aktuellen (Dokument-
-     * reihenfolge). Damit kann erkannt werden, ob der Server bereits einen Titel-
-     * Prefix vor den Sprechernamen gesetzt hat — dann prependt der Mod KEINEN Titel
-     * (sonst doppelter Titel; der Server-Titel ist live/maßgeblich, auch wenn er vom
-     * importierten abweicht).
+     * Baut die Nachricht neu: Account-Knoten → unser Titel (Override-Farbe) + RP-Name;
+     * den Server-Titel davor (Titel-Zone zwischen {@code ]} und Sprecher) blanken wir,
+     * damit kein doppelter Titel entsteht und unsere Titelfarbe greift. {@code flatPos}
+     * spiegelt die Positionen aus {@link #findSpeaker}.
      */
-    private Text rebuild(Text node, OttoExtraConfig.RpNames cfg, boolean[] replaced,
-                         StringBuilder emitted) {
-        String own = ownText(node).trim();
+    private Text rebuild(Text node, SpeakerInfo si, int[] flatPos) {
+        String own = ownText(node);
+        int start = flatPos[0];
         MutableText copy;
-        LocalRpProfile profile = own.isEmpty() ? null : store.findByName(own).orElse(null);
-        if (profile != null && profile.showInChat
-                && (profile.hasRpName() || cfg.showUnknownAsUnknown)) {
-            boolean serverHasTitle = serverHasTitlePrefix(emitted);
-            copy = displayName(profile, node.getStyle(), !serverHasTitle);
-            replaced[0] = true;
+        if (node == si.node()) {
+            // unser Titel (Override-Farbe, falls vorhanden) + RP-Name
+            copy = displayName(si.profile(), node.getStyle(), true);
+        } else if (si.profile().hasTitle() && !own.trim().isEmpty()
+                && start >= si.titleZoneStart() && start + own.length() <= si.accountStart()) {
+            // Server-Titel-Zone leeren — nur wenn wir einen eigenen Titel rendern
+            copy = Text.empty().setStyle(node.getStyle());
         } else {
             copy = MutableText.of(node.getContent()).setStyle(node.getStyle());
         }
-        emitted.append(plainOf(copy));
+        flatPos[0] += own.length();
         for (Text sibling : node.getSiblings()) {
-            copy.append(rebuild(sibling, cfg, replaced, emitted));
+            copy.append(rebuild(sibling, si, flatPos));
         }
         return copy;
-    }
-
-    /**
-     * Zeigt der Server vor dem Sprechernamen bereits einen Titel-Prefix? Erkannt am
-     * nicht-leeren Text nach dem letzten {@code ]} (Kanal-Klammer) im bisher
-     * emittierten Text. Beispiel: {@code "[Sprechen] Schwertknecht "} -> true.
-     */
-    private static boolean serverHasTitlePrefix(StringBuilder emitted) {
-        String s = emitted.toString();
-        int bracket = s.lastIndexOf(']');
-        String afterBracket = bracket >= 0 ? s.substring(bracket + 1) : s;
-        return !afterBracket.trim().isEmpty();
-    }
-
-    /** Klartext eines (nicht-rekursiven) Knotens inkl. bereits angehängter Kinder. */
-    private static String plainOf(Text node) {
-        return node.getString();
     }
 
     /**
