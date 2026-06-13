@@ -67,7 +67,9 @@ public final class RecipientScreen extends Screen {
                 Text.translatable("ottoextra.letter.recipient.send"), b -> {
                     if (selected != null) {
                         LetterServices.startLetterSend(config, draft, selected);
-                        close();
+                        // Voll schließen (zum Spiel), nicht zurück in den Editor —
+                        // Versand läuft im Hintergrund, Status via Actionbar
+                        MinecraftClient.getInstance().setScreen(null);
                     }
                 }).dimensions(width / 2 - 102, height - 30, 100, 20).build();
         addDrawableChild(send);

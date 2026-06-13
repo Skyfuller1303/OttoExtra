@@ -76,6 +76,17 @@ public final class LetterModule implements OttoExtraModule {
                     client.setScreen(new LetterEditorScreen(null, config));
                 }
             }
+            // Versand-Status in der Actionbar mit animierten Punkten anzeigen
+            if (LetterServices.isSending() && client.player != null && client.world != null) {
+                int dots = (int) (client.world.getTime() / 5 % 4);
+                String key = LetterServices.isSendingAnnouncement()
+                        ? "ottoextra.letter.actionbar.announcement"
+                        : "ottoextra.letter.actionbar.letter";
+                net.minecraft.text.Text msg = net.minecraft.text.Text.translatable(key)
+                        .copy().append(".".repeat(dots));
+                client.player.sendMessage(msg, true);
+            }
+
             // Recovery einmalig nach Join prüfen (Spieler + Welt vorhanden)
             if (!recoveryChecked && client.player != null && client.currentScreen == null) {
                 recoveryChecked = true;
@@ -100,5 +111,8 @@ public final class LetterModule implements OttoExtraModule {
     @Override
     public void onDisconnect(OttoExtraContext context) {
         recoveryChecked = false;
+        // Versand wurde von der Queue bei Verbindungsverlust gestoppt;
+        // Actionbar-Status nicht über den Reconnect hinweg hängen lassen
+        LetterServices.clearSendingState();
     }
 }

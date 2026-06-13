@@ -504,6 +504,11 @@ public final class LetterEditorScreen extends Screen {
         addDrawableChild(ButtonWidget.builder(
                 Text.translatable("ottoextra.letter.checkPlaceholders"), b -> checkPlaceholders())
                 .dimensions(px + 92, py + PANEL_H + 4, 92, 16).build());
+        addDrawableChild(ButtonWidget.builder(
+                Text.translatable("ottoextra.letter.drafts"), b -> {
+                    persist();
+                    client.setScreen(new SavedDraftsScreen(this, config, draft));
+                }).dimensions(px, py + PANEL_H + 22, PANEL_W, 16).build());
     }
 
     private void switchPage(int dir) {
@@ -565,7 +570,7 @@ public final class LetterEditorScreen extends Screen {
         }
         if (!status.isEmpty()) {
             ctx.drawCenteredTextWithShadow(textRenderer, status, width / 2,
-                    py + PANEL_H + 26, 0xFFE6C8A9);
+                    py + PANEL_H + 44, 0xFFE6C8A9);
         }
         renderSuggestions(ctx, px, py, spans);
         super.render(ctx, mouseX, mouseY, delta);

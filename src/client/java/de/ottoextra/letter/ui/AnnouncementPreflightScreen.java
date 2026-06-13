@@ -52,7 +52,8 @@ public final class AnnouncementPreflightScreen extends Screen {
         ButtonWidget send = ButtonWidget.builder(
                 Text.translatable("ottoextra.letter.preflight.send"), b -> {
                     LetterServices.startAnnouncementSend(config, draft);
-                    close();
+                    // Voll schließen (zum Spiel); Versand läuft im Hintergrund
+                    MinecraftClient.getInstance().setScreen(null);
                 }).dimensions(cx - 156, height - 30, 100, 20).build();
         send.active = result.canSend();
         addDrawableChild(send);

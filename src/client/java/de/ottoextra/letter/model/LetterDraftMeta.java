@@ -6,6 +6,8 @@ package de.ottoextra.letter.model;
  */
 public final class LetterDraftMeta {
     public String draftId = "";
+    /** Anzeigename für gespeicherte Entwürfe (leer = unbenannt). */
+    public String name = "";
     public LetterOutputMode mode;
     public boolean importedFromBook = false;
     public boolean pagesOneToOne = false;

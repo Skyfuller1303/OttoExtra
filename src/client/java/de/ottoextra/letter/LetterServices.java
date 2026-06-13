@@ -29,7 +29,26 @@ public final class LetterServices {
     private static SendProgressStore<LetterSendProgress> letterStore;
     private static SendProgressStore<AnnouncementSendProgress> announcementStore;
 
+    /** Läuft gerade ein Versand? (für Actionbar-Status im LetterModule-Tick) */
+    private static volatile boolean sending = false;
+    private static volatile boolean sendingAnnouncement = false;
+
     private LetterServices() {
+    }
+
+    /** Versand aktiv (Brief oder Verkündung)? */
+    public static boolean isSending() {
+        return sending;
+    }
+
+    /** Ist der laufende Versand eine Verkündung (true) oder ein Brief (false)? */
+    public static boolean isSendingAnnouncement() {
+        return sendingAnnouncement;
+    }
+
+    /** Versand-Status zurücksetzen (Disconnect-Abbruch). */
+    public static void clearSendingState() {
+        sending = false;
     }
 
     private static Path cacheDir() {
@@ -108,6 +127,9 @@ public final class LetterServices {
         progress.pendingCommands = commands;
         progress.startedAtMs = System.currentTimeMillis();
         letterStore().save(progress);
+        // Arbeits-Entwurf sofort leeren: nächster Editor-Aufruf startet leer.
+        // Der laufende Versand nutzt den eigenen Progress-Store, nicht den Cache.
+        LetterDraftCache.clear();
         runLetterQueue(config, progress, 0, pageIndex);
     }
 
@@ -115,13 +137,15 @@ public final class LetterServices {
                                       int startIndex, List<Integer> pageIndex) {
         long[] delays = buildDelays(config, pageIndex != null ? pageIndex : List.of(),
                 progress.pendingCommands.size());
+        sending = true;
+        sendingAnnouncement = false;
         new CommandSendQueue(progress.pendingCommands, sent -> {
             progress.sentCommands = sent;
             progress.updatedAtMs = System.currentTimeMillis();
             letterStore().save(progress);
         }, () -> {
+            sending = false;
             letterStore().clear();
-            LetterDraftCache.clear();
             OttoExtra.LOGGER.info("[letter] Brief an {} vollständig gesendet.",
                     progress.recipient);
         }).withDelays(delays).start(startIndex);
@@ -148,6 +172,7 @@ public final class LetterServices {
         progress.pendingCommands = commands;
         progress.startedAtMs = System.currentTimeMillis();
         announcementStore().save(progress);
+        LetterDraftCache.clear(); // Arbeits-Entwurf leeren (siehe startLetterSend)
         runAnnouncementQueue(config, progress, 0, pageIndex);
     }
 
@@ -157,13 +182,16 @@ public final class LetterServices {
         boolean manualSubmit = !hasSubmitCommand(config);
         long[] delays = buildDelays(config, pageIndex != null ? pageIndex : List.of(),
                 progress.pendingCommands.size());
+        sending = true;
+        sendingAnnouncement = true;
         new CommandSendQueue(progress.pendingCommands, sent -> {
             progress.sentCommands = sent;
             progress.updatedAtMs = System.currentTimeMillis();
             announcementStore().save(progress);
         }, () -> {
+            sending = false;
             announcementStore().clear();
-            LetterDraftCache.clear();
+            // Arbeits-Entwurf wurde bereits beim Start geleert
             if (manualSubmit) {
                 hint("ottoextra.letter.announcement.manualSubmit");
             }
