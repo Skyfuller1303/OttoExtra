@@ -249,6 +249,7 @@
   "ottoextra.rpbook.titles.variants": "Variants (comma-separated)",
   "ottoextra.rpbook.titles.category": "Category",
   "ottoextra.rpbook.titles.enabled": "Active",
+  "ottoextra.rpbook.titles.overridesColor": "Color overrides",
   "ottoextra.rpbook.titles.delete": "Delete",
   "ottoextra.rpbook.titles.select": "Select a title on the left",
   "ottoextra.rpbook.titles.variant1": "Variant 1",

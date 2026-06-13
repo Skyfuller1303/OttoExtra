@@ -117,7 +117,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
     private ButtonWidget tagFlagButton;
     private final TextFieldWidget[] colorFields = new TextFieldWidget[6];
     private ButtonWidget copyChatColorsButton;
-    private ButtonWidget clearColorsButton;
     private ButtonWidget saveButton;
     private ButtonWidget forgetButton;
     private ButtonWidget keepLocalButton;
@@ -169,6 +168,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
     private TextFieldWidget catColorField;
     private ButtonWidget catCategoryButton;
     private CheckboxWidget catEnabledCheckbox;
+    private CheckboxWidget catOverrideColorCheckbox;
     private ButtonWidget catSaveButton;
     private ButtonWidget catDeleteButton;
     private final List<ButtonWidget> titleChipButtons = new ArrayList<>();
@@ -429,19 +429,14 @@ public final class RpNamesPeopleBookScreen extends Screen {
         }
         y += 12 + 3 * 19 + 2;
 
+        // "Farben löschen" entfernt — Reset pro Farbe über Icon im Feld (siehe render/mouseClicked)
         copyChatColorsButton = ButtonWidget.builder(Text.translatable("ottoextra.rpbook.colors.copyChat"), b -> {
             colorFields[2].setText(colorFields[0].getText());
             colorFields[3].setText(colorFields[1].getText());
             colorFields[4].setText(colorFields[0].getText());
             colorFields[5].setText(colorFields[1].getText());
-        }).dimensions(x, y, w / 2 - 2, 14).build();
+        }).dimensions(x, y, w, 14).build();
         addDrawableChild(copyChatColorsButton);
-        clearColorsButton = ButtonWidget.builder(Text.translatable("ottoextra.rpbook.colors.clear"), b -> {
-            for (TextFieldWidget f : colorFields) {
-                f.setText("");
-            }
-        }).dimensions(x + w / 2 + 2, y, w / 2 - 2, 14).build();
-        addDrawableChild(clearColorsButton);
         y += 17;
 
         chatFlagButton = flagButton(x, y, w / 3 - 2, "ottoextra.rpbook.flag.chat",
@@ -706,7 +701,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
         tabFlagButton.active = enabled;
         tagFlagButton.active = enabled;
         copyChatColorsButton.active = enabled;
-        clearColorsButton.active = enabled;
         saveButton.active = enabled;
         forgetButton.active = enabled;
         boolean conflict = enabled && selected != null
@@ -736,6 +730,19 @@ public final class RpNamesPeopleBookScreen extends Screen {
             String v = normalizeHex(colorFields[i].getText());
             hex[i] = v != null && v.equalsIgnoreCase(normalizeHex(defaults[i]) == null
                     ? "" : normalizeHex(defaults[i])) ? null : v;
+        }
+        // Titel mit "Farbe überschreibt" (Katalog): Personen-Titelfarbe ersetzen
+        var catalog = RpNamesServices.catalog();
+        if (catalog != null && !title.isBlank()) {
+            var entry = catalog.find(title).orElse(null);
+            if (entry != null && entry.overridesColor) {
+                String tc = catalog.titleColor(title).orElse(null);
+                if (tc != null && !tc.isBlank()) {
+                    hex[0] = tc; // Chat-Titel
+                    hex[2] = tc; // Tab-Titel
+                    hex[4] = tc; // Namensschild-Titel
+                }
+            }
         }
         boolean showChat = selected.showInChat;
         boolean showTab = selected.showInTablist;
@@ -858,6 +865,10 @@ public final class RpNamesPeopleBookScreen extends Screen {
         addDrawableChild(catEnabledCheckbox);
         y += 21;
         catColorField = colorField(x, y, w / 2 - 16);
+        catOverrideColorCheckbox = CheckboxWidget.builder(
+                Text.translatable("ottoextra.rpbook.titles.overridesColor"), textRenderer)
+                .checked(true).pos(x + w / 2 + 2, y - 1).build();
+        addDrawableChild(catOverrideColorCheckbox);
         y += 21;
         catSaveButton = ButtonWidget.builder(Text.translatable("ottoextra.rpbook.save"),
                 b -> saveTitle()).dimensions(x, y, w / 2 - 2, 16).build();
@@ -940,6 +951,9 @@ public final class RpNamesPeopleBookScreen extends Screen {
         if (catEnabledCheckbox.isChecked() != e.enabled) {
             catEnabledCheckbox.onPress(null);
         }
+        if (catOverrideColorCheckbox.isChecked() != e.overridesColor) {
+            catOverrideColorCheckbox.onPress(null);
+        }
         setTitleEditEnabled(true);
         // Wiki-Titel: nur deaktivieren, nicht löschen
         catDeleteButton.active = !"WIKI_IMPORT".equals(e.source);
@@ -952,6 +966,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         catColorField.setEditable(enabled);
         catCategoryButton.active = enabled;
         catEnabledCheckbox.active = enabled;
+        catOverrideColorCheckbox.active = enabled;
         catSaveButton.active = enabled;
         catDeleteButton.active = enabled;
     }
@@ -976,6 +991,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         e.colorOverride = hex != null && hex.equalsIgnoreCase(categoryColor(catCategoryValue))
                 ? null : hex;
         e.enabled = catEnabledCheckbox.isChecked();
+        e.overridesColor = catOverrideColorCheckbox.isChecked();
         if (e.id == null || e.id.isBlank()) {
             e.id = TitleRegistry.normalize(e.title);
         }
@@ -1220,7 +1236,37 @@ public final class RpNamesPeopleBookScreen extends Screen {
             titleAutofill = null;
             return true;
         }
+        // Enter im Titel-Feld: Titelfarbe sofort aus dem Katalog tauschen
+        if ((input.key() == org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER
+                || input.key() == org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER)
+                && tab == Tab.PEOPLE && titleField != null && titleField.isFocused()) {
+            applyTitleColorFromCatalog();
+            return true;
+        }
         return super.keyPressed(input);
+    }
+
+    /** Titelfarbe (Chat/Tab/Schild) live aus dem Katalog setzen, wenn der Titel
+     *  "Farbe überschreibt" hat. */
+    private void applyTitleColorFromCatalog() {
+        String t = titleField.getText().trim();
+        if (t.isEmpty()) {
+            return;
+        }
+        var catalog = RpNamesServices.catalog();
+        if (catalog == null) {
+            return;
+        }
+        var entry = catalog.find(t).orElse(null);
+        if (entry == null || !entry.overridesColor) {
+            return;
+        }
+        String c = catalog.titleColor(t).orElse(null);
+        if (c != null && !c.isBlank()) {
+            colorFields[0].setText(c);
+            colorFields[2].setText(c);
+            colorFields[4].setText(c);
+        }
     }
 
     @Override
@@ -1251,6 +1297,21 @@ public final class RpNamesPeopleBookScreen extends Screen {
             if (filterButton == null || !filterButton.isMouseOver(mx, my)) {
                 filterDropdownOpen = false;
                 return true;
+            }
+        }
+        // Reset-Icon im jeweiligen Farbfeld -> diese Farbe auf Default
+        if (tab == Tab.PEOPLE && selected != null && click.button() == 0) {
+            for (int i = 0; i < colorFields.length; i++) {
+                TextFieldWidget f = colorFields[i];
+                if (f == null || !f.visible) {
+                    continue;
+                }
+                int ix = f.getX() + f.getWidth() - 15;
+                int iy = f.getY() - 1;
+                if (mx >= ix && mx <= ix + 16 && my >= iy && my <= iy + 16) {
+                    f.setText(defaultColorsFor(selected.title)[i]);
+                    return true;
+                }
             }
         }
         if (tab != Tab.IMPORT && click.button() == 0 && mx >= listX() && mx <= listX() + listW()
@@ -1468,8 +1529,16 @@ public final class RpNamesPeopleBookScreen extends Screen {
         }
         for (TextFieldWidget f : colorFields) {
             drawSwatch(ctx, f);
+            if (f != null && selected != null) {
+                // Reset-Icon im Feld rechts (Klick -> diese Farbe auf Default)
+                ctx.drawTexture(net.minecraft.client.gl.RenderPipelines.GUI_TEXTURED, RESET_ICON,
+                        f.getX() + f.getWidth() - 15, f.getY() - 1, 0f, 0f, 16, 16, 16, 16);
+            }
         }
     }
+
+    private static final net.minecraft.util.Identifier RESET_ICON =
+            de.ottoextra.OttoExtra.id("textures/gui/reset.png");
 
     private void renderGroupLabels(DrawContext ctx) {
         drawSwatch(ctx, groupTitleColorField);

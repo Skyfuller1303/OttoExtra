@@ -496,20 +496,21 @@ public final class LetterEditorScreen extends Screen {
                 Text.translatable("ottoextra.letter.send"), b ->
                         client.setScreen(new OutputModeDialog(this, config, draft)))
                 .dimensions(px + PANEL_W - 64, py + PANEL_H - 26, 56, 18).build());
-        // Sekundärleiste unter dem Papier
-        addDrawableChild(ButtonWidget.builder(
-                Text.translatable("ottoextra.letter.importBook"), b ->
-                        client.setScreen(new BookImportDialog(this, config, draft)))
-                .dimensions(px, py + PANEL_H + 4, 88, 16).build());
-        addDrawableChild(ButtonWidget.builder(
-                Text.translatable("ottoextra.letter.checkPlaceholders"), b -> checkPlaceholders())
-                .dimensions(px + 92, py + PANEL_H + 4, 92, 16).build());
+        // Sekundärleiste: Parameter-Prüfen als Icon + Entwürfe daneben
+        ButtonWidget check = ButtonWidget.builder(Text.empty(), b -> checkPlaceholders())
+                .dimensions(px, py + PANEL_H + 4, 18, 16).build();
+        check.setTooltip(net.minecraft.client.gui.tooltip.Tooltip.of(
+                Text.translatable("ottoextra.letter.checkPlaceholders")));
+        addDrawableChild(check);
         addDrawableChild(ButtonWidget.builder(
                 Text.translatable("ottoextra.letter.drafts"), b -> {
                     persist();
                     client.setScreen(new SavedDraftsScreen(this, config, draft));
-                }).dimensions(px, py + PANEL_H + 22, PANEL_W, 16).build());
+                }).dimensions(px + 22, py + PANEL_H + 4, PANEL_W - 22, 16).build());
     }
+
+    private static final net.minecraft.util.Identifier CHECK_ICON =
+            de.ottoextra.OttoExtra.id("textures/gui/check_params.png");
 
     private void switchPage(int dir) {
         int target = page + dir;
@@ -570,10 +571,13 @@ public final class LetterEditorScreen extends Screen {
         }
         if (!status.isEmpty()) {
             ctx.drawCenteredTextWithShadow(textRenderer, status, width / 2,
-                    py + PANEL_H + 44, 0xFFE6C8A9);
+                    py + PANEL_H + 24, 0xFFE6C8A9);
         }
         renderSuggestions(ctx, px, py, spans);
         super.render(ctx, mouseX, mouseY, delta);
+        // Icon über dem (leeren) Parameter-Prüfen-Button
+        ctx.drawTexture(net.minecraft.client.gl.RenderPipelines.GUI_TEXTURED, CHECK_ICON,
+                px + 1, py + PANEL_H + 4, 0f, 0f, 16, 16, 16, 16);
     }
 
     /** Vorschlags-Popup unter der Cursorzeile: {{name|title|full|mc -> Typ + ":". */

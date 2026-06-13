@@ -45,6 +45,8 @@ public final class TitleCatalogStore {
         public String source = "MANUAL";
         public String sourceCategory = "";
         public boolean enabled = true;
+        /** Beim Zuweisen dieses Titels die Personen-Titelfarbe überschreiben. */
+        public boolean overridesColor = true;
         public String matchMode = "NORMALIZED_UMLAUTS";
     }
 
