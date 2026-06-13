@@ -315,6 +315,35 @@ public final class LocalRpIdentityStore {
         return changed;
     }
 
+    /**
+     * Titel eines vorhandenen Profils aktualisieren, wenn er sich geändert hat
+     * (Server-Quelle: Tabliste/Chat). Anders als {@link #learnIdentity} greift
+     * dies auch bei MANUAL-Profilen — nur {@code locked} (RP-Buch gesperrt)
+     * schützt. Leerer Titel wird ignoriert (kein versehentliches Löschen).
+     *
+     * @return true, wenn der Titel geändert wurde
+     */
+    public synchronized boolean updateTitleIfChanged(String account, String uuid, String title) {
+        if (account == null || account.isBlank() || title == null) {
+            return false;
+        }
+        String t = title.trim();
+        if (t.isEmpty()) {
+            return false;
+        }
+        LocalRpProfile profile = find(uuid, account).orElse(null);
+        if (profile == null || profile.locked) {
+            return false;
+        }
+        if (t.equals(profile.title == null ? "" : profile.title)) {
+            return false;
+        }
+        profile.title = t;
+        profile.lastUpdatedAt = System.currentTimeMillis();
+        saveSoon();
+        return true;
+    }
+
     // ---- Manuell ----------------------------------------------------------------
 
     /** Manuelle Bearbeitung; {@code lock} schützt zusätzlich gegen Automatik. */

@@ -151,11 +151,16 @@ public final class RpNamesServices {
         try {
             String plain = message.getString();
             OttoChatChannel channel = OttoChatChannel.fromMessage(plain);
-            if (channel.shouldLearn()) {
-                for (HoverIdentityParser.ParsedIdentity id : hoverParser.parseMessage(message)) {
+            // Bei JEDER Nachricht Titel gegen die lokale Datei abgleichen
+            // (updateTitleIfChanged trifft nur echte Accounts; nur locked schützt).
+            // RP-Namen lernen nur auf den dafür vorgesehenen Kanälen.
+            boolean learn = channel.shouldLearn();
+            for (HoverIdentityParser.ParsedIdentity id : hoverParser.parseMessage(message)) {
+                if (learn) {
                     store.learnIdentity(id.accountName(), id.rpName(), id.title(),
                             id.titleGroup(), RpNameSource.LEARNED_FROM_HOVER);
                 }
+                store.updateTitleIfChanged(id.accountName(), null, id.title());
             }
             if (!channel.shouldReplace(config)) {
                 return message;

@@ -22,8 +22,11 @@ public final class RpNamesModule implements OttoExtraModule {
 
     /** Tablist-Sync: alle 100 Ticks (5 s) Online-Spieler als gesehen anlegen. */
     private static final int SEEN_SYNC_INTERVAL_TICKS = 100;
+    /** Titel-Abgleich aus der Tabliste: alle 600 Ticks (~30 s). */
+    private static final int TITLE_SYNC_INTERVAL_TICKS = 600;
 
     private int tickCounter = 0;
+    private int titleTickCounter = 0;
     private net.minecraft.client.option.KeyBinding peopleKey;
 
     @Override
@@ -61,6 +64,10 @@ public final class RpNamesModule implements OttoExtraModule {
             if (client.player == null || client.getNetworkHandler() == null
                     || !RpNamesServices.isActive()) {
                 return;
+            }
+            if (++titleTickCounter >= TITLE_SYNC_INTERVAL_TICKS) {
+                titleTickCounter = 0;
+                syncTitlesFromTablist(client);
             }
             if (++tickCounter < SEEN_SYNC_INTERVAL_TICKS) {
                 return;
@@ -116,6 +123,37 @@ public final class RpNamesModule implements OttoExtraModule {
             }
         } catch (Throwable t) {
             OttoExtra.LOGGER.debug("[rpnames] Tablist-Sync-Fehler: {}", t.toString());
+        }
+    }
+
+    /** Titel der Online-Spieler aus der Tabliste abgleichen (außer lokal gesperrt). */
+    private void syncTitlesFromTablist(MinecraftClient client) {
+        try {
+            for (PlayerListEntry entry : client.getNetworkHandler().getPlayerList()) {
+                var profile = entry.getProfile();
+                if (profile == null || profile.name() == null || profile.name().isBlank()) {
+                    continue;
+                }
+                // ORIGINAL-Displayname vom Server lesen (nicht unseren angepassten)
+                net.minecraft.text.Text display =
+                        ((de.ottoextra.mixin.PlayerListEntryAccessor) (Object) entry)
+                                .ottoextra$rawDisplayName();
+                if (display == null) {
+                    continue;
+                }
+                String flat = display.getString();
+                int idx = flat.indexOf(profile.name());
+                if (idx <= 0) {
+                    continue; // kein Titel-Prefix vor dem Account
+                }
+                String title = flat.substring(0, idx).trim();
+                if (!title.isEmpty()) {
+                    RpNamesServices.store().updateTitleIfChanged(profile.name(),
+                            profile.id() != null ? profile.id().toString() : null, title);
+                }
+            }
+        } catch (Throwable t) {
+            OttoExtra.LOGGER.debug("[rpnames] Titel-Sync-Fehler: {}", t.toString());
         }
     }
 
