@@ -15,10 +15,8 @@ public final class ChatChannelButton {
     public static final int GAP = 4;
     private static final int HEIGHT = 12;
 
-    // Kanalname #545454, Hover aufgehellt; Offtopic-Marker "!!!" flasht
-    // hart zwischen #c6505e und #d1bf59 (Signal: öffentlicher Kanal!)
-    private static final int TEXT_COLOR = 0xFF545454;
-    private static final int TEXT_HOVER = 0xFF8A8A8A;
+    // Kanalfarbe je Kanal (siehe channelColor), Hover aufgehellt; Offtopic-Marker
+    // "!!!" flasht hart zwischen #c6505e und #d1bf59 (Signal: öffentlicher Kanal!)
     private static final int BANG_COLOR_A = 0xFFC6505E;
     private static final int BANG_COLOR_B = 0xFFD1BF59;
     private static final long BANG_FLASH_MS = 500;
@@ -66,7 +64,8 @@ public final class ChatChannelButton {
                               int mouseX, int mouseY) {
         var channel = ChatChannelState.current();
         boolean hovered = contains(client, screenHeight, mouseX, mouseY);
-        int color = hovered ? TEXT_HOVER : TEXT_COLOR;
+        int base = channelColor(channel);
+        int color = hovered ? brighten(base) : base;
         int x = x();
         int y = screenHeight - 12;
         String bang = bangText();
@@ -75,6 +74,25 @@ public final class ChatChannelButton {
             x += client.textRenderer.getWidth(bang);
         }
         ctx.drawText(client.textRenderer, channel.label, x, y, color, true);
+    }
+
+    /** Grundfarbe des Kanal-Prefix je Kanal. */
+    private static int channelColor(ChatChannelState.ChatChannel channel) {
+        return switch (channel) {
+            case SPRECHEN -> 0xFFDFC8A7;
+            case FLUESTERN -> 0xFF768491;
+            case RUFEN -> 0xFFD2BF6A;
+            case OFFTOPIC -> 0xFFB4BEC6;
+            case HILFE -> 0xFFB53764;
+        };
+    }
+
+    /** Hover: jeden Kanal um +0x28 pro Kanal aufhellen (geklemmt). */
+    private static int brighten(int argb) {
+        int r = Math.min(255, ((argb >> 16) & 0xFF) + 0x28);
+        int g = Math.min(255, ((argb >> 8) & 0xFF) + 0x28);
+        int b = Math.min(255, (argb & 0xFF) + 0x28);
+        return (argb & 0xFF000000) | (r << 16) | (g << 8) | b;
     }
 
     /** Harter Flash zwischen den beiden Signal-Farben (kein Fade). */

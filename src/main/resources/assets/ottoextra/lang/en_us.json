@@ -128,6 +128,8 @@
   "ottoextra.map.nudge": "Nudge painted map (Shift = x5)",
   "ottoextra.config.map.minimapPolitical": "Political fills on minimap",
   "ottoextra.config.map.minimapPainted": "Painted map on minimap",
+  "ottoextra.config.rpnames.showInOoc": "RP names in OOC chats (Offtopic/Hilfe)",
+  "ottoextra.set.rpn.ooc.tip": "Also show RP names in the OOC channels Offtopic and Hilfe. Default: off.",
   "ottoextra.config.rpnames.unknown": "Show unknowns as \"Unbekannt\"",
   "ottoextra.config.rpnames.tablist": "RP names in tab list",
   "ottoextra.config.rpnames.people": "Manage people…",

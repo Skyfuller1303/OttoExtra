@@ -11,7 +11,8 @@ run/
 logs/
 crash-reports/
 saves/
-config/
+# nur Root-Runtime-config ignorieren, NICHT das Source-Package de/ottoextra/config
+/config/
 
 # Dist: gebaute JARs nicht versionieren, Ordner + README behalten
 dist/*-sources.jar

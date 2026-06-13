@@ -33,7 +33,7 @@ public final class ChatNameRewriter {
     public Text rewrite(Text message, OttoExtraConfig.RpNames cfg) {
         try {
             boolean[] replaced = {false};
-            Text rebuilt = rebuild(message, cfg, replaced);
+            Text rebuilt = rebuild(message, cfg, replaced, new StringBuilder());
             if (replaced[0]) {
                 return rebuilt;
             }
@@ -45,21 +45,45 @@ public final class ChatNameRewriter {
 
     // ---- Komponenten-Rebuild ---------------------------------------------------
 
-    private Text rebuild(Text node, OttoExtraConfig.RpNames cfg, boolean[] replaced) {
+    /**
+     * {@code emitted} sammelt den Klartext aller Knoten VOR dem aktuellen (Dokument-
+     * reihenfolge). Damit kann erkannt werden, ob der Server den Titel bereits
+     * inline vor den Sprechernamen gesetzt hat — dann prependt der Mod ihn nicht
+     * erneut (sonst doppelter Titel in RP-Kanälen).
+     */
+    private Text rebuild(Text node, OttoExtraConfig.RpNames cfg, boolean[] replaced,
+                         StringBuilder emitted) {
         String own = ownText(node).trim();
         MutableText copy;
         LocalRpProfile profile = own.isEmpty() ? null : store.findByName(own).orElse(null);
         if (profile != null && profile.showInChat
                 && (profile.hasRpName() || cfg.showUnknownAsUnknown)) {
-            copy = displayName(profile, node.getStyle());
+            boolean titleAlreadyPresent = profile.hasTitle()
+                    && endsWithTitle(emitted, profile.title);
+            copy = displayName(profile, node.getStyle(), !titleAlreadyPresent);
             replaced[0] = true;
         } else {
             copy = MutableText.of(node.getContent()).setStyle(node.getStyle());
         }
+        emitted.append(plainOf(copy));
         for (Text sibling : node.getSiblings()) {
-            copy.append(rebuild(sibling, cfg, replaced));
+            copy.append(rebuild(sibling, cfg, replaced, emitted));
         }
         return copy;
+    }
+
+    /** Endet der bisher emittierte Text (ohne nachlauf. Leerzeichen) auf dem Titel? */
+    private static boolean endsWithTitle(StringBuilder emitted, String title) {
+        if (title == null || title.isBlank()) {
+            return false;
+        }
+        String prefix = emitted.toString().trim().toLowerCase(java.util.Locale.ROOT);
+        return prefix.endsWith(title.trim().toLowerCase(java.util.Locale.ROOT));
+    }
+
+    /** Klartext eines (nicht-rekursiven) Knotens inkl. bereits angehängter Kinder. */
+    private static String plainOf(Text node) {
+        return node.getString();
     }
 
     /**
@@ -68,9 +92,13 @@ public final class ChatNameRewriter {
      * → Titelgruppe (Legacy) → Standard-Namensfarbe.
      */
     private MutableText displayName(LocalRpProfile profile, Style baseStyle) {
+        return displayName(profile, baseStyle, true);
+    }
+
+    private MutableText displayName(LocalRpProfile profile, Style baseStyle, boolean includeTitle) {
         MutableText out = Text.empty().setStyle(baseStyle == null ? Style.EMPTY : baseStyle);
         var catalog = de.ottoextra.rpnames.RpNamesServices.catalog();
-        if (profile.hasTitle()) {
+        if (includeTitle && profile.hasTitle()) {
             String groupTitleColor = null;
             Optional<TitleRegistry.ResolvedTitle> resolved = titles.find(profile.title);
             if (resolved.isPresent()) {
