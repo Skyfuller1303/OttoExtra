@@ -72,6 +72,18 @@ public final class ChatChannelState {
         }
     }
 
+    /** Alle Kanäle der Reihe nach durchwechseln (inkl. OOC) — für Shift+Tab. */
+    public static void cycleAllChannels() {
+        ChatChannel next = switch (currentChannel) {
+            case SPRECHEN -> ChatChannel.FLUESTERN;
+            case FLUESTERN -> ChatChannel.RUFEN;
+            case RUFEN -> ChatChannel.OFFTOPIC;
+            case OFFTOPIC -> ChatChannel.HILFE;
+            case HILFE -> ChatChannel.SPRECHEN;
+        };
+        switchToChannel(next);
+    }
+
     public static void clickChannelButton(boolean shiftDown) {
         if (shiftDown) {
             cycleOocChannel();

@@ -76,6 +76,111 @@ public final class RpNamesServices {
         return isActive() && config.openBookOnClick;
     }
 
+    /** Proaktives Kennenlernen aktiv? */
+    public static boolean proactiveMeetEnabled() {
+        return isActive() && config.proactiveMeet;
+    }
+
+    /** Accounts, die im RP-Chat geredet haben und noch unbekannt sind ("!"). */
+    private static final java.util.Set<String> pendingMeet =
+            java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    /** Markiert einen Account als "im RP-Chat gehört" (Kennenlern-Marker). */
+    public static void markHeardInRpChat(String account) {
+        if (account != null && !account.isBlank()) {
+            pendingMeet.add(account.toLowerCase(java.util.Locale.ROOT));
+        }
+    }
+
+    /** Bekommt der Account ein "!" überm Kopf (gehört + noch unbekannt)? */
+    public static boolean isPendingMeet(String account) {
+        if (account == null || store == null
+                || !pendingMeet.contains(account.toLowerCase(java.util.Locale.ROOT))) {
+            return false;
+        }
+        de.ottoextra.rpnames.model.LocalRpProfile p = store.findByName(account).orElse(null);
+        return p != null && !p.hasRpName();
+    }
+
+    /** Vom Server vorgeschlagene Identität (RP-Name + Titel) für die Kennenlern-GUI. */
+    public record MeetSuggestion(String rpName, String title) {
+    }
+
+    /** Aus dem Server-Hover gelesene Vorschläge (NICHT gespeichert, nur Prefill). */
+    private static final java.util.Map<String, MeetSuggestion> suggestions =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** Merkt einen Server-Vorschlag (RP-Name/Titel) für einen noch unbekannten Account. */
+    public static void suggestIdentity(String account, String rpName, String title) {
+        if (account == null || account.isBlank() || store == null) {
+            return;
+        }
+        boolean hasName = rpName != null && !rpName.isBlank();
+        boolean hasTitle = title != null && !title.isBlank();
+        if (!hasName && !hasTitle) {
+            return;
+        }
+        suggestions.put(account.toLowerCase(java.util.Locale.ROOT),
+                new MeetSuggestion(hasName ? rpName.trim() : "", hasTitle ? title.trim() : ""));
+    }
+
+    /** Server-Vorschlag für einen Account (oder null). */
+    public static MeetSuggestion meetSuggestion(String account) {
+        return account == null ? null
+                : suggestions.get(account.toLowerCase(java.util.Locale.ROOT));
+    }
+
+    /** Sprecher-Account aus einer RP-Chat-Zeile ableiten (letztes bekanntes Wort
+     *  zwischen {@code ]} und {@code :}); null, wenn nicht ermittelbar. */
+    public static String speakerAccount(String plain) {
+        if (store == null || plain == null) {
+            return null;
+        }
+        int br = plain.indexOf(']');
+        int colon = plain.indexOf(':', br + 1);
+        if (br < 0 || colon < 0) {
+            return null;
+        }
+        String[] words = plain.substring(br + 1, colon).trim().split("\\s+");
+        for (int i = words.length - 1; i >= 0; i--) {
+            if (!words[i].isBlank() && store.findByName(words[i]).isPresent()) {
+                return words[i];
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Aktueller Server-Titel eines Online-Spielers aus der Tabliste (Original-
+     * Displayname, vor unserer Anpassung). null, wenn offline/nicht ermittelbar.
+     */
+    public static String serverTitleFor(String account) {
+        if (account == null || account.isBlank()) {
+            return null;
+        }
+        var mc = net.minecraft.client.MinecraftClient.getInstance();
+        if (mc.getNetworkHandler() == null) {
+            return null;
+        }
+        for (net.minecraft.client.network.PlayerListEntry entry
+                : mc.getNetworkHandler().getPlayerList()) {
+            var p = entry.getProfile();
+            if (p == null || p.name() == null || !account.equalsIgnoreCase(p.name())) {
+                continue;
+            }
+            net.minecraft.text.Text raw =
+                    ((de.ottoextra.mixin.PlayerListEntryAccessor) (Object) entry)
+                            .ottoextra$rawDisplayName();
+            if (raw == null) {
+                return null;
+            }
+            String flat = raw.getString();
+            int idx = flat.indexOf(p.name());
+            return idx > 0 ? flat.substring(0, idx).trim() : "";
+        }
+        return null;
+    }
+
     /**
      * Profil per Account- ODER RP-Name finden (für Chat-Klick: sichtbarer Name
      * kann beides sein). Account-Treffer hat Vorrang.
@@ -151,18 +256,32 @@ public final class RpNamesServices {
         try {
             String plain = message.getString();
             OttoChatChannel channel = OttoChatChannel.fromMessage(plain);
+            // Proaktives Kennenlernen: unbekannte RP-Sprecher als "gehört" markieren
+            if (channel.isRpSpeak() && proactiveMeetEnabled()) {
+                markHeardInRpChat(speakerAccount(plain));
+            }
             // Bei JEDER Nachricht Titel gegen die lokale Datei abgleichen
             // (updateTitleIfChanged trifft nur echte Accounts; nur locked schützt).
             // RP-Namen lernen nur auf den dafür vorgesehenen Kanälen.
-            boolean learn = channel.shouldLearn();
+            // Proaktiv: RP-Namen NICHT automatisch lernen (nur manuell via Kennenlernen).
+            boolean learn = channel.shouldLearn() && !proactiveMeetEnabled();
+            boolean meet = proactiveMeetEnabled();
             for (HoverIdentityParser.ParsedIdentity id : hoverParser.parseMessage(message)) {
                 if (learn) {
                     store.learnIdentity(id.accountName(), id.rpName(), id.title(),
                             id.titleGroup(), RpNameSource.LEARNED_FROM_HOVER);
                 }
+                // Proaktiv: Server-Identität nur als Vorschlag merken (Prefill GUI)
+                if (meet) {
+                    suggestIdentity(id.accountName(), id.rpName(), id.title());
+                }
                 store.updateTitleIfChanged(id.accountName(), null, id.title());
             }
             if (!channel.shouldReplace(config)) {
+                // OOC: RP-Name bleibt, aber den Titel trotzdem voranstellen
+                if (channel.isOoc()) {
+                    return rewriter.rewriteTitleOnly(message, config);
+                }
                 return message;
             }
             return rewriter.rewrite(message, config);

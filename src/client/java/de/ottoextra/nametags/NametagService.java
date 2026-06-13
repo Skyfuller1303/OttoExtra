@@ -163,7 +163,8 @@ public final class NametagService {
             return null;
         }
         boolean hasRp = profile.hasRpName() && cfg.showRpName;
-        boolean hasTitle = profile.hasTitle() && cfg.showTitle;
+        // Unbekannte (ohne RP-Namen) bekommen keinen Titel im Namensschild
+        boolean hasTitle = profile.hasTitle() && cfg.showTitle && profile.hasRpName();
         var catalog = RpNamesServices.catalog();
         // Server-Signalfarbe (z. B. Kampf-Rot über Team-Format) erhalten:
         // trägt der Vanilla-Name eine Farbe, schlägt sie die Standardfarben
@@ -179,6 +180,8 @@ public final class NametagService {
                     firstNonBlank(profile.colors.nametagTitleColor,
                             firstNonBlank(catalogColor, firstNonBlank(groupColor, fallback))));
         }
+        // Proaktives Kennenlernen: Marker ist jetzt ein 3D-Ausrufezeichen über dem
+        // Kopf (MeetMarkerRenderer) — kein "!" mehr im Namensschild.
         String defaultName = catalog != null ? catalog.defaultNameColor() : "#c7a87f";
         Text name;
         boolean nameIsAccount = false;

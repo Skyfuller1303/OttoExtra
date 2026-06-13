@@ -33,13 +33,29 @@ public final class ChatNameRewriter {
     public Text rewrite(Text message, OttoExtraConfig.RpNames cfg) {
         try {
             // Sprecher (Account-Knoten mit bekanntem Profil) suchen
-            SpeakerInfo si = findSpeaker(message, cfg, new StringBuilder());
+            SpeakerInfo si = findSpeaker(message, cfg, new StringBuilder(), false);
             if (si != null) {
-                return rebuild(message, si, new int[]{0});
+                return collapseSpaces(rebuild(message, si, new int[]{0}, false), new boolean[]{false});
             }
             return plainFallback(message, cfg).orElse(message);
         } catch (Throwable t) {
             return message; // Chat darf nie brechen
+        }
+    }
+
+    /**
+     * Nur den Titel voranstellen (OOC-Kanäle): RP-Name/Account bleibt unverändert,
+     * lediglich der lokale Titel (mit Override-Farbe) wird vor dem Sprecher ergänzt.
+     */
+    public Text rewriteTitleOnly(Text message, OttoExtraConfig.RpNames cfg) {
+        try {
+            SpeakerInfo si = findSpeaker(message, cfg, new StringBuilder(), true);
+            if (si != null && si.profile().hasTitle()) {
+                return collapseSpaces(rebuild(message, si, new int[]{0}, true), new boolean[]{false});
+            }
+            return message;
+        } catch (Throwable t) {
+            return message;
         }
     }
 
@@ -53,19 +69,23 @@ public final class ChatNameRewriter {
      * {@code flat} = Pre-Order-Konkatenation der Eigentexte davor → liefert die
      * Startposition + den Beginn der Server-Titel-Zone (nach der letzten {@code ]}).
      */
-    private SpeakerInfo findSpeaker(Text node, OttoExtraConfig.RpNames cfg, StringBuilder flat) {
+    private SpeakerInfo findSpeaker(Text node, OttoExtraConfig.RpNames cfg, StringBuilder flat,
+                                    boolean titleOnly) {
         String own = ownText(node);
         String trimmed = own.trim();
         if (!trimmed.isEmpty()) {
             LocalRpProfile p = store.findByName(trimmed).orElse(null);
-            if (p != null && p.showInChat && (p.hasRpName() || cfg.showUnknownAsUnknown)) {
+            boolean match = p != null && p.showInChat && (titleOnly
+                    ? p.hasTitle()
+                    : (p.hasRpName() || cfg.showUnknownAsUnknown));
+            if (match) {
                 int bracket = flat.lastIndexOf("]");
                 return new SpeakerInfo(node, p, flat.length(), bracket >= 0 ? bracket + 1 : 0);
             }
         }
         flat.append(own);
         for (Text sibling : node.getSiblings()) {
-            SpeakerInfo r = findSpeaker(sibling, cfg, flat);
+            SpeakerInfo r = findSpeaker(sibling, cfg, flat, titleOnly);
             if (r != null) {
                 return r;
             }
@@ -81,23 +101,66 @@ public final class ChatNameRewriter {
      * damit kein doppelter Titel entsteht und unsere Titelfarbe greift. {@code flatPos}
      * spiegelt die Positionen aus {@link #findSpeaker}.
      */
-    private Text rebuild(Text node, SpeakerInfo si, int[] flatPos) {
+    private Text rebuild(Text node, SpeakerInfo si, int[] flatPos, boolean titleOnly) {
         String own = ownText(node);
         int start = flatPos[0];
         MutableText copy;
+        boolean known = si.profile().hasRpName();
+        // Titel nur bei bekannten Personen rendern; Server-Titel bei Unbekannten
+        // (oder wenn wir einen eigenen rendern) ausblenden -> kein Titel für Fremde.
+        boolean renderOurTitle = known && si.profile().hasTitle();
+        boolean blankServerTitle = !known || si.profile().hasTitle();
         if (node == si.node()) {
-            // unser Titel (Override-Farbe, falls vorhanden) + RP-Name
-            copy = displayName(si.profile(), node.getStyle(), true);
-        } else if (si.profile().hasTitle() && !own.trim().isEmpty()
+            if (titleOnly) {
+                // nur Titel voranstellen, Original-Name (Account/Nick) behalten
+                MutableText out = Text.empty().setStyle(node.getStyle());
+                MutableText title = titleComponent(si.profile());
+                if (title != null) {
+                    out.append(title);
+                }
+                out.append(MutableText.of(node.getContent()).setStyle(node.getStyle()));
+                copy = out;
+            } else {
+                copy = displayName(si.profile(), node.getStyle(), renderOurTitle);
+            }
+        } else if (blankServerTitle && !own.trim().isEmpty()
                 && start >= si.titleZoneStart() && start + own.length() <= si.accountStart()) {
-            // Server-Titel-Zone leeren — nur wenn wir einen eigenen Titel rendern
+            // Server-Titel-Zone leeren (auch im OOC-/titleOnly-Modus -> kein Doppeltitel)
             copy = Text.empty().setStyle(node.getStyle());
         } else {
             copy = MutableText.of(node.getContent()).setStyle(node.getStyle());
         }
         flatPos[0] += own.length();
         for (Text sibling : node.getSiblings()) {
-            copy.append(rebuild(sibling, si, flatPos));
+            copy.append(rebuild(sibling, si, flatPos, titleOnly));
+        }
+        return copy;
+    }
+
+    /**
+     * Kollabiert aufeinanderfolgende Leerzeichen (auch über Knotengrenzen) auf
+     * eins — entfernt die Lücke, die beim Leeren der Server-Titel-Zone entsteht.
+     * Style/Hover bleiben erhalten ({@link #rebuild} hat bereits literalisiert).
+     */
+    private Text collapseSpaces(Text node, boolean[] lastSpace) {
+        String own = ownText(node);
+        StringBuilder sb = new StringBuilder(own.length());
+        for (int i = 0; i < own.length(); i++) {
+            char c = own.charAt(i);
+            if (c == ' ') {
+                if (lastSpace[0]) {
+                    continue;
+                }
+                lastSpace[0] = true;
+            } else {
+                lastSpace[0] = false;
+            }
+            sb.append(c);
+        }
+        MutableText copy = Text.literal(sb.toString())
+                .setStyle(node.getStyle() == null ? Style.EMPTY : node.getStyle());
+        for (Text sibling : node.getSiblings()) {
+            copy.append(collapseSpaces(sibling, lastSpace));
         }
         return copy;
     }
@@ -111,21 +174,33 @@ public final class ChatNameRewriter {
         return displayName(profile, baseStyle, true);
     }
 
+    /** Gefärbter Titel-Prefix ("Titel ") nach Farbkette, oder null wenn kein Titel. */
+    private MutableText titleComponent(LocalRpProfile profile) {
+        if (!profile.hasTitle()) {
+            return null;
+        }
+        var catalog = de.ottoextra.rpnames.RpNamesServices.catalog();
+        String groupTitleColor = null;
+        Optional<TitleRegistry.ResolvedTitle> resolved = titles.find(profile.title);
+        if (resolved.isPresent()) {
+            groupTitleColor = resolved.get().group().titleColor;
+        }
+        String catalogColor = catalog != null
+                ? catalog.titleColor(profile.title).orElse(null) : null;
+        String fallback = catalog != null ? catalog.fallbackTitleColor() : "#a17f5f";
+        String titleColor = firstNonBlank(profile.colors.chatTitleColor,
+                firstNonBlank(catalogColor, firstNonBlank(groupTitleColor, fallback)));
+        return colored(profile.title + " ", titleColor);
+    }
+
     private MutableText displayName(LocalRpProfile profile, Style baseStyle, boolean includeTitle) {
         MutableText out = Text.empty().setStyle(baseStyle == null ? Style.EMPTY : baseStyle);
         var catalog = de.ottoextra.rpnames.RpNamesServices.catalog();
-        if (includeTitle && profile.hasTitle()) {
-            String groupTitleColor = null;
-            Optional<TitleRegistry.ResolvedTitle> resolved = titles.find(profile.title);
-            if (resolved.isPresent()) {
-                groupTitleColor = resolved.get().group().titleColor;
+        if (includeTitle) {
+            MutableText title = titleComponent(profile);
+            if (title != null) {
+                out.append(title);
             }
-            String catalogColor = catalog != null
-                    ? catalog.titleColor(profile.title).orElse(null) : null;
-            String fallback = catalog != null ? catalog.fallbackTitleColor() : "#a17f5f";
-            String titleColor = firstNonBlank(profile.colors.chatTitleColor,
-                    firstNonBlank(catalogColor, firstNonBlank(groupTitleColor, fallback)));
-            out.append(colored(profile.title + " ", titleColor));
         }
         // Namen: rangunabhängig Standardfarbe #c7a87f, nur Spieler-Override schlägt;
         // Unbekannt -> Accountname (#c7a87f) oder Platzhalter (grau), einstellbar

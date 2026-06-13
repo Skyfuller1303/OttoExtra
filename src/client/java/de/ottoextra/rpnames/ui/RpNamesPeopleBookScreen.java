@@ -112,6 +112,8 @@ public final class RpNamesPeopleBookScreen extends Screen {
     private TextFieldWidget titleField;
     private TextFieldWidget notesField;
     private CheckboxWidget lockCheckbox;
+    /** Unterdrückt das Auto-Sperren während programmatischem Befüllen (select). */
+    private boolean suppressLockAuto;
     private ButtonWidget chatFlagButton;
     private ButtonWidget tabFlagButton;
     private ButtonWidget tagFlagButton;
@@ -383,12 +385,14 @@ public final class RpNamesPeopleBookScreen extends Screen {
 
         rpNameField = new TextFieldWidget(textRenderer, x, y, w, 16, Text.empty());
         rpNameField.setMaxLength(48);
+        rpNameField.setChangedListener(s -> autoLock());
         addDrawableChild(rpNameField);
         y += 21;
         titleField = new TextFieldWidget(textRenderer, x, y, w, 16, Text.empty());
         titleField.setMaxLength(48);
         // Autofill aus dem Titelkatalog: grauer Vorschlag, Tab übernimmt
         titleField.setChangedListener(s -> {
+            autoLock();
             titleAutofill = null;
             titleField.setSuggestion("");
             String typed = s.trim();
@@ -494,8 +498,18 @@ public final class RpNamesPeopleBookScreen extends Screen {
     private TextFieldWidget colorField(int x, int y, int w) {
         TextFieldWidget f = new TextFieldWidget(textRenderer, x, y, w, 14, Text.empty());
         f.setMaxLength(7);
+        f.setChangedListener(s -> autoLock());
         addDrawableChild(f);
         return f;
+    }
+
+    /** Manuelle Änderung an RP-Name/Titel/Farbe -> Profil automatisch sperren. */
+    private void autoLock() {
+        if (suppressLockAuto || tab != Tab.PEOPLE || selected == null || lockCheckbox == null
+                || !lockCheckbox.active || lockCheckbox.isChecked()) {
+            return;
+        }
+        lockCheckbox.onPress(null);
     }
 
     private ButtonWidget flagButton(int x, int y, int w, String key,
@@ -668,6 +682,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
             setPeopleEditEnabled(false);
             return;
         }
+        suppressLockAuto = true;
         rpNameField.setText(profile.hasRpName() ? profile.rpName : "");
         titleField.setText(profile.title == null ? "" : profile.title);
         notesField.setText(profile.notes == null ? "" : profile.notes);
@@ -687,6 +702,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         tabFlagButton.setMessage(flagLabel("ottoextra.rpbook.flag.tab", profile.showInTablist));
         tagFlagButton.setMessage(flagLabel("ottoextra.rpbook.flag.tag", profile.showInNametag));
         setPeopleEditEnabled(true);
+        suppressLockAuto = false;
     }
 
     private void setPeopleEditEnabled(boolean enabled) {
@@ -1315,7 +1331,10 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 return true;
             }
             if (resetIconHit(titleField, mx, my)) {
-                titleField.setText("");
+                // Titel auf den Original-Server-Titel zurücksetzen (sonst leeren)
+                String serverTitle = RpNamesServices.serverTitleFor(selected.accountName);
+                titleField.setText(serverTitle != null ? serverTitle : "");
+                applyTitleColorFromCatalog();
                 return true;
             }
         }

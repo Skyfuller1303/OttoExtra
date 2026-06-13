@@ -65,6 +65,16 @@ public enum OttoChatChannel {
         };
     }
 
+    /** OOC-Kanäle: dort wird kein RP-Name ersetzt, aber der Titel vorangestellt. */
+    public boolean isOoc() {
+        return this == OFFTOPIC || this == OOC;
+    }
+
+    /** RP-Sprechkanäle (reden/flüstern/rufen) — für proaktives Kennenlernen. */
+    public boolean isRpSpeak() {
+        return this == SPRECHEN || this == REDEN || this == RUFEN || this == FLUESTERN;
+    }
+
     /** Lern-Gate: Hover gilt als server-bestätigt — RP-Kanäle + Hilfe. */
     public boolean shouldLearn() {
         return switch (this) {

@@ -437,7 +437,23 @@ public final class SettingsRegistry {
         card(rpnBase, "ottoextra.set.rpn.click", "ottoextra.set.rpn.click.desc",
                 Option.bool("ottoextra.config.rpnames.openBookOnClick", "rpnames.openBookOnClick",
                         () -> c.rpnames.openBookOnClick, v -> c.rpnames.openBookOnClick = v)
-                        .tooltip("ottoextra.set.rpn.click.tip"));
+                        .tooltip("ottoextra.set.rpn.click.tip"),
+                Option.bool("ottoextra.config.rpnames.proactiveMeet", "rpnames.proactiveMeet",
+                        () -> c.rpnames.proactiveMeet, v -> c.rpnames.proactiveMeet = v)
+                        .tooltip("ottoextra.set.rpn.meet.tip"));
+        card(rpnBase, "ottoextra.set.rpn.marker", "ottoextra.set.rpn.marker.desc",
+                Option.bool("ottoextra.config.rpnames.markerGlow", "rpnames.meetMarkerGlow",
+                        () -> c.rpnames.meetMarkerGlow, v -> c.rpnames.meetMarkerGlow = v)
+                        .tooltip("ottoextra.set.rpn.marker.glow.tip"),
+                Option.doubleVal("ottoextra.config.rpnames.markerHeight", "rpnames.meetMarkerHeight",
+                        () -> c.rpnames.meetMarkerHeight, v -> c.rpnames.meetMarkerHeight = v,
+                        -1.0, 3.0).tooltip("ottoextra.set.rpn.marker.height.tip"),
+                Option.doubleVal("ottoextra.config.rpnames.markerSize", "rpnames.meetMarkerSize",
+                        () -> c.rpnames.meetMarkerSize, v -> c.rpnames.meetMarkerSize = v,
+                        0.1, 5.0).tooltip("ottoextra.set.rpn.marker.size.tip"),
+                Option.doubleVal("ottoextra.config.rpnames.markerSpin", "rpnames.meetMarkerSpinSpeed",
+                        () -> c.rpnames.meetMarkerSpinSpeed, v -> c.rpnames.meetMarkerSpinSpeed = v,
+                        0.0, 10.0).tooltip("ottoextra.set.rpn.marker.spin.tip"));
         card(rpnBase, "ottoextra.set.rpn.tablist", "ottoextra.set.rpn.tablist.desc",
                 Option.bool("ottoextra.config.rpnames.tablist", "rpnames.tablistEnabled",
                         () -> c.rpnames.tablistEnabled, v -> c.rpnames.tablistEnabled = v),

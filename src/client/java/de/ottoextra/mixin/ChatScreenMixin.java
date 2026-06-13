@@ -5,11 +5,14 @@ import de.ottoextra.chat.ChatChannelState;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.ChatScreen;
 import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.input.KeyInput;
+import org.lwjgl.glfw.GLFW;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
  * Chat-Eingabefeld nach rechts einrücken, damit links Platz für den
@@ -29,6 +32,18 @@ public abstract class ChatScreenMixin {
     @Inject(method = "init()V", at = @At("TAIL"))
     private void ottoextra$shiftChatField(CallbackInfo ci) {
         ottoextra$applyShift();
+    }
+
+    /** Shift+Tab wechselt im Chat den Kanal durch (inkl. OOC). */
+    @Inject(method = "keyPressed(Lnet/minecraft/client/input/KeyInput;)Z",
+            at = @At("HEAD"), cancellable = true)
+    private void ottoextra$shiftTabChannel(KeyInput input, CallbackInfoReturnable<Boolean> cir) {
+        if (input.key() == GLFW.GLFW_KEY_TAB
+                && (input.modifiers() & GLFW.GLFW_MOD_SHIFT) != 0
+                && ChatChannelState.buttonActive()) {
+            ChatChannelState.cycleAllChannels();
+            cir.setReturnValue(true);
+        }
     }
 
     @Inject(method = "render(Lnet/minecraft/client/gui/DrawContext;IIF)V", at = @At("HEAD"))

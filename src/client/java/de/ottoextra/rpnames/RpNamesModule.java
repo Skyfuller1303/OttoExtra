@@ -88,18 +88,32 @@ public final class RpNamesModule implements OttoExtraModule {
         // (nur wenn aktiviert). Nur Haupthand, um Doppel-Trigger zu vermeiden.
         net.fabricmc.fabric.api.event.player.UseEntityCallback.EVENT.register(
                 (player, world, hand, entity, hitResult) -> {
+                    boolean meet = RpNamesServices.proactiveMeetEnabled();
+                    boolean book = RpNamesServices.openBookOnClickEnabled();
                     if (!world.isClient() || hand != net.minecraft.util.Hand.MAIN_HAND
-                            || !RpNamesServices.openBookOnClickEnabled()
-                            || !player.isSneaking()
+                            || (!meet && !book) || !player.isSneaking()
                             || !(entity instanceof net.minecraft.entity.player.PlayerEntity target)) {
                         return net.minecraft.util.ActionResult.PASS;
                     }
                     String account = target.getGameProfile().name();
                     String uuid = target.getUuid() != null ? target.getUuid().toString() : null;
-                    net.minecraft.client.MinecraftClient.getInstance().execute(() ->
-                            de.ottoextra.rpnames.ui.RpNamesPeopleBookScreen.openFor(null, account, uuid));
+                    var p = RpNamesServices.store() != null
+                            ? RpNamesServices.store().findByName(account).orElse(null) : null;
+                    boolean unknown = p == null || !p.hasRpName();
+                    net.minecraft.client.MinecraftClient.getInstance().execute(() -> {
+                        if (meet && unknown) {
+                            // Unbekannt + proaktiv: Kennenlern-GUI
+                            net.minecraft.client.MinecraftClient.getInstance().setScreen(
+                                    new de.ottoextra.rpnames.ui.MeetPersonScreen(null, account, uuid));
+                        } else if (book) {
+                            de.ottoextra.rpnames.ui.RpNamesPeopleBookScreen.openFor(null, account, uuid);
+                        }
+                    });
                     return net.minecraft.util.ActionResult.SUCCESS;
                 });
+
+        // 3D-Ausrufezeichen über unbekannten RP-Sprechern (proaktives Kennenlernen)
+        MeetMarkerRenderer.register();
 
         OttoExtra.LOGGER.info("[rpnames] initialisiert (lokales Bekanntschaftssystem, {} Personen).",
                 RpNamesServices.store().size());

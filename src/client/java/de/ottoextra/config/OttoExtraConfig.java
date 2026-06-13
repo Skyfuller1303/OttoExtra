@@ -313,6 +313,14 @@ public final class OttoExtraConfig {
         /** Shift-Klick auf Spielernamen im Chat / Shift-Rechtsklick auf Spieler
          *  öffnet das RP-Personenbuch beim Eintrag der Person. */
         public boolean openBookOnClick = false;
+        /** Proaktives Kennenlernen: unbekannte Sprecher (RP-Chat) bekommen ein "!"
+         *  über dem Kopf; Shift-Rechtsklick öffnet das Kennenlern-GUI. */
+        public boolean proactiveMeet = false;
+        /** Kennenlern-Marker (3D-Ausrufezeichen) — Debug/Feintuning. */
+        public double meetMarkerHeight = 0.55;   // Zusatzhöhe über dem Kopf (Blöcke)
+        public double meetMarkerSize = 1.0;      // Größenfaktor
+        public double meetMarkerSpinSpeed = 1.0; // X-Achsen-Drehgeschwindigkeit
+        public boolean meetMarkerGlow = true;    // Fullbright/Leuchten
         // API ist optional — Default aus (lokales Bekanntschaftssystem)
         public boolean syncFromPublicApi = true;
         /** Standardmäßig aus: keine personenbezogenen Daten ungefragt hochladen. */
