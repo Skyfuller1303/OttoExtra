@@ -54,6 +54,8 @@ public final class RegionNotificationOverlay {
     private static volatile String regionName = "";
     private static volatile String hierarchy = "";
     private static volatile long shownAt = 0;
+    /** Dauer-Vorschau (Theme-Editor): kein Timeout, voll sichtbar. */
+    private static volatile boolean sticky = false;
     private static volatile String menuKeyName = "L";
     /** Live-Referenz auf die Regions-Config — Änderungen (auch aus dem Menü) greifen sofort. */
     private static volatile de.ottoextra.config.OttoExtraConfig.Regions cfg;
@@ -65,10 +67,20 @@ public final class RegionNotificationOverlay {
         regionName = name == null ? "" : name;
         hierarchy = hierarchyLine == null ? "" : hierarchyLine;
         shownAt = System.currentTimeMillis();
+        sticky = false;
+    }
+
+    /** Dauer-Vorschau für den Theme-Editor (bleibt sichtbar bis {@link #clear()}). */
+    public static void holdPreview(String name, String hierarchyLine) {
+        regionName = name == null ? "" : name;
+        hierarchy = hierarchyLine == null ? "" : hierarchyLine;
+        shownAt = System.currentTimeMillis();
+        sticky = true;
     }
 
     public static void clear() {
         shownAt = 0;
+        sticky = false;
     }
 
     public static void setMenuKeyName(String name) {
@@ -83,7 +95,90 @@ public final class RegionNotificationOverlay {
 
     private static Palette activePalette() {
         de.ottoextra.config.OttoExtraConfig.Regions c = cfg;
-        return c != null && "dark".equalsIgnoreCase(c.theme) ? DARK : LIGHT;
+        if (c == null || c.theme == null || "light".equalsIgnoreCase(c.theme)) {
+            return LIGHT;
+        }
+        if ("dark".equalsIgnoreCase(c.theme)) {
+            return DARK;
+        }
+        if (c.customThemes != null) {
+            for (de.ottoextra.config.OttoExtraConfig.RegionTheme t : c.customThemes) {
+                if (t != null && t.name != null && t.name.equalsIgnoreCase(c.theme)) {
+                    return paletteOf(t);
+                }
+            }
+        }
+        return LIGHT; // unbekanntes Theme -> Standard
+    }
+
+    /** Custom-Theme (Hex-Strings) in eine Palette mit volldeckendem Alpha wandeln. */
+    private static Palette paletteOf(de.ottoextra.config.OttoExtraConfig.RegionTheme t) {
+        return new Palette(
+                hex(t.bg, 0xFFC8AC8E), hex(t.borderOut, 0xFF513E2A),
+                hex(t.borderTl, 0xFFE6C8A9), hex(t.borderBr, 0xFFB8926E),
+                hex(t.title, 0xFF503D29), hex(t.region, 0xFF503D29),
+                hex(t.hierarchy, 0xFF7A5A3A), hex(t.hint, 0xFF6A4D33));
+    }
+
+    /** "#RRGGBB" -> 0xFFRRGGBB; Fallback bei Murks. */
+    private static int hex(String s, int fallback) {
+        if (s == null) {
+            return fallback;
+        }
+        String h = s.replace("#", "").trim();
+        if (!h.matches("[0-9a-fA-F]{6}")) {
+            return fallback;
+        }
+        return 0xFF000000 | Integer.parseInt(h, 16);
+    }
+
+    /** Schatten nur auf dunklem Panel (Luminanz des Hintergrunds). */
+    private static boolean needsShadow(Palette pal) {
+        int bg = pal.bg();
+        int r = (bg >> 16) & 0xFF, g = (bg >> 8) & 0xFF, b = bg & 0xFF;
+        return (0.2126 * r + 0.7152 * g + 0.0722 * b) < 128.0;
+    }
+
+    /** Aufgelöste Toast-Gestaltung: Palette + Layout + Schrift + Sichtbarkeit. */
+    private record Style(Palette pal,
+                         float baseTextScale, float titleScale, float regionScale,
+                         float hierarchyScale, float hintScale,
+                         boolean showBanner, boolean showEnteredTitle, boolean showHierarchy,
+                         boolean showHint,
+                         int maxTextWidth, int minWidth, int maxWidth, int topMargin,
+                         int iconSize, int iconGap,
+                         int padLeft, int padRight, int padTop, int padBottom) {
+    }
+
+    /**
+     * Aktives Design. Custom-Theme: alles (Farben/Schrift/Sichtbarkeit/Abstände)
+     * aus dem Theme. Built-in light/dark: globale Erweitert-Werte der Config.
+     */
+    private static Style activeStyle() {
+        de.ottoextra.config.OttoExtraConfig.Regions c = cfg;
+        if (c != null && c.theme != null && c.customThemes != null
+                && !"light".equalsIgnoreCase(c.theme) && !"dark".equalsIgnoreCase(c.theme)) {
+            for (de.ottoextra.config.OttoExtraConfig.RegionTheme t : c.customThemes) {
+                if (t != null && t.name != null && t.name.equalsIgnoreCase(c.theme)) {
+                    return new Style(paletteOf(t),
+                            t.baseTextScale, t.titleScale, t.regionScale, t.hierarchyScale, t.hintScale,
+                            t.showBanner, t.showEnteredTitle, t.showHierarchy, t.showHint,
+                            t.maxTextWidth, t.minToastWidth, t.maxToastWidth,
+                            Math.max(4, t.screenTopMargin), t.iconSize, t.iconGap,
+                            t.paddingLeft, t.paddingRight, t.paddingTop, t.paddingBottom);
+                }
+            }
+        }
+        Palette pal = activePalette();
+        if (c == null) {
+            return new Style(pal, 1f, 0.65f, 1f, 0.68f, 0.35f, true, true, true, false,
+                    MAX_TEXT_WIDTH, MIN_WIDTH, MAX_WIDTH, MARGIN, BANNER_SIZE, ICON_GAP,
+                    PAD_LEFT, PAD_RIGHT, PAD_V, PAD_V);
+        }
+        return new Style(pal, c.baseTextScale, c.titleScale, c.regionScale, c.hierarchyScale,
+                c.hintScale, c.showBanner, true, true, c.hintTextEnabled,
+                c.maxTextWidth, c.minToastWidth, c.maxToastWidth, Math.max(4, c.screenTopMargin),
+                c.iconSize, c.iconGap, c.paddingLeft, c.paddingRight, c.paddingTop, c.paddingBottom);
     }
 
     private static Position activePosition() {
@@ -104,8 +199,9 @@ public final class RegionNotificationOverlay {
         if (start == 0) {
             return;
         }
+        boolean hold = sticky;
         long elapsed = System.currentTimeMillis() - start;
-        if (elapsed > DISPLAY_MS) {
+        if (!hold && elapsed > DISPLAY_MS) {
             shownAt = 0;
             return;
         }
@@ -114,9 +210,11 @@ public final class RegionNotificationOverlay {
             return;
         }
 
-        // Fade + Slide-Fortschritt (0..1 sichtbar)
+        // Fade + Slide-Fortschritt (0..1 sichtbar); Dauer-Vorschau = voll sichtbar
         float progress;
-        if (elapsed < FADE_IN_MS) {
+        if (hold) {
+            progress = 1f;
+        } else if (elapsed < FADE_IN_MS) {
             progress = elapsed / (float) FADE_IN_MS;
         } else if (elapsed > DISPLAY_MS - FADE_OUT_MS) {
             progress = (DISPLAY_MS - elapsed) / (float) FADE_OUT_MS;
@@ -126,43 +224,45 @@ public final class RegionNotificationOverlay {
         progress = Math.max(0f, Math.min(1f, progress));
         float ease = 1f - (1f - progress) * (1f - progress); // ease-out
 
-        // Live-Layoutwerte aus der Config (Erweitert-Menü wirkt sofort)
-        de.ottoextra.config.OttoExtraConfig.Regions c = cfg;
-        int maxTextWidth = c != null ? c.maxTextWidth : MAX_TEXT_WIDTH;
-        int minWidth = c != null ? c.minToastWidth : MIN_WIDTH;
-        int maxWidth = c != null ? c.maxToastWidth : MAX_WIDTH;
-        int bannerSize = c != null ? c.iconSize : BANNER_SIZE;
-        int iconGap = c != null ? c.iconGap : ICON_GAP;
-        int padLeft = c != null ? c.paddingLeft : PAD_LEFT;
-        int padRight = c != null ? c.paddingRight : PAD_RIGHT;
-        int padTop = c != null ? c.paddingTop : PAD_V;
-        int padBottom = c != null ? c.paddingBottom : PAD_V;
-        int margin = Math.max(4, c != null ? c.screenTopMargin : MARGIN);
+        // Aufgelöstes Design (Custom-Theme oder globale Erweitert-Werte)
+        Style st = activeStyle();
+        Palette pal = st.pal();
+        int maxTextWidth = st.maxTextWidth();
+        int minWidth = st.minWidth();
+        int maxWidth = st.maxWidth();
+        int bannerSize = st.iconSize();
+        int iconGap = st.iconGap();
+        int padLeft = st.padLeft();
+        int padRight = st.padRight();
+        int padTop = st.padTop();
+        int padBottom = st.padBottom();
+        int margin = st.topMargin();
 
         // Gemeinsame Basis-Schriftgröße; Zeilen-Scales sind relative Faktoren darauf.
-        float base = c != null ? c.baseTextScale : 1.0f;
-        float titleScale = base * (c != null ? c.titleScale : 0.65f);
-        float regionScale = base * (c != null ? c.regionScale : 1.0f);
-        float hierarchyScale = base * (c != null ? c.hierarchyScale : 0.68f);
-        float hintScale = base * (c != null ? c.hintScale : 0.35f);
+        float base = st.baseTextScale();
+        float titleScale = base * st.titleScale();
+        float regionScale = base * st.regionScale();
+        float hierarchyScale = base * st.hierarchyScale();
+        float hintScale = base * st.hintScale();
 
         TextRenderer tr = client.textRenderer;
-        Palette pal = activePalette();
         String title = Text.translatable("ottoextra.regions.entered").getString();
-        boolean hasHierarchy = !hierarchy.isBlank();
+        boolean hasHierarchy = st.showHierarchy() && !hierarchy.isBlank();
         String hint = Text.translatable("ottoextra.regions.hint", menuKeyName).getString();
-        boolean renderHint = c == null || c.hintTextEnabled;
+        boolean renderHint = st.showHint();
 
-        // Banner (falls Daten + Config)
+        // Banner (falls Daten + sichtbar)
         Identifier banner = null;
-        if (c == null || c.showBanner) {
+        if (st.showBanner()) {
             banner = resolveBanner();
         }
         int iconArea = banner != null ? bannerSize + iconGap : 0;
 
-        // Zeilenliste mit individueller Skalierung (Schriftgrößen aus Config)
+        // Zeilenliste mit individueller Skalierung (Schriftgrößen aus dem Design)
         List<ScaledLine> lines = new ArrayList<>();
-        lines.add(new ScaledLine(Text.literal(title).asOrderedText(), titleScale, pal.title()));
+        if (st.showEnteredTitle()) {
+            lines.add(new ScaledLine(Text.literal(title).asOrderedText(), titleScale, pal.title()));
+        }
         int regionWrap = Math.max(20, (int) (maxTextWidth / Math.max(0.3f, regionScale)));
         for (net.minecraft.text.OrderedText regionLine
                 : tr.wrapLines(Text.literal(regionName), regionWrap)) {
@@ -233,8 +333,8 @@ public final class RegionNotificationOverlay {
             tx += bannerSize + iconGap;
         }
 
-        // Helle Palette: Schatten stört Lesbarkeit auf Pergament
-        boolean shadow = pal == DARK;
+        // Schatten nur auf dunklem Panel (Luminanz) — auf hellem stört er
+        boolean shadow = needsShadow(pal);
         // Echte vertikale Zentrierung des gesamten Textblocks im Panel
         // (unabhängig von Padding-Asymmetrie und Zeilenanzahl).
         float ty = y + (h - contentH) / 2f;

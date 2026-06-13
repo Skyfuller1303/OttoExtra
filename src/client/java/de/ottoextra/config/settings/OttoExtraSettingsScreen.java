@@ -80,9 +80,10 @@ public final class OttoExtraSettingsScreen extends Screen {
                 () -> open(new de.ottoextra.rpnames.ui.RpNamesPeopleBookScreen(this)),
                 () -> open(new de.ottoextra.config.MapGroupColorsScreen(this, config)),
                 () -> open(new de.ottoextra.map.MinimapBannerEditScreen(this, config)),
-                () -> open(new de.ottoextra.letter.ui.LetterEditorScreen(this, config)));
+                () -> open(new de.ottoextra.letter.ui.LetterEditorScreen(this, config)),
+                () -> open(new de.ottoextra.config.RegionThemeScreen(this, config)));
         SettingsRegistry defaultRegistry = SettingsRegistry.build(new OttoExtraConfig(),
-                () -> { }, () -> { }, () -> { }, () -> { });
+                () -> { }, () -> { }, () -> { }, () -> { }, () -> { });
         for (SettingsRegistry.ModulePage m : defaultRegistry.modules()) {
             for (SettingsRegistry.Tab t : m.tabs()) {
                 for (SettingsRegistry.Card c : t.cards()) {
@@ -537,6 +538,10 @@ public final class OttoExtraSettingsScreen extends Screen {
                     Text.translatable("ottoextra.settings.backup.missing"),
                     contentX(), 56, COL_WARN);
         }
+
+        // Region-Toast-Vorschau ZULETZT zeichnen -> liegt ueber dem Menue
+        // (sonst verdeckt das Settings-Panel die Vorschau)
+        de.ottoextra.regions.RegionNotificationOverlay.render(ctx, null);
     }
 
     @Override

@@ -190,8 +190,10 @@ public final class OttoExtraConfig {
         public boolean playEnterSound = true;
         public boolean showBanner = true;
         public boolean hintTextEnabled = false;
-        /** "light" (Pergament, Server-Standard) oder "dark". */
+        /** Aktives Theme: "light", "dark" oder Name eines Custom-Themes. */
         public String theme = "light";
+        /** Eigene Toast-Themes (Name + 8 Farben), per GUI anlegbar/editierbar. */
+        public java.util.List<RegionTheme> customThemes = new java.util.ArrayList<>();
         /** TOP_CENTER (Server-Standard), TOP_RIGHT, TOP_LEFT, CENTER. */
         public String overlayPosition = "TOP_CENTER";
         public String menuKey = "key.keyboard.l";
@@ -213,6 +215,45 @@ public final class OttoExtraConfig {
         public float regionScale = 1.0f;
         public float hierarchyScale = 0.68f;
         public float hintScale = 0.35f;
+    }
+
+    /**
+     * Benutzerdefiniertes Toast-Theme: Name + 8 Panel-Farben als "#RRGGBB".
+     * Defaults = Light-Palette. GSON-direkt, daher mutable.
+     */
+    public static final class RegionTheme {
+        public String name = "Custom";
+        // Farben
+        public String bg = "#C8AC8E";
+        public String borderOut = "#513E2A";
+        public String borderTl = "#E6C8A9";
+        public String borderBr = "#B8926E";
+        public String title = "#503D29";
+        public String region = "#503D29";
+        public String hierarchy = "#7A5A3A";
+        public String hint = "#6A4D33";
+        // Schrift (baseTextScale * Zeilen-Scale)
+        public float baseTextScale = 1.0f;
+        public float titleScale = 0.65f;
+        public float regionScale = 1.0f;
+        public float hierarchyScale = 0.68f;
+        public float hintScale = 0.35f;
+        // Sichtbarkeit der Elemente
+        public boolean showBanner = true;
+        public boolean showEnteredTitle = true; // "Du betrittst"-Zeile
+        public boolean showHierarchy = true;    // Hierarchie/Lehensname-Zeile
+        public boolean showHint = false;        // Tasten-Hinweis
+        // Abstände / Layout
+        public int maxTextWidth = 210;
+        public int minToastWidth = 170;
+        public int maxToastWidth = 330;
+        public int screenTopMargin = 6;
+        public int iconSize = 24;
+        public int iconGap = 6;
+        public int paddingLeft = 8;
+        public int paddingRight = 10;
+        public int paddingTop = 6;
+        public int paddingBottom = 6;
     }
 
     public static final class RpNames {

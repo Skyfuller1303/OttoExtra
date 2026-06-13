@@ -206,7 +206,7 @@ public final class SettingsRegistry {
 
     public static SettingsRegistry build(OttoExtraConfig c, Runnable openPeopleBook,
                                          Runnable openGroupColors, Runnable openBannerEdit,
-                                         Runnable openLetterEditor) {
+                                         Runnable openLetterEditor, Runnable openRegionThemes) {
         SettingsRegistry r = new SettingsRegistry();
 
         // Resourcepack
@@ -262,13 +262,49 @@ public final class SettingsRegistry {
                         () -> c.regions.playEnterSound, v -> c.regions.playEnterSound = v),
                 Option.bool("ottoextra.config.regions.banner", "regions.showBanner",
                         () -> c.regions.showBanner, v -> c.regions.showBanner = v),
-                Option.cycle("ottoextra.config.regions.theme", "regions.theme",
-                        () -> c.regions.theme, v -> c.regions.theme = v, "light", "dark"),
                 Option.cycle("ottoextra.config.regions.position", "regions.overlayPosition",
                         () -> c.regions.overlayPosition, v -> c.regions.overlayPosition = v,
                         "TOP_CENTER", "TOP_RIGHT", "TOP_LEFT", "CENTER"),
+                Option.action("ottoextra.config.regions.themes", "regions.themes", openRegionThemes),
                 Option.action("ottoextra.config.preview", "regions.preview",
                         de.ottoextra.config.OttoExtraConfigScreen::triggerPreview));
+        var regAdv = tab(reg, "ottoextra.set.tab.advanced");
+        card(regAdv, "ottoextra.set.regions.badgeLayout", "ottoextra.set.regions.badgeLayout.desc",
+                Option.bool("ottoextra.config.regions.hintText", "regions.hintTextEnabled",
+                        () -> c.regions.hintTextEnabled, v -> c.regions.hintTextEnabled = v),
+                Option.intVal("ottoextra.adv.maxTextWidth", "regions.maxTextWidth",
+                        () -> c.regions.maxTextWidth, v -> c.regions.maxTextWidth = v, 50, 800),
+                Option.intVal("ottoextra.adv.minToastWidth", "regions.minToastWidth",
+                        () -> c.regions.minToastWidth, v -> c.regions.minToastWidth = v, 50, 800),
+                Option.intVal("ottoextra.adv.maxToastWidth", "regions.maxToastWidth",
+                        () -> c.regions.maxToastWidth, v -> c.regions.maxToastWidth = v, 50, 1000),
+                Option.intVal("ottoextra.adv.screenTopMargin", "regions.screenTopMargin",
+                        () -> c.regions.screenTopMargin, v -> c.regions.screenTopMargin = v, 0, 200),
+                Option.intVal("ottoextra.adv.iconSize", "regions.iconSize",
+                        () -> c.regions.iconSize, v -> c.regions.iconSize = v, 8, 64),
+                Option.intVal("ottoextra.adv.iconGap", "regions.iconGap",
+                        () -> c.regions.iconGap, v -> c.regions.iconGap = v, 0, 32),
+                Option.intVal("ottoextra.adv.paddingLeft", "regions.paddingLeft",
+                        () -> c.regions.paddingLeft, v -> c.regions.paddingLeft = v, 0, 40),
+                Option.intVal("ottoextra.adv.paddingRight", "regions.paddingRight",
+                        () -> c.regions.paddingRight, v -> c.regions.paddingRight = v, 0, 40),
+                Option.intVal("ottoextra.adv.paddingTop", "regions.paddingTop",
+                        () -> c.regions.paddingTop, v -> c.regions.paddingTop = v, 0, 40),
+                Option.intVal("ottoextra.adv.paddingBottom", "regions.paddingBottom",
+                        () -> c.regions.paddingBottom, v -> c.regions.paddingBottom = v, 0, 40),
+                Option.action("ottoextra.config.preview", "regions.preview",
+                        de.ottoextra.config.OttoExtraConfigScreen::triggerPreview));
+        card(regAdv, "ottoextra.set.regions.badgeText", "ottoextra.set.regions.badgeText.desc",
+                Option.floatVal("ottoextra.adv.baseTextScale", "regions.baseTextScale",
+                        () -> c.regions.baseTextScale, v -> c.regions.baseTextScale = v, 0.2, 3.0),
+                Option.floatVal("ottoextra.adv.titleScale", "regions.titleScale",
+                        () -> c.regions.titleScale, v -> c.regions.titleScale = v, 0.2, 3.0),
+                Option.floatVal("ottoextra.adv.regionScale", "regions.regionScale",
+                        () -> c.regions.regionScale, v -> c.regions.regionScale = v, 0.2, 3.0),
+                Option.floatVal("ottoextra.adv.hierarchyScale", "regions.hierarchyScale",
+                        () -> c.regions.hierarchyScale, v -> c.regions.hierarchyScale = v, 0.2, 3.0),
+                Option.floatVal("ottoextra.adv.hintScale", "regions.hintScale",
+                        () -> c.regions.hintScale, v -> c.regions.hintScale = v, 0.1, 3.0));
 
         // Namensschilder
         var tags = r.module("nametags", "ottoextra.module.nametags", "ottoextra.set.tags.desc");
