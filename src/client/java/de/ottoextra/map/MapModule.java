@@ -75,15 +75,18 @@ public final class MapModule implements OttoExtraModule {
                     }
                 }
                 buttons.add(new PoliticalToggleButton(bx, by, size, context.config()));
-                // Kalibrier-Pfeile fuer die gemalte Karte (links neben dem Toggle)
-                int ns = 12;
-                int px0 = bx - 3 * ns - 6;
-                int py0 = by + size - 2 * ns;
-                buttons.add(new MapNudgeButton(px0 + ns, py0 - ns, ns, 0, -1, context.config()));
-                buttons.add(new MapNudgeButton(px0, py0, ns, -1, 0, context.config()));
-                buttons.add(new MapNudgeButton(px0 + ns, py0, ns, 0, 0, context.config())); // Reset
-                buttons.add(new MapNudgeButton(px0 + 2 * ns, py0, ns, 1, 0, context.config()));
-                buttons.add(new MapNudgeButton(px0 + ns, py0 + ns, ns, 0, 1, context.config()));
+                // Kalibrier-Pfeile fuer die gemalte Karte (links neben dem Toggle) —
+                // Debug, standardmaessig aus; via Karte > Erweitert aktivierbar
+                if (context.config().map.showCalibrationArrows) {
+                    int ns = 12;
+                    int px0 = bx - 3 * ns - 6;
+                    int py0 = by + size - 2 * ns;
+                    buttons.add(new MapNudgeButton(px0 + ns, py0 - ns, ns, 0, -1, context.config()));
+                    buttons.add(new MapNudgeButton(px0, py0, ns, -1, 0, context.config()));
+                    buttons.add(new MapNudgeButton(px0 + ns, py0, ns, 0, 0, context.config())); // Reset
+                    buttons.add(new MapNudgeButton(px0 + 2 * ns, py0, ns, 1, 0, context.config()));
+                    buttons.add(new MapNudgeButton(px0 + ns, py0 + ns, ns, 0, 1, context.config()));
+                }
                 // XaeroPlus-Dimensionswechsel-Buttons ausblenden (Ottonien hat
                 // nur die Overworld; die drei Knöpfe sind dort nutzlos)
                 buttons.removeIf(w -> {

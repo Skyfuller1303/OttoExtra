@@ -352,7 +352,10 @@ public final class SettingsRegistry {
                 Option.doubleVal("ottoextra.adv.bannerMinScale", "map.bannerMinScale",
                         () -> c.map.bannerMinScale, v -> c.map.bannerMinScale = v, 0.005, 8),
                 Option.doubleVal("ottoextra.adv.politicalMaxScale", "map.politicalMaxScale",
-                        () -> c.map.politicalMaxScale, v -> c.map.politicalMaxScale = v, 0.01, 8));
+                        () -> c.map.politicalMaxScale, v -> c.map.politicalMaxScale = v, 0.01, 8),
+                Option.bool("ottoextra.config.map.calibrationArrows", "map.showCalibrationArrows",
+                        () -> c.map.showCalibrationArrows, v -> c.map.showCalibrationArrows = v)
+                        .tooltip("ottoextra.set.map.calibrationArrows.tip"));
         card(mapAdv, "ottoextra.set.map.hudAdv", "ottoextra.set.map.hudAdv.desc",
                 Option.intVal("ottoextra.adv.nameHudWidth", "map.nameHudWidth",
                         () -> c.map.nameHudWidth, v -> c.map.nameHudWidth = v, 20, 400),

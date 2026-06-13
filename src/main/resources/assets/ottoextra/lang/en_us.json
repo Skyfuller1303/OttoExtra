@@ -95,6 +95,8 @@
   "ottoextra.adv.bannerMinScale": "Banners from zoom",
   "ottoextra.adv.labelScale": "Label font scale (factor)",
   "ottoextra.adv.politicalMaxScale": "Political map up to zoom",
+  "ottoextra.config.map.calibrationArrows": "Calibration arrows (move map)",
+  "ottoextra.set.map.calibrationArrows.tip": "Debug arrows to shift the painted map on the worldmap. Default: off.",
   "ottoextra.adv.bannerSizePx": "Banner size (px)",
   "ottoextra.adv.borderWidthPx": "Line width (px)",
   "ottoextra.config.map.dashed": "Dashed style",

@@ -95,6 +95,8 @@
   "ottoextra.adv.bannerMinScale": "Wappen ab Zoom",
   "ottoextra.adv.labelScale": "Label-Schriftgröße (Faktor)",
   "ottoextra.adv.politicalMaxScale": "Politische Karte bis Zoom",
+  "ottoextra.config.map.calibrationArrows": "Kalibrier-Pfeile (Karte verschieben)",
+  "ottoextra.set.map.calibrationArrows.tip": "Debug-Pfeile zum Verschieben der gemalten Karte auf der Worldmap. Standard: aus.",
   "ottoextra.adv.bannerSizePx": "Wappengröße (px)",
   "ottoextra.adv.borderWidthPx": "Linienbreite (px)",
   "ottoextra.config.map.dashed": "Strichgrafik",

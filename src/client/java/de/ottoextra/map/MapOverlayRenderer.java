@@ -73,7 +73,9 @@ public final class MapOverlayRenderer {
         // den (deferred) Grenzen/Labels dieses DrawContexts.
         PoliticalOverlay.renderFills(view, cfg.politicalFill, cfg.politicalMaxScale, mouseX, mouseY);
         if (cfg.showActivity) {
-            ActivityRenderer.render(view, 1.0f);
+            // Crossfade wie die Labels: rausgezoomt am Lehnsherrn (groupAlpha),
+            // reingezoomt am einzelnen Lehen (indFade).
+            ActivityRenderer.render(view, 1.0f, indFade, groupAlpha);
         }
 
         // Grenzen: deduplizierte Segmente (geteilte Lehnsgrenzen genau einmal).

@@ -73,6 +73,8 @@ public final class OttoExtraConfig {
         /** Manueller Versatz der gemalten Karte in Blöcken (Pfeil-Buttons auf der Worldmap). */
         public int paintedMapOffsetX = 0;
         public int paintedMapOffsetZ = 0;
+        /** Kalibrier-Pfeile (Karte verschieben) auf der Worldmap einblenden (Debug). */
+        public boolean showCalibrationArrows = false;
         /** Spieler-Aktivität (pulsierender Ring bei Versammlungen, Quelle: player_gathering). */
         public boolean showActivity = true;
         /** Overlay nur auf dem Ottonien-Server (false = auf allen Servern/Welten). */
