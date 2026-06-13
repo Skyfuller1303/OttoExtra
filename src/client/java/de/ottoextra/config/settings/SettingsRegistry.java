@@ -432,6 +432,10 @@ public final class SettingsRegistry {
                 Option.cycle("ottoextra.config.rpnames.unknownPlaceholder", "rpnames.unknownPlaceholder",
                         () -> c.rpnames.unknownPlaceholder, v -> c.rpnames.unknownPlaceholder = v,
                         "Unbekannt", "???"));
+        card(rpnBase, "ottoextra.set.rpn.click", "ottoextra.set.rpn.click.desc",
+                Option.bool("ottoextra.config.rpnames.openBookOnClick", "rpnames.openBookOnClick",
+                        () -> c.rpnames.openBookOnClick, v -> c.rpnames.openBookOnClick = v)
+                        .tooltip("ottoextra.set.rpn.click.tip"));
         card(rpnBase, "ottoextra.set.rpn.tablist", "ottoextra.set.rpn.tablist.desc",
                 Option.bool("ottoextra.config.rpnames.tablist", "rpnames.tablistEnabled",
                         () -> c.rpnames.tablistEnabled, v -> c.rpnames.tablistEnabled = v),

@@ -43,9 +43,9 @@ import java.util.Set;
  */
 public final class RpNamesPeopleBookScreen extends Screen {
 
-    // Vanilla-Dark-Palette (wie Settings-GUI / MoreCulling-Stil).
-    // Hintergrund liefert super.render (gedimmt/geblurrt); Karten transluzent.
-    private static final int COL_PANEL = 0xC8141418;
+    // Vanilla-Dark-Palette (wie Settings-GUI / MoreCulling-Stil)
+    private static final int COL_BG = 0xF0101014;
+    private static final int COL_PANEL = 0xFF1E1E24;
     private static final int COL_BORDER = 0xFF000000;
     private static final int COL_TITLE = 0xFFFFFFFF;
     private static final int COL_TEXT = 0xFFE0E0E0;
@@ -131,26 +131,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
     private final Set<String> onlineNamesLower = new HashSet<>();
     private LocalRpProfile selected;
 
-    // 3D-Spielervorschau (gecacht je Account)
-    private net.minecraft.client.network.AbstractClientPlayerEntity previewEntity;
-    private String previewEntityKey;
-    /** Konstante UUID für den fixen Fallback-Skin. */
-    private static final java.util.UUID FALLBACK_SKIN_UUID =
-            new java.util.UUID(0L, 0L);
-    /** Marken-Fallback-Skin-Textur (assets/ottoextra/textures/entity/fallback_skin.png). */
-    private static net.minecraft.entity.player.SkinTextures fallbackSkinCache;
-
-    private static net.minecraft.entity.player.SkinTextures fallbackSkin() {
-        if (fallbackSkinCache == null) {
-            net.minecraft.util.AssetInfo.TextureAsset tex =
-                    new net.minecraft.util.AssetInfo.TextureAssetInfo(
-                            de.ottoextra.OttoExtra.id("textures/entity/fallback_skin.png"));
-            fallbackSkinCache = new net.minecraft.entity.player.SkinTextures(
-                    tex, null, null, net.minecraft.entity.player.PlayerSkinType.WIDE, true);
-        }
-        return fallbackSkinCache;
-    }
-
     // Gruppen-Tab
     private TextFieldWidget groupLabelField;
     private TextFieldWidget groupTitleColorField;
@@ -186,35 +166,11 @@ public final class RpNamesPeopleBookScreen extends Screen {
     /** Aktueller Autofill-Vorschlag fürs Titel-Feld (Tab übernimmt). */
     private String titleAutofill;
 
-    /** Beim Öffnen vorzuselektierender Account (Shift-Klick), sonst null. */
-    private String pendingSelectAccount;
-
     public RpNamesPeopleBookScreen(Screen parent) {
         super(Text.translatable("ottoextra.rpbook.title"));
         this.parent = parent;
         this.store = RpNamesServices.store();
         this.titles = RpNamesServices.titles();
-    }
-
-    public RpNamesPeopleBookScreen(Screen parent, String selectAccount) {
-        this(parent);
-        this.pendingSelectAccount = selectAccount;
-    }
-
-    /**
-     * Personenbuch beim Eintrag einer Person öffnen (Shift-Klick im Chat /
-     * Shift-Rechtsklick auf Spieler). Legt den Eintrag bei Bedarf an.
-     */
-    public static void openFor(Screen parent, String rawName, String uuid) {
-        LocalRpIdentityStore store = RpNamesServices.store();
-        if (store == null || rawName == null || rawName.isBlank()) {
-            return;
-        }
-        LocalRpProfile existing = RpNamesServices.findProfileByAnyName(rawName.trim());
-        String account = existing != null ? existing.accountName : rawName.trim();
-        store.ensureSeen(account, uuid,
-                de.ottoextra.rpnames.model.RpNameSource.SEEN_ONLINE);
-        MinecraftClient.getInstance().setScreen(new RpNamesPeopleBookScreen(parent, account));
     }
 
     // ---- Adaptives Layout -------------------------------------
@@ -264,20 +220,9 @@ public final class RpNamesPeopleBookScreen extends Screen {
     }
 
     private int editW() {
-        int right = previewVisible() ? previewX() - 8 : panelX() + panelW() - 8;
+        boolean preview = previewVisible();
+        int right = preview ? previewX() - 8 : panelX() + panelW() - 8;
         return right - editX();
-    }
-
-    /** Breite der Eingabe-Felder im Editor (gekappt, damit rechts Platz fürs
-     *  3D-Modell bleibt). Account-Label nutzt 50px links der Felder. */
-    private int peopleFieldsW() {
-        int avail = editW() - 50;
-        return Math.max(120, Math.min(avail, 210));
-    }
-
-    /** Linke Kante der 3D-Modell-Spalte (rechts neben den Feldern). */
-    private int modelX() {
-        return editX() + 50 + peopleFieldsW() + 12;
     }
 
     private boolean previewVisible() {
@@ -316,31 +261,11 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 .dimensions(width / 2 - 75, height - 26, 150, 20).build());
 
         switch (tab) {
-            case PEOPLE -> {
-                initPeople();
-                selectPendingIfAny();
-            }
+            case PEOPLE -> initPeople();
             case TITLES -> initTitles();
             case GROUPS -> initGroups();
             case IMPORT -> initImport();
         }
-    }
-
-    /** Vorauswahl per openFor: Person filtern + im Editor selektieren. */
-    private void selectPendingIfAny() {
-        if (pendingSelectAccount == null) {
-            return;
-        }
-        LocalRpProfile p = store != null ? store.findByName(pendingSelectAccount).orElse(null) : null;
-        pendingSelectAccount = null;
-        if (p == null) {
-            return;
-        }
-        if (searchField != null) {
-            searchField.setText(p.accountName);
-        }
-        refilter();
-        select(p);
     }
 
     private int tabButton(int x, int y, String key, Tab target) {
@@ -378,7 +303,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
 
         int labelW = 50;
         int x = editX() + labelW;
-        int w = peopleFieldsW();
+        int w = editW() - labelW;
         int y = contentY() + 12;
 
         rpNameField = new TextFieldWidget(textRenderer, x, y, w, 16, Text.empty());
@@ -1273,9 +1198,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
 
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
-        // Neues Design: gedimmter/geblurrter Vanilla-Hintergrund + Widgets zuerst
-        // (wie OttoExtraSettingsScreen), Inhalt darüber.
-        super.render(ctx, mouseX, mouseY, delta);
+        ctx.fill(0, 0, width, height, COL_BG);
         ctx.drawCenteredTextWithShadow(textRenderer, getTitle(), width / 2, 8, COL_TITLE);
 
         if (tab != Tab.IMPORT) {
@@ -1287,7 +1210,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
         }
         if (tab == Tab.PEOPLE) {
             renderPeopleLabels(ctx);
-            renderPlayerModel(ctx, mouseX, mouseY);
             if (previewVisible()) {
                 renderPreview(ctx);
             }
@@ -1322,6 +1244,8 @@ public final class RpNamesPeopleBookScreen extends Screen {
             ctx.drawText(textRenderer, textRenderer.trimToWidth(statusLine, panelW() - 80),
                     listX(), contentBottom() - 10, COL_MUTED, false);
         }
+
+        super.render(ctx, mouseX, mouseY, delta);
 
         // Filter-Dropdown-Overlay (liegt über Liste/Editor)
         if (filterDropdownOpen && tab != Tab.IMPORT) {
@@ -1514,117 +1438,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
         }
         out.add(current.toString());
         return out;
-    }
-
-    // ---- 3D-Spielervorschau ----------------------------------------------------
-
-    /** Stehender 3D-Spieler unten in der Vorschau: leichte Drehung + Kopf folgt Maus. */
-    private void renderPlayerModel(DrawContext ctx, int mouseX, int mouseY) {
-        if (selected == null) {
-            return;
-        }
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client.world == null) {
-            return;
-        }
-        int x1 = modelX();
-        int x2 = (previewVisible() ? previewX() - 8 : panelX() + panelW() - 8);
-        if (x2 - x1 < 60) {
-            return; // zu schmal -> kein Platz fürs Modell
-        }
-        int boxTop = contentY() + 12;
-        int boxBottom = listBottom();
-        ensurePreviewEntity(client);
-        if (previewEntity == null) {
-            return;
-        }
-        ctx.fill(x1, boxTop, x2, boxBottom, 0x50000000);
-        // Spielername groß über dem Modell (RP-Name, sonst Account)
-        String displayName = selected.hasRpName() ? selected.rpName : selected.accountName;
-        float nameScale = 1.5f;
-        int cx = (x1 + x2) / 2;
-        var m = ctx.getMatrices();
-        m.pushMatrix();
-        m.translate(cx, boxTop + 4);
-        m.scale(nameScale, nameScale);
-        ctx.drawCenteredTextWithShadow(textRenderer, Text.literal(displayName), 0, 0, COL_TITLE);
-        m.popMatrix();
-        // Skalierung an Höhe UND Breite koppeln (Vollkörper passt)
-        int size = (int) Math.min((boxBottom - boxTop) * 0.32f, (x2 - x1) * 0.8f);
-        float sway = (float) Math.sin(System.currentTimeMillis() / 1400.0) * 25f;
-        try {
-            net.minecraft.client.gui.screen.ingame.InventoryScreen.drawEntity(
-                    ctx, x1, boxTop + 24, x2, boxBottom - 6, size, 0.0f,
-                    mouseX - sway, mouseY, previewEntity);
-        } catch (Throwable ignored) {
-            // Render darf das Buch nie brechen
-        }
-    }
-
-    /** Dummy-Spieler (Skin aus UUID/Account) für die 3D-Vorschau, gecacht je Account. */
-    private void ensurePreviewEntity(MinecraftClient client) {
-        String key = selected.accountName;
-        if (key == null || key.isBlank()) {
-            previewEntity = null;
-            return;
-        }
-        if (key.equals(previewEntityKey) && previewEntity != null) {
-            return;
-        }
-        previewEntityKey = key;
-        previewEntity = null;
-        try {
-            // Skin vom Server (Player-List-Profil mit Texturen); Mojang nur Backup
-            com.mojang.authlib.GameProfile profile = serverProfile(client, key);
-            boolean fallback = false;
-            if (profile == null) {
-                java.util.UUID uuid;
-                if (selected.uuid != null && !selected.uuid.isBlank()) {
-                    uuid = java.util.UUID.fromString(selected.uuid); // echte UUID -> Mojang-Skin
-                } else {
-                    uuid = FALLBACK_SKIN_UUID; // nie online / keine Textur -> Marken-Fallback
-                    fallback = true;
-                }
-                profile = new com.mojang.authlib.GameProfile(uuid, key);
-            }
-            final boolean useFallback = fallback;
-            net.minecraft.client.network.OtherClientPlayerEntity entity =
-                    new net.minecraft.client.network.OtherClientPlayerEntity(client.world, profile) {
-                        @Override
-                        public net.minecraft.entity.player.SkinTextures getSkin() {
-                            return useFallback ? fallbackSkin() : super.getSkin();
-                        }
-                    };
-            // 2nd-Layer nur bei echtem Skin; Fallback-Textur ist ohne Overlay
-            entity.getDataTracker().set(
-                    de.ottoextra.mixin.PlayerCustomizationAccessor.ottoextra$customization(),
-                    (byte) (useFallback ? 0x00 : 0x7F));
-            previewEntity = entity;
-        } catch (Throwable t) {
-            previewEntity = null;
-            de.ottoextra.OttoExtra.LOGGER.warn("[rpnames] 3D-Vorschau fuer {} fehlgeschlagen: {}",
-                    key, t.toString());
-        }
-    }
-
-    /** Server-seitiges Profil (mit Skin-Texturen) aus der Player-Liste, oder null. */
-    private com.mojang.authlib.GameProfile serverProfile(MinecraftClient client, String account) {
-        var nh = client.getNetworkHandler();
-        if (nh == null) {
-            return null;
-        }
-        net.minecraft.client.network.PlayerListEntry entry = null;
-        if (selected.uuid != null && !selected.uuid.isBlank()) {
-            try {
-                entry = nh.getPlayerListEntry(java.util.UUID.fromString(selected.uuid));
-            } catch (IllegalArgumentException ignored) {
-                // ungültige UUID -> per Name versuchen
-            }
-        }
-        if (entry == null) {
-            entry = nh.getPlayerListEntry(account);
-        }
-        return entry != null ? entry.getProfile() : null;
     }
 
     // ---- Live-Vorschau (echte Formatter) -------------------------

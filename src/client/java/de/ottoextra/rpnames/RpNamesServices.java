@@ -71,6 +71,52 @@ public final class RpNamesServices {
         return active && store != null && config != null && config.enabled;
     }
 
+    /** Shift-Klick (Chat/Spieler) öffnet das RP-Personenbuch? */
+    public static boolean openBookOnClickEnabled() {
+        return isActive() && config.openBookOnClick;
+    }
+
+    /**
+     * Profil per Account- ODER RP-Name finden (für Chat-Klick: sichtbarer Name
+     * kann beides sein). Account-Treffer hat Vorrang.
+     */
+    public static de.ottoextra.rpnames.model.LocalRpProfile findProfileByAnyName(String name) {
+        if (store == null || name == null || name.isBlank()) {
+            return null;
+        }
+        String trimmed = name.trim();
+        var byAccount = store.findByName(trimmed);
+        if (byAccount.isPresent()) {
+            return byAccount.get();
+        }
+        // Klick-Style trägt oft "Titel RP-Name" (aus dem Hover) — daher auch
+        // Suffix-Treffer auf rpName/Account zulassen, längster Treffer gewinnt.
+        String low = trimmed.toLowerCase(java.util.Locale.ROOT);
+        de.ottoextra.rpnames.model.LocalRpProfile best = null;
+        int bestLen = 0;
+        for (de.ottoextra.rpnames.model.LocalRpProfile p : store.all()) {
+            int len = matchLen(low, p.rpName);
+            if (len == 0) {
+                len = matchLen(low, p.accountName);
+            }
+            if (len > bestLen) {
+                bestLen = len;
+                best = p;
+            }
+        }
+        return best;
+    }
+
+    /** Länge des Treffers, wenn {@code candidate} gleich {@code low} ist oder als
+     *  letztes Wort darin endet (" name"); sonst 0. */
+    private static int matchLen(String low, String candidate) {
+        if (candidate == null || candidate.isBlank()) {
+            return 0;
+        }
+        String c = candidate.trim().toLowerCase(java.util.Locale.ROOT);
+        return low.equals(c) || low.endsWith(" " + c) ? c.length() : 0;
+    }
+
     /**
      * Anzeige für unbekannten RP-Namen: Accountname oder
      * konfigurierter Platzhalter ("Unbekannt", "???", ...). Gilt einheitlich

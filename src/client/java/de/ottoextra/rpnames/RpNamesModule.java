@@ -77,6 +77,23 @@ public final class RpNamesModule implements OttoExtraModule {
                 net.minecraft.client.option.KeyBinding.Category.MISC);
         net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper.registerKeyBinding(peopleKey);
 
+        // Shift-Rechtsklick auf einen Spieler öffnet das RP-Personenbuch
+        // (nur wenn aktiviert). Nur Haupthand, um Doppel-Trigger zu vermeiden.
+        net.fabricmc.fabric.api.event.player.UseEntityCallback.EVENT.register(
+                (player, world, hand, entity, hitResult) -> {
+                    if (!world.isClient() || hand != net.minecraft.util.Hand.MAIN_HAND
+                            || !RpNamesServices.openBookOnClickEnabled()
+                            || !player.isSneaking()
+                            || !(entity instanceof net.minecraft.entity.player.PlayerEntity target)) {
+                        return net.minecraft.util.ActionResult.PASS;
+                    }
+                    String account = target.getGameProfile().name();
+                    String uuid = target.getUuid() != null ? target.getUuid().toString() : null;
+                    net.minecraft.client.MinecraftClient.getInstance().execute(() ->
+                            de.ottoextra.rpnames.ui.RpNamesPeopleBookScreen.openFor(null, account, uuid));
+                    return net.minecraft.util.ActionResult.SUCCESS;
+                });
+
         OttoExtra.LOGGER.info("[rpnames] initialisiert (lokales Bekanntschaftssystem, {} Personen).",
                 RpNamesServices.store().size());
     }

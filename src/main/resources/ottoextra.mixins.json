@@ -10,7 +10,9 @@
     "PlayerEntityRendererMixin",
     "EntityRendererMixin",
     "ChatScreenMixin",
-    "ChatCommandSyncMixin"
+    "ChatPlayerClickMixin",
+    "ChatCommandSyncMixin",
+    "PlayerCustomizationAccessor"
   ],
   "injectors": {
     "defaultRequire": 1

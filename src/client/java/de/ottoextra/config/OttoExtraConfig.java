@@ -280,6 +280,9 @@ public final class OttoExtraConfig {
         /** Titel auch ohne RP-Namen-Ersetzung in der Tabliste voranstellen. */
         public boolean tablistTitlesAlways = true;
         public boolean tablistShowAccountForUnknown = true;
+        /** Shift-Klick auf Spielernamen im Chat / Shift-Rechtsklick auf Spieler
+         *  öffnet das RP-Personenbuch beim Eintrag der Person. */
+        public boolean openBookOnClick = false;
         // API ist optional — Default aus (lokales Bekanntschaftssystem)
         public boolean syncFromPublicApi = true;
         /** Standardmäßig aus: keine personenbezogenen Daten ungefragt hochladen. */
