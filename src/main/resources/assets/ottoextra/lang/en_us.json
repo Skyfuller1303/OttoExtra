@@ -149,6 +149,8 @@
   "ottoextra.meet.yes": "Yes, save",
   "ottoextra.meet.no": "No",
   "ottoextra.meet.edit": "Edit name",
+  "ottoextra.config.chat.shiftTab": "Shift+Tab cycles channel",
+  "ottoextra.set.chat.shiftTab.tip": "Shift+Tab in chat cycles the channel (instead of vanilla player-name autocomplete). Default: on.",
   "ottoextra.set.rpn.marker": "Meet marker (3D)",
   "ottoextra.set.rpn.marker.desc": "Appearance of the 3D exclamation mark above unknown RP speakers.",
   "ottoextra.config.rpnames.markerGlow": "Glow (fullbright)",

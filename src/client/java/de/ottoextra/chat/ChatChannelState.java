@@ -59,6 +59,11 @@ public final class ChatChannelState {
         return config != null && config.enabled && onOttonien.getAsBoolean();
     }
 
+    /** Shift+Tab soll den Kanal wechseln (Modul an + auf Ottonien + Option an)? */
+    public static boolean shiftTabCycleEnabled() {
+        return buttonActive() && config.shiftTabCycleChannels;
+    }
+
     public static ChatChannel current() {
         return currentChannel;
     }

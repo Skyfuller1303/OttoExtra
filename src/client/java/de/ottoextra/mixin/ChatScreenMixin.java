@@ -40,8 +40,13 @@ public abstract class ChatScreenMixin {
     private void ottoextra$shiftTabChannel(KeyInput input, CallbackInfoReturnable<Boolean> cir) {
         if (input.key() == GLFW.GLFW_KEY_TAB
                 && (input.modifiers() & GLFW.GLFW_MOD_SHIFT) != 0
-                && ChatChannelState.buttonActive()) {
-            ChatChannelState.cycleAllChannels();
+                && ChatChannelState.shiftTabCycleEnabled()) {
+            // immer abfangen -> kein Vanilla-Autofill der Spielernamen bei Shift+Tab
+            try {
+                ChatChannelState.cycleAllChannels();
+            } catch (Throwable ignored) {
+                // Chat darf nie brechen
+            }
             cir.setReturnValue(true);
         }
     }

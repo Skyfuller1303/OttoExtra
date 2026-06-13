@@ -149,6 +149,8 @@
   "ottoextra.meet.yes": "Ja, speichern",
   "ottoextra.meet.no": "Nein",
   "ottoextra.meet.edit": "Namen bearbeiten",
+  "ottoextra.config.chat.shiftTab": "Shift+Tab wechselt Kanal",
+  "ottoextra.set.chat.shiftTab.tip": "Shift+Tab im Chat wechselt den Kanal (statt Vanilla-Autovervollständigung der Spielernamen). Standard: an.",
   "ottoextra.set.rpn.marker": "Kennenlern-Marker (3D)",
   "ottoextra.set.rpn.marker.desc": "Aussehen des 3D-Ausrufezeichens über unbekannten RP-Sprechern.",
   "ottoextra.config.rpnames.markerGlow": "Leuchten (Fullbright)",

@@ -243,7 +243,10 @@ public final class SettingsRegistry {
                         () -> c.chat.enabled, v -> c.chat.enabled = v),
                 Option.bool("ottoextra.config.chat.autoSprechen", "chat.autoSprechenOnJoin",
                         () -> c.chat.autoSprechenOnJoin, v -> c.chat.autoSprechenOnJoin = v)
-                        .tooltip("ottoextra.set.chat.autoSprechen.tip"));
+                        .tooltip("ottoextra.set.chat.autoSprechen.tip"),
+                Option.bool("ottoextra.config.chat.shiftTab", "chat.shiftTabCycleChannels",
+                        () -> c.chat.shiftTabCycleChannels, v -> c.chat.shiftTabCycleChannels = v)
+                        .tooltip("ottoextra.set.chat.shiftTab.tip"));
         card(chatBase, "ottoextra.set.chat.bang", "ottoextra.set.chat.bang.desc",
                 Option.bool("ottoextra.config.chat.bang", "chat.offtopicBangEnabled",
                         () -> c.chat.offtopicBangEnabled, v -> c.chat.offtopicBangEnabled = v),
@@ -417,6 +420,8 @@ public final class SettingsRegistry {
         // RP-Namen
         var rpn = r.module("rpnames", "ottoextra.module.rpnames", "ottoextra.set.rpn.desc");
         var rpnBase = tab(rpn, "ottoextra.set.tab.base");
+        card(rpnBase, "ottoextra.set.rpn.people", "ottoextra.set.rpn.people.desc",
+                Option.action("ottoextra.config.rpnames.people", "rpnames.people", openPeopleBook));
         card(rpnBase, "ottoextra.set.rpn.chat", "ottoextra.set.rpn.chat.desc",
                 Option.bool("ottoextra.config.module.rpnames", "rpnames.enabled",
                         () -> c.rpnames.enabled, v -> c.rpnames.enabled = v),
@@ -460,8 +465,6 @@ public final class SettingsRegistry {
                 Option.bool("ottoextra.config.rpnames.tablistTitles", "rpnames.tablistTitlesAlways",
                         () -> c.rpnames.tablistTitlesAlways, v -> c.rpnames.tablistTitlesAlways = v)
                         .tooltip("ottoextra.set.rpn.tablistTitles.tip"));
-        card(rpnBase, "ottoextra.set.rpn.people", "ottoextra.set.rpn.people.desc",
-                Option.action("ottoextra.config.rpnames.people", "rpnames.people", openPeopleBook));
 
         // Brief
         var letter = r.module("letter", "ottoextra.module.letter", "ottoextra.set.letter.desc");

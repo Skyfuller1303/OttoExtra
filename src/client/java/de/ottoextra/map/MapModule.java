@@ -48,6 +48,10 @@ public final class MapModule implements OttoExtraModule {
         // Gefolge-Farb-Overrides aus der Config anwenden (ModMenu-Liste)
         PoliticalOverlay.setUserGroupColors(cfg.groupColors);
 
+        // PaintedMap wird vom GuiMapMixin VOR der Waypoint-Ebene gezeichnet.
+        PaintedWorldMapHook.install(cfg,
+                () -> overlayVisible && (!cfg.onlyOnOttonien || context.isOnOttonien()));
+
         // Hook: nach jedem Render der Xaero-Worldmap unser Overlay zeichnen.
         // Nur Event-Registrierung im Init — kein Klassenladen/Reflection (GLFW-Lehre).
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
@@ -138,12 +142,9 @@ public final class MapModule implements OttoExtraModule {
                 try {
                     XaeroMapBridge.View view = XaeroMapBridge.view(s);
                     if (view != null) {
-                        // Composite NACH Xaeros immediate Terrain (FB enthält es jetzt):
-                        // Luma-Maske zeigt die gemalte Karte nur über unerkundetem Schwarz.
-                        if (cfg.paintedMap && !PaintedMapRenderer.isDisabled()) {
-                            PaintedMapRenderer.setUserOffset(cfg.paintedMapOffsetX, cfg.paintedMapOffsetZ);
-                            PaintedMapRenderer.render(view, s.width, s.height);
-                        }
+                        // PaintedMap rendert der GuiMapMixin VOR der Waypoint-Ebene
+                        // (PaintedWorldMapHook), damit Waypoints nicht überdeckt werden.
+                        // Hier nur noch Grenzen/Namen/Wappen/Aktivität oben drauf.
                         MapOverlayRenderer.render(drawContext, view, cfg, mouseX, mouseY);
                     }
                 } catch (Throwable t) {

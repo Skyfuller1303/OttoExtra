@@ -124,6 +124,10 @@ public final class MeetPersonScreen extends Screen {
         // (Chat-Vorschlag) bzw. bereits lokal bekannt ist.
         String title = s != null && s.title() != null && !s.title().isBlank() ? s.title()
                 : (p != null && p.title != null ? p.title : "");
+        // Kein Name bekannt (noch nicht geredet) -> auch keinen Titel vorausfüllen
+        if (name.isBlank()) {
+            title = "";
+        }
         prefillName = name;
         prefillTitle = title;
     }
@@ -218,7 +222,10 @@ public final class MeetPersonScreen extends Screen {
         // Beispiel-Schild über dem Modell: Titel + RP-Name (statt "?")
         int labelY = top + 3;
         String exTitle = liveTitle();
-        if (exTitle != null && !exTitle.isBlank()) {
+        String exName = liveName();
+        boolean nameKnown = exName != null && !exName.isBlank();
+        // Unbekannt -> nur Spielername über dem Char, kein Titel
+        if (nameKnown && exTitle != null && !exTitle.isBlank()) {
             ctx.drawCenteredTextWithShadow(textRenderer, Text.literal(exTitle),
                     cx, labelY, 0xFFD2BF6A);
             labelY += 10;

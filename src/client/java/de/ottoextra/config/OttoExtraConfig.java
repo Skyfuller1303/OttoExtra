@@ -373,6 +373,8 @@ public final class OttoExtraConfig {
         public int offtopicBangCount = 3;
         /** Beim Server-Join automatisch /s senden (Sprechen als Standard). */
         public boolean autoSprechenOnJoin = true;
+        /** Shift+Tab im Chat wechselt den Kanal (statt Vanilla-Autovervollständigung). */
+        public boolean shiftTabCycleChannels = true;
         public String voiceKey = "key.keyboard.v";
         public String helpKey = "key.keyboard.h";
         public String offtopicKey = "key.keyboard.o";

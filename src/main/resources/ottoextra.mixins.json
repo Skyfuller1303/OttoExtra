@@ -13,7 +13,8 @@
     "ChatScreenMixin",
     "ChatPlayerClickMixin",
     "ChatCommandSyncMixin",
-    "PlayerCustomizationAccessor"
+    "PlayerCustomizationAccessor",
+    "GuiMapMixin"
   ],
   "injectors": {
     "defaultRequire": 1
