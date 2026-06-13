@@ -1020,6 +1020,12 @@ public final class RpNamesPeopleBookScreen extends Screen {
         addDrawableChild(ButtonWidget.builder(Text.translatable("ottoextra.rpbook.import.all"),
                 b -> runImport(true)).dimensions(x, y, w, 18).build());
         y += 34;
+        addDrawableChild(ButtonWidget.builder(Text.translatable("ottoextra.rpbook.import.ottoplusKnown"),
+                b -> runOttoPlusImport(false)).dimensions(x, y, w, 18).build());
+        y += 34;
+        addDrawableChild(ButtonWidget.builder(Text.translatable("ottoextra.rpbook.import.ottoplusAll"),
+                b -> runOttoPlusImport(true)).dimensions(x, y, w, 18).build());
+        y += 34;
         addDrawableChild(ButtonWidget.builder(Text.translatable("ottoextra.rpbook.import.backup"), b -> {
             store.backup().ifPresentOrElse(
                     path -> statusLine = Text.translatable("ottoextra.rpbook.import.backupDone",
@@ -1050,6 +1056,30 @@ public final class RpNamesPeopleBookScreen extends Screen {
                     } else {
                         statusLine = Text.translatable("ottoextra.rpbook.import.done",
                                 result.updated(), result.created(), result.conflicts()).getString();
+                        refilter();
+                    }
+                }));
+    }
+
+    private void runOttoPlusImport(boolean createMissing) {
+        if (importRunning) {
+            return;
+        }
+        importRunning = true;
+        statusLine = Text.translatable("ottoextra.rpbook.import.running").getString();
+        MinecraftClient client = MinecraftClient.getInstance();
+        de.ottoextra.rpnames.importer.OttoPlusImporter.run(store, createMissing)
+                .whenComplete((result, error) -> client.execute(() -> {
+                    importRunning = false;
+                    if (error != null || result == null || !result.ok()) {
+                        String msg = error != null ? error.getMessage()
+                                : result != null ? result.error() : "?";
+                        statusLine = Text.translatable(
+                                "ottoextra.rpbook.import.ottoplusFailed", msg).getString();
+                    } else {
+                        statusLine = Text.translatable("ottoextra.rpbook.import.ottoplusDone",
+                                result.updated(), result.created(), result.skippedLocked())
+                                .getString();
                         refilter();
                     }
                 }));

@@ -369,6 +369,52 @@ public final class LocalRpIdentityStore {
         return changed;
     }
 
+    /**
+     * OttoPlus-Import: überschreibt rpName/title/Titelfarbe eines vorhandenen
+     * Profils autoritativ. Gesperrte Profile ({@code locked}) bleiben unberührt.
+     * Leere/"Unbekannt"-Werte löschen nie vorhandene Daten (additiv). UUID wird
+     * nur nachgetragen, nie ersetzt. Speichern debounced; Aufrufer ruft am Ende
+     * {@link #saveNow()}.
+     *
+     * @return true, wenn ein Feld geändert wurde
+     */
+    public synchronized boolean importOttoPlus(String account, String uuid, String rpName,
+                                               String title, String titleColorHex) {
+        LocalRpProfile profile = find(uuid, account).orElse(null);
+        if (profile == null || profile.locked) {
+            return false;
+        }
+        boolean changed = false;
+        if (uuid != null && !uuid.isBlank() && (profile.uuid == null || profile.uuid.isBlank())) {
+            profile.uuid = uuid;
+            index(profile);
+            changed = true;
+        }
+        if (rpName != null && !rpName.isBlank() && !rpName.equals(profile.rpName)) {
+            profile.rpName = rpName;
+            changed = true;
+        }
+        if (title != null && !title.isBlank() && !title.equals(profile.title)) {
+            profile.title = title;
+            changed = true;
+        }
+        if (titleColorHex != null && !titleColorHex.isBlank()) {
+            if (!titleColorHex.equals(profile.colors.chatTitleColor)) {
+                changed = true;
+            }
+            profile.colors.chatTitleColor = titleColorHex;
+            profile.colors.tabTitleColor = titleColorHex;
+            profile.colors.nametagTitleColor = titleColorHex;
+        }
+        if (changed) {
+            profile.knowledgeState = KnowledgeState.KNOWN;
+            profile.source = RpNameSource.IMPORTED_FROM_OTTOPLUS;
+            profile.lastUpdatedAt = System.currentTimeMillis();
+            saveSoon();
+        }
+        return changed;
+    }
+
     /** Neues Profil direkt einfügen (Importer/Migration). Respektiert vorhandene Einträge nicht — Aufrufer prüft. */
     public synchronized void insert(LocalRpProfile profile) {
         profile.repair();

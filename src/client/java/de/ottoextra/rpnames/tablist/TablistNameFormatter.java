@@ -58,7 +58,7 @@ public final class TablistNameFormatter {
             boolean[] tinted = {false};
             MutableText coloredBase = rebuildReplacing(base, account, account, defaultName, tinted);
             Text shown = tinted[0] ? coloredBase : base;
-            if (!profile.hasTitle() || base.getString().contains(profile.title)) {
+            if (!profile.hasTitle() || serverShowsTitle(base, account, null)) {
                 return tinted[0] ? shown : null;
             }
             // Neutraler Wurzelknoten: sonst erbt der Name den Titel-Style
@@ -87,13 +87,35 @@ public final class TablistNameFormatter {
         if (!replaced[0]) {
             return null; // weder Account- noch RP-Name im Original -> nichts erfinden
         }
-        // Lokalen Titel nur voranstellen, wenn der Server ihn nicht schon zeigt
+        // Lokalen Titel nur voranstellen, wenn der Server gar keinen Titel-Prefix
+        // vor dem Namen zeigt (sonst doppelter Titel — Server-Titel ist live/maßgeblich)
         if (cfg.tablistShowTitle && profile.hasTitle()
-                && !base.getString().contains(profile.title)) {
+                && !serverShowsTitle(base, account, profile.rpName)) {
             // Neutraler Wurzelknoten: sonst erbt der Name den Titel-Style
             return Text.empty().append(titlePrefix(profile)).append(rebuilt);
         }
         return rebuilt;
+    }
+
+    /**
+     * Zeigt der Server bereits einen Titel/Prefix vor dem Namen? Erkannt am
+     * nicht-leeren Text VOR dem ersten Vorkommen von Account- bzw. RP-Name im
+     * Original. So wird ein abweichender (importierter) Titel nicht zusätzlich
+     * vorangestellt.
+     */
+    private static boolean serverShowsTitle(Text base, String account, String rpName) {
+        if (base == null) {
+            return false;
+        }
+        String flat = base.getString();
+        int idx = account != null ? flat.indexOf(account) : -1;
+        if (idx < 0 && rpName != null && !rpName.isBlank()) {
+            idx = flat.indexOf(rpName);
+        }
+        if (idx <= 0) {
+            return false; // Name nicht gefunden oder steht ganz vorne -> kein Prefix
+        }
+        return !flat.substring(0, idx).trim().isEmpty();
     }
 
     /** Gefärbter Titel-Prefix nach Farbkette (Override -> Katalog -> Gruppe). */

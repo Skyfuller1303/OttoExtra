@@ -47,9 +47,10 @@ public final class ChatNameRewriter {
 
     /**
      * {@code emitted} sammelt den Klartext aller Knoten VOR dem aktuellen (Dokument-
-     * reihenfolge). Damit kann erkannt werden, ob der Server den Titel bereits
-     * inline vor den Sprechernamen gesetzt hat — dann prependt der Mod ihn nicht
-     * erneut (sonst doppelter Titel in RP-Kanälen).
+     * reihenfolge). Damit kann erkannt werden, ob der Server bereits einen Titel-
+     * Prefix vor den Sprechernamen gesetzt hat — dann prependt der Mod KEINEN Titel
+     * (sonst doppelter Titel; der Server-Titel ist live/maßgeblich, auch wenn er vom
+     * importierten abweicht).
      */
     private Text rebuild(Text node, OttoExtraConfig.RpNames cfg, boolean[] replaced,
                          StringBuilder emitted) {
@@ -58,9 +59,8 @@ public final class ChatNameRewriter {
         LocalRpProfile profile = own.isEmpty() ? null : store.findByName(own).orElse(null);
         if (profile != null && profile.showInChat
                 && (profile.hasRpName() || cfg.showUnknownAsUnknown)) {
-            boolean titleAlreadyPresent = profile.hasTitle()
-                    && endsWithTitle(emitted, profile.title);
-            copy = displayName(profile, node.getStyle(), !titleAlreadyPresent);
+            boolean serverHasTitle = serverHasTitlePrefix(emitted);
+            copy = displayName(profile, node.getStyle(), !serverHasTitle);
             replaced[0] = true;
         } else {
             copy = MutableText.of(node.getContent()).setStyle(node.getStyle());
@@ -72,13 +72,16 @@ public final class ChatNameRewriter {
         return copy;
     }
 
-    /** Endet der bisher emittierte Text (ohne nachlauf. Leerzeichen) auf dem Titel? */
-    private static boolean endsWithTitle(StringBuilder emitted, String title) {
-        if (title == null || title.isBlank()) {
-            return false;
-        }
-        String prefix = emitted.toString().trim().toLowerCase(java.util.Locale.ROOT);
-        return prefix.endsWith(title.trim().toLowerCase(java.util.Locale.ROOT));
+    /**
+     * Zeigt der Server vor dem Sprechernamen bereits einen Titel-Prefix? Erkannt am
+     * nicht-leeren Text nach dem letzten {@code ]} (Kanal-Klammer) im bisher
+     * emittierten Text. Beispiel: {@code "[Sprechen] Schwertknecht "} -> true.
+     */
+    private static boolean serverHasTitlePrefix(StringBuilder emitted) {
+        String s = emitted.toString();
+        int bracket = s.lastIndexOf(']');
+        String afterBracket = bracket >= 0 ? s.substring(bracket + 1) : s;
+        return !afterBracket.trim().isEmpty();
     }
 
     /** Klartext eines (nicht-rekursiven) Knotens inkl. bereits angehängter Kinder. */

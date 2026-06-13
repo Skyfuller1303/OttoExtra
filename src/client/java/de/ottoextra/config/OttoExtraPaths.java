@@ -43,6 +43,11 @@ public final class OttoExtraPaths {
         return root().resolve("drafts");
     }
 
+    /** Ablage für lokale Importdateien (z. B. OttoPlus-JSONs). */
+    public static Path importDir() {
+        return root().resolve("import");
+    }
+
     // ---- RP-Namen (lokales Bekanntschaftssystem) -------------------------
 
     public static Path rpnamesDir() {
