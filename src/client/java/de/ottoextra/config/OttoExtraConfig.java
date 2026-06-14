@@ -113,10 +113,10 @@ public final class OttoExtraConfig {
         /** Politische Flächen blenden oberhalb dieser Zoomstufe aus (Xaero-Anzeige unten). */
         public double politicalMaxScale = 0.6;
         /** Deckkraft des politischen Overlays in % (0-100), tagsüber. */
-        public int politicalOpacity = 100;
+        public int politicalOpacity = 90;
         /** Deckkraft des politischen Overlays nachts in % — die Karte ist dann
          *  dunkler, daher automatisch weniger Deckkraft (0-100). */
-        public int politicalOpacityNight = 50;
+        public int politicalOpacityNight = 60;
         // Dynamische Label-/Wappen-Größen: Werte an zwei Zoom-Breakpoints
         // (A = weit draussen, B = nah dran), dazwischen smooth interpoliert.
         public double labelZoomA = 0.06;
@@ -368,8 +368,8 @@ public final class OttoExtraConfig {
         public int pageModeEffectiveCharBudget = 248;
         /** Versandmodus: "PAGE" = eine /letter-Nachricht pro Buchseite (\n-kodiert,
          *  1 Seite = 1 Discord-Verkündung); "LEGACY" = eine /letter-Nachricht pro
-         *  sichtbarer Zeile (altes Verhalten). Default LEGACY (PAGE aktivierbar). */
-        public String sendMode = "LEGACY";
+         *  sichtbarer Zeile (altes Verhalten). Default PAGE; LEGACY weiterhin wählbar. */
+        public String sendMode = "PAGE";
         /** Delay zwischen Seiten im PAGE-Modus (ms). */
         public int pageModeSendDelayMs = 1200;
         /** Serverbefehle (ohne Slash) — abstrahiert, falls der Server andere nutzt. */
@@ -383,8 +383,8 @@ public final class OttoExtraConfig {
         public int announcementHardLinesPerPage = 12;
         public int announcementHardCharsPerLine = 18;
         // Anti-Spam-Timing (randomisiert, Reihenfolge bleibt)
-        public int letterSendDelayMinMs = 1100;
-        public int letterSendDelayMaxMs = 1900;
+        public int letterSendDelayMinMs = 500;
+        public int letterSendDelayMaxMs = 1200;
         public int letterPageDelayMinMs = 3000;
         public int letterPageDelayMaxMs = 5200;
     }
@@ -392,7 +392,7 @@ public final class OttoExtraConfig {
     public static final class Chat {
         public boolean enabled = true;
         /** Blinkende "!" vor [Offtopic] (Signal: öffentlicher Kanal). */
-        public boolean offtopicBangEnabled = true;
+        public boolean offtopicBangEnabled = false;
         /** Anzahl der "!" (1-3). */
         public int offtopicBangCount = 3;
         /** Beim Server-Join automatisch /s senden (Sprechen als Standard). */
