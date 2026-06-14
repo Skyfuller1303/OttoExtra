@@ -26,8 +26,9 @@ public final class LongChatSender {
     private LongChatSender() {
     }
 
-    public static synchronized void configure(int delay) {
-        delayTicks = Math.max(1, delay);
+    /** Intervall in Millisekunden -> Ticks (20 TPS, 1 Tick ≈ 50 ms). */
+    public static synchronized void configureMs(int delayMs) {
+        delayTicks = Math.max(1, Math.round(delayMs / 50.0f));
     }
 
     /** Teilstücke einreihen (Versand übernimmt {@link #tick}). */

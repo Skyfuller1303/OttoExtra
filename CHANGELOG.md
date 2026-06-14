@@ -12,6 +12,8 @@ Alle nennenswerten Änderungen an OttoExtra. Format angelehnt an
 - Titel-Editor: **Reset-Icon je Feld** (Titel, Variante 1/2, Farbe) — setzt nur
   das jeweilige Feld auf Standard zurück.
 - „Neuer Titel" als breiter Button direkt unter der Titelliste (auffälliger).
+- Lange Nachrichten: einstellbares **Absende-Intervall in Millisekunden**
+  (500–1500, Standard 800) unter Chat → Erweitert.
 
 ### Behoben
 - **Titelfarbe griff nicht überall**: Beim Speichern wurde die Katalog-Titelfarbe

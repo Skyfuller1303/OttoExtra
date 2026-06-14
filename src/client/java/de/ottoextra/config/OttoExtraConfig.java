@@ -383,8 +383,8 @@ public final class OttoExtraConfig {
         public int longChatChunk = 256;
         /** Fortsetzungs-Marker am Ende nicht-letzter Teilstücke. */
         public String longChatMarker = " >";
-        /** Versatz zwischen den Teilstücken in Ticks (20 = 1 s). */
-        public int longChatDelayTicks = 4;
+        /** Absende-Intervall zwischen Teilstücken in Millisekunden (500–1500). */
+        public int longChatDelayMs = 800;
         public String voiceKey = "key.keyboard.v";
         public String helpKey = "key.keyboard.h";
         public String offtopicKey = "key.keyboard.o";

@@ -58,7 +58,7 @@ public abstract class ChatScreenMixin {
             if (text.startsWith("/") || text.length() <= cfg.longChatChunk) {
                 return;
             }
-            de.ottoextra.chat.LongChatSender.configure(cfg.longChatDelayTicks);
+            de.ottoextra.chat.LongChatSender.configureMs(cfg.longChatDelayMs);
             de.ottoextra.chat.LongChatSender.enqueue(
                     de.ottoextra.chat.LongChatSender.split(text, cfg.longChatChunk, cfg.longChatMarker));
             ci.cancel();

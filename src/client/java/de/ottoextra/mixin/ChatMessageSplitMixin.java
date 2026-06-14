@@ -27,7 +27,7 @@ public class ChatMessageSplitMixin {
             if (content.startsWith("/") || content.length() <= cfg.longChatChunk) {
                 return;
             }
-            LongChatSender.configure(cfg.longChatDelayTicks);
+            LongChatSender.configureMs(cfg.longChatDelayMs);
             LongChatSender.enqueue(
                     LongChatSender.split(content, cfg.longChatChunk, cfg.longChatMarker));
             ci.cancel(); // Original (zu lange) Nachricht nicht senden
