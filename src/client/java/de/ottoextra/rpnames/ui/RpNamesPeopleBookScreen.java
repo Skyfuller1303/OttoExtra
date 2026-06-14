@@ -1669,16 +1669,17 @@ public final class RpNamesPeopleBookScreen extends Screen {
             return;
         }
         ctx.fill(x1, boxTop, x2, boxBottom, 0x50000000);
-        // Spielername groß über dem Modell (RP-Name, sonst Account)
-        String displayName = selected.hasRpName() ? selected.rpName : selected.accountName;
-        float nameScale = 1.5f;
+        // Titel + Spielername über dem Modell, in den Namensschild-Farben,
+        // Breite auf die Box begrenzt (skaliert sonst runter, kein Überlauf).
         int cx = (x1 + x2) / 2;
-        var m = ctx.getMatrices();
-        m.pushMatrix();
-        m.translate(cx, boxTop + 4);
-        m.scale(nameScale, nameScale);
-        ctx.drawCenteredTextWithShadow(textRenderer, Text.literal(displayName), 0, 0, COL_TITLE);
-        m.popMatrix();
+        int maxW = (x2 - x1) - 8;
+        int ly = boxTop + 3;
+        if (selected.hasTitle()) {
+            drawScaledCentered(ctx, selected.title, cx, ly, previewTitleColor(), maxW, 1.2f);
+            ly += 12;
+        }
+        String displayName = selected.hasRpName() ? selected.rpName : selected.accountName;
+        drawScaledCentered(ctx, displayName, cx, ly, previewNameColor(), maxW, 1.5f);
         // Skalierung an Höhe UND Breite koppeln (Vollkörper passt)
         int size = (int) Math.min((boxBottom - boxTop) * 0.32f, (x2 - x1) * 0.8f);
         float sway = (float) Math.sin(System.currentTimeMillis() / 1400.0) * 25f;
@@ -1689,6 +1690,55 @@ public final class RpNamesPeopleBookScreen extends Screen {
         } catch (Throwable ignored) {
             // Render darf das Buch nie brechen
         }
+    }
+
+    /** Text zentriert, bei Überbreite auf {@code maxW} herunterskaliert (max {@code baseScale}). */
+    private void drawScaledCentered(DrawContext ctx, String s, int cx, int y, int color,
+                                    int maxW, float baseScale) {
+        if (s == null || s.isEmpty()) {
+            return;
+        }
+        float wScaled = textRenderer.getWidth(s) * baseScale;
+        float scale = wScaled > maxW ? baseScale * maxW / wScaled : baseScale;
+        var m = ctx.getMatrices();
+        m.pushMatrix();
+        m.translate(cx, y);
+        m.scale(scale, scale);
+        ctx.drawCenteredTextWithShadow(textRenderer, Text.literal(s), 0, 0, color);
+        m.popMatrix();
+    }
+
+    private static int previewArgb(String hex, int def) {
+        net.minecraft.text.TextColor c =
+                de.ottoextra.rpnames.chat.ChatNameRewriter.parseColor(hex);
+        return c != null ? (0xFF000000 | c.getRgb()) : def;
+    }
+
+    private static String previewFirst(String a, String b) {
+        return a != null && !a.isBlank() ? a : b;
+    }
+
+    /** Namensschild-Titelfarbe der ausgewählten Person (Override -> Katalog -> Gruppe -> Fallback). */
+    private int previewTitleColor() {
+        var catalog = RpNamesServices.catalog();
+        String catalogColor = catalog != null
+                ? catalog.titleColor(selected.title).orElse(null) : null;
+        String groupColor = RpNamesServices.titles() != null
+                ? RpNamesServices.titles().find(selected.title)
+                        .map(r -> r.group().titleColor).orElse(null)
+                : null;
+        String fallback = catalog != null ? catalog.fallbackTitleColor() : "#a17f5f";
+        String hex = previewFirst(selected.colors.nametagTitleColor,
+                previewFirst(catalogColor, previewFirst(groupColor, fallback)));
+        return previewArgb(hex, COL_TITLE);
+    }
+
+    /** Namensschild-Namensfarbe der ausgewählten Person (Override -> Katalog-Standard). */
+    private int previewNameColor() {
+        var catalog = RpNamesServices.catalog();
+        String defaultName = catalog != null ? catalog.defaultNameColor() : "#c7a87f";
+        String hex = previewFirst(selected.colors.nametagNameColor, defaultName);
+        return previewArgb(hex, COL_TITLE);
     }
 
     /** Dummy-Spieler (Skin aus UUID/Account) für die 3D-Vorschau, gecacht je Account. */

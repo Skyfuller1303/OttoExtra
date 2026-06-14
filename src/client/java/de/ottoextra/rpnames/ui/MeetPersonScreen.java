@@ -207,6 +207,57 @@ public final class MeetPersonScreen extends Screen {
         }
     }
 
+    /** Text zentriert, bei Überbreite auf {@code maxW} herunterskaliert. */
+    private void drawScaledCentered(DrawContext ctx, String s, int cx, int y, int color, int maxW) {
+        if (s == null || s.isEmpty()) {
+            return;
+        }
+        int w = textRenderer.getWidth(s);
+        float scale = w > maxW ? (float) maxW / w : 1.0f;
+        var m = ctx.getMatrices();
+        m.pushMatrix();
+        m.translate(cx, y);
+        m.scale(scale, scale);
+        ctx.drawCenteredTextWithShadow(textRenderer, Text.literal(s), 0, 0, color);
+        m.popMatrix();
+    }
+
+    private static int argb(String hex, int def) {
+        net.minecraft.text.TextColor c =
+                de.ottoextra.rpnames.chat.ChatNameRewriter.parseColor(hex);
+        return c != null ? (0xFF000000 | c.getRgb()) : def;
+    }
+
+    private static String firstNonBlank(String a, String b) {
+        return a != null && !a.isBlank() ? a : b;
+    }
+
+    /** Namensschild-Titelfarbe für den Titel (Override -> Katalog -> Gruppe -> Fallback). */
+    private int titleColorArgb(String title) {
+        var catalog = RpNamesServices.catalog();
+        var p = RpNamesServices.store() != null
+                ? RpNamesServices.store().findByName(account).orElse(null) : null;
+        String catalogColor = catalog != null
+                ? catalog.titleColor(title).orElse(null) : null;
+        String groupColor = RpNamesServices.titles() != null
+                ? RpNamesServices.titles().find(title).map(r -> r.group().titleColor).orElse(null)
+                : null;
+        String fallback = catalog != null ? catalog.fallbackTitleColor() : "#a17f5f";
+        String hex = firstNonBlank(p != null ? p.colors.nametagTitleColor : null,
+                firstNonBlank(catalogColor, firstNonBlank(groupColor, fallback)));
+        return argb(hex, 0xFFD2BF6A);
+    }
+
+    /** Namensschild-Namensfarbe (Override -> Katalog-Standard). */
+    private int nameColorArgb() {
+        var catalog = RpNamesServices.catalog();
+        var p = RpNamesServices.store() != null
+                ? RpNamesServices.store().findByName(account).orElse(null) : null;
+        String defaultName = catalog != null ? catalog.defaultNameColor() : "#c7a87f";
+        String hex = firstNonBlank(p != null ? p.colors.nametagNameColor : null, defaultName);
+        return argb(hex, 0xFFC7A87F);
+    }
+
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
         super.render(ctx, mouseX, mouseY, delta);
@@ -219,19 +270,19 @@ public final class MeetPersonScreen extends Screen {
         int top = boxTop();
         int bottom = boxBottom();
         ctx.fill(cx - 50, top, cx + 50, bottom, 0x50000000);
-        // Beispiel-Schild über dem Modell: Titel + RP-Name (statt "?")
+        // Beispiel-Schild über dem Modell: Titel + RP-Name (statt "?"),
+        // in den Namensschild-Farben, Breite auf die Box begrenzt.
+        int maxW = 96; // Boxbreite (100) minus Rand
         int labelY = top + 3;
         String exTitle = liveTitle();
         String exName = liveName();
         boolean nameKnown = exName != null && !exName.isBlank();
         // Unbekannt -> nur Spielername über dem Char, kein Titel
         if (nameKnown && exTitle != null && !exTitle.isBlank()) {
-            ctx.drawCenteredTextWithShadow(textRenderer, Text.literal(exTitle),
-                    cx, labelY, 0xFFD2BF6A);
+            drawScaledCentered(ctx, exTitle, cx, labelY, titleColorArgb(exTitle), maxW);
             labelY += 10;
         }
-        ctx.drawCenteredTextWithShadow(textRenderer, Text.literal(headerName()),
-                cx, labelY, 0xFFC7A87F);
+        drawScaledCentered(ctx, headerName(), cx, labelY, nameColorArgb(), maxW);
         if (entity != null) {
             int size = (int) ((bottom - top) * 0.34f);
             float sway = (float) Math.sin(System.currentTimeMillis() / 1400.0) * 25f;
