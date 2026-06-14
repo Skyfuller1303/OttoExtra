@@ -161,18 +161,24 @@ public final class NametagService {
             debugOnce(accountName, "rpnames inaktiv");
             return null;
         }
+        var catalog = RpNamesServices.catalog();
+        String defaultName = catalog != null ? catalog.defaultNameColor() : "#c7a87f";
         LocalRpProfile profile = RpNamesServices.store().findByName(accountName).orElse(null);
         if (profile == null || !profile.showInNametag) {
+            // Ausgeblendet -> Vanilla. Unbekannt (kein Profil) aber Name-Anzeige an:
+            // Accountname trotzdem in Standardfarbe (nie ungefärbt), ohne Titel/RP.
+            if (profile == null && cfg.showPlayerName) {
+                debugOnce(accountName, "kein Profil -> Account in Standardfarbe");
+                return new Lines(null, colored(accountName, accountColor(cfg, defaultName)), null);
+            }
             debugOnce(accountName, profile == null ? "kein Profil" : "showInNametag=false");
             return null;
         }
         boolean hasRp = profile.hasRpName() && cfg.showRpName;
         // Unbekannte (ohne RP-Namen) bekommen keinen Titel im Namensschild
         boolean hasTitle = profile.hasTitle() && cfg.showTitle && profile.hasRpName();
-        var catalog = RpNamesServices.catalog();
-        // Server-Signalfarbe (z. B. Kampf-Rot über Team-Format) erhalten:
-        // trägt der Vanilla-Name eine Farbe, schlägt sie die Standardfarben
-        TextColor serverColor = firstColor(vanillaName);
+        // Unsere Farbe gewinnt immer — Server-/Team-Farbe (z. B. Kampf-Rot) wird
+        // bewusst NICHT mehr übernommen, damit der RP-Look konsistent bleibt.
         Text title = null;
         if (hasTitle) {
             String catalogColor = catalog != null
@@ -186,30 +192,19 @@ public final class NametagService {
         }
         // Proaktives Kennenlernen: Marker ist jetzt ein 3D-Ausrufezeichen über dem
         // Kopf (MeetMarkerRenderer) — kein "!" mehr im Namensschild.
-        String defaultName = catalog != null ? catalog.defaultNameColor() : "#c7a87f";
         Text name;
         boolean nameIsAccount = false;
         if (hasRp) {
-            MutableText n = colored(profile.rpName,
+            name = colored(profile.rpName,
                     firstNonBlank(profile.colors.nametagNameColor, defaultName));
-            if (serverColor != null) {
-                n.setStyle(Style.EMPTY.withColor(serverColor));
-            }
-            name = n;
         } else if (cfg.showRpName) {
             // RP-Name unbekannt: Accountname oder Platzhalter ("???"), einstellbar
             String shown = RpNamesServices.unknownDisplay(accountName);
             nameIsAccount = RpNamesServices.unknownShowsAccount();
-            MutableText n = colored(shown, nameIsAccount ? defaultName : "#8A8A8A");
-            if (serverColor != null) {
-                n.setStyle(Style.EMPTY.withColor(serverColor));
-            }
-            name = n;
+            name = colored(shown, nameIsAccount ? defaultName : "#8A8A8A");
         } else if (cfg.showPlayerName) {
             nameIsAccount = true;
-            name = serverColor != null
-                    ? (vanillaName != null ? vanillaName : Text.literal(accountName))
-                    : colored(accountName, accountColor(cfg, defaultName));
+            name = colored(accountName, accountColor(cfg, defaultName));
         } else {
             name = Text.empty();
         }
@@ -217,11 +212,7 @@ public final class NametagService {
         // Namenszeile schon den Accountnamen zeigt)
         Text account = null;
         if (cfg.showPlayerName && !nameIsAccount) {
-            MutableText a = colored(accountName, accountColor(cfg, defaultName));
-            if (serverColor != null) {
-                a.setStyle(Style.EMPTY.withColor(serverColor));
-            }
-            account = a;
+            account = colored(accountName, accountColor(cfg, defaultName));
         }
         if (title == null && account == null && name.getString().isEmpty()) {
             debugOnce(accountName, "alle Zeilen deaktiviert -> Vanilla");
@@ -229,23 +220,6 @@ public final class NametagService {
         }
         debugOnce(accountName, "ersetzt (rp=" + hasRp + ", titel=" + hasTitle + ")");
         return new Lines(title, name, account);
-    }
-
-    /** Erste explizite Textfarbe im Komponentenbaum (Server-Format), sonst null. */
-    private static TextColor firstColor(Text text) {
-        if (text == null) {
-            return null;
-        }
-        if (text.getStyle() != null && text.getStyle().getColor() != null) {
-            return text.getStyle().getColor();
-        }
-        for (Text sibling : text.getSiblings()) {
-            TextColor c = firstColor(sibling);
-            if (c != null) {
-                return c;
-            }
-        }
-        return null;
     }
 
     /** Konfigurierte Accountnamen-Farbe, Fallback Standard-Namensfarbe. */

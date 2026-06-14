@@ -49,7 +49,7 @@ public final class TablistNameFormatter {
             Text base = original != null ? original : Text.literal(account);
             boolean[] tinted = {false};
             MutableText t = rebuildReplacing(base, account, account, defaultName, tinted);
-            return tinted[0] ? t : null;
+            return tinted[0] ? t : tintAll(base, defaultName);
         }
 
         // RP-Namen aus: nur Titel voranstellen (mit Override-Farbe)
@@ -64,7 +64,7 @@ public final class TablistNameFormatter {
             }
             boolean[] tinted = {false};
             MutableText coloredBase = rebuildReplacing(base, account, account, defaultName, tinted);
-            return tinted[0] ? coloredBase : null;
+            return tinted[0] ? coloredBase : tintAll(base, defaultName);
         }
         String replacement;
         String color;
@@ -93,7 +93,9 @@ public final class TablistNameFormatter {
             rebuilt = rebuildReplacing(base, profile.rpName, profile.rpName, color, replaced);
         }
         if (!replaced[0]) {
-            return null; // weder Account- noch RP-Name im Original -> nichts erfinden
+            // Weder Account- noch RP-Name im Original gefunden -> kompletten Text
+            // einfärben, damit der Tab-Name nie ungefärbt (Vanilla) bleibt.
+            return tintAll(base, color);
         }
         return rebuilt;
     }
@@ -165,6 +167,25 @@ public final class TablistNameFormatter {
         }
         for (Text sibling : node.getSiblings()) {
             copy.append(rebuildReplacing(sibling, account, replacement, color, replaced));
+        }
+        return copy;
+    }
+
+    /**
+     * Letzter Ausweg: färbt den gesamten Komponentenbaum mit {@code hex} ein
+     * (überschreibt die Farbe jedes Knotens, behält sonstiges Styling). So trägt
+     * ein Tab-Name immer eine OttoExtra-Farbe — auch wenn kein Name-Substring
+     * zum gezielten Ersetzen gefunden wurde (z. B. API-/Katalog-Daten fehlen noch).
+     */
+    private static MutableText tintAll(Text node, String hex) {
+        TextColor color = de.ottoextra.rpnames.chat.ChatNameRewriter.parseColor(hex);
+        Style style = node.getStyle();
+        if (color != null) {
+            style = style.withColor(color);
+        }
+        MutableText copy = MutableText.of(node.getContent()).setStyle(style);
+        for (Text sibling : node.getSiblings()) {
+            copy.append(tintAll(sibling, hex));
         }
         return copy;
     }
