@@ -4,6 +4,27 @@ Alle nennenswerten Änderungen an OttoExtra. Format angelehnt an
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/); Versionierung nach
 [SemVer](https://semver.org/lang/de/).
 
+## [0.1.3] – 2026-06-14
+
+### Hinzugefügt
+- Titelkatalog: **eigene Kategorien** anlegbar (Name + Farbe), erscheinen sofort
+  im Kategorie-Wechsel und Filter.
+- Titel-Editor: **Reset-Icon je Feld** (Titel, Variante 1/2, Farbe) — setzt nur
+  das jeweilige Feld auf Standard zurück.
+- „Neuer Titel" als breiter Button direkt unter der Titelliste (auffälliger).
+
+### Behoben
+- **Titelfarbe griff nicht überall**: Beim Speichern wurde die Katalog-Titelfarbe
+  als Spieler-Override gebacken, sodass spätere Farbänderungen am Titel nicht mehr
+  durchschlugen (man musste die Farben beim Spieler manuell zurücksetzen). Jetzt
+  wird bei Default-Farbe kein Override gespeichert — die Farbe folgt dem Katalog
+  live; eine manuell abweichende Farbe bleibt als Override erhalten.
+- **Realistische Namensschilder**: Die Sichtprüfung verband vier Körperpunkte mit
+  UND, sodass das Schild schon bei Teilverdeckung (~50 %) verschwand. Jetzt
+  ODER-Verknüpfung — ein sichtbarer Punkt (Kopf oder Körper) genügt; das Schild
+  verschwindet erst bei voller Verdeckung.
+- Label-Versatz im Titel-Tab (durch die neue Kategorie-Zeile) korrigiert.
+
 ## [0.1.2] – 2026-06-14
 
 ### Hinzugefügt
