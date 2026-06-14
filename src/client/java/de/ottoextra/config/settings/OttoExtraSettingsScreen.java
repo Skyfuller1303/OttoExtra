@@ -341,6 +341,9 @@ public final class OttoExtraSettingsScreen extends Screen {
                                 btn -> o.action.run())
                         .dimensions(x, 0, w + 4 + RESET_W, 18).build();
             }
+            case SLIDER -> {
+                return new OptionSlider(x, w, o);
+            }
             default -> {
                 TextFieldWidget f = new TextFieldWidget(textRenderer, x, 0,
                         w, 16, Text.empty());
@@ -358,6 +361,42 @@ public final class OttoExtraSettingsScreen extends Screen {
                 });
                 return f;
             }
+        }
+    }
+
+    /** Ganzzahl-Slider (Balken) für eine {@link SettingsRegistry.Option} vom Typ SLIDER. */
+    private static final class OptionSlider extends net.minecraft.client.gui.widget.SliderWidget {
+        private final SettingsRegistry.Option opt;
+
+        OptionSlider(int x, int w, SettingsRegistry.Option o) {
+            super(x, 0, w, 18, Text.empty(), normalized(o));
+            this.opt = o;
+            updateMessage();
+        }
+
+        private static double normalized(SettingsRegistry.Option o) {
+            double v;
+            try {
+                v = Double.parseDouble(o.get.get().trim().replace(',', '.'));
+            } catch (Exception e) {
+                v = o.min;
+            }
+            double span = o.max - o.min;
+            return span <= 0 ? 0 : Math.max(0, Math.min(1, (v - o.min) / span));
+        }
+
+        private int current() {
+            return (int) Math.round(opt.min + value * (opt.max - opt.min));
+        }
+
+        @Override
+        protected void updateMessage() {
+            setMessage(Text.literal(current() + "%"));
+        }
+
+        @Override
+        protected void applyValue() {
+            opt.set.accept(String.valueOf(current()));
         }
     }
 

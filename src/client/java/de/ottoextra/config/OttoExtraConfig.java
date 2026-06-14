@@ -112,6 +112,11 @@ public final class OttoExtraConfig {
         public float labelScale = 1.0f;
         /** Politische Flächen blenden oberhalb dieser Zoomstufe aus (Xaero-Anzeige unten). */
         public double politicalMaxScale = 0.6;
+        /** Deckkraft des politischen Overlays in % (0-100), tagsüber. */
+        public int politicalOpacity = 100;
+        /** Deckkraft des politischen Overlays nachts in % — die Karte ist dann
+         *  dunkler, daher automatisch weniger Deckkraft (0-100). */
+        public int politicalOpacityNight = 50;
         // Dynamische Label-/Wappen-Größen: Werte an zwei Zoom-Breakpoints
         // (A = weit draussen, B = nah dran), dazwischen smooth interpoliert.
         public double labelZoomA = 0.06;

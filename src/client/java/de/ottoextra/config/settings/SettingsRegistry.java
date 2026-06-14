@@ -18,7 +18,7 @@ import java.util.function.Supplier;
  */
 public final class SettingsRegistry {
 
-    public enum Type { BOOL, INT, FLOAT, COLOR, STRING, COMMAND, ACTION, CYCLE }
+    public enum Type { BOOL, INT, FLOAT, COLOR, STRING, COMMAND, ACTION, CYCLE, SLIDER }
 
     /** Eine Option (typisiert, validierbar). */
     public static final class Option {
@@ -73,6 +73,17 @@ public final class SettingsRegistry {
             return new Option(labelKey, null, Type.INT, configKey,
                     () -> String.valueOf(get.get()), v -> {
                 int parsed = Integer.parseInt(v.trim());
+                set.accept((int) Math.max(min, Math.min(max, parsed)));
+            }, min, max, null, null, false);
+        }
+
+        /** Ganzzahl-Slider (Balken zum Ziehen) mit min/max. */
+        public static Option slider(String labelKey, String configKey,
+                                    Supplier<Integer> get, Consumer<Integer> set,
+                                    int min, int max) {
+            return new Option(labelKey, null, Type.SLIDER, configKey,
+                    () -> String.valueOf(get.get()), v -> {
+                int parsed = (int) Math.round(Double.parseDouble(v.trim().replace(',', '.')));
                 set.accept((int) Math.max(min, Math.min(max, parsed)));
             }, min, max, null, null, false);
         }
@@ -412,6 +423,12 @@ public final class SettingsRegistry {
                         () -> c.map.bannerMinScale, v -> c.map.bannerMinScale = v, 0.005, 8),
                 Option.doubleVal("ottoextra.adv.politicalMaxScale", "map.politicalMaxScale",
                         () -> c.map.politicalMaxScale, v -> c.map.politicalMaxScale = v, 0.01, 8),
+                Option.slider("ottoextra.config.map.politicalOpacity", "map.politicalOpacity",
+                        () -> c.map.politicalOpacity, v -> c.map.politicalOpacity = v, 0, 100)
+                        .tooltip("ottoextra.set.map.politicalOpacity.tip"),
+                Option.slider("ottoextra.config.map.politicalOpacityNight", "map.politicalOpacityNight",
+                        () -> c.map.politicalOpacityNight, v -> c.map.politicalOpacityNight = v, 0, 100)
+                        .tooltip("ottoextra.set.map.politicalOpacityNight.tip"),
                 Option.bool("ottoextra.config.map.calibrationArrows", "map.showCalibrationArrows",
                         () -> c.map.showCalibrationArrows, v -> c.map.showCalibrationArrows = v)
                         .tooltip("ottoextra.set.map.calibrationArrows.tip"));

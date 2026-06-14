@@ -179,6 +179,8 @@ public final class PoliticalOverlay {
         // (Rampe = letztes Drittel der Grenze)
         double ramp = Math.max(0.01, maxScale / 3.0);
         float zoomAlpha = clamp01((float) ((maxScale - view.effScale()) / ramp));
+        // Nutzer-Deckkraft (Slider) × Tag/Nacht-Faktor (nachts dunkler -> weniger).
+        float opacity = overlayOpacity(client);
 
         BufferBuilder buf = null;
         int quads = 0;
@@ -201,7 +203,7 @@ public final class PoliticalOverlay {
                 // Vasallen: Grundfläche nur 30% der Lehnsherr-Farbe — die
                 // Streifen (voll) liefern den Rest des Musters
                 float strength = vassalPolyKeys.contains(poly.key()) ? 0.3f : 1.0f;
-                int col = withAlpha(tint, zoomAlpha * strength);
+                int col = withAlpha(tint, zoomAlpha * strength * opacity);
                 if (poly.key().equals(hoveredKey)) {
                     col = lighten(col);
                 }
@@ -283,7 +285,7 @@ public final class PoliticalOverlay {
                             VertexFormat.DrawMode.QUADS, RenderPipelines.GUI_TEXTURED.getVertexFormat());
                 }
                 // Streifen in voller Lehnsherr-Farbe (Grundfläche darunter: 30%)
-                emitPolygonStriped(stripeBuf, poly, view, withAlpha(tint, zoomAlpha));
+                emitPolygonStriped(stripeBuf, poly, view, withAlpha(tint, zoomAlpha * opacity));
             }
             if (stripeBuf != null) {
                 BufferBuilder finalStripes = stripeBuf;
@@ -883,6 +885,37 @@ public final class PoliticalOverlay {
 
     private static float clamp01(float v) {
         return Math.max(0f, Math.min(1f, v));
+    }
+
+    /**
+     * Gesamt-Deckkraft des politischen Overlays: Nutzer-Slider (Tag) interpoliert
+     * mit dem Nacht-Slider nach Tageszeit. Nachts ist die Karte dunkler -> weniger
+     * Deckkraft (automatisch).
+     */
+    private static float overlayOpacity(MinecraftClient client) {
+        var map = de.ottoextra.config.OttoExtraConfig.active().map;
+        float day = clamp01(map.politicalOpacity / 100f);
+        float night = clamp01(map.politicalOpacityNight / 100f);
+        float t = dayFactor(client); // 1 = Tag, 0 = Nacht
+        return night + (day - night) * t;
+    }
+
+    /** Tagesanteil 0..1 (1 = heller Tag, 0 = tiefe Nacht) mit weichen Dämmerungen. */
+    private static float dayFactor(MinecraftClient client) {
+        if (client.world == null) {
+            return 1f;
+        }
+        long t = ((client.world.getTimeOfDay() % 24000L) + 24000L) % 24000L;
+        if (t < 12000L) {
+            return 1f;                          // Tag
+        }
+        if (t < 13800L) {
+            return 1f - (t - 12000L) / 1800f;   // Abenddämmerung
+        }
+        if (t < 22200L) {
+            return 0f;                          // Nacht
+        }
+        return (t - 22200L) / 1800f;            // Morgendämmerung
     }
 
     /** Mojibake-feste Normalisierung (ae/oe/ue-Faltung) — lord_name kommt aus
