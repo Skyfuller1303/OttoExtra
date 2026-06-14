@@ -88,6 +88,26 @@ public abstract class ChatScreenMixin {
     private void ottoextra$keepShifted(CallbackInfo ci) {
         // Kanalwechsel ändert die Prefix-Breite -> Feld jedes Frame nachführen
         ottoextra$applyShift();
+        ottoextra$updateMaxLength();
+    }
+
+    /**
+     * Tipplänge dynamisch: bei Befehlen ({@code /...}) NICHT über Vanilla-256
+     * anheben (sonst tippt man überlange, vom Server abgelehnte Befehle); sonst
+     * langer Chat erlaubt.
+     */
+    private void ottoextra$updateMaxLength() {
+        try {
+            var cfg = de.ottoextra.config.OttoExtraConfig.active().chat;
+            if (cfg == null || !cfg.enabled || !cfg.longChatEnabled || chatField == null) {
+                return;
+            }
+            String t = chatField.getText();
+            boolean command = t != null && t.startsWith("/");
+            chatField.setMaxLength(command ? 256 : Math.max(256, cfg.longChatMaxInput));
+        } catch (Throwable ignored) {
+            // Chat darf nie brechen
+        }
     }
 
     private void ottoextra$applyShift() {

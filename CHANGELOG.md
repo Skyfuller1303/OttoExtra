@@ -33,6 +33,11 @@ Alle nennenswerten Änderungen an OttoExtra. Format angelehnt an
 - **OttoPlus-Import** übernimmt nur noch den RP-Namen (kein Titel/keine Farbe).
 - Mehrere aktive Einstellungen als neue Standardwerte übernommen.
 
+### Behoben
+- **Langer Chat bei Befehlen**: Das angehobene Zeichenlimit griff auch bei
+  Befehlen (`/…`), sodass man überlange, vom Server abgelehnte Befehle tippen
+  konnte. Beginnt die Eingabe mit `/`, gilt wieder das Vanilla-Limit (256).
+
 ## [0.1.3] – 2026-06-14
 
 ### Hinzugefügt
