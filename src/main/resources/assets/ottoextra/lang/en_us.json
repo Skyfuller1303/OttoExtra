@@ -203,6 +203,7 @@
   "ottoextra.rpnames.people.forgetAllConfirm": "Really all?",
   "ottoextra.rpnames.people.forgetAllHint": "Click again to delete all (backup is created).",
   "ottoextra.rpnames.people.forgotAll": "All people deleted (backup in rpnames/backups).",
+  "ottoextra.menu.settings": "OttoExtra Settings",
   "ottoextra.rpbook.title": "RP People Book",
   "ottoextra.rpbook.tab.people": "People",
   "ottoextra.rpbook.tab.groups": "Groups",

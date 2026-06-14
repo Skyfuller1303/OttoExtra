@@ -57,28 +57,21 @@ public final class RpNamesPeopleBookScreen extends Screen {
 
     private enum Tab { PEOPLE, TITLES, GROUPS, IMPORT }
 
-    /** Filter-Chips des Titel-Tabs (Kategorien + Status). */
-    private enum TitleChip {
-        ALL("ottoextra.rpbook.chip.all", null),
-        SYSTEM("ottoextra.rpbook.tchip.system", "system"),
-        ADEL("ottoextra.rpbook.tchip.adel", "adel"),
-        KLERUS("ottoextra.rpbook.tchip.klerus", "klerus"),
-        VORKOSTER("ottoextra.rpbook.tchip.vorkoster", "vorkoster"),
-        CUSTOM("ottoextra.rpbook.tchip.custom", "custom"),
-        FERTIGKEIT("ottoextra.rpbook.tchip.fertigkeit", "fertigkeit"),
-        ALLGEMEIN("ottoextra.rpbook.tchip.allgemein", "allgemein"),
-        AKTIV("ottoextra.rpbook.tchip.active", null),
-        INAKTIV("ottoextra.rpbook.tchip.inactive", null),
-        MANUELL("ottoextra.rpbook.tchip.manual", null),
-        WIKI("ottoextra.rpbook.tchip.wiki", null);
+    /**
+     * Titel-Tab-Filter: feste Status-Filter + dynamisch ALLE Katalog-Kategorien
+     * (inkl. neu angelegter). IDs mit Prefix {@link #TF_CAT_PREFIX} stehen für
+     * eine Kategorie. Früher hartkodiertes Enum -> neue Kategorien waren nicht
+     * filterbar.
+     */
+    private static final String TF_ALL = "__all__";
+    private static final String TF_ACTIVE = "__active__";
+    private static final String TF_INACTIVE = "__inactive__";
+    private static final String TF_MANUAL = "__manual__";
+    private static final String TF_WIKI = "__wiki__";
+    private static final String TF_CAT_PREFIX = "cat:";
 
-        final String key;
-        final String category;
-
-        TitleChip(String key, String category) {
-            this.key = key;
-            this.category = category;
-        }
+    /** Ein Eintrag im Filter-Dropdown (ID + Anzeigename). */
+    private record FilterOption(String id, Text label) {
     }
 
     /** Filter-Chips. */
@@ -162,7 +155,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
     private String selectedGroupKey;
 
     // Titel-Tab
-    private TitleChip titleChip = TitleChip.ALL;
+    private String titleFilter = TF_ALL;
     private TextFieldWidget titleSearchField;
     private TextFieldWidget catTitleField;
     private TextFieldWidget catVariant1Field;
@@ -539,35 +532,60 @@ public final class RpNamesPeopleBookScreen extends Screen {
 
     /** Label des Filter-Dropdowns: "Filter: <aktiv>". */
     private Text filterLabel() {
-        String current = Text.translatable(tab == Tab.TITLES
-                ? titleChip.key : chip.key).getString();
-        return Text.translatable("ottoextra.rpbook.filter", current);
+        return Text.translatable("ottoextra.rpbook.filter", currentFilterLabel());
     }
 
-    /** Optionen des Dropdowns für den aktiven Tab (Schlüssel-Reihenfolge = Enum). */
-    private String[] filterOptionKeys() {
-        if (tab == Tab.TITLES) {
-            TitleChip[] v = TitleChip.values();
-            String[] keys = new String[v.length];
-            for (int i = 0; i < v.length; i++) {
-                keys[i] = v[i].key;
+    /** Anzeigename des aktuell gewählten Filters. */
+    private Text currentFilterLabel() {
+        String cur = tab == Tab.TITLES ? titleFilter : chip.name();
+        for (FilterOption o : filterOptions()) {
+            if (o.id().equals(cur)) {
+                return o.label();
             }
-            return keys;
         }
-        Chip[] v = Chip.values();
-        String[] keys = new String[v.length];
-        for (int i = 0; i < v.length; i++) {
-            keys[i] = v[i].key;
+        return Text.literal("?");
+    }
+
+    /**
+     * Dropdown-Optionen für den aktiven Tab. Titel-Tab: feste Status-Filter +
+     * dynamisch alle Katalog-Kategorien (Anzeigename = Kategorie-Label).
+     */
+    private List<FilterOption> filterOptions() {
+        List<FilterOption> opts = new ArrayList<>();
+        if (tab == Tab.TITLES) {
+            opts.add(new FilterOption(TF_ALL, Text.translatable("ottoextra.rpbook.chip.all")));
+            opts.add(new FilterOption(TF_ACTIVE, Text.translatable("ottoextra.rpbook.tchip.active")));
+            opts.add(new FilterOption(TF_INACTIVE, Text.translatable("ottoextra.rpbook.tchip.inactive")));
+            opts.add(new FilterOption(TF_MANUAL, Text.translatable("ottoextra.rpbook.tchip.manual")));
+            opts.add(new FilterOption(TF_WIKI, Text.translatable("ottoextra.rpbook.tchip.wiki")));
+            var catalog = RpNamesServices.catalog();
+            if (catalog != null) {
+                for (var entry : catalog.categories().entrySet()) {
+                    var cat = entry.getValue();
+                    String label = cat != null && cat.label != null && !cat.label.isBlank()
+                            ? cat.label : entry.getKey();
+                    opts.add(new FilterOption(TF_CAT_PREFIX + entry.getKey(), Text.literal(label)));
+                }
+            }
+            return opts;
         }
-        return keys;
+        for (Chip c : Chip.values()) {
+            opts.add(new FilterOption(c.name(), Text.translatable(c.key)));
+        }
+        return opts;
     }
 
     private void selectFilter(int index) {
+        List<FilterOption> opts = filterOptions();
+        if (index < 0 || index >= opts.size()) {
+            return;
+        }
+        String id = opts.get(index).id();
         if (tab == Tab.TITLES) {
-            titleChip = TitleChip.values()[index];
+            titleFilter = id;
             refilterTitles();
         } else {
-            chip = Chip.values()[index];
+            chip = Chip.valueOf(id);
             refilter();
         }
         listScroll = 0;
@@ -947,14 +965,15 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 .append(": " + catCategoryValue);
     }
 
-    private boolean matchesTitleChip(de.ottoextra.rpnames.title.TitleCatalogStore.Entry e) {
-        return switch (titleChip) {
-            case ALL -> true;
-            case AKTIV -> e.enabled;
-            case INAKTIV -> !e.enabled;
-            case MANUELL -> !"WIKI_IMPORT".equals(e.source);
-            case WIKI -> "WIKI_IMPORT".equals(e.source);
-            default -> titleChip.category != null && titleChip.category.equals(e.category);
+    private boolean matchesTitleFilter(de.ottoextra.rpnames.title.TitleCatalogStore.Entry e) {
+        return switch (titleFilter) {
+            case TF_ALL -> true;
+            case TF_ACTIVE -> e.enabled;
+            case TF_INACTIVE -> !e.enabled;
+            case TF_MANUAL -> !"WIKI_IMPORT".equals(e.source);
+            case TF_WIKI -> "WIKI_IMPORT".equals(e.source);
+            default -> titleFilter.startsWith(TF_CAT_PREFIX)
+                    && titleFilter.substring(TF_CAT_PREFIX.length()).equals(e.category);
         };
     }
 
@@ -963,7 +982,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         String q = titleSearchField == null ? ""
                 : titleSearchField.getText().toLowerCase(Locale.ROOT).trim();
         for (var e : RpNamesServices.catalog().all()) {
-            if (!matchesTitleChip(e)) {
+            if (!matchesTitleFilter(e)) {
                 continue;
             }
             if (q.isEmpty()
@@ -1062,7 +1081,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         e.source = "MANUAL";
         e.enabled = true;
         RpNamesServices.catalog().all().add(e);
-        titleChip = TitleChip.ALL;
+        titleFilter = TF_ALL;
         if (titleSearchField != null) {
             titleSearchField.setText("");
         }
@@ -1327,12 +1346,12 @@ public final class RpNamesPeopleBookScreen extends Screen {
         double mx = click.x();
         double my = click.y();
         if (filterDropdownOpen && tab != Tab.IMPORT) {
-            String[] keys = filterOptionKeys();
+            int count = filterOptions().size();
             int dx = dropdownX();
             int dy = dropdownY();
             int rh = dropdownRowH();
             if (click.button() == 0 && mx >= dx && mx <= dx + listW()
-                    && my >= dy && my <= dy + keys.length * rh) {
+                    && my >= dy && my <= dy + count * rh) {
                 selectFilter((int) ((my - dy) / rh));
                 return true;
             }
@@ -1462,23 +1481,24 @@ public final class RpNamesPeopleBookScreen extends Screen {
 
         // Filter-Dropdown-Overlay (liegt über Liste/Editor)
         if (filterDropdownOpen && tab != Tab.IMPORT) {
-            String[] keys = filterOptionKeys();
+            List<FilterOption> opts = filterOptions();
             int dx = dropdownX();
             int dy = dropdownY();
             int rh = dropdownRowH();
-            int dh = keys.length * rh;
+            int dh = opts.size() * rh;
             ctx.fill(dx - 1, dy - 1, dx + listW() + 1, dy + dh + 1, COL_BORDER);
             ctx.fill(dx, dy, dx + listW(), dy + dh, 0xF8232329);
-            int currentIdx = tab == Tab.TITLES ? titleChip.ordinal() : chip.ordinal();
-            for (int i = 0; i < keys.length; i++) {
+            String curId = tab == Tab.TITLES ? titleFilter : chip.name();
+            for (int i = 0; i < opts.size(); i++) {
+                FilterOption o = opts.get(i);
                 int ry = dy + i * rh;
                 boolean hover = mouseX >= dx && mouseX <= dx + listW()
                         && mouseY >= ry && mouseY < ry + rh;
                 if (hover) {
                     ctx.fill(dx, ry, dx + listW(), ry + rh, COL_SELECTED);
                 }
-                ctx.drawText(textRenderer, Text.translatable(keys[i]), dx + 4, ry + 3,
-                        i == currentIdx ? COL_ONLINE : COL_TEXT, false);
+                ctx.drawText(textRenderer, o.label(), dx + 4, ry + 3,
+                        o.id().equals(curId) ? COL_ONLINE : COL_TEXT, false);
             }
         }
     }

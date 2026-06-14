@@ -64,9 +64,25 @@ public final class OttoExtraClient implements ClientModInitializer {
         }
 
         registerLifecycle(api);
+        registerMenuButton();
 
         OttoExtra.LOGGER.info("{} bereit — {} Modul(e) aktiv.",
                 OttoExtra.MOD_NAME, context.activeModules().size());
+    }
+
+    /**
+     * Icon-Button unten links im Pause-Menü -> direkter Sprung in die
+     * OttoExtra-Einstellungen. Per Screen-Event eingehängt (kein Mixin).
+     */
+    private void registerMenuButton() {
+        net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register(
+                (client, screen, scaledWidth, scaledHeight) -> {
+                    if (screen instanceof net.minecraft.client.gui.screen.GameMenuScreen) {
+                        net.fabricmc.fabric.api.client.screen.v1.Screens.getButtons(screen).add(
+                                new de.ottoextra.config.OttoExtraMenuButton(
+                                        4, scaledHeight - 24, 20, screen));
+                    }
+                });
     }
 
     private void registerLifecycle(OttoExtraApiClient api) {
