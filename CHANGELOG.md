@@ -4,6 +4,39 @@ Alle nennenswerten Änderungen an OttoExtra. Format angelehnt an
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/); Versionierung nach
 [SemVer](https://semver.org/lang/de/).
 
+## [0.1.2] – 2026-06-14
+
+### Hinzugefügt
+- **Proaktives Kennenlernen** (optional, Standard aus): redet eine unbekannte
+  Person im RP-Chat (Sprechen/Flüstern/Rufen), schwebt ein 3D-Ausrufezeichen über
+  ihrem Kopf. Shift-Rechtsklick öffnet ein Kennenlern-GUI „Kennst du <RP-Name>?"
+  mit 3D-Charakter, Beispiel-Schild (Titel/Name) und Ja-speichern / Nein /
+  Bearbeiten. Im proaktiven Modus werden RP-Namen nicht automatisch gelernt,
+  nur als Prefill vorgeschlagen.
+- 3D-Marker aus Blockbench-Model: leuchtet (Fullbright), dreht sich um die
+  Y-Achse, wippt; Debug-Einstellungen für Höhe, Größe, Drehtempo und Glow.
+- **Shift+Tab** im Chat wechselt den Kanal (statt Spielernamen-Autovervollständigung)
+  — abschaltbar, Standard an.
+- **Lange Nachrichten**: einzeilig unbegrenzt tippen; beim Senden automatisch an
+  Wortgrenzen in mehrere Teile (≤ Limit) splitten und gestaffelt senden, sodass
+  sie wie eine große Nachricht wirken (Fortsetzungs-Marker, einstellbar).
+- Kennenlern-/Personenbuch-Vorschau zeigt den Titel über dem Namen in den
+  Namensschild-Farben; Name wird auf die Boxbreite begrenzt (kein Überlauf).
+
+### Geändert
+- „Personen verwalten" steht in den Einstellungen ganz oben unter RP-Namen.
+- Personenbuch: Änderung an RP-Name, Titel oder Farbe sperrt das Profil
+  automatisch (kein versehentliches Überschreiben durch Auto-Sync).
+
+### Behoben
+- Weltkarte: gemalte Karte (PaintedMap) wird vor der Waypoint-Ebene gerendert —
+  Waypoints werden nicht mehr von nicht aufgedecktem Gebiet überdeckt.
+- Chat: kein Titel mehr vor unbekannten Personen in RP-Kanälen; Server-Titel auch
+  im OOC ausgeblendet (kein Doppeltitel); doppelte Leerzeichen kollabieren.
+- Unbekannte Personen ohne RP-Namen: kein Titel im Namensschild.
+- Kennenlern-GUI: Titel/Name erst vorausgefüllt, wenn die Person geredet hat
+  (kein Tablist-Prefill); Editor-Felder Titel über Name, Live-Vorschau beim Tippen.
+
 ## [0.1.1] – 2026-06-13
 
 ### Hinzugefügt
