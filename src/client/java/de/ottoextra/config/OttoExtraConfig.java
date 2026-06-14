@@ -68,6 +68,10 @@ public final class OttoExtraConfig {
         public boolean showBanners = true;
         /** Gemalte Ottonien-Karte über unerkundetem Terrain (Worldmap). */
         public boolean paintedMap = true;
+        /** Einfacher Render-Pfad der gemalten Karte (ohne Screen-Copy/Custom-Shader).
+         *  Aktivieren, falls die Karte schwarz bleibt (z. B. in manchen Modpacks);
+         *  verliert Tag/Nacht-/Detail-Blending, rendert aber zuverlässig. */
+        public boolean paintedMapSimple = false;
         /** Politisches Overlay: Lehen-Flächen nach Gefolge eingefärbt (Klick = fokussieren). */
         public boolean politicalFill = true;
         /** Manueller Versatz der gemalten Karte in Blöcken (Pfeil-Buttons auf der Worldmap). */

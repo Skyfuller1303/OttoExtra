@@ -115,7 +115,11 @@ public final class PaintedMapRenderer {
         MinecraftClient client = MinecraftClient.getInstance();
         try {
             ensureResources(client);
-            if (DEBUG_SIMPLE_DRAW) {
+            // Einfacher Pfad (Config): ohne Screen-Copy/Custom-Shader, rendert die
+            // Kartentextur über GUI_TEXTURED zuverlässig (z. B. wenn das Composite
+            // im Modpack schwarz bleibt). Verliert das Tag/Nacht-/Detail-Blending.
+            if (DEBUG_SIMPLE_DRAW
+                    || de.ottoextra.config.OttoExtraConfig.active().map.paintedMapSimple) {
                 renderBackground(view, screenW, screenH);
                 return;
             }
@@ -180,6 +184,29 @@ public final class PaintedMapRenderer {
 
     // ---- Ressourcen ----------------------------------------------------------
 
+    /**
+     * Nach einem Resource-Reload (z. B. Server-Resourcepack-Aktivierung) sind die
+     * Core-Shader neu geladen — die einmalig gebaute {@code map_composite}-Pipeline
+     * wäre dann stale (gemalte Karte schwarz). Pipeline + Texturen verwerfen, damit
+     * {@link #ensureResources} sie beim nächsten Frame neu aufbaut.
+     */
+    public static void onResourceReload() {
+        pipeline = null;
+        texturesRegistered = false;
+        if (copyTexture != null) {
+            try {
+                copyTexture.close();
+            } catch (Throwable ignored) {
+                // egal
+            }
+            copyTexture = null;
+            copyView = null;
+            copyW = 0;
+            copyH = 0;
+        }
+        disabled = false;
+    }
+
     private static void ensureResources(MinecraftClient client) {
         if (pipeline == null) {
             pipeline = RenderPipeline.builder()
@@ -223,9 +250,14 @@ public final class PaintedMapRenderer {
     }
 
     private static void loadMapTexture(MinecraftClient client, Identifier id) {
-        try (var stream = client.getResourceManager().getResource(id)
-                .orElseThrow(() -> new IllegalStateException("Resource fehlt: " + id))
-                .getInputStream()) {
+        // DIREKT aus dem Mod-JAR (Classpath) laden, NICHT über den ResourceManager:
+        // Ein aktiver Server-Resourcepack (Ottonien.zip) darf die gemalte Karte
+        // nicht überschreiben/strippen (sonst schwarz). Mod-eigene Textur ist fix.
+        String path = "/assets/" + id.getNamespace() + "/" + id.getPath();
+        try (var stream = PaintedMapRenderer.class.getResourceAsStream(path)) {
+            if (stream == null) {
+                throw new IllegalStateException("Resource fehlt: " + path);
+            }
             NativeImage image = NativeImage.read(stream);
             client.getTextureManager().registerTexture(id,
                     new NativeImageBackedTexture(id::toString, image));

@@ -109,6 +109,8 @@
   "ottoextra.adv.borderWidthPx": "Linienbreite (px)",
   "ottoextra.config.map.dashed": "Strichgrafik",
   "ottoextra.config.map.painted": "Gemalte Karte",
+  "ottoextra.config.map.paintedSimple": "Gemalte Karte: einfacher Modus",
+  "ottoextra.set.map.paintedSimple.tip": "Rendert die gemalte Karte ohne Spezial-Shader. Aktivieren, falls die Karte schwarz bleibt (manche Modpacks). Ohne Tag/Nacht-Blending.",
   "ottoextra.config.map.political": "Politische Karte",
   "ottoextra.adv.dashLengthPx": "Strichlänge (px)",
   "ottoextra.adv.dashGapPx": "Strichlücke (px)",

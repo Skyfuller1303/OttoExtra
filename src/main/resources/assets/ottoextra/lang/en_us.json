@@ -109,6 +109,8 @@
   "ottoextra.adv.borderWidthPx": "Line width (px)",
   "ottoextra.config.map.dashed": "Dashed style",
   "ottoextra.config.map.painted": "Painted map",
+  "ottoextra.config.map.paintedSimple": "Painted map: simple mode",
+  "ottoextra.set.map.paintedSimple.tip": "Renders the painted map without the special shader. Enable if the map stays black (some modpacks). No day/night blending.",
   "ottoextra.config.map.political": "Political map",
   "ottoextra.adv.dashLengthPx": "Dash length (px)",
   "ottoextra.adv.dashGapPx": "Dash gap (px)",

@@ -34,6 +34,15 @@ Alle nennenswerten Änderungen an OttoExtra. Format angelehnt an
 - Mehrere aktive Einstellungen als neue Standardwerte übernommen.
 
 ### Behoben
+- **Gemalte Karte schwarz in Modpacks**: Die Worldmap-Painted-Map wurde im
+  echten Modpack (z. B. Modrinth) gar nicht gezeichnet (schwarzer Hintergrund),
+  funktionierte aber im Dev. Ursache: Der Render-Hook hing an Xaeros geerbter
+  Minecraft-Methode (`GuiMap.render`), deren Name in der ausgelieferten Mod
+  `method_25394` heißt — die Injektion wurde dort still übersprungen. Hängt jetzt
+  an Xaeros eigener `MapElementRenderHandler.render` (Name überall gleich).
+  Zusätzlich: Karten-Texturen direkt aus dem Mod-JAR (kein Override durch den
+  Server-Resourcepack), Neuaufbau der Karten-Pipeline nach Resource-Reload und
+  ein Schalter „Gemalte Karte: einfacher Modus" (Karte → Erweitert) als Fallback.
 - **Langer Chat bei Befehlen**: Das angehobene Zeichenlimit griff auch bei
   Befehlen (`/…`), sodass man überlange, vom Server abgelehnte Befehle tippen
   konnte. Beginnt die Eingabe mit `/`, gilt wieder das Vanilla-Limit (256).

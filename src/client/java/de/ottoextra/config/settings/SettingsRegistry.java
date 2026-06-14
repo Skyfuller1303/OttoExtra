@@ -433,7 +433,10 @@ public final class SettingsRegistry {
                         .tooltip("ottoextra.set.map.politicalOpacityNight.tip"),
                 Option.bool("ottoextra.config.map.calibrationArrows", "map.showCalibrationArrows",
                         () -> c.map.showCalibrationArrows, v -> c.map.showCalibrationArrows = v)
-                        .tooltip("ottoextra.set.map.calibrationArrows.tip"));
+                        .tooltip("ottoextra.set.map.calibrationArrows.tip"),
+                Option.bool("ottoextra.config.map.paintedSimple", "map.paintedMapSimple",
+                        () -> c.map.paintedMapSimple, v -> c.map.paintedMapSimple = v)
+                        .tooltip("ottoextra.set.map.paintedSimple.tip"));
         card(mapAdv, "ottoextra.set.map.hudAdv", "ottoextra.set.map.hudAdv.desc",
                 Option.intVal("ottoextra.adv.nameHudWidth", "map.nameHudWidth",
                         () -> c.map.nameHudWidth, v -> c.map.nameHudWidth = v, 20, 400),

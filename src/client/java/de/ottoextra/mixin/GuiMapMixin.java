@@ -1,43 +1,34 @@
 package de.ottoextra.mixin;
 
 import de.ottoextra.map.PaintedWorldMapHook;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
-import org.objectweb.asm.Opcodes;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
- * Rendert die gemalte Karte auf der Xaero-Weltkarte (GuiMap) direkt vor der
- * Element-/Waypoint-Ebene, damit Waypoints nicht von der Kartentextur
- * (nicht aufgedeckte Bereiche) überdeckt werden.
+ * Rendert die gemalte Karte auf der Xaero-Weltkarte direkt vor der Element-/
+ * Waypoint-Ebene (so verdeckt die Kartentextur für unerkundete Bereiche keine
+ * Waypoints).
  *
- * <p>Ziel: {@code xaero.map.gui.GuiMap#render}; Injektion an der INVOKE-Stelle
- * von {@code MapElementRenderHandler.render} (die alle On-Map-Elemente inkl.
- * Waypoints zeichnet). {@code require = 0}: fehlt Xaero oder ändert sich die
- * Methode, wird die Injektion still übersprungen, kein Crash.</p>
+ * <p>Ziel: {@code xaero.map.element.MapElementRenderHandler#render} — Xaeros
+ * EIGENE Methode (Name in dev UND prod identisch, da Xaero nicht durch
+ * Intermediary remappt wird). Frühere Variante hookte {@code GuiMap.render},
+ * eine geerbte Minecraft-Methode — deren Name ist in prod {@code method_25394},
+ * sodass die Injektion mit {@code remap=false} dort still übersprungen wurde
+ * (Karte schwarz im echten Modpack, funktionierte aber im Dev). {@code require=0}:
+ * fehlt Xaero/ändert sich die Methode, wird still übersprungen.</p>
  */
-@Mixin(targets = "xaero.map.gui.GuiMap", remap = false)
+@Mixin(targets = "xaero.map.element.MapElementRenderHandler", remap = false)
 public class GuiMapMixin {
 
-    // Anker: GETSTATIC von WorldMap.mapElementRenderHandler (direkt vor dem
-    // Element-/Waypoint-Render). Nur Xaero-Typen -> stabil in dev UND prod
-    // (Intermediary), kein MC-Klassenname im Target.
-    @Inject(
-            method = "render",
-            at = @At(
-                    value = "FIELD",
-                    target = "Lxaero/map/WorldMap;mapElementRenderHandler:"
-                            + "Lxaero/map/element/MapElementRenderHandler;",
-                    opcode = Opcodes.GETSTATIC,
-                    remap = false
-            ),
-            require = 0
-    )
-    private void ottoextra$paintedUnderElements(DrawContext context, int mouseX, int mouseY,
-                                                float delta, CallbackInfo ci) {
-        PaintedWorldMapHook.renderUnderElements((Screen) (Object) this);
+    @Inject(method = "render", at = @At("HEAD"), require = 0)
+    private void ottoextra$paintedUnderElements(CallbackInfoReturnable<Object> cir) {
+        Screen screen = MinecraftClient.getInstance().currentScreen;
+        if (screen != null) {
+            PaintedWorldMapHook.renderUnderElements(screen);
+        }
     }
 }

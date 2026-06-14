@@ -51,6 +51,23 @@ public final class MapModule implements OttoExtraModule {
         PoliticalOverlay.setUserFactionColors(cfg.factionColors);
         PoliticalOverlay.setGroupNameOverrides(cfg.groupNameOverrides);
 
+        // Nach jedem Resource-Reload (z. B. Server-Resourcepack-Aktivierung) die
+        // gemalte-Karte-Pipeline/-Texturen neu aufbauen — sonst bleibt sie schwarz.
+        net.fabricmc.fabric.api.resource.ResourceManagerHelper
+                .get(net.minecraft.resource.ResourceType.CLIENT_RESOURCES)
+                .registerReloadListener(
+                        new net.fabricmc.fabric.api.resource.SimpleSynchronousResourceReloadListener() {
+                            @Override
+                            public net.minecraft.util.Identifier getFabricId() {
+                                return OttoExtra.id("painted_map_reload");
+                            }
+
+                            @Override
+                            public void reload(net.minecraft.resource.ResourceManager manager) {
+                                PaintedMapRenderer.onResourceReload();
+                            }
+                        });
+
         // PaintedMap wird vom GuiMapMixin VOR der Waypoint-Ebene gezeichnet.
         PaintedWorldMapHook.install(cfg,
                 () -> overlayVisible && (!cfg.onlyOnOttonien || context.isOnOttonien()));
