@@ -169,6 +169,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
     private TextFieldWidget catVariant2Field;
     private TextFieldWidget catColorField;
     private ButtonWidget catCategoryButton;
+    private TextFieldWidget catNewCategoryField;
     private CheckboxWidget catEnabledCheckbox;
     private CheckboxWidget catOverrideColorCheckbox;
     private ButtonWidget catSaveButton;
@@ -749,19 +750,9 @@ public final class RpNamesPeopleBookScreen extends Screen {
             hex[i] = v != null && v.equalsIgnoreCase(normalizeHex(defaults[i]) == null
                     ? "" : normalizeHex(defaults[i])) ? null : v;
         }
-        // Titel mit "Farbe überschreibt" (Katalog): Personen-Titelfarbe ersetzen
-        var catalog = RpNamesServices.catalog();
-        if (catalog != null && !title.isBlank()) {
-            var entry = catalog.find(title).orElse(null);
-            if (entry != null && entry.overridesColor) {
-                String tc = catalog.titleColor(title).orElse(null);
-                if (tc != null && !tc.isBlank()) {
-                    hex[0] = tc; // Chat-Titel
-                    hex[2] = tc; // Tab-Titel
-                    hex[4] = tc; // Namensschild-Titel
-                }
-            }
-        }
+        // Katalog-Titelfarbe NICHT als Spieler-Override backen — Feld == Default
+        // (Katalogfarbe) bleibt null, damit spätere Katalog-Farbänderungen überall
+        // automatisch greifen. Manuell abweichende Farbe bleibt als Override erhalten.
         boolean showChat = selected.showInChat;
         boolean showTab = selected.showInTablist;
         boolean showTag = selected.showInNametag;
@@ -882,6 +873,21 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 .pos(x + w / 2 + 2, y - 1).build();
         addDrawableChild(catEnabledCheckbox);
         y += 21;
+        // Eigene Kategorie anlegen: Name eingeben + "+"
+        catNewCategoryField = new TextFieldWidget(textRenderer, x, y, w / 2 - 18, 16, Text.empty());
+        catNewCategoryField.setMaxLength(32);
+        catNewCategoryField.setSuggestion(
+                Text.translatable("ottoextra.rpbook.titles.newCategory").getString());
+        catNewCategoryField.setChangedListener(s -> catNewCategoryField.setSuggestion(
+                s.isEmpty() ? Text.translatable("ottoextra.rpbook.titles.newCategory").getString()
+                        : ""));
+        addDrawableChild(catNewCategoryField);
+        addDrawableChild(ButtonWidget.builder(Text.literal("+"), b -> addCategoryFromField())
+                .dimensions(x + w / 2 - 16, y, 16, 16)
+                .tooltip(net.minecraft.client.gui.tooltip.Tooltip.of(
+                        Text.translatable("ottoextra.rpbook.titles.newCategory.tip")))
+                .build());
+        y += 21;
         catColorField = colorField(x, y, w / 2 - 16);
         catOverrideColorCheckbox = CheckboxWidget.builder(
                 Text.translatable("ottoextra.rpbook.titles.overridesColor"), textRenderer)
@@ -895,14 +901,33 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 b -> deleteTitle()).dimensions(x + w / 2 + 2, y, w / 2 - 2, 16).build();
         addDrawableChild(catDeleteButton);
         y += 21;
+        // Reset pro Feld über Reset-Icon im jeweiligen Feld (siehe render/mouseClicked)
+        // "Neuer Titel" breit unter der Titelliste (auffälliger)
         addDrawableChild(ButtonWidget.builder(Text.translatable("ottoextra.rpbook.titles.new"),
-                b -> newTitle()).dimensions(x, y, w / 2 - 2, 16).build());
+                b -> newTitle()).dimensions(listX(), listBottom() + 2, listW(), 18).build());
 
         refilterTitles();
         if (selectedTitle != null) {
             selectTitle(selectedTitle);
         } else {
             setTitleEditEnabled(false);
+        }
+    }
+
+    /** Neue Kategorie aus dem Eingabefeld anlegen (Farbe = aktuelles Farbfeld). */
+    private void addCategoryFromField() {
+        if (catNewCategoryField == null) {
+            return;
+        }
+        String name = catNewCategoryField.getText().trim();
+        if (name.isEmpty()) {
+            return;
+        }
+        String key = RpNamesServices.catalog().addCategory(name, catColorField.getText().trim());
+        if (key != null) {
+            catCategoryValue = key;
+            catCategoryButton.setMessage(catCategoryLabel());
+            catNewCategoryField.setText("");
         }
     }
 
@@ -1338,6 +1363,25 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 return true;
             }
         }
+        // Titel-Tab: Reset-Icon je Feld -> nur dieses Feld auf Standard
+        if (tab == Tab.TITLES && selectedTitle != null && click.button() == 0) {
+            if (resetIconHit(catTitleField, mx, my)) {
+                catTitleField.setText(selectedTitle.title == null ? "" : selectedTitle.title);
+                return true;
+            }
+            if (resetIconHit(catVariant1Field, mx, my)) {
+                catVariant1Field.setText("");
+                return true;
+            }
+            if (resetIconHit(catVariant2Field, mx, my)) {
+                catVariant2Field.setText("");
+                return true;
+            }
+            if (resetIconHit(catColorField, mx, my)) {
+                catColorField.setText(categoryColor(catCategoryValue));
+                return true;
+            }
+        }
         if (tab != Tab.IMPORT && click.button() == 0 && mx >= listX() && mx <= listX() + listW()
                 && my >= currentListTop() && my <= listBottom()) {
             int idx = listScroll + (int) ((my - currentListTop()) / rowHeight());
@@ -1389,6 +1433,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
                     Text.translatable("ottoextra.rpbook.titles.variant1").getString(),
                     Text.translatable("ottoextra.rpbook.titles.variant2").getString(),
                     null, // Kategorie-Zeile (Button hat eigenes Label)
+                    null, // Neue-Kategorie-Zeile
                     Text.translatable("ottoextra.rpbook.titles.color").getString()};
             int ly = contentY() + 12;
             for (String label : fieldLabels) {
@@ -1398,6 +1443,13 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 ly += 21;
             }
             drawSwatch(ctx, catColorField);
+            if (selectedTitle != null) {
+                // Reset-Icon je Feld (nur dieses Feld auf Standard)
+                drawResetIcon(ctx, catTitleField);
+                drawResetIcon(ctx, catVariant1Field);
+                drawResetIcon(ctx, catVariant2Field);
+                drawResetIcon(ctx, catColorField);
+            }
         }
         if (tab == Tab.GROUPS) {
             renderGroupLabels(ctx);

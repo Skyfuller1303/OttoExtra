@@ -174,6 +174,27 @@ public final class TitleCatalogStore {
         });
     }
 
+    /** Neue Kategorie anlegen/aktualisieren (Schlüssel normalisiert). */
+    public synchronized String addCategory(String name, String color) {
+        if (name == null || name.isBlank()) {
+            return null;
+        }
+        String label = name.trim();
+        String key = label.toLowerCase(java.util.Locale.ROOT)
+                .replaceAll("[^a-z0-9]+", "_").replaceAll("^_+|_+$", "");
+        if (key.isEmpty()) {
+            return null;
+        }
+        Category c = model.categories.getOrDefault(key, new Category());
+        c.label = label;
+        if (color != null && !color.isBlank()) {
+            c.color = color;
+        }
+        model.categories.put(key, c);
+        save();
+        return key;
+    }
+
     public synchronized void addOrReplace(Entry entry) {
         model.titles.removeIf(t -> t.id != null && t.id.equals(entry.id));
         model.titles.add(entry);

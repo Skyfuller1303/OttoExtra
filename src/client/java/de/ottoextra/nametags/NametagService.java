@@ -130,9 +130,13 @@ public final class NametagService {
         Vec3d eye = new Vec3d(entity.getX(), entity.getEyeY(), entity.getZ());
         Vec3d upperBody = new Vec3d(entity.getX(),
                 box.minY + (box.maxY - box.minY) * 0.7, entity.getZ());
+        Vec3d lowerBody = new Vec3d(entity.getX(),
+                box.minY + (box.maxY - box.minY) * 0.3, entity.getZ());
+        // Ein sichtbarer Körperpunkt reicht (Kopf ODER Körper sichtbar -> Nametag)
         return isUnobstructed(viewer, start, eye)
-                && isUnobstructed(viewer, start, center)
-                && isUnobstructed(viewer, start, upperBody);
+                || isUnobstructed(viewer, start, center)
+                || isUnobstructed(viewer, start, upperBody)
+                || isUnobstructed(viewer, start, lowerBody);
     }
 
     private static boolean isUnobstructed(Entity viewer, Vec3d start, Vec3d end) {
