@@ -4,6 +4,24 @@ Alle nennenswerten Änderungen an OttoExtra. Format angelehnt an
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/); Versionierung nach
 [SemVer](https://semver.org/lang/de/).
 
+## [0.1.5] – 2026-06-14
+
+### Hinzugefügt
+- **Brief-Formatierung (Farben & Stile)**: optionale Formatierungs-Leiste rechts
+  neben dem Brief-Editor — schmaler Pergament-Streifen mit den 16 Minecraft-Farben
+  (8 Reihen × 2 Spalten) und Stilbuttons **B/I/U/S/R** (fett, kursiv,
+  unterstrichen, durchgestrichen, Reset). Klick fügt den Code an der
+  Cursorposition ein; der Text wird **live formatiert** angezeigt (auch über
+  automatische Zeilenumbrüche hinweg). Tooltips nennen Farbname und Code.
+  Aus der Zwischenablage eingefügte `&`-Codes werden optional zu `§` umgewandelt,
+  damit sie sofort formatiert erscheinen. Abschaltbar (Einstellungen → Brief →
+  „Formatierung").
+
+### Geändert
+- **`§`→`&`-Umwandlung beim Senden** ist jetzt zentralisiert und greift auch im
+  **LEGACY-Zeilenmodus** (vorher nur PAGE) — formatierte Briefe wurden dort sonst
+  mit rohen `§`-Codes verschickt.
+
 ## [0.1.4] – 2026-06-14
 
 ### Hinzugefügt
