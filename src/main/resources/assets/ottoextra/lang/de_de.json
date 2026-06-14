@@ -379,8 +379,6 @@
   "ottoextra.config.letter.formattingSidebar": "Leiste rechts anzeigen",
   "ottoextra.config.letter.formattingPaste": "&-Codes beim Einfügen umwandeln",
   "ottoextra.set.letter.formattingPaste.tip": "Aus der Zwischenablage eingefügte &6/&l-Codes werden zu §6/§l, damit sie live formatiert erscheinen.",
-  "ottoextra.config.letter.formattingObfuscated": "Magischen Code (§k) erlauben",
-  "ottoextra.set.letter.formattingObfuscated.tip": "§k macht Text unlesbar und wird normalerweise nicht angeboten.",
   "ottoextra.letter.placeholderResolved": "Aufgelöst: %s",
   "ottoextra.letter.placeholderUnknown": "Unbekannter Spieler: %s",
   "ottoextra.letter.placeholderStatus": "%s Platzhalter offen, %s ungültig",

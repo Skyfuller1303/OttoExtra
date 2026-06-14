@@ -243,10 +243,8 @@ public final class LetterEditorScreen extends Screen {
             return;
         }
         char c = Character.toLowerCase(code.charAt(1));
-        if (!LetterFormattingCodes.isValidCode(c)) {
-            return;
-        }
-        if (c == 'k' && !config.letter.formattingAllowObfuscated) {
+        // Magic-Code §k bewusst nicht einfügbar (macht Text unlesbar).
+        if (!LetterFormattingCodes.isValidCode(c) || c == 'k') {
             return;
         }
         insert(code);

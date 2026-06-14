@@ -379,8 +379,6 @@
   "ottoextra.config.letter.formattingSidebar": "Show sidebar on the right",
   "ottoextra.config.letter.formattingPaste": "Convert &-codes on paste",
   "ottoextra.set.letter.formattingPaste.tip": "Pasted &6/&l codes become §6/§l so they render live.",
-  "ottoextra.config.letter.formattingObfuscated": "Allow magic code (§k)",
-  "ottoextra.set.letter.formattingObfuscated.tip": "§k makes text unreadable and is normally not offered.",
   "ottoextra.letter.placeholderResolved": "Resolved: %s",
   "ottoextra.letter.placeholderUnknown": "Unknown player: %s",
   "ottoextra.letter.placeholderStatus": "%s placeholders open, %s invalid",

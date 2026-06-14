@@ -536,11 +536,7 @@ public final class SettingsRegistry {
                 Option.bool("ottoextra.config.letter.formattingPaste", "letter.formattingConvertAmpersandOnPaste",
                         () -> c.letter.formattingConvertAmpersandOnPaste,
                         v -> c.letter.formattingConvertAmpersandOnPaste = v)
-                        .tooltip("ottoextra.set.letter.formattingPaste.tip"),
-                Option.bool("ottoextra.config.letter.formattingObfuscated", "letter.formattingAllowObfuscated",
-                        () -> c.letter.formattingAllowObfuscated,
-                        v -> c.letter.formattingAllowObfuscated = v)
-                        .tooltip("ottoextra.set.letter.formattingObfuscated.tip"));
+                        .tooltip("ottoextra.set.letter.formattingPaste.tip"));
         var letterAdv = tab(letter, "ottoextra.set.tab.advanced");
         card(letterAdv, "ottoextra.set.letter.commands", "ottoextra.set.letter.commands.desc",
                 Option.command("ottoextra.set.letter.letterCommand", "letter.letterCommand",

@@ -404,8 +404,6 @@ public final class OttoExtraConfig {
         public boolean formattingSidebarVisible = true;
         /** Beim Einfügen gültige {@code &}-Codes zu {@code §} umwandeln (Live-Vorschau). */
         public boolean formattingConvertAmpersandOnPaste = true;
-        /** Magischen/verschleierten Code {@code §k} anbieten (störend, daher aus). */
-        public boolean formattingAllowObfuscated = false;
     }
 
     public static final class Chat {
