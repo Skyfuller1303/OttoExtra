@@ -162,14 +162,14 @@ public final class NametagService {
             return null;
         }
         var catalog = RpNamesServices.catalog();
-        String defaultName = catalog != null ? catalog.defaultNameColor() : "#c7a87f";
         LocalRpProfile profile = RpNamesServices.store().findByName(accountName).orElse(null);
         if (profile == null || !profile.showInNametag) {
             // Ausgeblendet -> Vanilla. Unbekannt (kein Profil) aber Name-Anzeige an:
-            // Accountname trotzdem in Standardfarbe (nie ungefärbt), ohne Titel/RP.
+            // Accountname trotzdem in Spieler-Farbkette (nie ungefärbt), ohne Titel/RP.
             if (profile == null && cfg.showPlayerName) {
                 debugOnce(accountName, "kein Profil -> Account in Standardfarbe");
-                return new Lines(null, colored(accountName, accountColor(cfg, defaultName)), null);
+                return new Lines(null, colored(accountName,
+                        accountColor(cfg, RpNamesServices.playerNameColor(null, null))), null);
             }
             debugOnce(accountName, profile == null ? "kein Profil" : "showInNametag=false");
             return null;
@@ -196,15 +196,17 @@ public final class NametagService {
         boolean nameIsAccount = false;
         if (hasRp) {
             name = colored(profile.rpName,
-                    firstNonBlank(profile.colors.nametagNameColor, defaultName));
+                    RpNamesServices.rpNameColor(profile.colors.nametagNameColor, profile.title));
         } else if (cfg.showRpName) {
             // RP-Name unbekannt: Accountname oder Platzhalter ("???"), einstellbar
             String shown = RpNamesServices.unknownDisplay(accountName);
             nameIsAccount = RpNamesServices.unknownShowsAccount();
-            name = colored(shown, nameIsAccount ? defaultName : "#8A8A8A");
+            name = colored(shown, nameIsAccount
+                    ? RpNamesServices.playerNameColor(null, profile.title) : "#8A8A8A");
         } else if (cfg.showPlayerName) {
             nameIsAccount = true;
-            name = colored(accountName, accountColor(cfg, defaultName));
+            name = colored(accountName,
+                    accountColor(cfg, RpNamesServices.playerNameColor(null, profile.title)));
         } else {
             name = Text.empty();
         }
@@ -212,7 +214,8 @@ public final class NametagService {
         // Namenszeile schon den Accountnamen zeigt)
         Text account = null;
         if (cfg.showPlayerName && !nameIsAccount) {
-            account = colored(accountName, accountColor(cfg, defaultName));
+            account = colored(accountName,
+                    accountColor(cfg, RpNamesServices.playerNameColor(null, profile.title)));
         }
         if (title == null && account == null && name.getString().isEmpty()) {
             debugOnce(accountName, "alle Zeilen deaktiviert -> Vanilla");

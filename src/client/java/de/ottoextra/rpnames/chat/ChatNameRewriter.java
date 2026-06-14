@@ -195,25 +195,25 @@ public final class ChatNameRewriter {
 
     private MutableText displayName(LocalRpProfile profile, Style baseStyle, boolean includeTitle) {
         MutableText out = Text.empty().setStyle(baseStyle == null ? Style.EMPTY : baseStyle);
-        var catalog = de.ottoextra.rpnames.RpNamesServices.catalog();
         if (includeTitle) {
             MutableText title = titleComponent(profile);
             if (title != null) {
                 out.append(title);
             }
         }
-        // Namen: rangunabhängig Standardfarbe #c7a87f, nur Spieler-Override schlägt;
-        // Unbekannt -> Accountname (#c7a87f) oder Platzhalter (grau), einstellbar
-        String defaultName = catalog != null ? catalog.defaultNameColor() : "#c7a87f";
+        // Namen-Farbkette: Personen-Override -> Titel-Namensfarbe -> global -> Katalog.
+        // Unbekannt -> Accountname (Spieler-Farbkette) oder Platzhalter (grau).
         String name;
         String nameColor;
         if (profile.hasRpName()) {
             name = profile.rpName;
-            nameColor = firstNonBlank(profile.colors.chatNameColor, defaultName);
+            nameColor = de.ottoextra.rpnames.RpNamesServices.rpNameColor(
+                    profile.colors.chatNameColor, profile.title);
         } else {
             name = de.ottoextra.rpnames.RpNamesServices.unknownDisplay(profile.accountName);
             nameColor = de.ottoextra.rpnames.RpNamesServices.unknownShowsAccount()
-                    ? defaultName : "#8A8A8A";
+                    ? de.ottoextra.rpnames.RpNamesServices.playerNameColor(null, profile.title)
+                    : "#8A8A8A";
         }
         out.append(colored(name, nameColor));
         return out;

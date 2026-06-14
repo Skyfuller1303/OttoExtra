@@ -66,6 +66,46 @@ public final class RpNamesServices {
         return config;
     }
 
+    /** Katalog-Default-Namensfarbe (Fallback), nie null. */
+    private static String catalogDefaultNameColor() {
+        var cat = catalog;
+        return cat != null ? cat.defaultNameColor() : "#c7a87f";
+    }
+
+    private static String titleNameColor(String title) {
+        var cat = catalog;
+        return cat != null ? cat.titleNameColor(title).orElse(null) : null;
+    }
+
+    private static String firstNonBlank(String... vals) {
+        for (String v : vals) {
+            if (v != null && !v.isBlank()) {
+                return v;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Farbkette RP-Name: Personen-Override → Titel-Namensfarbe → globale
+     * RP-Namensfarbe → Katalog-Default. Einheitlich für Chat/Tab/Nametag.
+     */
+    public static String rpNameColor(String personOverride, String title) {
+        String global = config != null ? config.globalRpNameColor : null;
+        return firstNonBlank(personOverride, titleNameColor(title), global,
+                catalogDefaultNameColor());
+    }
+
+    /**
+     * Farbkette Spieler-/Accountname: Personen-Override → Titel-Namensfarbe →
+     * globale Spieler-Namensfarbe → Katalog-Default.
+     */
+    public static String playerNameColor(String personOverride, String title) {
+        String global = config != null ? config.globalPlayerNameColor : null;
+        return firstNonBlank(personOverride, titleNameColor(title), global,
+                catalogDefaultNameColor());
+    }
+
     /** Modul initialisiert + auf Ottonien (Server-Gate)? */
     public static boolean isActive() {
         return active && store != null && config != null && config.enabled;

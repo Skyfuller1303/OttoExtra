@@ -161,6 +161,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
     private TextFieldWidget catVariant1Field;
     private TextFieldWidget catVariant2Field;
     private TextFieldWidget catColorField;
+    private TextFieldWidget catNameColorField;
     private ButtonWidget catCategoryButton;
     private TextFieldWidget catNewCategoryField;
     private CheckboxWidget catEnabledCheckbox;
@@ -912,6 +913,9 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 .checked(true).pos(x + w / 2 + 2, y - 1).build();
         addDrawableChild(catOverrideColorCheckbox);
         y += 21;
+        // Namensfarbe für Personen mit diesem Titel (leer = global/Standard).
+        catNameColorField = colorField(x, y, w / 2 - 16);
+        y += 21;
         catSaveButton = ButtonWidget.builder(Text.translatable("ottoextra.rpbook.save"),
                 b -> saveTitle()).dimensions(x, y, w / 2 - 2, 16).build();
         addDrawableChild(catSaveButton);
@@ -1010,6 +1014,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         // Farbe automatisch aus Kategorie-Default, Override überschreibt
         catColorField.setText(e.colorOverride != null && !e.colorOverride.isBlank()
                 ? e.colorOverride : categoryColor(catCategoryValue));
+        catNameColorField.setText(e.nameColor == null ? "" : e.nameColor);
         if (catEnabledCheckbox.isChecked() != e.enabled) {
             catEnabledCheckbox.onPress(null);
         }
@@ -1026,6 +1031,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         catVariant1Field.setEditable(enabled);
         catVariant2Field.setEditable(enabled);
         catColorField.setEditable(enabled);
+        catNameColorField.setEditable(enabled);
         catCategoryButton.active = enabled;
         catEnabledCheckbox.active = enabled;
         catOverrideColorCheckbox.active = enabled;
@@ -1052,6 +1058,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         String hex = normalizeHex(catColorField.getText());
         e.colorOverride = hex != null && hex.equalsIgnoreCase(categoryColor(catCategoryValue))
                 ? null : hex;
+        e.nameColor = normalizeHex(catNameColorField.getText());
         e.enabled = catEnabledCheckbox.isChecked();
         e.overridesColor = catOverrideColorCheckbox.isChecked();
         if (e.id == null || e.id.isBlank()) {
@@ -1400,6 +1407,10 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 catColorField.setText(categoryColor(catCategoryValue));
                 return true;
             }
+            if (resetIconHit(catNameColorField, mx, my)) {
+                catNameColorField.setText("");
+                return true;
+            }
         }
         if (tab != Tab.IMPORT && click.button() == 0 && mx >= listX() && mx <= listX() + listW()
                 && my >= currentListTop() && my <= listBottom()) {
@@ -1453,7 +1464,8 @@ public final class RpNamesPeopleBookScreen extends Screen {
                     Text.translatable("ottoextra.rpbook.titles.variant2").getString(),
                     null, // Kategorie-Zeile (Button hat eigenes Label)
                     null, // Neue-Kategorie-Zeile
-                    Text.translatable("ottoextra.rpbook.titles.color").getString()};
+                    Text.translatable("ottoextra.rpbook.titles.color").getString(),
+                    Text.translatable("ottoextra.rpbook.titles.nameColor").getString()};
             int ly = contentY() + 12;
             for (String label : fieldLabels) {
                 if (label != null) {
@@ -1462,12 +1474,14 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 ly += 21;
             }
             drawSwatch(ctx, catColorField);
+            drawSwatch(ctx, catNameColorField);
             if (selectedTitle != null) {
                 // Reset-Icon je Feld (nur dieses Feld auf Standard)
                 drawResetIcon(ctx, catTitleField);
                 drawResetIcon(ctx, catVariant1Field);
                 drawResetIcon(ctx, catVariant2Field);
                 drawResetIcon(ctx, catColorField);
+                drawResetIcon(ctx, catNameColorField);
             }
         }
         if (tab == Tab.GROUPS) {

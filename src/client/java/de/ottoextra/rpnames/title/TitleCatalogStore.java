@@ -42,6 +42,9 @@ public final class TitleCatalogStore {
         public List<String> variants = new ArrayList<>();
         public String category = "unclassified";
         public String colorOverride;
+        /** Optionale Namensfarbe für Personen mit diesem Titel (Spieler-/RP-Name).
+         *  Leer = keine; greift zwischen Personen-Override und globaler Farbe. */
+        public String nameColor;
         public String source = "MANUAL";
         public String sourceCategory = "";
         public boolean enabled = true;
@@ -161,6 +164,12 @@ public final class TitleCatalogStore {
     public String fallbackTitleColor() {
         Category c = model.categories.get("allgemein");
         return c != null && c.color != null && !c.color.isBlank() ? c.color : "#a17f5f";
+    }
+
+    /** Namensfarbe eines Titels (für Personen mit diesem Titel), oder leer. */
+    public Optional<String> titleNameColor(String title) {
+        return find(title).map(e -> e.nameColor)
+                .filter(c -> c != null && !c.isBlank());
     }
 
     /** Titel-Farbe aus dem Katalog: Override des Eintrags oder Kategorie-Farbe. */

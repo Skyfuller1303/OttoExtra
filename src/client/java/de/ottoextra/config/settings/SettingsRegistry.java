@@ -474,6 +474,13 @@ public final class SettingsRegistry {
                 Option.cycle("ottoextra.config.rpnames.unknownPlaceholder", "rpnames.unknownPlaceholder",
                         () -> c.rpnames.unknownPlaceholder, v -> c.rpnames.unknownPlaceholder = v,
                         "Unbekannt", "???"));
+        card(rpnBase, "ottoextra.set.rpn.colors", "ottoextra.set.rpn.colors.desc",
+                Option.color("ottoextra.config.rpnames.playerNameColor", "rpnames.globalPlayerNameColor",
+                        () -> c.rpnames.globalPlayerNameColor, v -> c.rpnames.globalPlayerNameColor = v)
+                        .tooltip("ottoextra.set.rpn.playerNameColor.tip"),
+                Option.color("ottoextra.config.rpnames.rpNameColor", "rpnames.globalRpNameColor",
+                        () -> c.rpnames.globalRpNameColor, v -> c.rpnames.globalRpNameColor = v)
+                        .tooltip("ottoextra.set.rpn.rpNameColor.tip"));
         card(rpnBase, "ottoextra.set.rpn.click", "ottoextra.set.rpn.click.desc",
                 Option.bool("ottoextra.config.rpnames.openBookOnClick", "rpnames.openBookOnClick",
                         () -> c.rpnames.openBookOnClick, v -> c.rpnames.openBookOnClick = v)

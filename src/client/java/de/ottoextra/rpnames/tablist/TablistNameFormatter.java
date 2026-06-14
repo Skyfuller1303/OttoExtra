@@ -40,43 +40,43 @@ public final class TablistNameFormatter {
                         gameProfile.name())
                 .orElse(null);
         String account = gameProfile.name();
-        var catalogRef = RpNamesServices.catalog();
-        String defaultName = catalogRef != null ? catalogRef.defaultNameColor() : "#c7a87f";
 
         if (profile == null || !profile.showInTablist) {
-            // Kein lokaler Eintrag/ausgeblendet: Spielername trotzdem in
-            // Standardfarbe (#c7a87f) — kein API-Leak, nur Färbung
+            // Kein lokaler Eintrag/ausgeblendet: Spielername trotzdem in der
+            // Spieler-Farbkette (Titel/global/Default) — kein API-Leak, nur Färbung.
+            String pColor = RpNamesServices.playerNameColor(null,
+                    profile != null ? profile.title : null);
             Text base = original != null ? original : Text.literal(account);
             boolean[] tinted = {false};
-            MutableText t = rebuildReplacing(base, account, account, defaultName, tinted);
-            return tinted[0] ? t : tintAll(base, defaultName);
+            MutableText t = rebuildReplacing(base, account, account, pColor, tinted);
+            return tinted[0] ? t : tintAll(base, pColor);
         }
 
         // RP-Namen aus: nur Titel voranstellen (mit Override-Farbe)
         if (!cfg.tablistEnabled) {
             Text base = original != null ? original : Text.literal(account);
+            String pColor = RpNamesServices.playerNameColor(profile.colors.tabNameColor, profile.title);
             if (profile.hasTitle()) {
                 // Eigenen Titel (Override-Farbe) + Accountname rendern, Server-Titel
                 // ersetzen -> Titelfarbe greift auch ohne RP-Namen
-                String nameColor = firstNonBlank(profile.colors.tabNameColor, defaultName);
                 return Text.empty().append(titlePrefix(profile))
-                        .append(colored(account, nameColor));
+                        .append(colored(account, pColor));
             }
             boolean[] tinted = {false};
-            MutableText coloredBase = rebuildReplacing(base, account, account, defaultName, tinted);
-            return tinted[0] ? coloredBase : tintAll(base, defaultName);
+            MutableText coloredBase = rebuildReplacing(base, account, account, pColor, tinted);
+            return tinted[0] ? coloredBase : tintAll(base, pColor);
         }
         String replacement;
         String color;
         if (profile.hasRpName()) {
-            var catalog = RpNamesServices.catalog();
             replacement = profile.rpName;
-            color = firstNonBlank(profile.colors.tabNameColor,
-                    catalog != null ? catalog.defaultNameColor() : "#c7a87f");
+            color = RpNamesServices.rpNameColor(profile.colors.tabNameColor, profile.title);
         } else {
-            // Unbekannt: Accountname (#c7a87f) oder Platzhalter (grau), einstellbar
+            // Unbekannt: Accountname (Spieler-Farbkette) oder Platzhalter (grau).
             replacement = RpNamesServices.unknownDisplay(account);
-            color = RpNamesServices.unknownShowsAccount() ? defaultName : UNKNOWN_COLOR;
+            color = RpNamesServices.unknownShowsAccount()
+                    ? RpNamesServices.playerNameColor(profile.colors.tabNameColor, profile.title)
+                    : UNKNOWN_COLOR;
         }
 
         Text base = original != null ? original : Text.literal(account);

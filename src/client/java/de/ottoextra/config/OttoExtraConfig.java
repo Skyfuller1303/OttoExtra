@@ -311,6 +311,10 @@ public final class OttoExtraConfig {
         public boolean unknownShowAccount = false;
         /** Platzhalter-Text für unbekannte RP-Namen ("Unbekannt", "???", ...). */
         public String unknownPlaceholder = "Unbekannt";
+        /** Globale Namensfarbe für Spieler-/Accountnamen (#RRGGBB). Leer = Katalog-Default. */
+        public String globalPlayerNameColor = "";
+        /** Globale Namensfarbe für RP-Namen (#RRGGBB). Leer = Katalog-Default. */
+        public String globalRpNameColor = "";
         // Tabliste
         public boolean tablistEnabled = true;
         public boolean tablistShowTitle = true;
