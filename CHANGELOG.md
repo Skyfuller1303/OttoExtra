@@ -4,6 +4,35 @@ Alle nennenswerten Änderungen an OttoExtra. Format angelehnt an
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/); Versionierung nach
 [SemVer](https://semver.org/lang/de/).
 
+## [0.1.4] – 2026-06-14
+
+### Hinzugefügt
+- **Gefolge-Liste** (Einstellungen → Karte → Basis → „Gefolge…"): alle Gefolge
+  als Liste, hierarchisch (Lehnsherr + alle Vasallen eingerückt) oder flach
+  (alle Lehen), mit Suche, Wappen und 3-zeiliger Anzeige (Gefolge / Titel /
+  Lehen). Pro Gefolge **Anzeigename** (lokaler Override — greift überall, auch
+  auf Karte/Minimap, und ist gegen automatische Updates fest) und **politische
+  Farbe** (pro Fraktion); zusätzlich **Farbe pro einzelnem Lehen**. Button
+  „Auf ganzes Gefolge anwenden" (Lehnsherr + Vasallen), Live-Farbvorschau,
+  Reset auf die ausgelieferte Standardfarbe.
+- **Brief – Seiten-Modus (PAGE)**: pro Buchseite genau ein `/letter` statt pro
+  Zeile (eine Seite = eine Discord-Verkündung). Editor mit **echtem Buch-Umbruch**
+  (pixelgenau wie das Vanilla-Buch), 12 Zeilen/Seite, Auto-Split zu langer
+  Seiten. Umschaltbar (LEGACY bleibt erhalten); seit dieser Version Standard.
+- **Empfängerliste** (Brief): Online-Spieler zuerst, mit Spielerkopf je Eintrag.
+- **Namensfarben** für Spieler- und RP-Namen global einstellbar (RP-Namen) und
+  **pro Titel** überschreibbar; einheitlich in Chat, Tabliste und Namensschild.
+- **Politisches Overlay**: Deckkraft per Schieberegler (Tag/Nacht getrennt);
+  nachts automatisch reduziert.
+- Pause-Menü: **Mod-Icon-Button** unten links öffnet die OttoExtra-Einstellungen.
+- Titel-Filter im Personenbuch zeigt jetzt **alle (auch neue) Kategorien** dynamisch.
+
+### Geändert
+- **Tab- und Namensschild-Namen** werden immer in der OttoExtra-Farbe angezeigt
+  (keine ungefärbten/Vanilla-Namen mehr; unsere Farbe schlägt Server-/Team-Farbe).
+- **OttoPlus-Import** übernimmt nur noch den RP-Namen (kein Titel/keine Farbe).
+- Mehrere aktive Einstellungen als neue Standardwerte übernommen.
+
 ## [0.1.3] – 2026-06-14
 
 ### Hinzugefügt
