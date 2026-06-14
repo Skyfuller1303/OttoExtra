@@ -26,6 +26,16 @@ public final class LetterServices {
     /** Leerzeilen-Platzhalter (Server schluckt echte Leerzeile). */
     public static final String EMPTY_LINE = "\u2007";
 
+    /** Zeilenbreite des Buchs in Pixeln (WYSIWYG-Umbruch). 108 = 18 Ziffern/Zeile,
+     *  passend zur Buchansicht (schmaler als Vanilla-114). */
+    static final int BOOK_PAGE_WIDTH = 108;
+
+    /** Breitenmesser des Client-Fonts (Pixel-Umbruch); Fallback Zeichenzahl. */
+    private static java.util.function.ToIntFunction<String> textWidth() {
+        var tr = net.minecraft.client.MinecraftClient.getInstance().textRenderer;
+        return tr != null ? tr::getWidth : (s -> s.length() * 6);
+    }
+
     private static SendProgressStore<LetterSendProgress> letterStore;
     private static SendProgressStore<AnnouncementSendProgress> announcementStore;
 
@@ -81,8 +91,7 @@ public final class LetterServices {
      */
     static List<String> buildLetterLines(OttoExtraConfig config, LetterDraft draft,
                                          List<Integer> pageIndexOut) {
-        PageSplitter wrapper = new PageSplitter(config.letter.maxCharsPerLine,
-                Integer.MAX_VALUE);
+        PageSplitter wrapper = new PageSplitter(textWidth(), BOOK_PAGE_WIDTH, Integer.MAX_VALUE);
         List<String> out = new ArrayList<>();
         for (int p = 0; p < draft.pages.size(); p++) {
             for (String line : wrapper.wrapLines(draft.pages.get(p))) {
@@ -96,9 +105,130 @@ public final class LetterServices {
         return out;
     }
 
-    /** Randomisierte Delays: Zeilen-Jitter, längere Pause bei Seitenwechsel. */
+    // ---- PAGE-Modus: eine /letter-Nachricht pro Buchseite ----------------------
+
+    /** Minecraft-Buchlimits (Java-Edition). */
+    static final int BOOK_MAX_LINES = 14;
+    static final int BOOK_MAX_EFFECTIVE_CHARS = 256;
+    /** Sicheres Chat-/Command-Limit; Prefix "letter " zählt mit. */
+    static final int SAFE_CHAT_MESSAGE_LIMIT = 256;
+
+    /** PAGE-Modus aktiv? (sonst LEGACY zeilenweise). */
+    static boolean pageMode(OttoExtraConfig config) {
+        return "PAGE".equalsIgnoreCase(config.letter.sendMode);
+    }
+
+    /** Effektive Buchzeichen: Zeilenumbruch zählt als 2. */
+    static int effectiveBookLength(String page) {
+        int count = 0;
+        for (int i = 0; i < page.length(); i++) {
+            count += page.charAt(i) == '\n' ? 2 : 1;
+        }
+        return count;
+    }
+
+    /** Zeilenanzahl einer Seite (leere Seite = 1). */
+    static int lineCount(String page) {
+        return page.isEmpty() ? 1 : page.split("\n", -1).length;
+    }
+
+    /** Gültige §-Formatcodes -> &-Codes (einmalig, vor der Längenprüfung). */
+    static String normalizeFormattingCodes(String raw) {
+        StringBuilder out = new StringBuilder(raw.length());
+        for (int i = 0; i < raw.length(); i++) {
+            char c = raw.charAt(i);
+            if (c == '§' && i + 1 < raw.length()
+                    && "0123456789abcdefklmnor".indexOf(
+                            Character.toLowerCase(raw.charAt(i + 1))) >= 0) {
+                out.append('&');
+            } else {
+                out.append(c);
+            }
+        }
+        return out.toString();
+    }
+
+    /** Payload-Kodierung: {@code \} -> {@code \\}, Zeilenumbruch -> {@code \n}. */
+    static String encodePagePayload(String raw) {
+        StringBuilder out = new StringBuilder(raw.length() + 8);
+        for (int i = 0; i < raw.length(); i++) {
+            char c = raw.charAt(i);
+            if (c == '\\') {
+                out.append("\\\\");
+            } else if (c == '\n') {
+                out.append("\\n");
+            } else {
+                out.append(c);
+            }
+        }
+        return out.toString();
+    }
+
+    /**
+     * PAGE-Modus: pro nicht-leerer Buchseite genau ein {@code /letter}-Command mit
+     * der komplett kodierten Seite ({@code \n} zwischen den sichtbaren Zeilen,
+     * Leerzeilen bleiben erhalten). Validiert Buch- und Payload-Limits; eine zu
+     * lange Seite wird NICHT still gekürzt, sondern mit Warnung übersprungen
+     * (Editor-Seiten liegen normal innerhalb der Limits).
+     */
+    static List<String> buildLetterPages(OttoExtraConfig config, LetterDraft draft,
+                                         List<Integer> pageIndexOut) {
+        // Jede Editor-Seite gegen Buch-/Payload-Limits re-paginieren (Zeichen-Budget
+        // + 14 Zeilen). Überlange Seiten werden auf Folgeseiten aufgeteilt, NICHT
+        // gekürzt — greift auch für alte (zu lang gespeicherte) Entwürfe.
+        PageSplitter wrapper = new PageSplitter(textWidth(), BOOK_PAGE_WIDTH,
+                config.letter.pageModeMaxLinesPerPage, config.letter.pageModeEffectiveCharBudget);
+        String prefix = config.letter.letterCommand + " ";
+        int payloadLimit = SAFE_CHAT_MESSAGE_LIMIT - prefix.length();
+        List<String> out = new ArrayList<>();
+        int pageNo = 0;
+        for (String draftPage : draft.pages) {
+            for (String rawPage : wrapper.split(draftPage)) {
+                if (rawPage.isBlank()) {
+                    continue; // leere (Teil-)Seite überspringen
+                }
+                String normalized = normalizeFormattingCodes(rawPage);
+                String encoded = encodePagePayload(normalized);
+                if (encoded.length() > payloadLimit
+                        || effectiveBookLength(normalized) > BOOK_MAX_EFFECTIVE_CHARS
+                        || lineCount(normalized) > BOOK_MAX_LINES) {
+                    // Sollte durch das Budget nicht passieren — Sicherheitsnetz.
+                    OttoExtra.LOGGER.warn("[letter] Teilseite zu lang (Buch={}, Zeilen={}, "
+                            + "Payload={}) — uebersprungen.", effectiveBookLength(normalized),
+                            lineCount(normalized), encoded.length());
+                    hint("ottoextra.letter.page.tooLong");
+                    continue;
+                }
+                out.add(prefix + encoded);
+                if (pageIndexOut != null) {
+                    pageIndexOut.add(pageNo);
+                }
+                pageNo++;
+            }
+        }
+        return out;
+    }
+
+    /** Versand-Commands je nach Modus (PAGE = seitenweise, LEGACY = zeilenweise). */
+    private static List<String> buildSendCommands(OttoExtraConfig config, LetterDraft draft,
+                                                  List<Integer> pageIndexOut) {
+        return pageMode(config)
+                ? buildLetterPages(config, draft, pageIndexOut)
+                : buildLetterLines(config, draft, pageIndexOut);
+    }
+
+    /** Randomisierte Delays: Zeilen-Jitter, längere Pause bei Seitenwechsel.
+     *  Im PAGE-Modus flacher fester Seiten-Delay. */
     private static long[] buildDelays(OttoExtraConfig config, List<Integer> pageIndex,
                                       int totalCommands) {
+        if (pageMode(config)) {
+            long d = Math.max(200L, config.letter.pageModeSendDelayMs);
+            long[] flat = new long[totalCommands];
+            for (int i = 1; i < totalCommands; i++) {
+                flat[i] = d;
+            }
+            return flat;
+        }
         Random random = new Random();
         long[] delays = new long[totalCommands];
         for (int i = 1; i < totalCommands; i++) {
@@ -118,7 +248,7 @@ public final class LetterServices {
     public static void startLetterSend(OttoExtraConfig config, LetterDraft draft,
                                        String recipient) {
         List<Integer> pageIndex = new ArrayList<>();
-        List<String> commands = buildLetterLines(config, draft, pageIndex);
+        List<String> commands = buildSendCommands(config, draft, pageIndex);
         commands.add(config.letter.postCommand + " " + recipient);
         pageIndex.add(-1);
         LetterSendProgress progress = new LetterSendProgress();
@@ -161,7 +291,7 @@ public final class LetterServices {
 
     public static void startAnnouncementSend(OttoExtraConfig config, LetterDraft draft) {
         List<Integer> pageIndex = new ArrayList<>();
-        List<String> commands = buildLetterLines(config, draft, pageIndex);
+        List<String> commands = buildSendCommands(config, draft, pageIndex);
         if (hasSubmitCommand(config)) {
             commands.add(config.letter.announcementSubmitCommand.trim());
             pageIndex.add(-1);

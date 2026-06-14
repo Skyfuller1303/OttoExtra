@@ -94,7 +94,61 @@ public final class RecipientScreen extends Screen {
                 filtered.add(p);
             }
         }
-        filtered.sort(Comparator.comparing(p -> p.accountName.toLowerCase(Locale.ROOT)));
+        // Online-Spieler zuerst, dann alphabetisch.
+        filtered.sort(Comparator
+                .comparing((LocalRpProfile p) -> !isOnline(p))
+                .thenComparing(p -> p.accountName.toLowerCase(Locale.ROOT)));
+    }
+
+    /** Ist der Spieler aktuell online (in der Tabliste)? */
+    private boolean isOnline(LocalRpProfile p) {
+        var nh = MinecraftClient.getInstance().getNetworkHandler();
+        if (nh == null || p.accountName == null) {
+            return false;
+        }
+        if (nh.getPlayerListEntry(p.accountName) != null) {
+            return true;
+        }
+        if (p.uuid != null && !p.uuid.isBlank()) {
+            try {
+                return nh.getPlayerListEntry(java.util.UUID.fromString(p.uuid)) != null;
+            } catch (IllegalArgumentException ignored) {
+                // ungültige UUID
+            }
+        }
+        return false;
+    }
+
+    /** Skin-Texturen: Live-Skin online, sonst Default-Skin nach UUID (kein Netz). */
+    private net.minecraft.entity.player.SkinTextures skinFor(LocalRpProfile p) {
+        var nh = MinecraftClient.getInstance().getNetworkHandler();
+        net.minecraft.client.network.PlayerListEntry entry = null;
+        if (nh != null) {
+            if (p.uuid != null && !p.uuid.isBlank()) {
+                try {
+                    entry = nh.getPlayerListEntry(java.util.UUID.fromString(p.uuid));
+                } catch (IllegalArgumentException ignored) {
+                    // ungültige UUID -> per Name
+                }
+            }
+            if (entry == null && p.accountName != null) {
+                entry = nh.getPlayerListEntry(p.accountName);
+            }
+        }
+        if (entry != null) {
+            return entry.getSkinTextures();
+        }
+        java.util.UUID uuid;
+        try {
+            uuid = (p.uuid != null && !p.uuid.isBlank())
+                    ? java.util.UUID.fromString(p.uuid)
+                    : net.minecraft.util.Uuids.getOfflinePlayerUuid(
+                            p.accountName == null ? "" : p.accountName);
+        } catch (RuntimeException e) {
+            uuid = net.minecraft.util.Uuids.getOfflinePlayerUuid(
+                    p.accountName == null ? "" : p.accountName);
+        }
+        return net.minecraft.client.util.DefaultSkinHelper.getSkinTextures(uuid);
     }
 
     private int visibleRows() {
@@ -137,9 +191,15 @@ public final class RecipientScreen extends Screen {
             if (isSel) {
                 ctx.fill(listX() - 2, y - 1, listX() + 182, y + ROW_H - 1, 0x337A5A3A);
             }
+            // Gecachter/Live-Kopf (8px) links neben dem Namen.
+            net.minecraft.client.gui.PlayerSkinDrawer.draw(ctx, skinFor(p),
+                    listX(), y, 8);
+            boolean online = isOnline(p);
+            int textX = listX() + 11;
             String label = p.accountName + (p.hasRpName() ? " → " + p.rpName : "");
-            ctx.drawTextWithShadow(textRenderer, textRenderer.trimToWidth(label, 178),
-                    listX(), y, isSel ? 0xFFFFD479 : 0xFFE6C8A9);
+            int color = isSel ? 0xFFFFD479 : online ? 0xFF8AE08A : 0xFFE6C8A9;
+            ctx.drawTextWithShadow(textRenderer, textRenderer.trimToWidth(label, 178 - 11),
+                    textX, y, color);
         }
         if (selected != null) {
             ctx.drawCenteredTextWithShadow(textRenderer,

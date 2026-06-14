@@ -44,11 +44,15 @@ public final class LetterEditorScreen extends Screen {
     private static final int TEXT_X = 28;
     private static final int TEXT_Y = 30;
     private static final int LINE_H = 12;
+    /** Zeilenbreite des Buchs in Pixeln (WYSIWYG-Umbruch). 108 = 18 Ziffern/Zeile,
+     *  gemessen an der Buchansicht; schmaler als Vanilla-114, damit das Buch die
+     *  Zeilen nicht nochmal umbricht. */
+    private static final int BOOK_PAGE_WIDTH = 108;
 
     private final Screen parent;
     private final OttoExtraConfig config;
     private final LetterDraft draft;
-    private final PageSplitter splitter;
+    private PageSplitter splitter;
     private final PlaceholderResolveService placeholderService =
             new PlaceholderResolveService(new OttoExtraRpIdentityResolver());
 
@@ -65,9 +69,26 @@ public final class LetterEditorScreen extends Screen {
         this.parent = parent;
         this.config = config;
         this.draft = LetterDraftCache.load();
-        this.splitter = new PageSplitter(config.letter.maxCharsPerLine,
-                config.letter.maxLinesPerPage);
         this.cursor = text().length();
+    }
+
+    /** PAGE-Modus nutzt volle Buchseiten (14 Zeilen); LEGACY bleibt bei der
+     *  konfigurierten Zeilenzahl. */
+    private int maxLinesPerPage() {
+        return "PAGE".equalsIgnoreCase(config.letter.sendMode)
+                ? config.letter.pageModeMaxLinesPerPage : config.letter.maxLinesPerPage;
+    }
+
+    /**
+     * Pixelbasierter Seiten-Splitter wie das echte Buch — lazy, da
+     * {@code textRenderer} erst nach {@code init()} gesetzt ist.
+     */
+    private PageSplitter splitter() {
+        if (splitter == null && textRenderer != null) {
+            splitter = new PageSplitter(textRenderer::getWidth, BOOK_PAGE_WIDTH,
+                    maxLinesPerPage(), config.letter.pageModeEffectiveCharBudget);
+        }
+        return splitter;
     }
 
     // ---- Layout/Helpers --------------------------------------------------------
@@ -103,7 +124,6 @@ public final class LetterEditorScreen extends Screen {
     private List<int[]> lineSpans() {
         String text = text();
         List<int[]> spans = new ArrayList<>();
-        int max = config.letter.maxCharsPerLine;
         int lineStart = 0;
         int lastSpace = -1;
         int i = 0;
@@ -119,7 +139,10 @@ public final class LetterEditorScreen extends Screen {
             if (c == ' ') {
                 lastSpace = i;
             }
-            if (i - lineStart + 1 > max) {
+            // Umbruch nach Pixelbreite wie das echte Buch (ein einzelnes Zeichen
+            // passt immer -> kein Endlos-Loop).
+            if (i > lineStart
+                    && textRenderer.getWidth(text.substring(lineStart, i + 1)) > BOOK_PAGE_WIDTH) {
                 int breakAt = lastSpace > lineStart ? lastSpace : i;
                 spans.add(new int[]{lineStart, breakAt});
                 lineStart = lastSpace > lineStart ? breakAt + 1 : breakAt;
@@ -168,10 +191,13 @@ public final class LetterEditorScreen extends Screen {
 
     /** Seitenüberlauf in Folgeseiten schieben (Auto-Pages, nie kürzen). */
     private void reflowOverflow() {
-        int maxLines = config.letter.maxLinesPerPage;
+        int maxLines = maxLinesPerPage();
         for (int p = page; p < draft.pages.size(); p++) {
             String t = draft.pages.get(p);
-            PageSplitter local = splitter;
+            PageSplitter local = splitter();
+            if (local == null) {
+                return;
+            }
             List<String> split = local.split(t);
             if (split.size() <= 1) {
                 continue;
@@ -196,6 +222,27 @@ public final class LetterEditorScreen extends Screen {
 
     private void persist() {
         LetterDraftCache.save(draft);
+    }
+
+    /** Alle Seiten beim Öffnen gegen die aktuellen Limits re-paginieren
+     *  (Zeichen-Budget + Zeilen). Splittet überlange Seiten, ohne kurze zu mergen. */
+    private void reflowAllPages() {
+        PageSplitter sp = splitter();
+        if (sp == null) {
+            return;
+        }
+        List<String> rebuilt = new ArrayList<>();
+        for (String pg : draft.pages) {
+            rebuilt.addAll(sp.split(pg));
+        }
+        if (rebuilt.isEmpty()) {
+            rebuilt.add("");
+        }
+        draft.pages.clear();
+        draft.pages.addAll(rebuilt);
+        page = Math.max(0, Math.min(page, draft.pages.size() - 1));
+        cursor = Math.min(cursor, text().length());
+        persist();
     }
 
     // ---- Input ----------------------------------------------------------------
@@ -473,6 +520,7 @@ public final class LetterEditorScreen extends Screen {
 
     @Override
     protected void init() {
+        reflowAllPages();
         int px = panelX();
         int py = panelY();
         addDrawableChild(ButtonWidget.builder(Text.literal("◀"), b -> switchPage(-1))
@@ -545,8 +593,8 @@ public final class LetterEditorScreen extends Screen {
 
         String t = text();
         List<int[]> spans = lineSpans();
-        int maxLines = config.letter.maxLinesPerPage;
-        for (int i = 0; i < Math.min(spans.size(), maxLines + 2); i++) {
+        int maxLines = maxLinesPerPage();
+        for (int i = 0; i < Math.min(spans.size(), maxLines); i++) {
             int[] span = spans.get(i);
             String lineText = t.substring(span[0], span[1]);
             int y = py + TEXT_Y + i * LINE_H;

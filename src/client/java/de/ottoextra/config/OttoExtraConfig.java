@@ -359,6 +359,19 @@ public final class OttoExtraConfig {
         public String triggerItemName = "Pergament und Feder";
         public int maxLinesPerPage = 12;
         public int maxCharsPerLine = 18;
+        /** Harte Zeilen-Obergrenze pro Seite im PAGE-Modus. Buch erlaubt 14, hier
+         *  bewusst 12 (lesbarer, kein Quetschen). Zusätzlich bindet das Zeichen-
+         *  Budget {@link #pageModeEffectiveCharBudget}. LEGACY nutzt {@link #maxLinesPerPage}. */
+        public int pageModeMaxLinesPerPage = 12;
+        /** Effektives Zeichen-Budget pro PAGE-Seite (Umbruch zählt 2). 248 lässt
+         *  Platz für Buch-256 und den /letter-Payload (256 - "letter "). */
+        public int pageModeEffectiveCharBudget = 248;
+        /** Versandmodus: "PAGE" = eine /letter-Nachricht pro Buchseite (\n-kodiert,
+         *  1 Seite = 1 Discord-Verkündung); "LEGACY" = eine /letter-Nachricht pro
+         *  sichtbarer Zeile (altes Verhalten). Default LEGACY (PAGE aktivierbar). */
+        public String sendMode = "LEGACY";
+        /** Delay zwischen Seiten im PAGE-Modus (ms). */
+        public int pageModeSendDelayMs = 1200;
         /** Serverbefehle (ohne Slash) — abstrahiert, falls der Server andere nutzt. */
         public String letterCommand = "letter";
         public String postCommand = "post";

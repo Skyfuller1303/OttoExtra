@@ -514,6 +514,9 @@ public final class SettingsRegistry {
         card(letterBase, "ottoextra.set.letter.editor", "ottoextra.set.letter.editor.desc",
                 Option.bool("ottoextra.config.module.letter", "letter.enabled",
                         () -> c.letter.enabled, v -> c.letter.enabled = v),
+                Option.cycle("ottoextra.config.letter.sendMode", "letter.sendMode",
+                        () -> c.letter.sendMode, v -> c.letter.sendMode = v, "LEGACY", "PAGE")
+                        .tooltip("ottoextra.set.letter.sendMode.tip"),
                 Option.string("ottoextra.set.letter.triggerItem", "letter.triggerItemName",
                         () -> c.letter.triggerItemName, v -> c.letter.triggerItemName = v)
                         .tooltip("ottoextra.set.letter.triggerItem.tip"),
@@ -540,7 +543,11 @@ public final class SettingsRegistry {
                         v -> c.letter.letterSendDelayMinMs = v, 500, 10000),
                 Option.intVal("ottoextra.set.letter.delayMax", "letter.letterSendDelayMaxMs",
                         () -> c.letter.letterSendDelayMaxMs,
-                        v -> c.letter.letterSendDelayMaxMs = v, 500, 10000));
+                        v -> c.letter.letterSendDelayMaxMs = v, 500, 10000),
+                Option.intVal("ottoextra.config.letter.pageModeDelay", "letter.pageModeSendDelayMs",
+                        () -> c.letter.pageModeSendDelayMs,
+                        v -> c.letter.pageModeSendDelayMs = v, 200, 5000)
+                        .tooltip("ottoextra.set.letter.pageModeDelay.tip"));
 
         return r;
     }
