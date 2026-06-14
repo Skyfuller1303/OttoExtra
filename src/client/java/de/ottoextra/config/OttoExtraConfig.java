@@ -100,7 +100,7 @@ public final class OttoExtraConfig {
         public int minimapBannerOffsetXRound = 10;
         public int minimapBannerOffsetYRound = -30;
         /** Lehnsherr in der Minimap: false = direkter Lehnsherr, true = oberster der Kette. */
-        public boolean minimapLiegeTop = false;
+        public boolean minimapLiegeTop = true;
         /** Hotkey: Overlay auf der Worldmap an/aus. */
         public String toggleKey = "key.keyboard.k";
         // --- Erweitert ---
