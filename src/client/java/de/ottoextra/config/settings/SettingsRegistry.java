@@ -252,6 +252,18 @@ public final class SettingsRegistry {
                         () -> c.chat.offtopicBangEnabled, v -> c.chat.offtopicBangEnabled = v),
                 Option.intVal("ottoextra.config.chat.bangCount", "chat.offtopicBangCount",
                         () -> c.chat.offtopicBangCount, v -> c.chat.offtopicBangCount = v, 1, 3));
+        card(chatBase, "ottoextra.set.chat.longchat", "ottoextra.set.chat.longchat.desc",
+                Option.bool("ottoextra.config.chat.longchat", "chat.longChatEnabled",
+                        () -> c.chat.longChatEnabled, v -> c.chat.longChatEnabled = v)
+                        .tooltip("ottoextra.set.chat.longchat.tip"),
+                Option.intVal("ottoextra.config.chat.longchatChunk", "chat.longChatChunk",
+                        () -> c.chat.longChatChunk, v -> c.chat.longChatChunk = v, 64, 256),
+                Option.intVal("ottoextra.config.chat.longchatInput", "chat.longChatMaxInput",
+                        () -> c.chat.longChatMaxInput, v -> c.chat.longChatMaxInput = v, 256, 32500),
+                Option.intVal("ottoextra.config.chat.longchatDelay", "chat.longChatDelayTicks",
+                        () -> c.chat.longChatDelayTicks, v -> c.chat.longChatDelayTicks = v, 1, 40),
+                Option.string("ottoextra.config.chat.longchatMarker", "chat.longChatMarker",
+                        () -> c.chat.longChatMarker, v -> c.chat.longChatMarker = v));
 
         // Regionen
         var reg = r.module("regions", "ottoextra.module.regions", "ottoextra.set.regions.desc");

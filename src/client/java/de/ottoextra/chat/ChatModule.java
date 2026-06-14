@@ -91,6 +91,7 @@ public final class ChatModule implements OttoExtraModule {
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK
                 .register(client -> {
                     handleChannelHotkeys();
+                    LongChatSender.tick(client);
                     if (joinCountdown > 0 && client.player != null) {
                         if (--joinCountdown == 0 && ChatChannelState.buttonActive()
                                 && context.config().chat.autoSprechenOnJoin

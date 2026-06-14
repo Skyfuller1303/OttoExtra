@@ -32,6 +32,39 @@ public abstract class ChatScreenMixin {
     @Inject(method = "init()V", at = @At("TAIL"))
     private void ottoextra$shiftChatField(CallbackInfo ci) {
         ottoextra$applyShift();
+        // Langer Chat: Tipplänge über Vanilla-256 anheben
+        try {
+            var cfg = de.ottoextra.config.OttoExtraConfig.active().chat;
+            if (cfg != null && cfg.enabled && cfg.longChatEnabled && chatField != null) {
+                chatField.setMaxLength(Math.max(256, cfg.longChatMaxInput));
+            }
+        } catch (Throwable ignored) {
+            // Layout/Eingabe darf nie brechen
+        }
+    }
+
+    /**
+     * Lange Nachricht splitten BEVOR Vanilla {@code sendMessage} auf 256 kürzt.
+     * Volltext kommt hier ungekürzt an (chatField-MaxLength angehoben).
+     */
+    @Inject(method = "sendMessage(Ljava/lang/String;Z)V", at = @At("HEAD"), cancellable = true)
+    private void ottoextra$splitLongMessage(String message, boolean addToHistory, CallbackInfo ci) {
+        try {
+            var cfg = de.ottoextra.config.OttoExtraConfig.active().chat;
+            if (cfg == null || !cfg.enabled || !cfg.longChatEnabled || message == null) {
+                return;
+            }
+            String text = message.trim();
+            if (text.startsWith("/") || text.length() <= cfg.longChatChunk) {
+                return;
+            }
+            de.ottoextra.chat.LongChatSender.configure(cfg.longChatDelayTicks);
+            de.ottoextra.chat.LongChatSender.enqueue(
+                    de.ottoextra.chat.LongChatSender.split(text, cfg.longChatChunk, cfg.longChatMarker));
+            ci.cancel();
+        } catch (Throwable ignored) {
+            // Chat darf nie brechen -> Vanilla senden lassen
+        }
     }
 
     /** Shift+Tab wechselt im Chat den Kanal durch (inkl. OOC). */

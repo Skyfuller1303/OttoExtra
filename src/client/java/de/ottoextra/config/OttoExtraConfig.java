@@ -375,6 +375,16 @@ public final class OttoExtraConfig {
         public boolean autoSprechenOnJoin = true;
         /** Shift+Tab im Chat wechselt den Kanal (statt Vanilla-Autovervollständigung). */
         public boolean shiftTabCycleChannels = true;
+        /** Lange Nachrichten einzeilig tippen, beim Senden automatisch splitten. */
+        public boolean longChatEnabled = true;
+        /** Maximale Tipplänge im Chatfeld (Vanilla: 256). */
+        public int longChatMaxInput = 8192;
+        /** Maximale Länge je gesendetem Teilstück (Serverlimit). */
+        public int longChatChunk = 256;
+        /** Fortsetzungs-Marker am Ende nicht-letzter Teilstücke. */
+        public String longChatMarker = " >";
+        /** Versatz zwischen den Teilstücken in Ticks (20 = 1 s). */
+        public int longChatDelayTicks = 4;
         public String voiceKey = "key.keyboard.v";
         public String helpKey = "key.keyboard.h";
         public String offtopicKey = "key.keyboard.o";
