@@ -96,7 +96,7 @@ public final class LetterServices {
         for (int p = 0; p < draft.pages.size(); p++) {
             for (String line : wrapper.wrapLines(draft.pages.get(p))) {
                 out.add(config.letter.letterCommand + " "
-                        + (line.isEmpty() ? EMPTY_LINE : line));
+                        + (line.isEmpty() ? EMPTY_LINE : normalizeFormattingCodes(line)));
                 if (pageIndexOut != null) {
                     pageIndexOut.add(p);
                 }
@@ -134,18 +134,7 @@ public final class LetterServices {
 
     /** Gültige §-Formatcodes -> &-Codes (einmalig, vor der Längenprüfung). */
     static String normalizeFormattingCodes(String raw) {
-        StringBuilder out = new StringBuilder(raw.length());
-        for (int i = 0; i < raw.length(); i++) {
-            char c = raw.charAt(i);
-            if (c == '§' && i + 1 < raw.length()
-                    && "0123456789abcdefklmnor".indexOf(
-                            Character.toLowerCase(raw.charAt(i + 1))) >= 0) {
-                out.append('&');
-            } else {
-                out.append(c);
-            }
-        }
-        return out.toString();
+        return de.ottoextra.letter.format.LetterFormattingCodes.sectionToAmpersand(raw);
     }
 
     /** Payload-Kodierung: {@code \} -> {@code \\}, Zeilenumbruch -> {@code \n}. */

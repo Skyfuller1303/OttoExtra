@@ -526,6 +526,21 @@ public final class SettingsRegistry {
                         () -> c.letter.triggerItemName, v -> c.letter.triggerItemName = v)
                         .tooltip("ottoextra.set.letter.triggerItem.tip"),
                 Option.action("ottoextra.config.letter.open", "letter.open", openLetterEditor));
+        card(letterBase, "ottoextra.set.letter.formatting", "ottoextra.set.letter.formatting.desc",
+                Option.bool("ottoextra.config.letter.formattingEnabled", "letter.formattingEnabled",
+                        () -> c.letter.formattingEnabled, v -> c.letter.formattingEnabled = v)
+                        .tooltip("ottoextra.set.letter.formatting.tip"),
+                Option.bool("ottoextra.config.letter.formattingSidebar", "letter.formattingSidebarVisible",
+                        () -> c.letter.formattingSidebarVisible,
+                        v -> c.letter.formattingSidebarVisible = v),
+                Option.bool("ottoextra.config.letter.formattingPaste", "letter.formattingConvertAmpersandOnPaste",
+                        () -> c.letter.formattingConvertAmpersandOnPaste,
+                        v -> c.letter.formattingConvertAmpersandOnPaste = v)
+                        .tooltip("ottoextra.set.letter.formattingPaste.tip"),
+                Option.bool("ottoextra.config.letter.formattingObfuscated", "letter.formattingAllowObfuscated",
+                        () -> c.letter.formattingAllowObfuscated,
+                        v -> c.letter.formattingAllowObfuscated = v)
+                        .tooltip("ottoextra.set.letter.formattingObfuscated.tip"));
         var letterAdv = tab(letter, "ottoextra.set.tab.advanced");
         card(letterAdv, "ottoextra.set.letter.commands", "ottoextra.set.letter.commands.desc",
                 Option.command("ottoextra.set.letter.letterCommand", "letter.letterCommand",

@@ -3,6 +3,8 @@ package de.ottoextra.letter.ui;
 import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.letter.LetterDraft;
 import de.ottoextra.letter.LetterDraftCache;
+import de.ottoextra.letter.format.LetterFormattingCodes;
+import de.ottoextra.letter.format.LetterFormattingSidebar;
 import de.ottoextra.letter.model.LetterPlaceholder;
 import de.ottoextra.letter.model.PlaceholderResolveResult;
 import de.ottoextra.letter.paste.BookImportService;
@@ -56,10 +58,13 @@ public final class LetterEditorScreen extends Screen {
     private final PlaceholderResolveService placeholderService =
             new PlaceholderResolveService(new OttoExtraRpIdentityResolver());
 
+    private static final int SIDEBAR_W = LetterFormattingSidebar.WIDTH;
+
     private int page;
     private int cursor;
     private int selAnchor = -1;
     private String status = "";
+    private LetterFormattingSidebar formattingSidebar;
     /** Platzhalter-Typen für die {{-Vorschlagsliste. */
     private static final String[] SUGGEST_TYPES = {"name", "title", "full", "mc"};
     private int suggestIndex = 0;
@@ -224,6 +229,42 @@ public final class LetterEditorScreen extends Screen {
         LetterDraftCache.save(draft);
     }
 
+    // ---- Formatierung ----------------------------------------------------------
+
+    /** Formatierungshilfe (Sidebar + Live-Vorschau) aktiv? */
+    private boolean formattingActive() {
+        return config.letter.formattingEnabled;
+    }
+
+    /** Einzelnen {@code §x}-Code an der Cursorposition einfügen (von der Sidebar). */
+    private void insertFormattingCode(String code) {
+        if (!formattingActive() || code == null || code.length() != 2
+                || code.charAt(0) != LetterFormattingCodes.SECTION) {
+            return;
+        }
+        char c = Character.toLowerCase(code.charAt(1));
+        if (!LetterFormattingCodes.isValidCode(c)) {
+            return;
+        }
+        if (c == 'k' && !config.letter.formattingAllowObfuscated) {
+            return;
+        }
+        insert(code);
+    }
+
+    /** Sichtbare X-Position der Sidebar (rechts neben dem Brief, in den Screen geklemmt). */
+    private int sidebarX() {
+        return Math.min(panelX() + PANEL_W + 8, width - SIDEBAR_W - 4);
+    }
+
+    /** Sidebar überhaupt zeigen? (genug Platz rechts, Feature + Toggle an) */
+    private boolean sidebarVisible() {
+        return formattingSidebar != null
+                && config.letter.formattingEnabled
+                && config.letter.formattingSidebarVisible
+                && sidebarX() > panelX() + PANEL_W; // sonst überlappt es den Brief
+    }
+
     /** Alle Seiten beim Öffnen gegen die aktuellen Limits re-paginieren
      *  (Zeichen-Budget + Zeilen). Splittet überlange Seiten, ohne kurze zu mergen. */
     private void reflowAllPages() {
@@ -367,7 +408,18 @@ public final class LetterEditorScreen extends Screen {
     /** Strg+V: beliebig langer Text, Auto-Pages, Zusammenfassung. */
     private void pasteClipboard() {
         String raw = client.keyboard.getClipboard();
-        String normalized = TextNormalizer.normalize(raw);
+        String normalized;
+        if (formattingActive()) {
+            // TextNormalizer entfernt §-Codes — daher zuerst § -> & schützen,
+            // dann normalisieren, danach (optional) zurück zu § für die Vorschau.
+            String guarded = LetterFormattingCodes.sectionToAmpersand(raw);
+            normalized = TextNormalizer.normalize(guarded);
+            if (config.letter.formattingConvertAmpersandOnPaste) {
+                normalized = LetterFormattingCodes.ampersandToSection(normalized);
+            }
+        } else {
+            normalized = TextNormalizer.normalize(raw);
+        }
         if (normalized.isEmpty()) {
             return;
         }
@@ -490,6 +542,9 @@ public final class LetterEditorScreen extends Screen {
 
     @Override
     public boolean mouseClicked(Click click, boolean doubled) {
+        if (sidebarVisible() && formattingSidebar.contains(click.x(), click.y())) {
+            return formattingSidebar.mouseClicked(click.x(), click.y(), click.button());
+        }
         int tx = panelX() + TEXT_X;
         int ty = panelY() + TEXT_Y;
         List<int[]> spans = lineSpans();
@@ -521,6 +576,9 @@ public final class LetterEditorScreen extends Screen {
     @Override
     protected void init() {
         reflowAllPages();
+        if (config.letter.formattingEnabled) {
+            formattingSidebar = new LetterFormattingSidebar(this::insertFormattingCode);
+        }
         int px = panelX();
         int py = panelY();
         addDrawableChild(ButtonWidget.builder(Text.literal("◀"), b -> switchPage(-1))
@@ -607,7 +665,13 @@ public final class LetterEditorScreen extends Screen {
                 int x2 = px + TEXT_X + textRenderer.getWidth(lineText.substring(0, e));
                 ctx.fill(x1, y - 1, x2, y + 9, SELECTION_COLOR);
             }
-            ctx.drawText(textRenderer, lineText, px + TEXT_X, y, TEXT_COLOR, false);
+            // Live-Vorschau: aktive Formatierung vor dem Zeilenstart künstlich
+            // voranstellen, damit auto-umgebrochene Folgezeilen formatiert bleiben.
+            // Nur fürs Rendern — Cursor/Selektion messen weiter den echten Text.
+            String renderText = formattingActive()
+                    ? LetterFormattingCodes.activePrefixBefore(t, span[0]) + lineText
+                    : lineText;
+            ctx.drawText(textRenderer, renderText, px + TEXT_X, y, TEXT_COLOR, false);
             // Cursor
             if (cursor >= span[0] && cursor <= span[1]
                     && i == lineIndexOf(cursor, spans)
@@ -626,6 +690,11 @@ public final class LetterEditorScreen extends Screen {
         // Icon über dem (leeren) Parameter-Prüfen-Button
         ctx.drawTexture(net.minecraft.client.gl.RenderPipelines.GUI_TEXTURED, CHECK_ICON,
                 px + 1, py + PANEL_H + 4, 0f, 0f, 16, 16, 16, 16);
+        // Formatierungs-Sidebar zuletzt (oben), inkl. Tooltips
+        if (sidebarVisible()) {
+            formattingSidebar.setBounds(sidebarX(), py);
+            formattingSidebar.render(ctx, textRenderer, mouseX, mouseY);
+        }
     }
 
     /** Vorschlags-Popup unter der Cursorzeile: {{name|title|full|mc -> Typ + ":". */

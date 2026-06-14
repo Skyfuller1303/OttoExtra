@@ -397,6 +397,15 @@ public final class OttoExtraConfig {
         public int letterSendDelayMaxMs = 1200;
         public int letterPageDelayMinMs = 3000;
         public int letterPageDelayMaxMs = 5200;
+        // ---- Brief-Formatierung (Farben & Stile) ----
+        /** Formatierungshilfe insgesamt aktiv (Sidebar + Live-Vorschau + §→&). */
+        public boolean formattingEnabled = true;
+        /** Formatierungs-Sidebar rechts neben dem Editor anzeigen. */
+        public boolean formattingSidebarVisible = true;
+        /** Beim Einfügen gültige {@code &}-Codes zu {@code §} umwandeln (Live-Vorschau). */
+        public boolean formattingConvertAmpersandOnPaste = true;
+        /** Magischen/verschleierten Code {@code §k} anbieten (störend, daher aus). */
+        public boolean formattingAllowObfuscated = false;
     }
 
     public static final class Chat {
