@@ -14,6 +14,8 @@ Alle nennenswerten Änderungen an OttoExtra. Format angelehnt an
 - „Neuer Titel" als breiter Button direkt unter der Titelliste (auffälliger).
 - Lange Nachrichten: einstellbares **Absende-Intervall in Millisekunden**
   (500–1500, Standard 800) unter Chat → Erweitert.
+- Minimap-Lehnsherr **einstellbar**: direkter Lehnsherr oder oberster der
+  Vasallenkette (z. B. statt Mayenburg → Holdstewik). Karte → Minimap → HUD.
 
 ### Behoben
 - **Titelfarbe griff nicht überall**: Beim Speichern wurde die Katalog-Titelfarbe

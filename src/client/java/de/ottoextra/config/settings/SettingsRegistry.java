@@ -395,6 +395,9 @@ public final class SettingsRegistry {
                 Option.bool("ottoextra.config.map.bannerFaction", "map.minimapBannerShowFaction",
                         () -> c.map.minimapBannerShowFaction, v -> c.map.minimapBannerShowFaction = v)
                         .tooltip("ottoextra.set.map.bannerFaction.tip"),
+                Option.bool("ottoextra.config.map.liegeTop", "map.minimapLiegeTop",
+                        () -> c.map.minimapLiegeTop, v -> c.map.minimapLiegeTop = v)
+                        .tooltip("ottoextra.set.map.liegeTop.tip"),
                 Option.action("ottoextra.config.map.bannerEdit", "map.bannerEdit", openBannerEdit),
                 Option.action("ottoextra.config.map.groupColors", "map.groupColors", openGroupColors));
         var mapAdv = tab(map, "ottoextra.set.tab.advanced");

@@ -91,7 +91,7 @@ public final class MinimapBannerOverlay {
         int sw = client.getWindow().getScaledWidth();
         int sh = client.getWindow().getScaledHeight();
         var tr = client.textRenderer;
-        String[] info = nameAndState(key);
+        String[] info = nameAndState(key, cfg != null && cfg.minimapLiegeTop);
         String regionName = info[0];
         String stateLine = info[1];
         String factionName = info[2];
@@ -163,7 +163,7 @@ public final class MinimapBannerOverlay {
      * frische Nachricht Fallback aus den API-Daten
      * ({@code rank_name} + {@code lord_name}-Kette).
      */
-    private static String[] nameAndState(String polyKey) {
+    private static String[] nameAndState(String polyKey, boolean liegeTop) {
         var data = de.ottoextra.regions.RegionsServices.data();
         String apiName = null;
         String apiState = null;
@@ -179,16 +179,10 @@ public final class MinimapBannerOverlay {
             if (faction != null) {
                 apiFaction = fixMojibake(faction.name());
                 String rank = fixMojibake(faction.rank_name());
-                String lordName = fixMojibake(faction.lord_name());
-                String lordRank = null;
-                if (lordName != null && !lordName.isBlank()) {
-                    lordRank = data.allFactions().stream()
-                            .filter(f -> f.name() != null
-                                    && f.name().equalsIgnoreCase(faction.lord_name()))
-                            .map(f -> fixMojibake(f.rank_name()))
-                            .filter(r -> r != null && !r.isBlank())
-                            .findFirst().orElse(null);
-                }
+                // Lehnsherr: direkter lord_name ODER oberster der Kette (einstellbar)
+                String[] liege = resolveLiege(data, faction, liegeTop);
+                String lordName = liege[0];
+                String lordRank = liege[1];
                 if (rank != null && !rank.isBlank()) {
                     apiState = lordName != null && !lordName.isBlank()
                             ? rank + " in " + (lordRank != null ? lordRank + " " : "") + lordName
@@ -202,12 +196,56 @@ public final class MinimapBannerOverlay {
             boolean matches = apiName == null
                     || normalize(current.regionName()).equals(normalize(apiName));
             if (matches) {
-                return new String[]{current.regionName(),
-                        current.hierarchyLine() != null && !current.hierarchyLine().isBlank()
-                                ? current.hierarchyLine() : apiState, apiFaction};
+                // Im "oberster Lehnsherr"-Modus die berechnete Kette bevorzugen
+                // (die Server-Actionbar nennt nur den direkten Lehnsherrn).
+                String state = liegeTop ? apiState
+                        : (current.hierarchyLine() != null && !current.hierarchyLine().isBlank()
+                                ? current.hierarchyLine() : apiState);
+                return new String[]{current.regionName(), state, apiFaction};
             }
         }
         return new String[]{apiName, apiState, apiFaction};
+    }
+
+    /**
+     * Lehnsherr eines Lehens auflösen. {@code top=false}: direkter
+     * {@code lord_name}. {@code top=true}: der Kette {@code lord_name} bis zum
+     * obersten Lehnsherrn folgen. Rückgabe {@code [name, rang]} (Rang ggf. null).
+     */
+    private static String[] resolveLiege(de.ottoextra.regions.RegionDataService data,
+                                         de.ottoextra.api.model.FactionRecord faction,
+                                         boolean top) {
+        String directLord = fixMojibake(faction.lord_name());
+        if (directLord == null || directLord.isBlank()) {
+            return new String[]{null, null};
+        }
+        java.util.Map<String, de.ottoextra.api.model.FactionRecord> byName =
+                new java.util.HashMap<>();
+        for (var f : data.allFactions()) {
+            if (f.name() != null && !f.name().isBlank()) {
+                byName.putIfAbsent(f.name().toLowerCase(java.util.Locale.ROOT), f);
+            }
+        }
+        String lordName = directLord;
+        de.ottoextra.api.model.FactionRecord lordRec =
+                byName.get(directLord.toLowerCase(java.util.Locale.ROOT));
+        if (top) {
+            java.util.Set<String> seen = new java.util.HashSet<>();
+            if (faction.name() != null) {
+                seen.add(faction.name().toLowerCase(java.util.Locale.ROOT));
+            }
+            for (int depth = 0; depth < 8 && lordRec != null; depth++) {
+                String up = lordRec.lord_name();
+                if (up == null || up.isBlank()
+                        || !seen.add(lordName.toLowerCase(java.util.Locale.ROOT))) {
+                    break;
+                }
+                lordName = up;
+                lordRec = byName.get(up.toLowerCase(java.util.Locale.ROOT));
+            }
+        }
+        String lordRank = lordRec != null ? fixMojibake(lordRec.rank_name()) : null;
+        return new String[]{fixMojibake(lordName), lordRank};
     }
 
     private static String normalize(String s) {

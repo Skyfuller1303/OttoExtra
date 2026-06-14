@@ -494,6 +494,8 @@
   "ottoextra.settings.reset": "Reset",
   "ottoextra.config.map.bannerFaction": "Show faction name",
   "ottoextra.set.map.bannerFaction.tip": "Additional text line with the name of the faction holding the fief — its own drag&drop element.",
+  "ottoextra.config.map.liegeTop": "Show top liege",
+  "ottoextra.set.map.liegeTop.tip": "Off: direct liege. On: topmost liege of the vassal chain (e.g. Holdstewik instead of Mayenburg).",
   "ottoextra.adv.factionHudWidth": "HUD faction: width",
   "ottoextra.adv.factionHudScale": "HUD faction: scale",
   "ottoextra.adv.factionHudColor": "HUD faction: color (#RRGGBB)",

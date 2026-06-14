@@ -494,6 +494,8 @@
   "ottoextra.settings.reset": "Zurücksetzen",
   "ottoextra.config.map.bannerFaction": "Gefolgename anzeigen",
   "ottoextra.set.map.bannerFaction.tip": "Zusätzliche Textzeile mit dem Namen des Gefolges (Faction), das das Lehen hält — eigenes Drag&Drop-Element.",
+  "ottoextra.config.map.liegeTop": "Obersten Lehnsherrn zeigen",
+  "ottoextra.set.map.liegeTop.tip": "Aus: direkter Lehnsherr. An: oberster Lehnsherr der Vasallenkette (z. B. statt Mayenburg → Holdstewik).",
   "ottoextra.adv.factionHudWidth": "HUD Gefolge: Breite",
   "ottoextra.adv.factionHudScale": "HUD Gefolge: Skalierung",
   "ottoextra.adv.factionHudColor": "HUD Gefolge: Farbe (#RRGGBB)",
