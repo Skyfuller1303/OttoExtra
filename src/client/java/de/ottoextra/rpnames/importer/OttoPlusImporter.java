@@ -22,8 +22,9 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Lokaler Import aus den OttoPlus/OttoTalk-Caches in den RP-Namen-Store.
  *
- * <p>Primärquelle {@code ottotalk_players.json} (RP-Name, Titel, Titelfarbe),
- * optional {@code ottoletter-player-cache.json} (UUID je Account). Dateien
+ * <p>Primärquelle {@code ottotalk_players.json} — importiert wird NUR der
+ * RP-Name; Titel und Titelfarbe werden bewusst ignoriert (machten Probleme).
+ * Optional {@code ottoletter-player-cache.json} (UUID je Account). Dateien
  * liegen in {@code config/ottoextra/import/}. Im Gegensatz zum Regions-API-Import
  * überschreibt OttoPlus vorhandene Werte autoritativ; gesperrte Profile bleiben
  * unberührt. Details: {@code docs/ottoplus-import-integration.md}.</p>
@@ -102,8 +103,6 @@ public final class OttoPlusImporter {
                 continue;
             }
             String rpName = rpName(p.characterName);
-            String title = clean(p.characterTitle);
-            String colorHex = colorHex(p.characterTitleColor);
             String uuid = uuidByAccount.get(account.toLowerCase(Locale.ROOT));
 
             LocalRpProfile existing = store.find(uuid, account).orElse(null);
@@ -112,24 +111,16 @@ public final class OttoPlusImporter {
                     skippedLocked++;
                     continue;
                 }
-                if (store.importOttoPlus(account, uuid, rpName, title, colorHex)) {
+                // Nur RP-Name importieren — Titel/Farbe bewusst NICHT (null lassen);
+                // importOttoPlus fasst vorhandene Titel/Farben dann nicht an.
+                if (store.importOttoPlus(account, uuid, rpName, null, null)) {
                     updated++;
                 }
-            } else if (createMissing && (rpName != null || title != null)) {
+            } else if (createMissing && rpName != null) {
                 LocalRpProfile profile = new LocalRpProfile();
                 profile.uuid = uuid;
                 profile.accountName = account;
-                if (rpName != null) {
-                    profile.rpName = rpName;
-                }
-                if (title != null) {
-                    profile.title = title;
-                }
-                if (colorHex != null) {
-                    profile.colors.chatTitleColor = colorHex;
-                    profile.colors.tabTitleColor = colorHex;
-                    profile.colors.nametagTitleColor = colorHex;
-                }
+                profile.rpName = rpName;
                 profile.knowledgeState = KnowledgeState.KNOWN;
                 profile.source = RpNameSource.IMPORTED_FROM_OTTOPLUS;
                 long now = System.currentTimeMillis();
@@ -181,14 +172,6 @@ public final class OttoPlusImporter {
             return null;
         }
         return s;
-    }
-
-    /** Packed-RGB-int → "#RRGGBB"; 0 und -1 (Default/ungesetzt) → null. */
-    private static String colorHex(int color) {
-        if (color == 0 || color == -1) {
-            return null;
-        }
-        return String.format(Locale.ROOT, "#%06X", color & 0xFFFFFF);
     }
 
     private static String clean(String s) {
