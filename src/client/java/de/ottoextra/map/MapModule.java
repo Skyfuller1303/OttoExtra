@@ -45,8 +45,11 @@ public final class MapModule implements OttoExtraModule {
             OttoExtra.LOGGER.info("[map] Xaero World Map nicht installiert — Overlay inaktiv.");
         }
 
-        // Gefolge-Farb-Overrides aus der Config anwenden (ModMenu-Liste)
+        // Gefolge-Farb-/Namens-Overrides aus der Config anwenden (Gefolge-Liste)
         PoliticalOverlay.setUserGroupColors(cfg.groupColors);
+        PoliticalOverlay.setUserLehenColors(cfg.lehenColors);
+        PoliticalOverlay.setUserFactionColors(cfg.factionColors);
+        PoliticalOverlay.setGroupNameOverrides(cfg.groupNameOverrides);
 
         // PaintedMap wird vom GuiMapMixin VOR der Waypoint-Ebene gezeichnet.
         PaintedWorldMapHook.install(cfg,

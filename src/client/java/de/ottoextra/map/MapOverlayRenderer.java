@@ -297,9 +297,10 @@ public final class MapOverlayRenderer {
                             withAlpha(0xFFFFFFFF, alpha));
                 }
             }
-            if (cfg.showNames && !g.displayName().isBlank()) {
+            String groupName = PoliticalOverlay.displayNameFor(g.displayName());
+            if (cfg.showNames && !groupName.isBlank()) {
                 int ty = Math.round(sy) - Math.round(tr.fontHeight * scale / 2f);
-                drawOutlinedText(ctx, tr, g.displayName(), Math.round(sx), ty, scale,
+                drawOutlinedText(ctx, tr, groupName, Math.round(sx), ty, scale,
                         withAlpha(COL_NAME, alpha), alpha);
             }
         }

@@ -145,14 +145,16 @@ public final class MinimapBannerOverlay {
             out.add(new Element(Kind.STATE, pos[0], pos[1], w, h, null, 0, stateLine, sc));
             nextDockY = pos[1] + h + 2;
         }
-        if (cfg.minimapBannerShowFaction && factionName != null && !factionName.isBlank()) {
+        // Lokaler Gefolge-Namens-Override (Gefolge-Liste) auch hier anwenden.
+        String factionShown = de.ottoextra.map.PoliticalOverlay.displayNameFor(factionName);
+        if (cfg.minimapBannerShowFaction && factionShown != null && !factionShown.isBlank()) {
             float sc = clampScale(cfg.factionHudScale);
             int w = Math.max(20, cfg.factionHudWidth); // feste Breite, linksbündig
             int h = Math.round(10 * sc);
             int[] pos = resolve(cfg.factionHudX, cfg.factionHudY,
                     cfg.factionHudFromRight, cfg.factionHudFromBottom,
                     w, h, sw - w - 2 < dockX ? sw - w - 2 : dockX, nextDockY, sw, sh);
-            out.add(new Element(Kind.FACTION, pos[0], pos[1], w, h, null, 0, factionName, sc));
+            out.add(new Element(Kind.FACTION, pos[0], pos[1], w, h, null, 0, factionShown, sc));
         }
         return out;
     }

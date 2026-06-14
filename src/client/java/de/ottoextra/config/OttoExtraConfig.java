@@ -137,6 +137,12 @@ public final class OttoExtraConfig {
         public int dashGapPx = 4;
         /** Gefolge-Farb-Overrides: Gruppen-Anzeigename -> "#RRGGBB". */
         public java.util.LinkedHashMap<String, String> groupColors = defaultGroupColors();
+        /** Gefolge-Namens-Overrides (Anzeige): normalisierter Originalname -> Anzeigename. */
+        public java.util.LinkedHashMap<String, String> groupNameOverrides = new java.util.LinkedHashMap<>();
+        /** Farb-Overrides je Lehen: Lehen-Key (z. B. "lehen_7") -> "#RRGGBB". */
+        public java.util.LinkedHashMap<String, String> lehenColors = new java.util.LinkedHashMap<>();
+        /** Farb-Overrides je Fraktion (einzelnes Gefolge): Fraktionsname -> "#RRGGBB". */
+        public java.util.LinkedHashMap<String, String> factionColors = new java.util.LinkedHashMap<>();
 
         /** Ingame abgestimmte Gefolge-Farben als Auslieferungs-Default. */
         private static java.util.LinkedHashMap<String, String> defaultGroupColors() {

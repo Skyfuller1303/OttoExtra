@@ -217,7 +217,8 @@ public final class SettingsRegistry {
 
     public static SettingsRegistry build(OttoExtraConfig c, Runnable openPeopleBook,
                                          Runnable openGroupColors, Runnable openBannerEdit,
-                                         Runnable openLetterEditor, Runnable openRegionThemes) {
+                                         Runnable openLetterEditor, Runnable openRegionThemes,
+                                         Runnable openFollowing) {
         SettingsRegistry r = new SettingsRegistry();
 
         // Resourcepack
@@ -387,7 +388,8 @@ public final class SettingsRegistry {
                         () -> c.map.showNpcVillages, v -> c.map.showNpcVillages = v),
                 Option.bool("ottoextra.config.map.onlyOttonien", "map.onlyOnOttonien",
                         () -> c.map.onlyOnOttonien, v -> c.map.onlyOnOttonien = v)
-                        .tooltip("ottoextra.set.map.onlyOttonien.tip"));
+                        .tooltip("ottoextra.set.map.onlyOttonien.tip"),
+                Option.action("ottoextra.config.map.following", "map.following", openFollowing));
         var mapMini = tab(map, "ottoextra.set.tab.minimap");
         card(mapMini, "ottoextra.set.map.minimap", "ottoextra.set.map.minimap.desc",
                 Option.bool("ottoextra.config.map.minimap", "map.minimapBorders",

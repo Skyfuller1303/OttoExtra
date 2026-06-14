@@ -48,6 +48,12 @@ public final class PoliticalOverlay {
     private static volatile Map<String, Integer> groupTintOverview = Map.of();
     /** Nutzer-Overrides: normalisierter Gruppenname -> "#RRGGBB" (Config). */
     private static volatile Map<String, String> userGroupColors = Map.of();
+    /** Farb-Overrides je Lehen: Lehen-Key -> RGB (Config map.lehenColors). */
+    private static volatile Map<String, Integer> userLehenColors = Map.of();
+    /** Farb-Overrides je Fraktion: normalisierter Fraktionsname -> RGB. */
+    private static volatile Map<String, Integer> userFactionColors = Map.of();
+    /** Anzeige-Namens-Overrides: normalisierter Originalname -> Anzeigename. */
+    private static volatile Map<String, String> groupNameOverrides = Map.of();
     private static volatile Set<String> vassalPolyKeys = Set.of();
     private static volatile Map<String, String> groupNameByPoly = Map.of();
     private static volatile List<GroupLabel> groupLabels = List.of();
@@ -129,6 +135,63 @@ public final class PoliticalOverlay {
         }
         userGroupColors = Map.copyOf(normalized);
         invalidateGroups();
+    }
+
+    /** Farb-Overrides je Lehen setzen (Lehen-Key -> "#RRGGBB") + Rebuild. */
+    public static void setUserLehenColors(Map<String, String> colors) {
+        Map<String, Integer> parsed = new HashMap<>();
+        if (colors != null) {
+            colors.forEach((key, hex) -> {
+                Integer rgb = parseHex(hex);
+                if (key != null && !key.isBlank() && rgb != null) {
+                    parsed.put(key, rgb);
+                }
+            });
+        }
+        userLehenColors = Map.copyOf(parsed);
+        invalidateGroups();
+    }
+
+    /** Farb-Overrides je Fraktion setzen (Fraktionsname -> "#RRGGBB") + Rebuild. */
+    public static void setUserFactionColors(Map<String, String> colors) {
+        Map<String, Integer> parsed = new HashMap<>();
+        if (colors != null) {
+            colors.forEach((name, hex) -> {
+                Integer rgb = parseHex(hex);
+                if (name != null && !name.isBlank() && rgb != null) {
+                    parsed.put(normalizeName(name), rgb);
+                }
+            });
+        }
+        userFactionColors = Map.copyOf(parsed);
+        invalidateGroups();
+    }
+
+    /** Standard-Farbe einer Gruppe aus der ausgelieferten JSON (group_colors), oder null. */
+    public static String jsonDefaultColor(String groupName) {
+        Integer rgb = LehenPolygonStore.groupColors().get(normalizeName(groupName));
+        return rgb == null ? null : String.format("#%06X", rgb & 0xFFFFFF);
+    }
+
+    /** Anzeige-Namens-Overrides setzen (Originalname -> Anzeigename). */
+    public static void setGroupNameOverrides(Map<String, String> overrides) {
+        Map<String, String> normalized = new HashMap<>();
+        if (overrides != null) {
+            overrides.forEach((name, custom) -> {
+                if (name != null && custom != null && !custom.isBlank()) {
+                    normalized.put(normalizeName(name), custom.trim());
+                }
+            });
+        }
+        groupNameOverrides = Map.copyOf(normalized);
+    }
+
+    /** Anzeigename eines Gefolges (Override -> Originalname). */
+    public static String displayNameFor(String originalName) {
+        if (originalName == null) {
+            return "";
+        }
+        return groupNameOverrides.getOrDefault(normalizeName(originalName), originalName);
     }
 
     /** Farb-/Gruppenzuordnung beim nächsten Frame neu aufbauen. */
@@ -397,6 +460,7 @@ public final class PoliticalOverlay {
         // 2) Region-Hierarchie (parent_region_id/vassal_region_refs) für
         //    fraktionslose Verbände wie die Mährstein-Fehde
         Map<String, String> groupOfPoly = new HashMap<>();
+        Map<String, String> factionOfPoly = new HashMap<>(); // polyKey -> normalisierter Fraktionsname
         Map<String, GroupMeta> metaOfGroup = new HashMap<>();
         Set<String> vassals = new HashSet<>();
         for (LehenPolygon poly : LehenPolygonStore.polygons()) {
@@ -406,6 +470,7 @@ public final class PoliticalOverlay {
             if (f != null && f.name() != null && !f.name().isBlank()) {
                 FactionRecord current = f;
                 String self = normalizeName(f.name());
+                factionOfPoly.put(poly.key(), self);
                 root = self;
                 for (int depth = 0; depth < 8; depth++) {
                     String lordName = current.lord_name();
@@ -466,6 +531,17 @@ public final class PoliticalOverlay {
                 result.put(polyKey, tint);
             }
         });
+        // Pro-Fraktion-Farbe: überschreibt die Verband-(Gruppen-)Farbe, nur für
+        // die Lehen genau dieser Fraktion.
+        factionOfPoly.forEach((polyKey, fac) -> {
+            Integer rgb = userFactionColors.get(fac);
+            if (rgb != null) {
+                result.put(polyKey, (GROUP_ALPHA << 24) | (rgb & 0xFFFFFF));
+            }
+        });
+        // Pro-Lehen-Farbe (höchste Priorität): überschreibt Fraktion/Gruppe.
+        userLehenColors.forEach((polyKey, rgb) ->
+                result.put(polyKey, (GROUP_ALPHA << 24) | (rgb & 0xFFFFFF)));
         tintByPolyKey = Map.copyOf(result);
         // Gruppen-Übersicht fürs Farb-UI (Anzeigename -> aktueller Tint)
         Map<String, Integer> overview = new java.util.TreeMap<>();
