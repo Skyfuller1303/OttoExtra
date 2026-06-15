@@ -126,6 +126,9 @@ public final class RpNamesModule implements OttoExtraModule {
                 if (profile == null || profile.name() == null || profile.name().isBlank()) {
                     continue;
                 }
+                // Skin (signierte Textur-Property) jedes online gesehenen Spielers
+                // persistent cachen — auch den eigenen.
+                de.ottoextra.chat.SkinCache.remember(profile);
                 if (client.player != null
                         && profile.id() != null
                         && profile.id().equals(client.player.getUuid())) {
@@ -135,6 +138,7 @@ public final class RpNamesModule implements OttoExtraModule {
                         profile.id() != null ? profile.id().toString() : null,
                         RpNameSource.SEEN_TABLIST);
             }
+            de.ottoextra.chat.SkinCache.flush();
         } catch (Throwable t) {
             OttoExtra.LOGGER.debug("[rpnames] Tablist-Sync-Fehler: {}", t.toString());
         }
@@ -198,6 +202,7 @@ public final class RpNamesModule implements OttoExtraModule {
     @Override
     public void onDisconnect(OttoExtraContext context) {
         RpNamesServices.setActive(false);
+        de.ottoextra.chat.SkinCache.flush();
         if (RpNamesServices.store() != null) {
             RpNamesServices.store().saveNow();
         }

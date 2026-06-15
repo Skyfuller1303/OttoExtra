@@ -55,6 +55,15 @@ public final class OttoExtraSettingsScreen extends Screen {
 
     private TextFieldWidget searchField;
 
+    /** Modul-Auswahl als Dropdown statt Tab-Reihe, wenn die Reihe zu breit wird
+     *  (kleine Monitore). */
+    private boolean tabCompact;
+    private boolean tabMenuOpen;
+    private final List<Text> tabLabels = new ArrayList<>();
+    private int tabMenuX;
+    private int tabMenuY;
+    private int tabMenuW;
+
     /** Eine Inhaltszeile: Label (gezeichnet) + Widgets (verschoben beim Scroll). */
     private static final class Row {
         int baseY;
@@ -124,8 +133,10 @@ public final class OttoExtraSettingsScreen extends Screen {
 
     @Override
     protected void init() {
-        // Modul-Tabs oben (aktiver Tab = ausgegraut wie Personenbuch/MoreCulling)
-        List<Text> tabLabels = new ArrayList<>();
+        // Modul-Tabs oben (aktiver Tab = ausgegraut wie Personenbuch/MoreCulling).
+        // Passt die Reihe nicht in die Breite (kleine Monitore), wird daraus ein
+        // Dropdown-Filter.
+        tabLabels.clear();
         for (SettingsRegistry.ModulePage m : registry.modules()) {
             tabLabels.add(Text.translatable(m.titleKey()));
         }
@@ -136,19 +147,28 @@ public final class OttoExtraSettingsScreen extends Screen {
             widths[i] = Math.max(46, textRenderer.getWidth(tabLabels.get(i)) + 12);
             total += widths[i] + 2;
         }
-        int tx = Math.max(4, (width - total) / 2);
-        for (int i = 0; i < tabLabels.size(); i++) {
-            final int idx = i;
-            ButtonWidget tab = ButtonWidget.builder(tabLabels.get(i), b -> {
-                selectedModule = idx;
-                selectedTab = 0;
-                scroll = 0;
-                searchField.setText("");
-                clearAndInit();
-            }).dimensions(tx, 22, widths[i], 16).build();
-            tab.active = selectedModule != idx;
-            addDrawableChild(tab);
-            tx += widths[i] + 2;
+        tabCompact = total > width - 8;
+        if (!tabCompact) {
+            tabMenuOpen = false;
+            int tx = Math.max(4, (width - total) / 2);
+            for (int i = 0; i < tabLabels.size(); i++) {
+                final int idx = i;
+                ButtonWidget tab = ButtonWidget.builder(tabLabels.get(i), b -> {
+                    selectModuleTab(idx);
+                }).dimensions(tx, 22, widths[i], 16).build();
+                tab.active = selectedModule != idx;
+                addDrawableChild(tab);
+                tx += widths[i] + 2;
+            }
+        } else {
+            tabMenuW = Math.min(240, width - 8);
+            tabMenuX = (width - tabMenuW) / 2;
+            tabMenuY = 22;
+            int cur = Math.min(selectedModule, tabLabels.size() - 1);
+            addDrawableChild(ButtonWidget.builder(
+                    Text.empty().append(tabLabels.get(cur)).append(" ▼"),
+                    b -> tabMenuOpen = !tabMenuOpen)
+                    .dimensions(tabMenuX, tabMenuY, tabMenuW, 16).build());
         }
 
         // Suche
@@ -579,9 +599,61 @@ public final class OttoExtraSettingsScreen extends Screen {
                     contentX(), 56, COL_WARN);
         }
 
+        // Modul-Dropdown (kleine Monitore) ueber dem Inhalt
+        if (tabCompact && tabMenuOpen) {
+            int iy = tabMenuY + 18;
+            int n = tabLabels.size();
+            ctx.fill(tabMenuX - 1, iy - 1, tabMenuX + tabMenuW + 1, iy + n * 16 + 1, 0xF0100010);
+            for (int i = 0; i < n; i++) {
+                int ry = iy + i * 16;
+                boolean cur = i == selectedModule;
+                boolean hover = mouseX >= tabMenuX && mouseX <= tabMenuX + tabMenuW
+                        && mouseY >= ry && mouseY < ry + 16;
+                ctx.fill(tabMenuX, ry, tabMenuX + tabMenuW, ry + 16,
+                        hover ? 0x60FFFFFF : (cur ? 0x40FFFFFF : 0x30000000));
+                ctx.drawTextWithShadow(textRenderer, tabLabels.get(i), tabMenuX + 6, ry + 4,
+                        cur ? COL_LABEL : 0xFFCCCCCC);
+            }
+        }
+
         // Region-Toast-Vorschau ZULETZT zeichnen -> liegt ueber dem Menue
         // (sonst verdeckt das Settings-Panel die Vorschau)
         de.ottoextra.regions.RegionNotificationOverlay.render(ctx, null);
+    }
+
+    private void selectModuleTab(int idx) {
+        selectedModule = idx;
+        selectedTab = 0;
+        scroll = 0;
+        tabMenuOpen = false;
+        if (searchField != null) {
+            searchField.setText("");
+        }
+        clearAndInit();
+    }
+
+    @Override
+    public boolean mouseClicked(net.minecraft.client.gui.Click click, boolean doubled) {
+        if (tabCompact && tabMenuOpen) {
+            double mx = click.x();
+            double my = click.y();
+            int iy = tabMenuY + 18;
+            int n = tabLabels.size();
+            if (click.button() == 0 && mx >= tabMenuX && mx <= tabMenuX + tabMenuW
+                    && my >= iy && my < iy + n * 16) {
+                selectModuleTab((int) ((my - iy) / 16));
+                return true;
+            }
+            // Klick auf den Dropdown-Knopf normal behandeln (schließt via Toggle)
+            if (mx >= tabMenuX && mx <= tabMenuX + tabMenuW
+                    && my >= tabMenuY && my < tabMenuY + 16) {
+                return super.mouseClicked(click, doubled);
+            }
+            // Klick daneben: zuklappen
+            tabMenuOpen = false;
+            return true;
+        }
+        return super.mouseClicked(click, doubled);
     }
 
     @Override

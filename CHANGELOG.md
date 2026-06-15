@@ -12,7 +12,22 @@ Alle nennenswerten Änderungen an OttoExtra. Format angelehnt an
   („Spielerköpfe im Chat"). Der Sprecher wird über die Namenszone (Account oder
   RP-Name) aufgelöst, der Skin aus der Tabliste bzw. dem Default-Skin gezogen;
   die Auflösung ist je Name gecacht. Zeichnen über zwei ChatHud-Backend-Mixins
-  (offener und geschlossener Chat), mit Zeilen-Deckkraft (Fade).
+  (offener und geschlossener Chat), mit Zeilen-Deckkraft (Fade). Der Kopf wird
+  nur in die tatsächliche Leerzeichen-Lücke hinter dem Kanal gezeichnet
+  (zentriert) — ist sie zu klein, erscheint kein Kopf statt einer Überlappung
+  mit dem Titel. Der Sprecher wird **per UUID** bestimmt (Account aus dem
+  Chat-Hover → UUID), der RP-Name dient nur als Fallback — so erscheint auch bei
+  gleichlautenden RP-Namen der richtige Kopf.
+- **Persistenter Skin-Cache**: Skins der online gesehenen Spieler werden lokal
+  je UUID gespeichert (`config/ottoextra/cache/skins.json` für die signierte
+  Textur-Property, `cache/skins/<uuid>.png` als Bild) und beim Start geladen.
+  So zeigt z. B. der Chat-Kopf auch bei offline-Spielern den echten Skin (statt
+  Default). Befüllt sich beim Server-Join über die Tabliste.
+
+### Geändert
+- **Modul-Tabs der Einstellungen** werden auf schmalen Fenstern/kleinen Monitoren
+  zu einem **Dropdown-Filter** (aktuelles Modul + Liste) statt einer überlaufenden
+  Tab-Reihe; bei genug Breite bleibt die normale Reihe.
 
 ## [0.1.6] – 2026-06-15
 

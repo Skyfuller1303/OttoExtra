@@ -40,6 +40,7 @@ public final class OttoExtraClient implements ClientModInitializer {
         // Pflicht-Backup VOR dem ersten Config-Load/Save
         de.ottoextra.config.OttoExtraBackupService.ensurePreMigrationBackup();
         OttoExtraConfig config = OttoExtraConfig.load();
+        de.ottoextra.chat.SkinCache.load();
         OttoExtraApiClient api = new HttpOttoExtraApiClient(config);
         this.context = new OttoExtraContext(config, api);
 
