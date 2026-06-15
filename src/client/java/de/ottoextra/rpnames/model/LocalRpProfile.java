@@ -19,6 +19,13 @@ public final class LocalRpProfile {
     public KnowledgeState knowledgeState = KnowledgeState.SEEN;
     public RpNameSource source = RpNameSource.SEEN_ONLINE;
     public boolean locked = false;
+    /**
+     * Titel-Level-Sperre: schützt NUR den Titel vor automatischer Änderung
+     * (Server-Hover/Chat, Katalog-Umbenennung) — der Spieler selbst bleibt
+     * aktiv (rpName etc. werden weiter gelernt). Wird beim manuellen Setzen
+     * eines Titels im RP-Buch aktiviert. Unabhängig von {@link #locked}.
+     */
+    public boolean titleLocked = false;
     public boolean favorite = false;
     public String notes = "";
     /** API-Wert, der von einem lokalen Wert abweicht (nur Anzeige, nie auto-übernommen). */

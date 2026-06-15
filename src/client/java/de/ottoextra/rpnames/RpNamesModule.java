@@ -162,6 +162,9 @@ public final class RpNamesModule implements OttoExtraModule {
                 }
                 String title = flat.substring(0, idx).trim();
                 if (!title.isEmpty()) {
+                    // ROH-Titel speichern; die Anzeige-Form (Varianten-Override)
+                    // wird live beim Rendern via canonicalTitle aufgelöst, damit
+                    // eine spätere Varianten-Änderung sofort überall greift.
                     RpNamesServices.store().updateTitleIfChanged(profile.name(),
                             profile.id() != null ? profile.id().toString() : null, title);
                 }

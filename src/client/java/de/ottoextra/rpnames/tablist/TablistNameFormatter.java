@@ -129,7 +129,10 @@ public final class TablistNameFormatter {
         String groupColor = RpNamesServices.titles().find(profile.title)
                 .map(r -> r.group().titleColor).orElse(null);
         String fallback = catalog != null ? catalog.fallbackTitleColor() : "#a17f5f";
-        return colored(profile.title + " ",
+        // Angezeigten Titel-Text auf den Katalog-Kanon abbilden (umbenannte Titel
+        // greifen so überall, auch bei nur als Variante/alt gespeicherten Werten).
+        String shown = RpNamesServices.canonicalTitle(profile.title);
+        return colored(shown + " ",
                 firstNonBlank(profile.colors.tabTitleColor,
                         firstNonBlank(catalogColor, firstNonBlank(groupColor, fallback))));
     }

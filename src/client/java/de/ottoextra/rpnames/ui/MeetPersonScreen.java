@@ -129,7 +129,8 @@ public final class MeetPersonScreen extends Screen {
             title = "";
         }
         prefillName = name;
-        prefillTitle = title;
+        // Anzeige-Form (Varianten-Override) statt Roh-Server-Titel zeigen/speichern.
+        prefillTitle = RpNamesServices.canonicalTitle(title);
     }
 
     /** Live aus dem Eingabefeld (im Bearbeiten-Modus), sonst Prefill. */

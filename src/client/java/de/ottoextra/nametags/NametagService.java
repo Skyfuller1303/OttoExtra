@@ -186,7 +186,9 @@ public final class NametagService {
             String groupColor = RpNamesServices.titles().find(profile.title)
                     .map(r -> r.group().titleColor).orElse(null);
             String fallback = catalog != null ? catalog.fallbackTitleColor() : "#a17f5f";
-            title = colored(profile.title,
+            // Angezeigten Titel auf den Katalog-Kanon abbilden (umbenannte Titel
+            // greifen so auch am Namensschild).
+            title = colored(RpNamesServices.canonicalTitle(profile.title),
                     firstNonBlank(profile.colors.nametagTitleColor,
                             firstNonBlank(catalogColor, firstNonBlank(groupColor, fallback))));
         }

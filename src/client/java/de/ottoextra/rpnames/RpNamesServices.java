@@ -66,6 +66,17 @@ public final class RpNamesServices {
         return config;
     }
 
+    /**
+     * Anzeige-Form eines (Server-)Titels aus dem Katalog: {@code title} ist der
+     * fixe Standardwert, die <b>Varianten</b> bestimmen die angezeigte Form.
+     * Siehe {@link de.ottoextra.rpnames.title.TitleCatalogStore#displayForm}.
+     * Roh-Titel, wenn kein Katalog vorhanden/kein Treffer.
+     */
+    public static String canonicalTitle(String raw) {
+        var c = catalog;
+        return c == null ? raw : c.displayForm(raw);
+    }
+
     /** Katalog-Default-Namensfarbe (Fallback), nie null. */
     private static String catalogDefaultNameColor() {
         var cat = catalog;
@@ -307,6 +318,8 @@ public final class RpNamesServices {
             boolean learn = channel.shouldLearn() && !proactiveMeetEnabled();
             boolean meet = proactiveMeetEnabled();
             for (HoverIdentityParser.ParsedIdentity id : hoverParser.parseMessage(message)) {
+                // ROH-Titel speichern; die Anzeige-Form (Varianten-Override) wird
+                // live beim Rendern aufgelöst.
                 if (learn) {
                     store.learnIdentity(id.accountName(), id.rpName(), id.title(),
                             id.titleGroup(), RpNameSource.LEARNED_FROM_HOVER);

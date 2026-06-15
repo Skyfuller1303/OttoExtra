@@ -4,6 +4,45 @@ Alle nennenswerten Änderungen an OttoExtra. Format angelehnt an
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/); Versionierung nach
 [SemVer](https://semver.org/lang/de/).
 
+## [0.1.6] – 2026-06-15
+
+### Hinzugefügt
+- **„Titel fest"** (RP-Personenbuch, neben „Gesperrt"): sperrt **nur den Titel**
+  einer Person gegen automatische Änderung (Server-Hover/Chat, 30s-Tablist-Sync,
+  Katalog-Umbenennung) — der Spieler bleibt aktiv (RP-Name etc. werden weiter
+  gelernt). Wird beim manuellen Bearbeiten des Titels automatisch gesetzt.
+
+### Geändert
+- **Anzeige-Titel über Varianten einstellbar**: Bei einem Titel ist das Feld
+  **Titel** der feste Standardwert (Server-/Wiki-Name); **Variante 1/2**
+  bestimmen die **angezeigte** Form. Ein Spieler, dessen Server-Titel auf einen
+  Katalog-Eintrag matcht, wird überall (Tab, Namensschild, Chat, Kennenlern-GUI)
+  mit der Variante angezeigt — passt eine Variante genau zum Server-Titel (z. B.
+  Geschlechtsform Rüstmann/Rüstfrau), bleibt diese erhalten, sonst greift die
+  erste Variante. Die Auflösung passiert **live beim Rendern**: eine Änderung an
+  Variante 1/2 wirkt sofort bei allen Trägern, ohne Neustart und ohne dass der
+  30s-Tablist-Sync sie zurücksetzt (Server-Titel werden roh gespeichert).
+- **Reset-Icon im Titel-Editor** setzt Titel/Varianten jetzt auf die
+  **Werkseinstellung** (gebündelter Wiki-Default) statt das Feld zu leeren.
+- **Titel-Feld im Editor** ist auch für Standard-(Wiki-)Titel editierbar (nur
+  das Löschen bleibt gesperrt).
+
+### Behoben
+- **Gemalte Karte verschwand beim Shader-Wechsel**: Ein Iris-Shader-Wechsel baut
+  die GPU-Pipeline neu auf (ohne Resource-Reload), wodurch die gecachte
+  Composite-Pipeline veraltete und die Karte bis zum Client-Neustart wegblieb.
+  Der frühere dauerhafte Kill-Switch ist durch einen transienten Fehlerzustand
+  mit Selbstheilung ersetzt (GPU-Ressourcen verwerfen + Neuaufbau nach kurzer
+  Pause). Worldmap und Minimap heilen unabhängig; die Xaero-Bridge löst ihre
+  Reflection-Handles bei Klassenwechsel (Reconnect/Reload) neu auf.
+- **Manuell gesetzter Person-Titel wurde zurückgesetzt**: Der 30s-Tablist-Sync
+  und eingehende Chat-Hover überschrieben von Hand gesetzte Titel wieder mit dem
+  Server-Titel. Jetzt schützen sowohl der MANUAL-Status als auch „Titel fest"
+  alle automatischen Titel-Schreibpfade.
+- **Overlay-Toggle (K)** kippt nur noch auf dem Xaero-Worldmap-Screen; ein
+  versehentlicher K-Druck im Spiel blendet das Lehen-Overlay nicht mehr
+  unbemerkt für die ganze Session aus (mit Actionbar-Hinweis).
+
 ## [0.1.5] – 2026-06-14
 
 ### Hinzugefügt

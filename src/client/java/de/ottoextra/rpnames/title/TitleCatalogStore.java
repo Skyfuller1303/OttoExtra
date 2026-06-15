@@ -143,6 +143,39 @@ public final class TitleCatalogStore {
         return model.titles;
     }
 
+    /** id -> gebündelter Default-Eintrag (Wiki-Auslieferung), lazy geladen. */
+    private volatile Map<String, Entry> bundledById;
+
+    /**
+     * Original-(Wiki-)Eintrag aus der mitgelieferten {@code title-catalog-default.json}
+     * zu einer id — für „auf Werkseinstellung zurücksetzen" im Editor. Leer,
+     * wenn die id ein eigener (MANUAL) Titel ist oder das Bundle fehlt.
+     */
+    public Optional<Entry> bundledDefault(String id) {
+        if (id == null || id.isBlank()) {
+            return Optional.empty();
+        }
+        Map<String, Entry> map = bundledById;
+        if (map == null) {
+            map = new HashMap<>();
+            try (InputStream in = TitleCatalogStore.class.getResourceAsStream(BUNDLED)) {
+                FileModel fm = GSON.fromJson(
+                        new String(in.readAllBytes(), StandardCharsets.UTF_8), FileModel.class);
+                if (fm != null && fm.titles != null) {
+                    for (Entry e : fm.titles) {
+                        if (e.id != null && !e.id.isBlank()) {
+                            map.put(e.id, e);
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                OttoExtra.LOGGER.warn("[rpnames] Bundled Titelkatalog für Reset unlesbar: {}", e.toString());
+            }
+            bundledById = map;
+        }
+        return Optional.ofNullable(map.get(id));
+    }
+
     public Map<String, Category> categories() {
         return model.categories;
     }
@@ -150,6 +183,43 @@ public final class TitleCatalogStore {
     public String defaultNameColor() {
         return model.defaultNameColor == null || model.defaultNameColor.isBlank()
                 ? "#c7a87f" : model.defaultNameColor;
+    }
+
+    /**
+     * Anzeige-Form eines (Server-)Titels: Bei normalen Titeln ist {@code title}
+     * der fixe Standardwert, die <b>Varianten</b> sind die einstellbare
+     * Anzeige-Form. Regeln:
+     * <ul>
+     *   <li>kein Katalog-Treffer -&gt; Roh-Titel unverändert;</li>
+     *   <li>der Roh-Titel entspricht genau einer Variante -&gt; diese Variante
+     *       behalten (z.B. Geschlechtsform Rüstmann/Rüstfrau);</li>
+     *   <li>sonst (Treffer über den Standard-{@code title}) -&gt; die erste
+     *       (primäre) Variante als Anzeige-Form; ohne Varianten der {@code title}.</li>
+     * </ul>
+     * So macht „Variante 1 ändern" den angezeigten Titel aller Träger neu.
+     */
+    public String displayForm(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return raw;
+        }
+        Entry e = find(raw).orElse(null);
+        if (e == null) {
+            return raw;
+        }
+        String norm = TitleRegistry.normalize(raw);
+        if (e.variants != null) {
+            for (String v : e.variants) {
+                if (v != null && !v.isBlank() && TitleRegistry.normalize(v).equals(norm)) {
+                    return v; // Träger hat genau diese Variante -> behalten
+                }
+            }
+            for (String v : e.variants) {
+                if (v != null && !v.isBlank()) {
+                    return v; // Standard-Treffer -> primäre (erste) Variante
+                }
+            }
+        }
+        return e.title;
     }
 
     /** Eintrag zu einem (Hover-)Titel, Varianten-/Umlaut-tolerant. */

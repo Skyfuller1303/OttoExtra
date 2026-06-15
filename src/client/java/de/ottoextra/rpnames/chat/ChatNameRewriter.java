@@ -190,7 +190,10 @@ public final class ChatNameRewriter {
         String fallback = catalog != null ? catalog.fallbackTitleColor() : "#a17f5f";
         String titleColor = firstNonBlank(profile.colors.chatTitleColor,
                 firstNonBlank(catalogColor, firstNonBlank(groupTitleColor, fallback)));
-        return colored(profile.title + " ", titleColor);
+        // Angezeigten Titel auf den Katalog-Kanon abbilden (umbenannte Titel
+        // greifen so auch im Chat).
+        return colored(de.ottoextra.rpnames.RpNamesServices.canonicalTitle(profile.title) + " ",
+                titleColor);
     }
 
     private MutableText displayName(LocalRpProfile profile, Style baseStyle, boolean includeTitle) {

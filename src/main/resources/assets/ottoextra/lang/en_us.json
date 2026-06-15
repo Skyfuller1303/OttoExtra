@@ -234,6 +234,7 @@
   "ottoextra.rpbook.titleField": "Title",
   "ottoextra.rpbook.group": "Group",
   "ottoextra.rpbook.lock": "Locked",
+  "ottoextra.rpbook.titleLock": "Title fixed",
   "ottoextra.rpbook.notes": "Notes",
   "ottoextra.rpbook.colors.chat": "Chat",
   "ottoextra.rpbook.colors.tab": "Tab",

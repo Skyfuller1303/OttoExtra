@@ -105,6 +105,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
     private TextFieldWidget titleField;
     private TextFieldWidget notesField;
     private CheckboxWidget lockCheckbox;
+    private CheckboxWidget titleLockCheckbox;
     /** Unterdrückt das Auto-Sperren während programmatischem Befüllen (select). */
     private boolean suppressLockAuto;
     private ButtonWidget chatFlagButton;
@@ -387,7 +388,8 @@ public final class RpNamesPeopleBookScreen extends Screen {
         titleField.setMaxLength(48);
         // Autofill aus dem Titelkatalog: grauer Vorschlag, Tab übernimmt
         titleField.setChangedListener(s -> {
-            autoLock();
+            // Titel-Edit sperrt NUR den Titel (nicht den Spieler).
+            autoLockTitle();
             titleAutofill = null;
             titleField.setSuggestion("");
             String typed = s.trim();
@@ -412,10 +414,15 @@ public final class RpNamesPeopleBookScreen extends Screen {
         addDrawableChild(titleField);
         y += 21;
 
-        // Gruppe ist titelgebunden (readonly, steht in der Kopfzeile) — nur Lock
+        // Gruppe ist titelgebunden (readonly, steht in der Kopfzeile).
+        // Zwei Sperren: ganzer Spieler (links) und nur der Titel (rechts).
         lockCheckbox = CheckboxWidget.builder(Text.translatable("ottoextra.rpbook.lock"), textRenderer)
                 .pos(x, y - 1).build();
         addDrawableChild(lockCheckbox);
+        titleLockCheckbox = CheckboxWidget.builder(
+                Text.translatable("ottoextra.rpbook.titleLock"), textRenderer)
+                .pos(x + w / 2 + 2, y - 1).build();
+        addDrawableChild(titleLockCheckbox);
         y += 21;
 
         // Farben pro Anzeigeort: 3 Zeilen (Chat/Tab/Schild) à Titel+Name,
@@ -498,13 +505,22 @@ public final class RpNamesPeopleBookScreen extends Screen {
         return f;
     }
 
-    /** Manuelle Änderung an RP-Name/Titel/Farbe -> Profil automatisch sperren. */
+    /** Manuelle Änderung an RP-Name/Farbe -> Profil automatisch sperren. */
     private void autoLock() {
         if (suppressLockAuto || tab != Tab.PEOPLE || selected == null || lockCheckbox == null
                 || !lockCheckbox.active || lockCheckbox.isChecked()) {
             return;
         }
         lockCheckbox.onPress(null);
+    }
+
+    /** Manuelle Titel-Änderung -> nur den Titel sperren (Spieler bleibt aktiv). */
+    private void autoLockTitle() {
+        if (suppressLockAuto || tab != Tab.PEOPLE || selected == null || titleLockCheckbox == null
+                || !titleLockCheckbox.active || titleLockCheckbox.isChecked()) {
+            return;
+        }
+        titleLockCheckbox.onPress(null);
     }
 
     private ButtonWidget flagButton(int x, int y, int w, String key,
@@ -709,6 +725,9 @@ public final class RpNamesPeopleBookScreen extends Screen {
         if (lockCheckbox.isChecked() != profile.locked) {
             lockCheckbox.onPress(null);
         }
+        if (titleLockCheckbox.isChecked() != profile.titleLocked) {
+            titleLockCheckbox.onPress(null);
+        }
         // Vorbefüllen: Override falls gesetzt, sonst effektiver Default
         String[] overrides = {profile.colors.chatTitleColor, profile.colors.chatNameColor,
                 profile.colors.tabTitleColor, profile.colors.tabNameColor,
@@ -735,6 +754,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
             }
         }
         lockCheckbox.active = enabled;
+        titleLockCheckbox.active = enabled;
         chatFlagButton.active = enabled;
         tabFlagButton.active = enabled;
         tagFlagButton.active = enabled;
@@ -779,6 +799,10 @@ public final class RpNamesPeopleBookScreen extends Screen {
         LocalRpProfile updated = store.updateManual(selected.accountName, p -> {
             p.rpName = rpName.isEmpty() ? LocalRpProfile.UNKNOWN_NAME : rpName;
             p.title = title;
+            // Titel-Sperre aus der Checkbox (auto-an bei Titel-Edit) — schützt
+            // NUR den Titel vor Auto-Reset (Server-Hover/Chat, Katalog-Rename),
+            // der Spieler bleibt aktiv. Leerer Titel kann nicht gesperrt sein.
+            p.titleLocked = titleLockCheckbox.isChecked() && !title.isEmpty();
             p.titleGroup = group;
             p.notes = notes;
             p.colors.chatTitleColor = hex[0];
@@ -1022,7 +1046,10 @@ public final class RpNamesPeopleBookScreen extends Screen {
             catOverrideColorCheckbox.onPress(null);
         }
         setTitleEditEnabled(true);
-        // Wiki-Titel: nur deaktivieren, nicht löschen
+        // Wiki-Titel: nur das Löschen sperren. Der Titel-Text bleibt editierbar —
+        // Umbenennen ist gefahrlos: der alte Text wird als Variante behalten
+        // (Lookup/Farbe bleiben) und die Umbenennung wird bei allen Trägern
+        // durchgeschrieben (siehe saveTitle).
         catDeleteButton.active = !"WIKI_IMPORT".equals(e.source);
     }
 
@@ -1045,14 +1072,20 @@ public final class RpNamesPeopleBookScreen extends Screen {
         }
         var e = selectedTitle;
         e.title = catTitleField.getText().trim();
+        // Variante 1/2 = einstellbare Anzeige-Form. Den Standard-Titel als
+        // Match-Alias mitführen, damit Server-Titel (= title) auf den Eintrag
+        // matchen und die Anzeige-Variante bekommen.
         List<String> variants = new ArrayList<>();
-        for (String v : new String[]{catVariant1Field.getText(), catVariant2Field.getText()}) {
-            String t = v.trim();
+        for (String t : new String[]{catVariant1Field.getText().trim(),
+                catVariant2Field.getText().trim()}) {
             if (!t.isEmpty()) {
                 variants.add(t);
             }
         }
-        e.variants = variants.isEmpty() ? new ArrayList<>(List.of(e.title)) : variants;
+        if (variants.isEmpty()) {
+            variants.add(e.title);
+        }
+        e.variants = variants;
         e.category = catCategoryValue;
         // Farbe == Kategorie-Default -> kein Override (folgt künftigen Defaults)
         String hex = normalizeHex(catColorField.getText());
@@ -1065,6 +1098,8 @@ public final class RpNamesPeopleBookScreen extends Screen {
             e.id = TitleRegistry.normalize(e.title);
         }
         RpNamesServices.catalog().save();
+        // Anzeige ist live: Tab/Name/Schild/Chat/GUI lösen die Variante beim
+        // Rendern via canonicalTitle auf — kein Durchschreiben der Profile nötig.
         refilterTitles();
         statusLine = Text.translatable("ottoextra.rpbook.saved").getString();
     }
@@ -1389,18 +1424,23 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 return true;
             }
         }
-        // Titel-Tab: Reset-Icon je Feld -> nur dieses Feld auf Standard
+        // Titel-Tab: Reset-Icon je Feld -> dieses Feld auf Werkseinstellung
+        // (Wiki-Default aus dem gebündelten Katalog), sonst leeren.
         if (tab == Tab.TITLES && selectedTitle != null && click.button() == 0) {
+            var def = RpNamesServices.catalog().bundledDefault(selectedTitle.id).orElse(null);
             if (resetIconHit(catTitleField, mx, my)) {
-                catTitleField.setText(selectedTitle.title == null ? "" : selectedTitle.title);
+                catTitleField.setText(def != null && def.title != null ? def.title
+                        : (selectedTitle.title == null ? "" : selectedTitle.title));
                 return true;
             }
             if (resetIconHit(catVariant1Field, mx, my)) {
-                catVariant1Field.setText("");
+                catVariant1Field.setText(def != null && def.variants.size() > 0
+                        ? def.variants.get(0) : "");
                 return true;
             }
             if (resetIconHit(catVariant2Field, mx, my)) {
-                catVariant2Field.setText("");
+                catVariant2Field.setText(def != null && def.variants.size() > 1
+                        ? def.variants.get(1) : "");
                 return true;
             }
             if (resetIconHit(catColorField, mx, my)) {

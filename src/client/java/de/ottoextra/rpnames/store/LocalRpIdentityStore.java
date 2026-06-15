@@ -300,7 +300,7 @@ public final class LocalRpIdentityStore {
                 changed = true;
             }
         }
-        if (title != null && !title.isBlank() && !profile.hasTitle()) {
+        if (title != null && !title.isBlank() && !profile.hasTitle() && !profile.titleLocked) {
             profile.title = title;
             if (titleGroup != null && !titleGroup.isBlank()) {
                 profile.titleGroup = titleGroup;
@@ -316,10 +316,13 @@ public final class LocalRpIdentityStore {
     }
 
     /**
-     * Titel eines vorhandenen Profils aktualisieren, wenn er sich geändert hat
-     * (Server-Quelle: Tabliste/Chat). Anders als {@link #learnIdentity} greift
-     * dies auch bei MANUAL-Profilen — nur {@code locked} (RP-Buch gesperrt)
-     * schützt. Leerer Titel wird ignoriert (kein versehentliches Löschen).
+     * Titel eines vorhandenen Profils aus einer automatischen Quelle
+     * (Tabliste/Chat-Hover) aktualisieren, wenn er sich geändert hat. Geschützt
+     * sind {@code locked} (RP-Buch gesperrt) UND manuell bearbeitete Profile
+     * ({@code knowledgeState} == MANUAL/MANUAL_LOCKED) — sonst überschreibt die
+     * nächste Chat-Nachricht den im RP-Buch von Hand gesetzten Titel mit dem
+     * Server-Titel zurück. Konsistent zu {@link #importApi}. Leerer Titel wird
+     * ignoriert (kein versehentliches Löschen).
      *
      * @return true, wenn der Titel geändert wurde
      */
@@ -332,7 +335,8 @@ public final class LocalRpIdentityStore {
             return false;
         }
         LocalRpProfile profile = find(uuid, account).orElse(null);
-        if (profile == null || profile.locked) {
+        if (profile == null || profile.locked || profile.titleLocked
+                || !profile.knowledgeState.allowsAutomaticUpdates()) {
             return false;
         }
         if (t.equals(profile.title == null ? "" : profile.title)) {
@@ -387,7 +391,7 @@ public final class LocalRpIdentityStore {
             profile.apiConflict = rpName; // nur vermerken, nie übernehmen
             changed = true;
         }
-        if (title != null && !title.isBlank() && !profile.hasTitle()) {
+        if (title != null && !title.isBlank() && !profile.hasTitle() && !profile.titleLocked) {
             profile.title = title;
             changed = true;
         }
