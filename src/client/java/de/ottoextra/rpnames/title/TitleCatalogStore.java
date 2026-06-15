@@ -89,7 +89,30 @@ public final class TitleCatalogStore {
                 model = new FileModel();
             }
         }
-        reindex();
+        if (migrateKnownFixes()) {
+            save(); // persistiert die Korrektur (save() reindiziert selbst)
+        } else {
+            reindex();
+        }
+    }
+
+    /**
+     * Einmalige Korrekturen veralteter Default-Kategorien in bereits
+     * gespeicherten Katalogen. Greift nur, wenn der Eintrag noch exakt den alten
+     * (falschen) Default-Wert trägt — eine bewusste Nutzer-Kategorie bleibt.
+     *
+     * @return true, wenn etwas geändert wurde
+     */
+    private boolean migrateKnownFixes() {
+        boolean changed = false;
+        for (Entry e : model.titles) {
+            // Laienbruder/Laienschwester ist ein allgemeiner, kein Klerus-Titel.
+            if ("laienbruder".equals(e.id) && "klerus".equals(e.category)) {
+                e.category = "allgemein";
+                changed = true;
+            }
+        }
+        return changed;
     }
 
     public synchronized void save() {

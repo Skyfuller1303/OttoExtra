@@ -52,6 +52,11 @@ public final class MinimapBannerOverlay {
             if (client.player == null || client.options.hudHidden) {
                 return;
             }
+            // Spielerliste (Tab) offen -> Wappen-Overlay ausblenden, sonst
+            // überlappt es die Tabliste.
+            if (client.options.playerListKey.isPressed()) {
+                return;
+            }
             MinimapSession session = BuiltInHudModules.MINIMAP.getCurrentSession();
             if (session == null || !session.isActive()) {
                 return;

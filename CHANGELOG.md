@@ -30,8 +30,8 @@ Alle nennenswerten Änderungen an OttoExtra. Format angelehnt an
   live, sondern erst über **Speichern**; **Verwerfen** lädt den gespeicherten
   Stand neu.
 - **Titel „Laienbruder/Laienschwester"** ist jetzt Kategorie **allgemein**
-  (vorher fälschlich Klerus). Betrifft frische Kataloge; bestehende per
-  Reset-Icon aktualisieren.
+  (vorher fälschlich Klerus). Bestehende Kataloge werden beim Laden automatisch
+  korrigiert (nur wenn noch der alte Default-Wert gesetzt ist).
 
 ### Behoben
 - **Gemalte Karte verschwand beim Shader-Wechsel**: Ein Iris-Shader-Wechsel baut
@@ -53,6 +53,8 @@ Alle nennenswerten Änderungen an OttoExtra. Format angelehnt an
   und nicht in der Region-Benachrichtigung. Ursache: der Setter baute den
   Label-Cache nicht neu (`invalidateGroups` fehlte) und beide Stellen lasen den
   Roh-Namen statt des Overrides.
+- **Minimap-Wappen-Overlay überlappte die Tabliste**: Das Wappen-/Namens-Overlay
+  wird jetzt ausgeblendet, solange die Spielerliste (Tab) gehalten wird.
 
 ## [0.1.5] – 2026-06-14
 
