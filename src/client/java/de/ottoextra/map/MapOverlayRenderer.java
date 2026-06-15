@@ -382,6 +382,7 @@ public final class MapOverlayRenderer {
         return data.factionForRegion(poly.key())
                 .map(FactionRecord::name)
                 .filter(n -> n != null && !n.isBlank())
+                .map(PoliticalOverlay::displayNameFor) // Gefolge-Anzeigename-Override
                 .orElse(null);
     }
 

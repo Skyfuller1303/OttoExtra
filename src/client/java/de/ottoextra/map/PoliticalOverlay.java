@@ -184,6 +184,7 @@ public final class PoliticalOverlay {
             });
         }
         groupNameOverrides = Map.copyOf(normalized);
+        invalidateGroups(); // Gruppenlabels neu bauen, sonst bleibt der alte Name auf der Karte
     }
 
     /** Anzeigename eines Gefolges (Override -> Originalname). */

@@ -69,6 +69,8 @@ public final class FollowingScreen extends Screen {
     private TextFieldWidget colorField;
     private TextFieldWidget lehenColorField;
     private ButtonWidget verbandButton;
+    private ButtonWidget saveButton;
+    private ButtonWidget discardButton;
     private boolean suppress;
 
     public FollowingScreen(Screen parent, OttoExtraConfig config) {
@@ -124,15 +126,13 @@ public final class FollowingScreen extends Screen {
         nameField = new TextFieldWidget(textRenderer, fx, editorTop() + 8, pw - 78 - 28, 16,
                 Text.empty());
         nameField.setMaxLength(48);
-        nameField.setChangedListener(s -> { if (!suppress) { applyName(s); } });
+        // Kein Live-Apply mehr: Änderungen werden erst mit „Speichern" übernommen.
         addDrawableChild(nameField);
         colorField = new TextFieldWidget(textRenderer, fx, editorTop() + 28, 70, 16, Text.empty());
         colorField.setMaxLength(7);
-        colorField.setChangedListener(s -> { if (!suppress) { applyColor(s, false); } });
         addDrawableChild(colorField);
         lehenColorField = new TextFieldWidget(textRenderer, fx, editorTop() + 48, 70, 16, Text.empty());
         lehenColorField.setMaxLength(7);
-        lehenColorField.setChangedListener(s -> { if (!suppress) { applyColor(s, true); } });
         addDrawableChild(lehenColorField);
 
         verbandButton = ButtonWidget.builder(
@@ -140,8 +140,18 @@ public final class FollowingScreen extends Screen {
                 .dimensions(px + pw - 160, editorTop() + 47, 154, 16).build();
         addDrawableChild(verbandButton);
 
+        // Editor-Aktionen: Speichern übernimmt Name + Farben, Verwerfen lädt den
+        // gespeicherten Stand neu. Nur bei ausgewähltem Gefolge sichtbar.
+        saveButton = ButtonWidget.builder(Text.translatable("ottoextra.following.save"),
+                        b -> saveEdits())
+                .dimensions(width / 2 - 154, height - 22, 100, 18).build();
+        addDrawableChild(saveButton);
+        discardButton = ButtonWidget.builder(Text.translatable("ottoextra.following.discard"),
+                        b -> discardEdits())
+                .dimensions(width / 2 - 50, height - 22, 100, 18).build();
+        addDrawableChild(discardButton);
         addDrawableChild(ButtonWidget.builder(Text.translatable("gui.done"), b -> close())
-                .dimensions(width / 2 - 50, height - 22, 100, 18).build());
+                .dimensions(width / 2 + 54, height - 22, 100, 18).build());
 
         selectRow(null);
         rebuildRows();
@@ -327,6 +337,14 @@ public final class FollowingScreen extends Screen {
             verbandButton.visible = any;
             verbandButton.active = any;
         }
+        if (saveButton != null) {
+            saveButton.visible = any;
+            saveButton.active = any;
+        }
+        if (discardButton != null) {
+            discardButton.visible = any;
+            discardButton.active = any;
+        }
         if (lehenColorField != null) {
             lehenColorField.visible = hasLehen;
             lehenColorField.setEditable(hasLehen);
@@ -334,6 +352,23 @@ public final class FollowingScreen extends Screen {
                     ? config.map.lehenColors.getOrDefault(row.regionId(), "") : "");
         }
         suppress = false;
+    }
+
+    /** Speichern: Name + Gefolge-Farbe + Lehen-Farbe aus den Feldern übernehmen. */
+    private void saveEdits() {
+        if (editing == null) {
+            return;
+        }
+        applyName(nameField.getText());
+        applyColor(colorField.getText(), false);
+        if (lehenColorField.visible) {
+            applyColor(lehenColorField.getText(), true);
+        }
+    }
+
+    /** Verwerfen: Felder aus dem gespeicherten Stand neu laden. */
+    private void discardEdits() {
+        selectRow(editing);
     }
 
     private void applyName(String raw) {

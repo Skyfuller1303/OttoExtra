@@ -264,8 +264,10 @@ public final class RegionNotificationOverlay {
             lines.add(new ScaledLine(Text.literal(title).asOrderedText(), titleScale, pal.title()));
         }
         int regionWrap = Math.max(20, (int) (maxTextWidth / Math.max(0.3f, regionScale)));
+        // Gefolge-/Region-Anzeigename-Override anwenden (Lookups oben bleiben roh)
+        String regionShown = de.ottoextra.map.PoliticalOverlay.displayNameFor(regionName);
         for (net.minecraft.text.OrderedText regionLine
-                : tr.wrapLines(Text.literal(regionName), regionWrap)) {
+                : tr.wrapLines(Text.literal(regionShown), regionWrap)) {
             lines.add(new ScaledLine(regionLine, regionScale, pal.region()));
         }
         if (hasHierarchy) {

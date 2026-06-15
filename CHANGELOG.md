@@ -26,6 +26,12 @@ Alle nennenswerten Änderungen an OttoExtra. Format angelehnt an
   **Werkseinstellung** (gebündelter Wiki-Default) statt das Feld zu leeren.
 - **Titel-Feld im Editor** ist auch für Standard-(Wiki-)Titel editierbar (nur
   das Löschen bleibt gesperrt).
+- **Gefolge-Editor** (Karte → Gefolge…) übernimmt Name + Farben nicht mehr
+  live, sondern erst über **Speichern**; **Verwerfen** lädt den gespeicherten
+  Stand neu.
+- **Titel „Laienbruder/Laienschwester"** ist jetzt Kategorie **allgemein**
+  (vorher fälschlich Klerus). Betrifft frische Kataloge; bestehende per
+  Reset-Icon aktualisieren.
 
 ### Behoben
 - **Gemalte Karte verschwand beim Shader-Wechsel**: Ein Iris-Shader-Wechsel baut
@@ -42,6 +48,11 @@ Alle nennenswerten Änderungen an OttoExtra. Format angelehnt an
 - **Overlay-Toggle (K)** kippt nur noch auf dem Xaero-Worldmap-Screen; ein
   versehentlicher K-Druck im Spiel blendet das Lehen-Overlay nicht mehr
   unbemerkt für die ganze Session aus (mit Actionbar-Hinweis).
+- **Gefolge-Anzeigename griff nicht überall**: Ein geänderter Gefolge-Name
+  erschien nur in der Minimap-HUD, nicht auf der Großkarte (Einzel-Lehen-Label)
+  und nicht in der Region-Benachrichtigung. Ursache: der Setter baute den
+  Label-Cache nicht neu (`invalidateGroups` fehlte) und beide Stellen lasen den
+  Roh-Namen statt des Overrides.
 
 ## [0.1.5] – 2026-06-14
 
