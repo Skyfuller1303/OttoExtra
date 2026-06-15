@@ -29,6 +29,7 @@ Alle nennenswerten Änderungen an OttoExtra. Format angelehnt an
 - **Gefolge-Editor** (Karte → Gefolge…) übernimmt Name + Farben nicht mehr
   live, sondern erst über **Speichern**; **Verwerfen** lädt den gespeicherten
   Stand neu.
+- **OttoExtra-Button** im Pause-Menü (unten links) ist jetzt 45×45 (vorher 20×20).
 - **Titel „Laienbruder/Laienschwester"** ist jetzt Kategorie **allgemein**
   (vorher fälschlich Klerus). Bestehende Kataloge werden beim Laden automatisch
   korrigiert (nur wenn noch der alte Default-Wert gesetzt ist).
@@ -55,6 +56,14 @@ Alle nennenswerten Änderungen an OttoExtra. Format angelehnt an
   Roh-Namen statt des Overrides.
 - **Minimap-Wappen-Overlay überlappte die Tabliste**: Das Wappen-/Namens-Overlay
   wird jetzt ausgeblendet, solange die Spielerliste (Tab) gehalten wird.
+- **„Farbe überschreibt" wirkte nicht**: Hatte ein Titel „Farbe überschreibt"
+  aktiv, schlug die Titel-/Namensfarbe trotzdem nicht den Personen-Override —
+  in Chat, Tabliste und Namensschild gewann immer die individuelle Spielerfarbe.
+  Jetzt setzt sich bei aktivem Flag die Katalog-Titel- und -Namensfarbe durch.
+- **Titel-Namensfarbe griff nicht in den GUIs**: Die eigene Namensfarbe eines
+  Titels ist jetzt der Default im RP-Buch und erscheint auch in der
+  Kennenlern-GUI und der Namensschild-Vorschau (vorher nur die globale
+  Standard-Namensfarbe).
 
 ## [0.1.5] – 2026-06-14
 

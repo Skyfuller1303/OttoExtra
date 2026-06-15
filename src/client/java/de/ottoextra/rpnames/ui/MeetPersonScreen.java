@@ -244,18 +244,21 @@ public final class MeetPersonScreen extends Screen {
                 ? RpNamesServices.titles().find(title).map(r -> r.group().titleColor).orElse(null)
                 : null;
         String fallback = catalog != null ? catalog.fallbackTitleColor() : "#a17f5f";
-        String hex = firstNonBlank(p != null ? p.colors.nametagTitleColor : null,
-                firstNonBlank(catalogColor, firstNonBlank(groupColor, fallback)));
+        // „Farbe überschreibt": Katalogfarbe schlägt den Personen-Override.
+        String pers = p != null ? p.colors.nametagTitleColor : null;
+        String hex = RpNamesServices.titleOverridesColor(title)
+                ? firstNonBlank(catalogColor, firstNonBlank(pers, firstNonBlank(groupColor, fallback)))
+                : firstNonBlank(pers, firstNonBlank(catalogColor, firstNonBlank(groupColor, fallback)));
         return argb(hex, 0xFFD2BF6A);
     }
 
-    /** Namensschild-Namensfarbe (Override -> Katalog-Standard). */
+    /** RP-Namensfarbe: Personen-Override -> Titel-Namensfarbe -> global ->
+     *  Standard. Bei „Farbe überschreibt" schlägt die Titel-Farbe den Override. */
     private int nameColorArgb() {
-        var catalog = RpNamesServices.catalog();
         var p = RpNamesServices.store() != null
                 ? RpNamesServices.store().findByName(account).orElse(null) : null;
-        String defaultName = catalog != null ? catalog.defaultNameColor() : "#c7a87f";
-        String hex = firstNonBlank(p != null ? p.colors.nametagNameColor : null, defaultName);
+        String hex = RpNamesServices.rpNameColor(
+                p != null ? p.colors.nametagNameColor : null, liveTitle());
         return argb(hex, 0xFFC7A87F);
     }
 

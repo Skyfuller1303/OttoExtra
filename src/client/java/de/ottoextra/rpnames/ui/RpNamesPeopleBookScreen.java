@@ -684,7 +684,8 @@ public final class RpNamesPeopleBookScreen extends Screen {
     /**
      * Effektive Default-Farben (ohne Spieler-Override) für die 6 Felder:
      * Titel = Katalog (Override/Kategorie) bzw. Legacy-Gruppe, Name =
-     * Standard-Namensfarbe (#c7a87f) — Reihenfolge chat/tab/tag × titel/name.
+     * Titel-Namensfarbe (falls gesetzt) sonst Standard-Namensfarbe (#c7a87f) —
+     * Reihenfolge chat/tab/tag × titel/name.
      */
     private String[] defaultColorsFor(String title) {
         var catalog = RpNamesServices.catalog();
@@ -693,7 +694,10 @@ public final class RpNamesPeopleBookScreen extends Screen {
             titleColor = titles.find(title == null ? "" : title)
                     .map(r -> r.group().titleColor).orElse("");
         }
-        String nameColor = catalog != null ? catalog.defaultNameColor() : "#c7a87f";
+        // Titel-eigene Namensfarbe ist der Default, sonst globale Default-Farbe.
+        String nameColor = catalog != null
+                ? catalog.titleNameColor(title).orElse(catalog.defaultNameColor())
+                : "#c7a87f";
         return new String[]{titleColor, nameColor, titleColor, nameColor, titleColor, nameColor};
     }
 
@@ -1854,16 +1858,18 @@ public final class RpNamesPeopleBookScreen extends Screen {
                         .map(r -> r.group().titleColor).orElse(null)
                 : null;
         String fallback = catalog != null ? catalog.fallbackTitleColor() : "#a17f5f";
-        String hex = previewFirst(selected.colors.nametagTitleColor,
-                previewFirst(catalogColor, previewFirst(groupColor, fallback)));
+        // „Farbe überschreibt": Katalogfarbe schlägt den Personen-Override.
+        String pers = selected.colors.nametagTitleColor;
+        String hex = RpNamesServices.titleOverridesColor(selected.title)
+                ? previewFirst(catalogColor, previewFirst(pers, previewFirst(groupColor, fallback)))
+                : previewFirst(pers, previewFirst(catalogColor, previewFirst(groupColor, fallback)));
         return previewArgb(hex, COL_TITLE);
     }
 
-    /** Namensschild-Namensfarbe der ausgewählten Person (Override -> Katalog-Standard). */
+    /** RP-Namensfarbe der ausgewählten Person: Override -> Titel-Namensfarbe ->
+     *  global -> Standard (mit „Farbe überschreibt"). */
     private int previewNameColor() {
-        var catalog = RpNamesServices.catalog();
-        String defaultName = catalog != null ? catalog.defaultNameColor() : "#c7a87f";
-        String hex = previewFirst(selected.colors.nametagNameColor, defaultName);
+        String hex = RpNamesServices.rpNameColor(selected.colors.nametagNameColor, selected.title);
         return previewArgb(hex, COL_TITLE);
     }
 

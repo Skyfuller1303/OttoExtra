@@ -265,6 +265,11 @@ public final class TitleCatalogStore {
                 .filter(c -> c != null && !c.isBlank());
     }
 
+    /** „Farbe überschreibt" des Titel-Eintrags (Katalog-Farbe schlägt Person-Override). */
+    public boolean overridesColor(String title) {
+        return find(title).map(e -> e.overridesColor).orElse(false);
+    }
+
     /** Titel-Farbe aus dem Katalog: Override des Eintrags oder Kategorie-Farbe. */
     public Optional<String> titleColor(String title) {
         return find(title).map(e -> {

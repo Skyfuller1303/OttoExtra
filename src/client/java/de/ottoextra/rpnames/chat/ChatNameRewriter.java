@@ -188,8 +188,11 @@ public final class ChatNameRewriter {
         String catalogColor = catalog != null
                 ? catalog.titleColor(profile.title).orElse(null) : null;
         String fallback = catalog != null ? catalog.fallbackTitleColor() : "#a17f5f";
-        String titleColor = firstNonBlank(profile.colors.chatTitleColor,
-                firstNonBlank(catalogColor, firstNonBlank(groupTitleColor, fallback)));
+        String pers = profile.colors.chatTitleColor;
+        // „Farbe überschreibt": Katalogfarbe schlägt den Personen-Override.
+        String titleColor = de.ottoextra.rpnames.RpNamesServices.titleOverridesColor(profile.title)
+                ? firstNonBlank(catalogColor, firstNonBlank(pers, firstNonBlank(groupTitleColor, fallback)))
+                : firstNonBlank(pers, firstNonBlank(catalogColor, firstNonBlank(groupTitleColor, fallback)));
         // Angezeigten Titel auf den Katalog-Kanon abbilden (umbenannte Titel
         // greifen so auch im Chat).
         return colored(de.ottoextra.rpnames.RpNamesServices.canonicalTitle(profile.title) + " ",

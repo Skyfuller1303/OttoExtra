@@ -88,6 +88,13 @@ public final class RpNamesServices {
         return cat != null ? cat.titleNameColor(title).orElse(null) : null;
     }
 
+    /** Hat der Titel „Farbe überschreibt" gesetzt? Dann schlägt die Katalogfarbe
+     *  (Titel- und Namensfarbe) den Personen-Override. */
+    public static boolean titleOverridesColor(String title) {
+        var cat = catalog;
+        return cat != null && cat.overridesColor(title);
+    }
+
     private static String firstNonBlank(String... vals) {
         for (String v : vals) {
             if (v != null && !v.isBlank()) {
@@ -103,6 +110,10 @@ public final class RpNamesServices {
      */
     public static String rpNameColor(String personOverride, String title) {
         String global = config != null ? config.globalRpNameColor : null;
+        if (titleOverridesColor(title)) {
+            return firstNonBlank(titleNameColor(title), personOverride, global,
+                    catalogDefaultNameColor());
+        }
         return firstNonBlank(personOverride, titleNameColor(title), global,
                 catalogDefaultNameColor());
     }
@@ -113,6 +124,10 @@ public final class RpNamesServices {
      */
     public static String playerNameColor(String personOverride, String title) {
         String global = config != null ? config.globalPlayerNameColor : null;
+        if (titleOverridesColor(title)) {
+            return firstNonBlank(titleNameColor(title), personOverride, global,
+                    catalogDefaultNameColor());
+        }
         return firstNonBlank(personOverride, titleNameColor(title), global,
                 catalogDefaultNameColor());
     }

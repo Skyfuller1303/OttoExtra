@@ -132,9 +132,12 @@ public final class TablistNameFormatter {
         // Angezeigten Titel-Text auf den Katalog-Kanon abbilden (umbenannte Titel
         // greifen so überall, auch bei nur als Variante/alt gespeicherten Werten).
         String shown = RpNamesServices.canonicalTitle(profile.title);
-        return colored(shown + " ",
-                firstNonBlank(profile.colors.tabTitleColor,
-                        firstNonBlank(catalogColor, firstNonBlank(groupColor, fallback))));
+        // „Farbe überschreibt": Katalogfarbe schlägt den Personen-Override.
+        String pers = profile.colors.tabTitleColor;
+        String titleColor = RpNamesServices.titleOverridesColor(profile.title)
+                ? firstNonBlank(catalogColor, firstNonBlank(pers, firstNonBlank(groupColor, fallback)))
+                : firstNonBlank(pers, firstNonBlank(catalogColor, firstNonBlank(groupColor, fallback)));
+        return colored(shown + " ", titleColor);
     }
 
     /**

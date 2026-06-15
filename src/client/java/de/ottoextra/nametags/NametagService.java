@@ -188,9 +188,12 @@ public final class NametagService {
             String fallback = catalog != null ? catalog.fallbackTitleColor() : "#a17f5f";
             // Angezeigten Titel auf den Katalog-Kanon abbilden (umbenannte Titel
             // greifen so auch am Namensschild).
-            title = colored(RpNamesServices.canonicalTitle(profile.title),
-                    firstNonBlank(profile.colors.nametagTitleColor,
-                            firstNonBlank(catalogColor, firstNonBlank(groupColor, fallback))));
+            String pers = profile.colors.nametagTitleColor;
+            // „Farbe überschreibt": Katalogfarbe schlägt den Personen-Override.
+            String titleColor = RpNamesServices.titleOverridesColor(profile.title)
+                    ? firstNonBlank(catalogColor, firstNonBlank(pers, firstNonBlank(groupColor, fallback)))
+                    : firstNonBlank(pers, firstNonBlank(catalogColor, firstNonBlank(groupColor, fallback)));
+            title = colored(RpNamesServices.canonicalTitle(profile.title), titleColor);
         }
         // Proaktives Kennenlernen: Marker ist jetzt ein 3D-Ausrufezeichen über dem
         // Kopf (MeetMarkerRenderer) — kein "!" mehr im Namensschild.
