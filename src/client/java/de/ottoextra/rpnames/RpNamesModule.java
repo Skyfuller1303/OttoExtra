@@ -177,6 +177,22 @@ public final class RpNamesModule implements OttoExtraModule {
     @Override
     public void onServerJoin(OttoExtraContext context) {
         RpNamesServices.setActive(true);
+        // Beim Join einmal automatisch via API abgleichen: cached den API-RP-Namen
+        // (Quelle fürs Zurücksetzen) und ergänzt leere Felder — legt keine neuen
+        // Spieler an, schreibt keine Backup-Datei. Läuft asynchron, nie blockierend.
+        var store = RpNamesServices.store();
+        if (store != null && RpNamesServices.isActive()) {
+            de.ottoextra.rpnames.importer.RegionsApiRpNameImporter.runAuto(store)
+                    .whenComplete((result, error) -> {
+                        if (error != null) {
+                            OttoExtra.LOGGER.debug("[rpnames] Auto-API-Abgleich fehlgeschlagen: {}",
+                                    error.toString());
+                        } else {
+                            store.saveNow();
+                            OttoExtra.LOGGER.info("[rpnames] Auto-API-Abgleich: {}", result);
+                        }
+                    });
+        }
     }
 
     @Override

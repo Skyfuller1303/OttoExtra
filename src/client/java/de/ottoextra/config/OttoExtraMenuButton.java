@@ -26,7 +26,7 @@ public final class OttoExtraMenuButton extends PressableWidget {
 
     /** Fabric-Mod-Icon ({@code assets/ottoextra/icon.png}), 128×128. */
     private static final Identifier ICON = OttoExtra.id("icon.png");
-    private static final int ICON_SIZE = 36;
+    private static final int ICON_SIZE = 24;
     private static final int ICON_TEX = 128;
 
     private final Screen parent;

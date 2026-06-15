@@ -1415,9 +1415,13 @@ public final class RpNamesPeopleBookScreen extends Screen {
                     return true;
                 }
             }
-            // RP-Name / Titel auf Serverstandard zurücksetzen (Feld leeren)
+            // RP-Name zurücksetzen: API-Original (apiRpName/apiConflict) bevorzugt,
+            // sonst der gespeicherte Name — nicht leeren.
             if (resetIconHit(rpNameField, mx, my)) {
-                rpNameField.setText("");
+                String original = firstNonBlank(selected.apiRpName,
+                        firstNonBlank(selected.apiConflict,
+                                selected.hasRpName() ? selected.rpName : null));
+                rpNameField.setText(original == null ? "" : original);
                 return true;
             }
             if (resetIconHit(titleField, mx, my)) {

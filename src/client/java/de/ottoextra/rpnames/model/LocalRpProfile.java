@@ -30,6 +30,9 @@ public final class LocalRpProfile {
     public String notes = "";
     /** API-Wert, der von einem lokalen Wert abweicht (nur Anzeige, nie auto-übernommen). */
     public String apiConflict;
+    /** Letzter vom API gemeldeter RP-Name (Original) — Quelle fürs Zurücksetzen,
+     *  auch wenn lokal ein eigener Name gesetzt wurde. */
+    public String apiRpName;
 
     public LocalRpColors colors = new LocalRpColors();
 

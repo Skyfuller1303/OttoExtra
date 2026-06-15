@@ -372,10 +372,21 @@ public final class LocalRpIdentityStore {
         if (profile == null) {
             return false; // Anlage übernimmt der Importer je nach Modus explizit
         }
-        if (profile.locked || !profile.knowledgeState.allowsAutomaticUpdates()) {
-            return false;
+        // API-Original-RP-Namen IMMER merken (auch bei MANUAL/locked) — Quelle
+        // fürs Zurücksetzen, ohne den lokal gesetzten Namen anzutasten.
+        boolean recorded = false;
+        if (rpName != null && !rpName.isBlank() && !rpName.equals(profile.apiRpName)) {
+            profile.apiRpName = rpName;
+            recorded = true;
         }
-        boolean changed = false;
+        if (profile.locked || !profile.knowledgeState.allowsAutomaticUpdates()) {
+            if (recorded) {
+                profile.lastUpdatedAt = System.currentTimeMillis();
+                saveSoon();
+            }
+            return recorded;
+        }
+        boolean changed = recorded;
         if ((profile.uuid == null || profile.uuid.isBlank()) && uuid != null && !uuid.isBlank()) {
             profile.uuid = uuid;
             index(profile);

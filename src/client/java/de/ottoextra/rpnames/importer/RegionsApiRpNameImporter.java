@@ -67,10 +67,19 @@ public final class RegionsApiRpNameImporter {
      * RP-Daten neu an (Modus "alle"), sonst werden nur vorhandene ergänzt.
      */
     public static CompletableFuture<Result> run(LocalRpIdentityStore store, boolean createMissing) {
-        return CompletableFuture.supplyAsync(() -> doImport(store, createMissing));
+        return CompletableFuture.supplyAsync(() -> doImport(store, createMissing, true));
     }
 
-    private static Result doImport(LocalRpIdentityStore store, boolean createMissing) {
+    /**
+     * Automatischer Hintergrund-Abgleich (z. B. beim Server-Join): ergänzt nur
+     * vorhandene Profile und cached den API-RP-Namen (Quelle fürs Zurücksetzen),
+     * ohne neue Spieler anzulegen und ohne Backup-Datei (kein Spam bei jedem Join).
+     */
+    public static CompletableFuture<Result> runAuto(LocalRpIdentityStore store) {
+        return CompletableFuture.supplyAsync(() -> doImport(store, false, false));
+    }
+
+    private static Result doImport(LocalRpIdentityStore store, boolean createMissing, boolean backup) {
         Envelope env;
         try {
             HttpClient http = HttpClient.newBuilder()
@@ -96,7 +105,9 @@ public final class RegionsApiRpNameImporter {
             return Result.failure("Antwort unbrauchbar");
         }
 
-        store.backup();
+        if (backup) {
+            store.backup();
+        }
         // Eigenen Account immer mitnehmen — der Tablist-Sync legt einen selbst
         // nie an, sonst fehlt der eigene Char auch nach dem Import
         String selfName = null;
@@ -136,6 +147,7 @@ public final class RegionsApiRpNameImporter {
                 profile.accountName = account;
                 if (rpName != null) {
                     profile.rpName = rpName;
+                    profile.apiRpName = rpName; // Original fürs Zurücksetzen merken
                 }
                 if (title != null) {
                     profile.title = title;

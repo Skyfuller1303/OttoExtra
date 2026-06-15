@@ -29,7 +29,10 @@ Alle nennenswerten Änderungen an OttoExtra. Format angelehnt an
 - **Gefolge-Editor** (Karte → Gefolge…) übernimmt Name + Farben nicht mehr
   live, sondern erst über **Speichern**; **Verwerfen** lädt den gespeicherten
   Stand neu.
-- **OttoExtra-Button** im Pause-Menü (unten links) ist jetzt 45×45 (vorher 20×20).
+- **OttoExtra-Button** im Pause-Menü (unten links) ist jetzt 30×30 (vorher 20×20).
+- **Automatischer API-Abgleich beim Server-Join** (RP-Namen): cached den
+  API-RP-Namen je Spieler und ergänzt leere Felder — legt keine neuen Spieler an
+  und schreibt keine Backup-Datei. Läuft asynchron im Hintergrund.
 - **Titel „Laienbruder/Laienschwester"** ist jetzt Kategorie **allgemein**
   (vorher fälschlich Klerus). Bestehende Kataloge werden beim Laden automatisch
   korrigiert (nur wenn noch der alte Default-Wert gesetzt ist).
@@ -64,6 +67,10 @@ Alle nennenswerten Änderungen an OttoExtra. Format angelehnt an
   Titels ist jetzt der Default im RP-Buch und erscheint auch in der
   Kennenlern-GUI und der Namensschild-Vorschau (vorher nur die globale
   Standard-Namensfarbe).
+- **RP-Name zurücksetzen leerte das Feld**: Das Reset-Icon stellt jetzt den
+  API-Original-Namen wieder her (lokal gecacht via `apiRpName`, auch wenn ein
+  eigener Name gesetzt ist), sonst den gespeicherten Namen — statt das Feld zu
+  leeren.
 
 ## [0.1.5] – 2026-06-14
 

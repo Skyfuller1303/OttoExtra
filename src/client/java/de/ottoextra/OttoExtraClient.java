@@ -80,7 +80,7 @@ public final class OttoExtraClient implements ClientModInitializer {
                     if (screen instanceof net.minecraft.client.gui.screen.GameMenuScreen) {
                         net.fabricmc.fabric.api.client.screen.v1.Screens.getButtons(screen).add(
                                 new de.ottoextra.config.OttoExtraMenuButton(
-                                        4, scaledHeight - 49, 45, screen));
+                                        4, scaledHeight - 34, 30, screen));
                     }
                 });
     }
