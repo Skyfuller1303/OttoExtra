@@ -429,6 +429,8 @@ public final class OttoExtraConfig {
         public String voiceKey = "key.keyboard.v";
         public String helpKey = "key.keyboard.h";
         public String offtopicKey = "key.keyboard.o";
+        /** Spielerkopf links neben dem Namen im Chat anzeigen (optional). */
+        public boolean showPlayerHeads = false;
     }
 
     /** Automatischer Server-Resourcepack-Downloader. */

@@ -4,6 +4,16 @@ Alle nennenswerten Änderungen an OttoExtra. Format angelehnt an
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/); Versionierung nach
 [SemVer](https://semver.org/lang/de/).
 
+## [0.1.7] – 2026-06-15
+
+### Hinzugefügt
+- **Spielerköpfe im Chat** (optional, Standard aus): zeigt links zwischen Kanal
+  und Titel den Spielerkopf des Sprechers. Einstellbar unter Chat → Kanal
+  („Spielerköpfe im Chat"). Der Sprecher wird über die Namenszone (Account oder
+  RP-Name) aufgelöst, der Skin aus der Tabliste bzw. dem Default-Skin gezogen;
+  die Auflösung ist je Name gecacht. Zeichnen über zwei ChatHud-Backend-Mixins
+  (offener und geschlossener Chat), mit Zeilen-Deckkraft (Fade).
+
 ## [0.1.6] – 2026-06-15
 
 ### Hinzugefügt

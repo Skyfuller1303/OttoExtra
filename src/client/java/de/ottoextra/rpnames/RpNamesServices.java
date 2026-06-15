@@ -345,14 +345,15 @@ public final class RpNamesServices {
                 }
                 store.updateTitleIfChanged(id.accountName(), null, id.title());
             }
+            Text result;
             if (!channel.shouldReplace(config)) {
                 // OOC: RP-Name bleibt, aber den Titel trotzdem voranstellen
-                if (channel.isOoc()) {
-                    return rewriter.rewriteTitleOnly(message, config);
-                }
-                return message;
+                result = channel.isOoc() ? rewriter.rewriteTitleOnly(message, config) : message;
+            } else {
+                result = rewriter.rewrite(message, config);
             }
-            return rewriter.rewrite(message, config);
+            // Optionaler Spielerkopf: Platz schaffen (Einrückung), Zeichnen im Mixin.
+            return de.ottoextra.chat.ChatHeads.withHeadIndent(result);
         } catch (Throwable t) {
             return message;
         }
