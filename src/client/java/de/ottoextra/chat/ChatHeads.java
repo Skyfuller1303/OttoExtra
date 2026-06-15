@@ -238,6 +238,12 @@ public final class ChatHeads {
         if (uuid == null) {
             return null;
         }
+        // Offline: zuerst der LOKAL gecachte Skin (eigenes PNG, kein Mojang),
+        // sonst der Provider (gecachte Property), zuletzt Default.
+        SkinTextures local = SkinCache.localSkin(uuid);
+        if (local != null) {
+            return local;
+        }
         try {
             SkinTextures s = mc.getSkinProvider()
                     .supplySkinTextures(SkinCache.profileFor(uuid, account), false).get();

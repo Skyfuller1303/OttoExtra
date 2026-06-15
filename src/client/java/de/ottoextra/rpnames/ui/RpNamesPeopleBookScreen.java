@@ -1892,11 +1892,12 @@ public final class RpNamesPeopleBookScreen extends Screen {
         try {
             // Skin vom Server (Player-List-Profil mit Texturen); Mojang nur Backup
             com.mojang.authlib.GameProfile profile = serverProfile(client, key);
+            final boolean online = profile != null;
             boolean fallback = false;
             if (profile == null) {
                 java.util.UUID uuid;
                 if (selected.uuid != null && !selected.uuid.isBlank()) {
-                    uuid = java.util.UUID.fromString(selected.uuid); // echte UUID -> Mojang-Skin
+                    uuid = java.util.UUID.fromString(selected.uuid); // echte UUID -> lokaler/Mojang-Skin
                 } else {
                     uuid = FALLBACK_SKIN_UUID; // nie online / keine Textur -> Marken-Fallback
                     fallback = true;
@@ -1904,11 +1905,22 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 profile = new com.mojang.authlib.GameProfile(uuid, key);
             }
             final boolean useFallback = fallback;
+            final java.util.UUID previewUuid = profile.id();
             net.minecraft.client.network.OtherClientPlayerEntity entity =
                     new net.minecraft.client.network.OtherClientPlayerEntity(client.world, profile) {
                         @Override
                         public net.minecraft.entity.player.SkinTextures getSkin() {
-                            return useFallback ? fallbackSkin() : super.getSkin();
+                            if (useFallback) {
+                                return fallbackSkin();
+                            }
+                            // Offline: lokal gecachten Skin (eigenes PNG) bevorzugen.
+                            if (!online) {
+                                var local = de.ottoextra.chat.SkinCache.localSkin(previewUuid);
+                                if (local != null) {
+                                    return local;
+                                }
+                            }
+                            return super.getSkin();
                         }
                     };
             // 2nd-Layer nur bei echtem Skin; Fallback-Textur ist ohne Overlay

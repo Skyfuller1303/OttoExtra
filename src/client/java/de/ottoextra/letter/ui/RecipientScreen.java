@@ -138,16 +138,18 @@ public final class RecipientScreen extends Screen {
         if (entry != null) {
             return entry.getSkinTextures();
         }
-        java.util.UUID uuid;
-        try {
-            uuid = (p.uuid != null && !p.uuid.isBlank())
-                    ? java.util.UUID.fromString(p.uuid)
-                    : net.minecraft.util.Uuids.getOfflinePlayerUuid(
-                            p.accountName == null ? "" : p.accountName);
-        } catch (RuntimeException e) {
-            uuid = net.minecraft.util.Uuids.getOfflinePlayerUuid(
-                    p.accountName == null ? "" : p.accountName);
+        // Offline: lokal gecachten Skin (eigenes PNG) über die echte UUID nutzen,
+        // statt Mojang/Default.
+        if (p.uuid != null && !p.uuid.isBlank()) {
+            try {
+                return de.ottoextra.chat.ChatHeads.skinForUuid(
+                        java.util.UUID.fromString(p.uuid), p.accountName);
+            } catch (IllegalArgumentException ignored) {
+                // ungültige UUID -> Default unten
+            }
         }
+        java.util.UUID uuid = net.minecraft.util.Uuids.getOfflinePlayerUuid(
+                p.accountName == null ? "" : p.accountName);
         return net.minecraft.client.util.DefaultSkinHelper.getSkinTextures(uuid);
     }
 

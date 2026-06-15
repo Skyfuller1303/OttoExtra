@@ -166,6 +166,69 @@ public final class SkinCache {
         return uuid != null && MAP.containsKey(uuid);
     }
 
+    /** Bereits als Textur registrierte lokale Skins (UUID -> SkinTextures). */
+    private static final Map<UUID, net.minecraft.entity.player.SkinTextures> LOADED =
+            new ConcurrentHashMap<>();
+
+    /**
+     * SkinTextures aus dem lokal gespeicherten PNG ({@code cache/skins/<uuid>.png}),
+     * als Textur registriert — nutzt also den lokalen Cache statt Mojang. Null,
+     * wenn kein PNG vorhanden ist oder das Laden scheitert. Auf dem Render-Thread
+     * aufrufen (Textur-Registrierung).
+     */
+    public static net.minecraft.entity.player.SkinTextures localSkin(UUID uuid) {
+        if (uuid == null) {
+            return null;
+        }
+        net.minecraft.entity.player.SkinTextures cached = LOADED.get(uuid);
+        if (cached != null) {
+            return cached;
+        }
+        Path png = pngDir().resolve(uuid + ".png");
+        if (!Files.exists(png)) {
+            return null;
+        }
+        try {
+            net.minecraft.client.texture.NativeImage img;
+            try (var in = Files.newInputStream(png)) {
+                img = net.minecraft.client.texture.NativeImage.read(in);
+            }
+            net.minecraft.util.Identifier id =
+                    OttoExtra.id("cached_skin/" + uuid.toString().toLowerCase());
+            net.minecraft.client.MinecraftClient.getInstance().getTextureManager().registerTexture(id,
+                    new net.minecraft.client.texture.NativeImageBackedTexture(
+                            () -> "ottoextra-skin-" + uuid, img));
+            // texturePath == die registrierte Runtime-ID (kein Resource-Pfad ableiten),
+            // sonst sucht der Renderer eine nicht existierende Ressource.
+            net.minecraft.entity.player.SkinTextures st = new net.minecraft.entity.player.SkinTextures(
+                    new net.minecraft.util.AssetInfo.TextureAssetInfo(id, id), null, null, modelFor(uuid), true);
+            LOADED.put(uuid, st);
+            return st;
+        } catch (Throwable t) {
+            OttoExtra.LOGGER.debug("[skins] lokales PNG laden fehlgeschlagen ({}): {}", uuid, t.toString());
+            return null;
+        }
+    }
+
+    /** Modell (SLIM/WIDE) aus der gecachten Textur-Metadaten, Default WIDE. */
+    private static net.minecraft.entity.player.PlayerSkinType modelFor(UUID uuid) {
+        try {
+            Cached c = MAP.get(uuid);
+            if (c != null && c.value != null) {
+                String json = new String(Base64.getDecoder().decode(c.value), StandardCharsets.UTF_8);
+                JsonObject skin = GSON.fromJson(json, JsonObject.class)
+                        .getAsJsonObject("textures").getAsJsonObject("SKIN");
+                if (skin.has("metadata")) {
+                    String model = skin.getAsJsonObject("metadata").get("model").getAsString();
+                    return net.minecraft.entity.player.PlayerSkinType.byModelMetadata(model);
+                }
+            }
+        } catch (Throwable ignored) {
+            // Default unten
+        }
+        return net.minecraft.entity.player.PlayerSkinType.WIDE;
+    }
+
     /** Geänderten Cache auf die Platte schreiben (debounced über das dirty-Flag). */
     public static void flush() {
         if (!dirty) {

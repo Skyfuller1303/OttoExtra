@@ -21,8 +21,10 @@ Alle nennenswerten Änderungen an OttoExtra. Format angelehnt an
 - **Persistenter Skin-Cache**: Skins der online gesehenen Spieler werden lokal
   je UUID gespeichert (`config/ottoextra/cache/skins.json` für die signierte
   Textur-Property, `cache/skins/<uuid>.png` als Bild) und beim Start geladen.
-  So zeigt z. B. der Chat-Kopf auch bei offline-Spielern den echten Skin (statt
-  Default). Befüllt sich beim Server-Join über die Tabliste.
+  Befüllt sich beim Server-Join über die Tabliste. Offline werden die GUIs
+  (Chat-Kopf, Empfängerliste, RP-Buch-3D-Vorschau) direkt aus dem **lokalen PNG**
+  bedient (als Runtime-Textur), statt Mojang/Default — der echte Skin bleibt
+  also auch ohne Online-Status erhalten.
 
 ### Geändert
 - **Modul-Tabs der Einstellungen** werden auf schmalen Fenstern/kleinen Monitoren
