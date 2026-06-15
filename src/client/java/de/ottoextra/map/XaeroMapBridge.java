@@ -9,8 +9,10 @@ import java.lang.reflect.Method;
 
 /**
  * Einzige Berührungsfläche zu Xaero (World Map). Alles via Reflection, lazy,
- * fehlertolerant: jeder Fehler deaktiviert die Bridge einmalig (Warn-Log),
- * niemals Crash. Ausserhalb dieser Klasse existiert kein Xaero-Symbol.
+ * fehlertolerant: Lesefehler schalten das Overlay nur für den aktuellen Frame
+ * ab und heilen sich selbst, sobald Xaero wieder einen lesbaren Zustand hat —
+ * niemals Crash, niemals dauerhaftes Aus bis Client-Neustart. Ausserhalb dieser
+ * Klasse existiert kein Xaero-Symbol.
  *
  * <p>Verifiziert gegen xaeroworldmap-1.40.16 (Modpack-JAR):
  * {@code xaero.map.gui.GuiMap} mit privaten Feldern {@code cameraX}, {@code cameraZ},
@@ -50,7 +52,12 @@ public final class XaeroMapBridge {
 
     private static final String GUI_MAP = "xaero.map.gui.GuiMap";
 
-    private static volatile boolean disabled = false;
+    /**
+     * Transienter Fehlerzustand (nicht dauerhaft). Nur zum Drosseln der Logs:
+     * 1× Warn beim Wechsel gesund→Fehler, 1× Info bei der Erholung. Das Overlay
+     * wird in jedem Frame neu versucht.
+     */
+    private static volatile boolean failed = false;
     private static volatile boolean resolved = false;
     private static Class<?> guiMapClass;
     private static Field cameraXField;
@@ -66,8 +73,12 @@ public final class XaeroMapBridge {
         return FabricLoader.getInstance().isModLoaded("xaeroworldmap");
     }
 
+    /**
+     * Früher ein dauerhafter Kill-Switch; heute heilt sich die Bridge selbst,
+     * daher nie dauerhaft „disabled". Für API-Kompatibilität beibehalten.
+     */
     public static boolean isDisabled() {
-        return disabled;
+        return false;
     }
 
     /** Ist dieser Screen die Xaero-Worldmap? (Klassennamen-Check, kein Klassenladen.) */
@@ -77,14 +88,14 @@ public final class XaeroMapBridge {
 
     /**
      * Liest die Sichtparameter der geöffneten Worldmap.
-     * {@code null} bei deaktivierter Bridge oder Lesefehler.
+     * {@code null} bei Lesefehler — der nächste Frame versucht es erneut.
      */
     public static View view(Screen screen) {
-        if (disabled || screen == null) {
+        if (screen == null) {
             return null;
         }
         try {
-            if (!resolved) {
+            if (!resolved || guiMapClass != screen.getClass()) {
                 resolve(screen);
             }
             double cameraX = cameraXField.getDouble(screen);
@@ -106,45 +117,54 @@ public final class XaeroMapBridge {
             if (!(effScale > 0) || Double.isNaN(effScale)) {
                 return null;
             }
+            if (failed) {
+                failed = false;
+                OttoExtra.LOGGER.info("[map] Xaero-Bridge wieder aktiv.");
+            }
             return new View(cameraX, cameraZ, effScale, screen.width, screen.height);
         } catch (Throwable t) {
-            disable("Sichtparameter lesen fehlgeschlagen: " + t);
+            invalidate(t);
             return null;
         }
     }
 
     /**
      * Zentriert die Worldmap-Kamera auf eine Weltposition (Lehen-Fokus).
-     * Fehler deaktivieren die Bridge nicht — Fokus ist ein Komfort-Feature.
+     * Fehler invalidieren den Cache (Selbstheilung), kein Crash.
      */
     public static void setCamera(Screen screen, double worldX, double worldZ) {
-        if (disabled || !resolved || screen == null) {
+        if (!resolved || screen == null || guiMapClass != screen.getClass()) {
             return;
         }
         try {
             cameraXField.setDouble(screen, worldX);
             cameraZField.setDouble(screen, worldZ);
         } catch (Throwable t) {
-            OttoExtra.LOGGER.debug("[map] Kamera-Fokus fehlgeschlagen: {}", t.toString());
+            invalidate(t);
         }
     }
 
-    /** Lazy Reflection-Auflösung — NIE im Mod-Init aufrufen (GLFW-Lehre). */
+    /**
+     * Lazy Reflection-Auflösung — NIE im Mod-Init aufrufen (GLFW-Lehre).
+     * Löst auch neu auf, wenn sich die GuiMap-Klasse geändert hat (Reconnect,
+     * Xaero-Reload), statt veraltete Field-Handles weiterzubenutzen.
+     */
     private static synchronized void resolve(Screen screen) throws ReflectiveOperationException {
-        if (resolved) {
+        Class<?> cls = screen.getClass();
+        if (resolved && cls == guiMapClass) {
             return;
         }
-        guiMapClass = screen.getClass();
-        cameraXField = guiMapClass.getDeclaredField("cameraX");
+        guiMapClass = cls;
+        cameraXField = cls.getDeclaredField("cameraX");
         cameraXField.setAccessible(true);
-        cameraZField = guiMapClass.getDeclaredField("cameraZ");
+        cameraZField = cls.getDeclaredField("cameraZ");
         cameraZField.setAccessible(true);
-        scaleField = guiMapClass.getDeclaredField("scale");
+        scaleField = cls.getDeclaredField("scale");
         scaleField.setAccessible(true);
-        screenScaleField = guiMapClass.getDeclaredField("screenScale");
+        screenScaleField = cls.getDeclaredField("screenScale");
         screenScaleField.setAccessible(true);
         try {
-            coordScaleMethod = guiMapClass.getDeclaredMethod("getCurrentMapCoordinateScale");
+            coordScaleMethod = cls.getDeclaredMethod("getCurrentMapCoordinateScale");
             coordScaleMethod.setAccessible(true);
         } catch (NoSuchMethodException e) {
             coordScaleMethod = null; // optional
@@ -153,10 +173,22 @@ public final class XaeroMapBridge {
         OttoExtra.LOGGER.info("[map] Xaero-Bridge aktiv (GuiMap-Felder aufgeloest).");
     }
 
-    private static void disable(String reason) {
-        if (!disabled) {
-            disabled = true;
-            OttoExtra.LOGGER.warn("[map] Xaero-Bridge deaktiviert: {} — Overlay bleibt aus.", reason);
+    /**
+     * Cache verwerfen, damit der nächste Frame frisch auflöst. Loggt nur den
+     * Übergang gesund→Fehler einmalig (kein Spam pro Frame).
+     */
+    private static void invalidate(Throwable t) {
+        resolved = false;
+        guiMapClass = null;
+        cameraXField = null;
+        cameraZField = null;
+        scaleField = null;
+        screenScaleField = null;
+        coordScaleMethod = null;
+        if (!failed) {
+            failed = true;
+            OttoExtra.LOGGER.warn("[map] Xaero-Bridge Lesefehler — Overlay pausiert, "
+                    + "Selbstheilung beim nächsten Frame: {}", t.toString());
         }
     }
 }

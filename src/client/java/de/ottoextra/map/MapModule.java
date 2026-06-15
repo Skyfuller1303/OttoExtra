@@ -206,8 +206,19 @@ public final class MapModule implements OttoExtraModule {
         KeyBindingHelper.registerKeyBinding(toggleKey);
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (toggleKey.wasPressed()) {
+                // Nur umschalten, wenn die Xaero-Worldmap offen ist. Sonst kippt ein
+                // versehentlicher K-Druck im Spiel das Overlay unbemerkt aus und es
+                // bleibt die ganze Session weg (Bug: mehrere Spieler berichteten
+                // "Kartenlayout ploetzlich verschwunden").
+                if (!XaeroMapBridge.isWorldmapScreen(client.currentScreen)) {
+                    continue;
+                }
                 overlayVisible = !overlayVisible;
                 OttoExtra.LOGGER.info("[map] Overlay {}", overlayVisible ? "an" : "aus");
+                if (client.player != null) {
+                    client.player.sendMessage(net.minecraft.text.Text.translatable(
+                            overlayVisible ? "ottoextra.map.overlayOn" : "ottoextra.map.overlayOff"), true);
+                }
             }
         });
 

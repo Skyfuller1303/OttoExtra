@@ -27,6 +27,17 @@ loom {
             vmArg "-Ddevauth.enabled=true"
             vmArg "-Ddevauth.account=main"
         }
+        // Zweite Client-Instanz: eigenes gameDir (run2), damit es nicht mit dem
+        // laufenden Modrinth-Profil kollidiert. Settings (options/config/servers)
+        // werden aus "Ottonien (7)" hineinkopiert; Mods kommen aus dem Dev-Classpath.
+        client2 {
+            client()
+            configName = "Minecraft Client 2"
+            runDir = "run2"
+            vmArg "-Xmx6G"
+            vmArg "-Ddevauth.enabled=true"
+            vmArg "-Ddevauth.account=main"
+        }
     }
 }
 

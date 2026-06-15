@@ -136,6 +136,8 @@
   "ottoextra.config.map.onlyOttonien": "Only on Ottonien",
   "ottoextra.adv.borderColor": "Border color (#AARRGGBB)",
   "ottoextra.map.politicalToggle": "Toggle political map",
+  "ottoextra.map.overlayOn": "Fief overlay: on",
+  "ottoextra.map.overlayOff": "Fief overlay: off",
   "ottoextra.config.map.minimapBanner": "Banner at minimap",
   "ottoextra.adv.minimapBannerSize": "Minimap banner size (px)",
   "ottoextra.adv.minimapBannerOffsetX": "Minimap banner offset X",

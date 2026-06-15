@@ -136,6 +136,8 @@
   "ottoextra.config.map.onlyOttonien": "Nur auf Ottonien",
   "ottoextra.adv.borderColor": "Grenzfarbe (#AARRGGBB)",
   "ottoextra.map.politicalToggle": "Politische Karte umschalten",
+  "ottoextra.map.overlayOn": "Lehen-Overlay: an",
+  "ottoextra.map.overlayOff": "Lehen-Overlay: aus",
   "ottoextra.config.map.minimapBanner": "Wappen an Minimap",
   "ottoextra.adv.minimapBannerSize": "Minimap-Wappen Größe (px)",
   "ottoextra.adv.minimapBannerOffsetX": "Minimap-Wappen Versatz X",

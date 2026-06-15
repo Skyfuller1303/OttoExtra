@@ -67,9 +67,19 @@ public final class PaintedMapRenderer {
     private static final Identifier TEX_UPPER = OttoExtra.id("textures/map/otto-large_map_upper_layer.png");
     private static final Identifier TEX_UPPER_HIRES = OttoExtra.id("textures/map/otto-large_map_upper_layer_high_res.png");
 
-    private static volatile boolean disabled = false;
-    /** Minimap-Karte separat abschaltbar (teilt NICHT das Worldmap-Flag). */
-    private static volatile boolean minimapPaintedDisabled = false;
+    /**
+     * Transienter Fehlerzustand (kein dauerhaftes Aus). Bei einem Renderfehler
+     * werden die GPU-Ressourcen verworfen und nach kurzer Pause neu aufgebaut —
+     * heilt insbesondere den Iris-Shader-Wechsel (pipeline rebuild, KEIN
+     * Resource-Reload), nach dem die gecachte Composite-Pipeline stale war.
+     */
+    private static volatile boolean worldmapFailed = false;
+    private static int worldmapRetryCooldown = 0;
+    /** Minimap separat (eigener Fehlerzustand), teilt aber die GPU-Ressourcen. */
+    private static volatile boolean minimapFailed = false;
+    private static int minimapRetryCooldown = 0;
+    /** Frames Pause nach einem Fehler, bevor der Neuaufbau versucht wird (~2 s). */
+    private static final int RETRY_COOLDOWN_FRAMES = 40;
     /** Manueller Nutzer-Versatz (Blöcke), gesetzt von MapModule aus der Config. */
     private static volatile double userOffsetX = 0;
     private static volatile double userOffsetZ = 0;
@@ -93,8 +103,87 @@ public final class PaintedMapRenderer {
     private PaintedMapRenderer() {
     }
 
+    /**
+     * Früher ein dauerhafter Kill-Switch; heute heilt sich der Renderer selbst,
+     * daher nie dauerhaft „disabled". Die Frame-Drosselung passiert intern in
+     * {@link #render}, damit der Wiederversuch überhaupt läuft.
+     */
     public static boolean isDisabled() {
-        return disabled;
+        return false;
+    }
+
+    /** true = diesen Frame überspringen (Fehler-Cooldown läuft noch). */
+    private static boolean worldmapSkipFrame() {
+        if (worldmapFailed) {
+            if (worldmapRetryCooldown > 0) {
+                worldmapRetryCooldown--;
+                return true;
+            }
+            invalidateGpu(); // frischer Aufbau beim Wiederversuch (z. B. nach Shader-Wechsel)
+        }
+        return false;
+    }
+
+    private static void worldmapRecovered() {
+        if (worldmapFailed) {
+            worldmapFailed = false;
+            OttoExtra.LOGGER.info("[map] Gemalte Karte wieder aktiv.");
+        }
+    }
+
+    private static void worldmapFailure(Throwable t) {
+        invalidateGpu();
+        worldmapRetryCooldown = RETRY_COOLDOWN_FRAMES;
+        if (!worldmapFailed) {
+            worldmapFailed = true;
+            OttoExtra.LOGGER.warn("[map] Gemalte Karte Renderfehler — pausiert, Selbstheilung "
+                    + "in Kuerze (z. B. nach Shader-Wechsel): {}", t.toString());
+        }
+    }
+
+    private static boolean minimapSkipFrame() {
+        if (minimapFailed) {
+            if (minimapRetryCooldown > 0) {
+                minimapRetryCooldown--;
+                return true;
+            }
+            invalidateGpu();
+        }
+        return false;
+    }
+
+    private static void minimapRecovered() {
+        if (minimapFailed) {
+            minimapFailed = false;
+            OttoExtra.LOGGER.info("[map] Minimap-Karte wieder aktiv.");
+        }
+    }
+
+    private static void minimapFailure(Throwable t) {
+        invalidateGpu();
+        minimapRetryCooldown = RETRY_COOLDOWN_FRAMES;
+        if (!minimapFailed) {
+            minimapFailed = true;
+            OttoExtra.LOGGER.warn("[map] Minimap-Karte Renderfehler — pausiert, "
+                    + "Selbstheilung in Kuerze: {}", t.toString());
+        }
+    }
+
+    /** GPU-Ressourcen verwerfen, damit {@link #ensureResources} sie neu aufbaut. */
+    private static void invalidateGpu() {
+        pipeline = null;
+        texturesRegistered = false;
+        if (copyTexture != null) {
+            try {
+                copyTexture.close();
+            } catch (Throwable ignored) {
+                // egal
+            }
+            copyTexture = null;
+            copyView = null;
+            copyW = -1;
+            copyH = -1;
+        }
     }
 
     /**
@@ -109,12 +198,13 @@ public final class PaintedMapRenderer {
     private static final boolean DEBUG_SIMPLE_DRAW = false;
 
     public static void render(XaeroMapBridge.View view, int screenW, int screenH) {
-        if (disabled || view == null) {
+        if (view == null || worldmapSkipFrame()) {
             return;
         }
         MinecraftClient client = MinecraftClient.getInstance();
         try {
             ensureResources(client);
+            worldmapRecovered(); // Ressourcen frisch aufgebaut -> Fehlerzustand verlassen
             // Einfacher Pfad (Config): ohne Screen-Copy/Custom-Shader, rendert die
             // Kartentextur über GUI_TEXTURED zuverlässig (z. B. wenn das Composite
             // im Modpack schwarz bleibt). Verliert das Tag/Nacht-/Detail-Blending.
@@ -177,8 +267,7 @@ public final class PaintedMapRenderer {
             withGuiOrtho(client, () ->
                     drawQuad(client, upperTex, screenW, screenH, uLeft, uRight, vTop, vBottom));
         } catch (Throwable t) {
-            disabled = true;
-            OttoExtra.LOGGER.warn("[map] Gemalte Karte deaktiviert: {}", t.toString());
+            worldmapFailure(t);
         }
     }
 
@@ -191,20 +280,11 @@ public final class PaintedMapRenderer {
      * {@link #ensureResources} sie beim nächsten Frame neu aufbaut.
      */
     public static void onResourceReload() {
-        pipeline = null;
-        texturesRegistered = false;
-        if (copyTexture != null) {
-            try {
-                copyTexture.close();
-            } catch (Throwable ignored) {
-                // egal
-            }
-            copyTexture = null;
-            copyView = null;
-            copyW = 0;
-            copyH = 0;
-        }
-        disabled = false;
+        invalidateGpu();
+        worldmapFailed = false;
+        worldmapRetryCooldown = 0;
+        minimapFailed = false;
+        minimapRetryCooldown = 0;
     }
 
     private static void ensureResources(MinecraftClient client) {
@@ -371,12 +451,13 @@ public final class PaintedMapRenderer {
                                      double ps, double pc, double zoom,
                                      int halfView, boolean circle,
                                      java.util.function.BiPredicate<Integer, Integer> explored) {
-        if (minimapPaintedDisabled || zoom <= 0 || halfView <= 0) {
+        if (zoom <= 0 || halfView <= 0 || minimapSkipFrame()) {
             return;
         }
         MinecraftClient client = MinecraftClient.getInstance();
         try {
             ensureResources(client);
+            minimapRecovered();
             double cx = (MAP_MIN_X + MAP_MAX_X) / 2.0 - 650.0 + userOffsetX;
             double cz = (MAP_MIN_Z + MAP_MAX_Z) / 2.0 + 150.0 + userOffsetZ;
             double hw = (MAP_MAX_X - MAP_MIN_X) / 2.0 * 0.99;
@@ -433,8 +514,7 @@ public final class PaintedMapRenderer {
                     net.minecraft.client.gl.RenderPipelines.GUI_TEXTURED,
                     lower.getGlTextureView(), mapSampler);
         } catch (Throwable t) {
-            minimapPaintedDisabled = true;
-            OttoExtra.LOGGER.warn("[map] Minimap-Karte deaktiviert: {}", t.toString());
+            minimapFailure(t);
         }
     }
 
@@ -583,12 +663,13 @@ public final class PaintedMapRenderer {
      * Terrain/Marker DANACH darüber liegen. Kein Masken-Shader nötig.
      */
     public static void renderBackground(XaeroMapBridge.View view, int screenW, int screenH) {
-        if (disabled || view == null) {
+        if (view == null || worldmapSkipFrame()) {
             return;
         }
         MinecraftClient client = MinecraftClient.getInstance();
         try {
             ensureResources(client);
+            worldmapRecovered();
 
             double eff = view.effScale();
             double adjCamX = (view.cameraX() - 65.0) / 0.98;
@@ -633,8 +714,7 @@ public final class PaintedMapRenderer {
                 }
             });
         } catch (Throwable t) {
-            disabled = true;
-            OttoExtra.LOGGER.warn("[map] Gemalte Karte deaktiviert: {}", t.toString());
+            worldmapFailure(t);
         }
     }
 
@@ -721,12 +801,13 @@ public final class PaintedMapRenderer {
      */
     public static void renderSimple(net.minecraft.client.gui.DrawContext ctx,
                                     XaeroMapBridge.View view, int screenW, int screenH) {
-        if (disabled || view == null) {
+        if (view == null || worldmapSkipFrame()) {
             return;
         }
         MinecraftClient client = MinecraftClient.getInstance();
         try {
             ensureResources(client);
+            worldmapRecovered();
 
             double eff = view.effScale();
             double adjCamX = (view.cameraX() - 65.0) / 0.98;
@@ -775,8 +856,7 @@ public final class PaintedMapRenderer {
                         x1, y1, 0f, 0f, w, h, w, h, tintColor(night, upperAlpha * overallAlpha));
             }
         } catch (Throwable t) {
-            disabled = true;
-            OttoExtra.LOGGER.warn("[map] Gemalte Karte deaktiviert: {}", t.toString());
+            worldmapFailure(t);
         }
     }
 
