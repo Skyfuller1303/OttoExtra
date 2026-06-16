@@ -4,9 +4,24 @@ Alle nennenswerten Änderungen an OttoExtra. Format angelehnt an
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/); Versionierung nach
 [SemVer](https://semver.org/lang/de/).
 
-## [0.1.7] – 2026-06-15
+## [0.1.7] – 2026-06-16
 
 ### Hinzugefügt
+- **Chat-Aktionsprompt nach dem Schreiben**: „Schreiben" schreibt den Brief
+  sofort per `/letter` (das beschriebene Buch entsteht) und schließt den Editor;
+  danach erscheint im Chat eine klickbare Nachricht
+  `[Verschicken] [Verkünden] [Schließen]`. Die Empfängerliste öffnet **nur** noch
+  auf **[Verschicken]** (sendet dann `/post <Empfänger>`), **[Verkünden]** führt
+  über die Preflight-Bestätigung (`/verkünden`); **[Schließen]** lässt den Brief
+  ungesendet. Kein erzwungener Moduswechsel/keine erzwungene Playerliste mehr.
+- **Beschriebene Briefe bearbeiten**: Eigene beschriebene Briefe (erkannt am
+  Item-Namen „… von <Spielername>", Account über die Spieler-UUID) bekommen in
+  der Buch-Lese-GUI einen **[Bearbeiten]**-Button (mittig unter „Fertig"). Der
+  Inhalt wird in den Editor übernommen und zu vollen 12-Zeilen-Seiten
+  umgebrochen; der alte Text ist **gesperrt** und wird **entsättigt mit seiner
+  Original-Formatierung** angezeigt (man sieht, ob/wie vorher Farben/Stile
+  gesetzt waren). Nach einer Leerzeile schreibt man **inline** weiter — nur der
+  neue Teil wird per `/letter` angehängt.
 - **Spielerköpfe im Chat** (optional, Standard aus): zeigt links zwischen Kanal
   und Titel den Spielerkopf des Sprechers. Einstellbar unter Chat → Kanal
   („Spielerköpfe im Chat"). Der Sprecher wird über die Namenszone (Account oder
@@ -27,6 +42,17 @@ Alle nennenswerten Änderungen an OttoExtra. Format angelehnt an
   also auch ohne Online-Status erhalten.
 
 ### Geändert
+- **Brief-Versand: Schreiben und Abschluss getrennt.** Der frühere Auto-Dialog
+  (Brief/Verkündung) wird durch den Chat-Aktionsprompt ersetzt (bleibt als
+  Fallback im Code). „Senden…" heißt jetzt **„Schreiben"**. Verschicken sendet
+  nur noch `/post`, Verkünden nur den Submit-Befehl (`/verkünden`) — kein
+  doppeltes Schreiben mehr.
+- **Brief-Import** füllt die Editor-Seiten (12 Zeilen) statt die Buchseiten 1:1
+  zu übernehmen; Trailing-Spaces der Serverzeilen werden entfernt (keine
+  Phantom-Leerzeilen mehr), zwischen altem und neuem Text steht eine Leerzeile.
+- **Server-Briefhinweise im Chat ausgeblendet** („Beschreibe den Brief mit
+  /letter …", „Du hast den Brief bearbeitet") — der Chat-Prompt und die
+  Bearbeiten-GUI ersetzen sie.
 - **Modul-Tabs der Einstellungen** werden auf schmalen Fenstern/kleinen Monitoren
   zu einem **Dropdown-Filter** (aktuelles Modul + Liste) statt einer überlaufenden
   Tab-Reihe; bei genug Breite bleibt die normale Reihe.
