@@ -4,6 +4,8 @@ Alle nennenswerten Änderungen an OttoExtra. Format angelehnt an
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/); Versionierung nach
 [SemVer](https://semver.org/lang/de/).
 
+## [0.1.8] – Unveröffentlicht
+
 ## [0.1.7] – 2026-06-16
 
 ### Hinzugefügt
