@@ -276,7 +276,14 @@ public final class LetterServices {
      */
     public static void startWrite(OttoExtraConfig config, LetterDraft draft) {
         List<Integer> pageIndex = new ArrayList<>();
-        List<String> commands = buildSendCommands(config, draft, pageIndex);
+        // Beim Bearbeiten eines beschriebenen Briefs nur den NEUEN Text schreiben —
+        // der gesperrte Teil steht bereits im Brief. Der neue Text wird dann
+        // zeilenweise INLINE per /letter angehängt (nicht als neue Seite).
+        boolean append = draft.meta.lockedPages > 0 || draft.meta.lockedOffset > 0;
+        LetterDraft toWrite = unlockedPart(draft);
+        List<String> commands = append
+                ? buildLetterLines(config, toWrite, pageIndex)
+                : buildSendCommands(config, toWrite, pageIndex);
         LetterSendProgress progress = new LetterSendProgress();
         progress.draftId = draft.meta.draftId;
         progress.pendingCommands = commands;
@@ -318,6 +325,30 @@ public final class LetterServices {
         sendCommand(config.letter.announcementSubmitCommand.trim());
         OttoExtra.LOGGER.info("[letter] Verkündung ausgelöst.");
         return true;
+    }
+
+    /** Teil-Entwurf nur mit dem noch nicht geschriebenen (ungelockten) Text:
+     *  Auf der Fortsetzungs-Seite nur der Teil hinter {@code lockedOffset}, danach
+     *  die voll editierbaren Folgeseiten. */
+    private static LetterDraft unlockedPart(LetterDraft draft) {
+        int locked = Math.max(0, draft.meta.lockedPages);
+        int offset = Math.max(0, draft.meta.lockedOffset);
+        if (locked <= 0 && offset <= 0) {
+            return draft;
+        }
+        LetterDraft sub = new LetterDraft();
+        sub.meta.draftId = draft.meta.draftId;
+        sub.meta.mode = draft.meta.mode;
+        sub.pages = new ArrayList<>();
+        if (locked < draft.pages.size()) {
+            String continuePage = draft.pages.get(locked);
+            sub.pages.add(offset < continuePage.length()
+                    ? continuePage.substring(offset) : "");
+            for (int i = locked + 1; i < draft.pages.size(); i++) {
+                sub.pages.add(draft.pages.get(i));
+            }
+        }
+        return sub;
     }
 
     /** Einzelnen Chat-Command senden (Abschluss-Commands, kein Queue-Timing). */

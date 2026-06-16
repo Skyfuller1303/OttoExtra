@@ -41,6 +41,8 @@ public final class LetterEditorScreen extends Screen {
     private static final int PAPER_DARK = 0xFFB18F69;
     private static final int PAPER_LINE = 0x88643C38;
     private static final int TEXT_COLOR = 0xFF503D29;
+    /** Reduzierte Deckkraft für bereits geschriebene (gesperrte) Seiten. */
+    private static final int TEXT_COLOR_LOCKED = 0x66503D29;
     private static final int SELECTION_COLOR = 0x8888AAFF;
     private static final int PANEL_W = 184;
     private static final int PANEL_H = 250;
@@ -75,7 +77,52 @@ public final class LetterEditorScreen extends Screen {
         this.parent = parent;
         this.config = config;
         this.draft = LetterDraftCache.load();
+        this.draft.repair();
+        // Beim Bearbeiten eines beschriebenen Briefs auf der ersten neuen
+        // (editierbaren) Seite starten, nicht im gesperrten Altbestand.
+        this.page = Math.min(lockedPages(), Math.max(0, draft.pages.size() - 1));
         this.cursor = text().length();
+    }
+
+    /** Anzahl gesperrter (bereits geschriebener) Seiten, geklemmt. */
+    private int lockedPages() {
+        return Math.max(0, Math.min(draft.meta.lockedPages, draft.pages.size()));
+    }
+
+    /** Ist Seite {@code p} gesperrt (read-only, bereits geschrieben)? */
+    private boolean isLockedPage(int p) {
+        return p < lockedPages();
+    }
+
+    /** Ist die aktuell sichtbare Seite vollständig gesperrt? */
+    private boolean currentLocked() {
+        return isLockedPage(page);
+    }
+
+    /** Gesperrte führende Zeichen auf der Fortsetzungs-Seite. */
+    private int lockedOffset() {
+        return Math.max(0, draft.meta.lockedOffset);
+    }
+
+    /**
+     * Erste editierbare Zeichenposition auf der aktuellen Seite:
+     * {@code MAX_VALUE} = ganze Seite gesperrt; auf der Fortsetzungs-Seite
+     * {@link #lockedOffset()}; sonst 0.
+     */
+    private int editableStart() {
+        int locked = lockedPages();
+        if (page < locked) {
+            return Integer.MAX_VALUE;
+        }
+        if (page == locked) {
+            return Math.min(lockedOffset(), text().length());
+        }
+        return 0;
+    }
+
+    /** Gibt es auf der aktuellen Seite gesperrten (bereits geschriebenen) Text? */
+    private boolean hasLockedHere() {
+        return editableStart() > 0;
     }
 
     /** PAGE-Modus nutzt volle Buchseiten (14 Zeilen); LEGACY bleibt bei der
@@ -186,6 +233,9 @@ public final class LetterEditorScreen extends Screen {
     }
 
     private void insert(String value) {
+        if (currentLocked()) {
+            return; // gesperrte (bereits geschriebene) Seite ist read-only
+        }
         deleteSelection();
         String t = text();
         cursor = Math.max(0, Math.min(cursor, t.length()));
@@ -272,8 +322,13 @@ public final class LetterEditorScreen extends Screen {
             return;
         }
         List<String> rebuilt = new ArrayList<>();
-        for (String pg : draft.pages) {
-            rebuilt.addAll(sp.split(pg));
+        int locked = lockedPages();
+        for (int i = 0; i < draft.pages.size(); i++) {
+            if (i < locked) {
+                rebuilt.add(draft.pages.get(i)); // gesperrte Seiten 1:1 behalten
+            } else {
+                rebuilt.addAll(sp.split(draft.pages.get(i)));
+            }
         }
         if (rebuilt.isEmpty()) {
             rebuilt.add("");
@@ -329,9 +384,12 @@ public final class LetterEditorScreen extends Screen {
                 return true;
             }
             case GLFW.GLFW_KEY_BACKSPACE -> {
+                if (currentLocked()) {
+                    return true; // read-only
+                }
                 if (hasSelection()) {
                     deleteSelection();
-                } else if (cursor > 0) {
+                } else if (cursor > editableStart()) {
                     setText(t.substring(0, cursor - 1) + t.substring(cursor));
                     cursor--;
                 }
@@ -339,6 +397,9 @@ public final class LetterEditorScreen extends Screen {
                 return true;
             }
             case GLFW.GLFW_KEY_DELETE -> {
+                if (currentLocked()) {
+                    return true; // read-only
+                }
                 if (hasSelection()) {
                     deleteSelection();
                 } else if (cursor < t.length()) {
@@ -373,7 +434,9 @@ public final class LetterEditorScreen extends Screen {
             }
             case GLFW.GLFW_KEY_A -> {
                 if (ctrl) {
-                    selAnchor = 0;
+                    // Nur den editierbaren Teil markieren (gesperrten Prefix auslassen)
+                    int lo = editableStart();
+                    selAnchor = lo == Integer.MAX_VALUE ? t.length() : lo;
                     cursor = t.length();
                     return true;
                 }
@@ -474,7 +537,7 @@ public final class LetterEditorScreen extends Screen {
     private void handleTab(boolean shift) {
         String t = text();
         LetterPlaceholder at = LetterPlaceholderParser.at(t, cursor);
-        if (!shift && at != null) {
+        if (!shift && at != null && !currentLocked()) {
             PlaceholderResolveResult result = placeholderService.resolve(at);
             if (result.ok()) {
                 setText(placeholderService.apply(t, result));
@@ -505,7 +568,14 @@ public final class LetterEditorScreen extends Screen {
         if (!shift) {
             selAnchor = -1;
         }
-        cursor = Math.max(0, Math.min(to, text().length()));
+        int hi = text().length();
+        int lo = editableStart();
+        if (lo == Integer.MAX_VALUE) {
+            // Ganze Seite gesperrt: Cursor ans Ende, kein Editieren.
+            cursor = hi;
+            return;
+        }
+        cursor = Math.max(lo, Math.max(0, Math.min(to, hi)));
     }
 
     private void moveVertical(int dir, boolean shift) {
@@ -585,14 +655,17 @@ public final class LetterEditorScreen extends Screen {
         addDrawableChild(ButtonWidget.builder(Text.literal("▶"), b -> switchPage(1))
                 .dimensions(px + 30, py + PANEL_H - 26, 20, 18).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("+"), b -> {
+            if (currentLocked()) {
+                return; // nicht in den gesperrten Altbestand einfügen
+            }
             draft.pages.add(page + 1, "");
             switchPage(1);
             persist();
         }).dimensions(px + 52, py + PANEL_H - 26, 20, 18).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("−"), b -> {
-            if (draft.pages.size() > 1) {
+            if (!currentLocked() && draft.pages.size() > lockedPages() + 1) {
                 draft.pages.remove(page);
-                page = Math.max(0, Math.min(page, draft.pages.size() - 1));
+                page = Math.max(lockedPages(), Math.min(page, draft.pages.size() - 1));
                 cursor = Math.min(cursor, text().length());
                 persist();
             }
@@ -654,8 +727,13 @@ public final class LetterEditorScreen extends Screen {
         ctx.fill(px, py, px + PANEL_W, py + PANEL_H, PAPER_COLOR);
         ctx.drawText(textRenderer, Text.translatable("ottoextra.letter.pageIndicator",
                 page + 1, draft.pages.size()), px + TEXT_X, py + 12, TEXT_COLOR, false);
+        if (hasLockedHere()) {
+            ctx.drawText(textRenderer, Text.translatable("ottoextra.letter.book.locked"),
+                    px + TEXT_X + 44, py + 12, TEXT_COLOR_LOCKED, false);
+        }
 
         String t = text();
+        int lockStart = editableStart(); // MAX_VALUE = ganze Seite gesperrt
         List<int[]> spans = lineSpans();
         int maxLines = maxLinesPerPage();
         for (int i = 0; i < Math.min(spans.size(), maxLines); i++) {
@@ -671,15 +749,28 @@ public final class LetterEditorScreen extends Screen {
                 int x2 = px + TEXT_X + textRenderer.getWidth(lineText.substring(0, e));
                 ctx.fill(x1, y - 1, x2, y + 9, SELECTION_COLOR);
             }
-            // Live-Vorschau: aktive Formatierung vor dem Zeilenstart künstlich
-            // voranstellen, damit auto-umgebrochene Folgezeilen formatiert bleiben.
-            // Nur fürs Rendern — Cursor/Selektion messen weiter den echten Text.
-            String renderText = formattingActive()
-                    ? LetterFormattingCodes.activePrefixBefore(t, span[0]) + lineText
-                    : lineText;
-            ctx.drawText(textRenderer, renderText, px + TEXT_X, y, TEXT_COLOR, false);
-            // Cursor
-            if (cursor >= span[0] && cursor <= span[1]
+            // Zeile an der Lock-Grenze splitten: gesperrter Teil faded (ohne
+            // §-Codes, sonst überschreiben Farbcodes die Deckkraft), editierbarer
+            // Teil mit normaler Live-Formatierung.
+            int split = lockStart == Integer.MAX_VALUE
+                    ? lineText.length()
+                    : Math.max(0, Math.min(lockStart - span[0], lineText.length()));
+            int x = px + TEXT_X;
+            if (split > 0) {
+                String locked = lineText.substring(0, split).replaceAll("(?i)§[0-9a-fk-or]", "");
+                ctx.drawText(textRenderer, locked, x, y, TEXT_COLOR_LOCKED, false);
+                x += textRenderer.getWidth(locked);
+            }
+            if (split < lineText.length()) {
+                String editPart = lineText.substring(split);
+                String renderText = formattingActive()
+                        ? LetterFormattingCodes.activePrefixBefore(t, span[0] + split) + editPart
+                        : editPart;
+                ctx.drawText(textRenderer, renderText, x, y, TEXT_COLOR, false);
+            }
+            // Cursor (nur im editierbaren Bereich)
+            if (lockStart != Integer.MAX_VALUE && cursor >= Math.max(span[0], lockStart)
+                    && cursor <= span[1]
                     && i == lineIndexOf(cursor, spans)
                     && (System.currentTimeMillis() / 500) % 2 == 0) {
                 int cx = px + TEXT_X + textRenderer.getWidth(
