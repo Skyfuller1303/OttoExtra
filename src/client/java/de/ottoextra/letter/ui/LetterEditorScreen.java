@@ -21,7 +21,11 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.input.CharInput;
 import net.minecraft.client.input.KeyInput;
+import net.minecraft.text.MutableText;
+import net.minecraft.text.Style;
 import net.minecraft.text.Text;
+import net.minecraft.text.TextColor;
+import net.minecraft.util.Formatting;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
@@ -757,7 +761,9 @@ public final class LetterEditorScreen extends Screen {
                     : Math.max(0, Math.min(lockStart - span[0], lineText.length()));
             int x = px + TEXT_X;
             if (split > 0) {
-                String locked = lineText.substring(0, split).replaceAll("(?i)§[0-9a-fk-or]", "");
+                // Gesperrten Text mit Original-Farben/Formatierung zeigen, aber
+                // entsättigt + verblasst — so sieht man, ob/wie vorher formatiert war.
+                MutableText locked = desaturatedText(lineText.substring(0, split));
                 ctx.drawText(textRenderer, locked, x, y, TEXT_COLOR_LOCKED, false);
                 x += textRenderer.getWidth(locked);
             }
@@ -815,6 +821,77 @@ public final class LetterEditorScreen extends Screen {
             ctx.drawText(textRenderer, sugg.get(i) + ":", x, y + i * 11,
                     sel ? 0xFFFFD479 : 0xFFE6C8A9, false);
         }
+    }
+
+    /**
+     * §-codierten Text in ein gestyltes {@link MutableText} mit ENTSÄTTIGTEN
+     * Farben übersetzen — Farben/Formatierung des alten Buchinhalts bleiben
+     * erkennbar, wirken aber verblasst. Vanilla-Semantik: Farbcode setzt die
+     * Formatierung zurück, §r setzt alles zurück, Formatcodes addieren.
+     */
+    private MutableText desaturatedText(String raw) {
+        MutableText out = Text.empty();
+        StringBuilder buf = new StringBuilder();
+        Style style = Style.EMPTY;
+        for (int i = 0; i < raw.length(); i++) {
+            char c = raw.charAt(i);
+            if (c == '§' && i + 1 < raw.length()) {
+                if (buf.length() > 0) {
+                    out.append(Text.literal(buf.toString()).setStyle(style));
+                    buf.setLength(0);
+                }
+                style = applyCode(style, Character.toLowerCase(raw.charAt(++i)));
+                continue;
+            }
+            buf.append(c);
+        }
+        if (buf.length() > 0) {
+            out.append(Text.literal(buf.toString()).setStyle(style));
+        }
+        return out;
+    }
+
+    private static Style applyCode(Style style, char code) {
+        if (code == 'r') {
+            return Style.EMPTY;
+        }
+        Formatting f = Formatting.byCode(code);
+        if (f == null) {
+            return style;
+        }
+        if (f.isColor()) {
+            Integer rgb = f.getColorValue();
+            // Farbcode setzt die Formatierung zurück (Vanilla-Verhalten)
+            return rgb == null ? Style.EMPTY
+                    : Style.EMPTY.withColor(TextColor.fromRgb(washed(rgb)));
+        }
+        return switch (f) {
+            case BOLD -> style.withBold(true);
+            case ITALIC -> style.withItalic(true);
+            case UNDERLINE -> style.withUnderline(true);
+            case STRIKETHROUGH -> style.withStrikethrough(true);
+            case OBFUSCATED -> style.withObfuscated(true);
+            default -> style;
+        };
+    }
+
+    /** Farbe entsättigen (Richtung Graustufe) und Richtung Papierfarbe verblassen. */
+    private static int washed(int rgb) {
+        int r = (rgb >> 16) & 0xFF;
+        int g = (rgb >> 8) & 0xFF;
+        int b = rgb & 0xFF;
+        int lum = (int) (0.3 * r + 0.59 * g + 0.11 * b);
+        r += (int) ((lum - r) * 0.55);
+        g += (int) ((lum - g) * 0.55);
+        b += (int) ((lum - b) * 0.55);
+        r += (int) ((0xC8 - r) * 0.40);
+        g += (int) ((0xAC - g) * 0.40);
+        b += (int) ((0x8E - b) * 0.40);
+        return (clamp(r) << 16) | (clamp(g) << 8) | clamp(b);
+    }
+
+    private static int clamp(int v) {
+        return Math.max(0, Math.min(255, v));
     }
 
     @Override
