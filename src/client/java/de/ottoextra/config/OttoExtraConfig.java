@@ -386,7 +386,7 @@ public final class OttoExtraConfig {
         public String letterCommand = "letter";
         public String postCommand = "post";
         /** Abschlussbefehl der Verkündung (leer = manuell ausführen). */
-        public String announcementSubmitCommand = "";
+        public String announcementSubmitCommand = "verkünden";
         // Layout-Guard für Verkündungen: sichere vs. harte Grenzen
         public int announcementSafeLinesPerPage = 11;
         public int announcementSafeCharsPerLine = 17;

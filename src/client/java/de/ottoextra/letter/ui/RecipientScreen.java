@@ -66,9 +66,10 @@ public final class RecipientScreen extends Screen {
         ButtonWidget send = ButtonWidget.builder(
                 Text.translatable("ottoextra.letter.recipient.send"), b -> {
                     if (selected != null) {
-                        LetterServices.startLetterSend(config, draft, selected);
-                        // Voll schließen (zum Spiel), nicht zurück in den Editor —
-                        // Versand läuft im Hintergrund, Status via Actionbar
+                        // Brief ist beim „Schreiben" bereits geschrieben — hier nur
+                        // noch der Abschluss /post an den Empfänger.
+                        LetterServices.sendPost(config, selected);
+                        LetterServices.consumePending();
                         MinecraftClient.getInstance().setScreen(null);
                     }
                 }).dimensions(width / 2 - 102, height - 30, 100, 20).build();

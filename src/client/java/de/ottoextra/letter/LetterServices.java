@@ -61,6 +61,40 @@ public final class LetterServices {
         sending = false;
     }
 
+    // ---- Pending-Aktion nach dem Schreiben (Chat-Prompt statt Auto-Dialog) ----
+
+    /** Vorbereiteter, fertig geschriebener Entwurf; wartet auf die
+     *  Spieler-Aktion aus dem Chat-Prompt (Verschicken/Verkünden/Schließen). */
+    public record PendingLetter(LetterDraft draft, long createdAtMs) {
+    }
+
+    /** Gültigkeitsdauer der Pending-Aktion: nach Ablauf ist der alte Chat-Button
+     *  wirkungslos (verhindert versehentlichen Spätversand). */
+    private static final long PENDING_TTL_MS = 10 * 60 * 1000L;
+    private static volatile PendingLetter pending;
+
+    /** Merkt den geschriebenen Entwurf vor; ab jetzt entscheidet der Spieler. */
+    public static void setPending(LetterDraft draft) {
+        pending = new PendingLetter(draft, System.currentTimeMillis());
+    }
+
+    /** Vorbereiteter Brief vorhanden und noch nicht abgelaufen? */
+    public static boolean hasPending() {
+        PendingLetter p = pending;
+        return p != null
+                && System.currentTimeMillis() - p.createdAtMs() <= PENDING_TTL_MS;
+    }
+
+    /** Entwurf des vorbereiteten Briefs, oder {@code null} (keiner/abgelaufen). */
+    public static LetterDraft pendingDraft() {
+        return hasPending() ? pending.draft() : null;
+    }
+
+    /** Pending-Aktion verbrauchen (nach erfolgreichem Senden/Verkünden). */
+    public static void consumePending() {
+        pending = null;
+    }
+
     private static Path cacheDir() {
         return OttoExtraPaths.root().resolve(".cache").resolve("letters");
     }
@@ -232,7 +266,71 @@ public final class LetterServices {
         return delays;
     }
 
-    // ---- Brief --------------------------------------------------------------
+    // ---- Schreiben (nur /letter, ohne Abschluss) ----------------------------
+
+    /**
+     * Schreibt den Brief mit {@code /letter}-Zeilen — erzeugt das beschriebene
+     * Buch, OHNE {@code /post} oder Verkündungs-Submit. Der Spieler entscheidet
+     * danach im Chat-Prompt, was mit dem geschriebenen Brief geschehen soll
+     * ({@link #sendPost} oder {@link #sendAnnounceSubmit}).
+     */
+    public static void startWrite(OttoExtraConfig config, LetterDraft draft) {
+        List<Integer> pageIndex = new ArrayList<>();
+        List<String> commands = buildSendCommands(config, draft, pageIndex);
+        LetterSendProgress progress = new LetterSendProgress();
+        progress.draftId = draft.meta.draftId;
+        progress.pendingCommands = commands;
+        progress.startedAtMs = System.currentTimeMillis();
+        letterStore().save(progress);
+        // Arbeits-Entwurf leeren (Versand nutzt den eigenen Progress-Store).
+        LetterDraftCache.clear();
+        long[] delays = buildDelays(config, pageIndex, commands.size());
+        sending = true;
+        sendingAnnouncement = false;
+        new CommandSendQueue(progress.pendingCommands, sent -> {
+            progress.sentCommands = sent;
+            progress.updatedAtMs = System.currentTimeMillis();
+            letterStore().save(progress);
+        }, () -> {
+            sending = false;
+            letterStore().clear();
+            OttoExtra.LOGGER.info("[letter] Brief {} geschrieben ({} Befehle).",
+                    progress.draftId, progress.pendingCommands.size());
+        }).withDelays(delays).start(0);
+    }
+
+    /** Brief an Empfänger zustellen — Abschluss nach dem Schreiben ({@code /post}). */
+    public static void sendPost(OttoExtraConfig config, String recipient) {
+        sendCommand(config.letter.postCommand + " " + recipient);
+        OttoExtra.LOGGER.info("[letter] Brief an {} zugestellt.", recipient);
+    }
+
+    /**
+     * Verkündung auslösen — Abschluss nach dem Schreiben (Submit-Command, z. B.
+     * {@code verkünden}). Liefert {@code false}, wenn kein Submit-Command
+     * konfiguriert ist (dann manuell auszuführen).
+     */
+    public static boolean sendAnnounceSubmit(OttoExtraConfig config) {
+        if (!hasSubmitCommand(config)) {
+            hint("ottoextra.letter.announcement.manualSubmit");
+            return false;
+        }
+        sendCommand(config.letter.announcementSubmitCommand.trim());
+        OttoExtra.LOGGER.info("[letter] Verkündung ausgelöst.");
+        return true;
+    }
+
+    /** Einzelnen Chat-Command senden (Abschluss-Commands, kein Queue-Timing). */
+    private static void sendCommand(String command) {
+        var nh = net.minecraft.client.MinecraftClient.getInstance().getNetworkHandler();
+        if (nh != null) {
+            nh.sendChatCommand(command);
+        }
+    }
+
+    // ---- Brief (gebündelt: schreiben + posten in einem Schwung) --------------
+    // Hinweis: Wird im aktuellen Chat-Prompt-Flow nicht mehr genutzt
+    // (Schreiben/Abschluss sind getrennt), bleibt für Recovery/Fallback.
 
     public static void startLetterSend(OttoExtraConfig config, LetterDraft draft,
                                        String recipient) {

@@ -6,8 +6,12 @@ import de.ottoextra.OttoExtraModule;
 import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.letter.model.AnnouncementSendProgress;
 import de.ottoextra.letter.model.LetterSendProgress;
+import de.ottoextra.letter.ui.LetterActionPrompt;
 import de.ottoextra.letter.ui.LetterEditorScreen;
 import de.ottoextra.letter.ui.RecoveryPromptScreen;
+import de.ottoextra.letter.ui.WrittenLetterImport;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.client.option.KeyBinding;
@@ -44,6 +48,46 @@ public final class LetterModule implements OttoExtraModule {
         editorKey = new KeyBinding("key.ottoextra.letter_editor",
                 InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, KeyBinding.Category.MISC);
         KeyBindingHelper.registerKeyBinding(editorKey);
+
+        // Klick-Ziele des Chat-Aktionsprompts (lokale Client-Commands):
+        //   /ottoextra letter send     -> Empfängerliste
+        //   /ottoextra letter announce -> Verkündungs-Preflight (Bestätigung)
+        //   /ottoextra letter close    -> keine weitere Aktion
+        ClientCommandRegistrationCallback.EVENT.register((dispatcher, access) ->
+                dispatcher.register(ClientCommandManager.literal("ottoextra")
+                        .then(ClientCommandManager.literal("letter")
+                                .then(ClientCommandManager.literal("send").executes(ctx -> {
+                                    LetterActionPrompt.onSend(config);
+                                    return 1;
+                                }))
+                                .then(ClientCommandManager.literal("announce").executes(ctx -> {
+                                    LetterActionPrompt.onAnnounce(config);
+                                    return 1;
+                                }))
+                                .then(ClientCommandManager.literal("close").executes(ctx -> {
+                                    LetterActionPrompt.onClose();
+                                    return 1;
+                                })))));
+
+        // „Bearbeiten"-Button an die Vanilla-Lese-GUI eines beschriebenen Briefs
+        // (BookScreen) hängen — nur wenn der lokale Spieler dessen Autor ist.
+        // Klick: Buchinhalt (mit Formatierung) -> Entwurf -> Editor öffnen.
+        net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register(
+                (client, screen, scaledWidth, scaledHeight) -> {
+                    if (!(screen instanceof net.minecraft.client.gui.screen.ingame.BookScreen)) {
+                        return;
+                    }
+                    var book = WrittenLetterImport.heldWrittenBook();
+                    if (book == null || !WrittenLetterImport.isOwn(book)) {
+                        return;
+                    }
+                    net.fabricmc.fabric.api.client.screen.v1.Screens.getButtons(screen).add(
+                            net.minecraft.client.gui.widget.ButtonWidget.builder(
+                                    net.minecraft.text.Text.translatable(
+                                            "ottoextra.letter.book.edit"),
+                                    b -> WrittenLetterImport.editInEditor(config, book))
+                                    .dimensions(8, 8, 90, 20).build());
+                });
 
         // Rechtsklick mit dem Trigger-Item (Custom-Name aus der Config,
         // z. B. "Pergament und Feder") öffnet den Editor — nur clientseitig

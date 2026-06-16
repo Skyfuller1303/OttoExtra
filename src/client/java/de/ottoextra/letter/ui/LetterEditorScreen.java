@@ -3,6 +3,7 @@ package de.ottoextra.letter.ui;
 import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.letter.LetterDraft;
 import de.ottoextra.letter.LetterDraftCache;
+import de.ottoextra.letter.LetterServices;
 import de.ottoextra.letter.format.LetterFormattingCodes;
 import de.ottoextra.letter.format.LetterFormattingSidebar;
 import de.ottoextra.letter.model.LetterPlaceholder;
@@ -597,8 +598,15 @@ public final class LetterEditorScreen extends Screen {
             }
         }).dimensions(px + 74, py + PANEL_H - 26, 20, 18).build());
         addDrawableChild(ButtonWidget.builder(
-                Text.translatable("ottoextra.letter.send"), b ->
-                        client.setScreen(new OutputModeDialog(this, config, draft)))
+                Text.translatable("ottoextra.letter.send"), b -> {
+                    // „Schreiben": Brief sofort via /letter schreiben (Buch
+                    // entsteht), Editor schließen, dann entscheidet der Spieler im
+                    // Chat-Prompt über den Abschluss (Verschicken/Verkünden/Schließen).
+                    persist();
+                    LetterServices.startWrite(config, draft);
+                    client.setScreen(null);
+                    LetterActionPrompt.show(config, draft);
+                })
                 .dimensions(px + PANEL_W - 64, py + PANEL_H - 26, 56, 18).build());
         // Sekundärleiste: Parameter-Prüfen als Icon + Entwürfe daneben
         ButtonWidget check = ButtonWidget.builder(Text.empty(), b -> checkPlaceholders())
