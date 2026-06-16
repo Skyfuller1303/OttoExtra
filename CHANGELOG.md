@@ -6,6 +6,21 @@ Alle nennenswerten Änderungen an OttoExtra. Format angelehnt an
 
 ## [0.1.8] – Unveröffentlicht
 
+### Geändert
+- **RP-Titel-Editor**: Der Standard-Titel (oberes Feld) ist nur noch in der
+  Kategorie „custom" frei editierbar. Bei Katalog-/Wiki-Titeln bleibt er fest,
+  nur die Anzeige-Varianten (Variante 1/2) dürfen angepasst werden.
+
+### Behoben
+- **RP-Titel-Varianten brachen den Treffer**: Eine Anzeige-Variante umzubenennen
+  (z. B. „Dame" → „Edeldame") hat dazu geführt, dass die vom Server gesendete
+  Form nicht mehr zum Katalog-Eintrag passte — die Träger verloren Farbe und
+  Anzeige (fielen auf die allgemeine Default-Farbe zurück). Match-Aliase (die
+  echten Server-Formen) werden jetzt getrennt von den Anzeige-Varianten geführt:
+  die Server-Form matcht weiterhin und zeigt die zugehörige (umbenannte)
+  Variante. Bestehende Einträge heilen sich beim Laden automatisch aus dem
+  Wiki-Default.
+
 ### Hinzugefügt
 - **Neues Modul „Tweaks"** mit eigenem Einstellungstab — optionale,
   clientseitige Effekte und Spiel-Tweaks.

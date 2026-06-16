@@ -908,6 +908,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
             int idx = Math.max(0, keys.indexOf(catCategoryValue));
             catCategoryValue = keys.get((idx + 1) % keys.size());
             b.setMessage(catCategoryLabel());
+            updateTitleFieldLock();
             // Farbe folgt der Kategorie, solange kein eigener Override gesetzt ist
             if (selectedTitle != null
                     && (selectedTitle.colorOverride == null || selectedTitle.colorOverride.isBlank())) {
@@ -977,6 +978,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         if (key != null) {
             catCategoryValue = key;
             catCategoryButton.setMessage(catCategoryLabel());
+            updateTitleFieldLock();
             catNewCategoryField.setText("");
         }
     }
@@ -1050,15 +1052,17 @@ public final class RpNamesPeopleBookScreen extends Screen {
             catOverrideColorCheckbox.onPress(null);
         }
         setTitleEditEnabled(true);
-        // Wiki-Titel: nur das Löschen sperren. Der Titel-Text bleibt editierbar —
-        // Umbenennen ist gefahrlos: der alte Text wird als Variante behalten
-        // (Lookup/Farbe bleiben) und die Umbenennung wird bei allen Trägern
-        // durchgeschrieben (siehe saveTitle).
+        // Wiki-Titel: nur das Löschen sperren. Der Standard-Titel oben ist nur in
+        // der Kategorie "custom" editierbar (setTitleEditEnabled); bei Katalog-/
+        // Wiki-Titeln werden nur die Anzeige-Varianten angepasst.
         catDeleteButton.active = !"WIKI_IMPORT".equals(e.source);
     }
 
     private void setTitleEditEnabled(boolean enabled) {
-        catTitleField.setEditable(enabled);
+        // Der Standard-Titel (oben) ist nur in der Kategorie "custom" frei
+        // editierbar; bei Katalog-/Wiki-Titeln bleibt er fest, nur die Varianten
+        // (Anzeige-Form) dürfen angepasst werden.
+        catTitleField.setEditable(enabled && isCustomCategory());
         catVariant1Field.setEditable(enabled);
         catVariant2Field.setEditable(enabled);
         catColorField.setEditable(enabled);
@@ -1068,6 +1072,16 @@ public final class RpNamesPeopleBookScreen extends Screen {
         catOverrideColorCheckbox.active = enabled;
         catSaveButton.active = enabled;
         catDeleteButton.active = enabled;
+    }
+
+    /** Ist die aktuell gewählte Kategorie die freie „custom"-Kategorie? */
+    private boolean isCustomCategory() {
+        return "custom".equalsIgnoreCase(catCategoryValue);
+    }
+
+    /** Titel-Feld passend zur aktuellen Kategorie sperren/freigeben. */
+    private void updateTitleFieldLock() {
+        catTitleField.setEditable(catCategoryButton.active && isCustomCategory());
     }
 
     private void saveTitle() {

@@ -40,6 +40,12 @@ public final class TitleCatalogStore {
         public String id = "";
         public String title = "";
         public List<String> variants = new ArrayList<>();
+        /** Match-Aliase = die tatsächlichen Server-Titelformen (z. B. Geschlechts-
+         *  formen), positionell zu {@link #variants} ausgerichtet. Dienen NUR dem
+         *  Treffer; so bricht das Umbenennen einer Anzeige-Variante den Match zur
+         *  Server-Form nicht. Leer/null -> beim Indizieren aus dem Wiki-Default
+         *  (sonst aus den Varianten) befüllt. */
+        public List<String> aliases;
         public String category = "unclassified";
         public String colorOverride;
         /** Optionale Namensfarbe für Personen mit diesem Titel (Spieler-/RP-Name).
@@ -148,18 +154,50 @@ public final class TitleCatalogStore {
             if (!e.enabled) {
                 continue;
             }
-            List<String> names = e.variants == null || e.variants.isEmpty()
-                    ? List.of(e.title) : e.variants;
-            for (String v : names) {
+            seedAliases(e);
+            // Match-Keys: aktuelle Anzeige-Varianten + Server-Aliase + Standard-Titel.
+            // So matchen die Server-Formen auch nach dem Umbenennen einer Variante.
+            for (String v : matchKeys(e)) {
                 if (v != null && !v.isBlank()) {
                     index.putIfAbsent(TitleRegistry.normalize(v), e);
                 }
             }
-            if (e.title != null && !e.title.isBlank()) {
-                index.putIfAbsent(TitleRegistry.normalize(e.title), e);
-            }
         }
         byVariant = Map.copyOf(index);
+    }
+
+    /** Alle Strings, die auf diesen Eintrag matchen sollen. */
+    private static List<String> matchKeys(Entry e) {
+        List<String> keys = new ArrayList<>();
+        if (e.variants != null) {
+            keys.addAll(e.variants);
+        }
+        if (e.aliases != null) {
+            keys.addAll(e.aliases);
+        }
+        if (e.title != null && !e.title.isBlank()) {
+            keys.add(e.title);
+        }
+        return keys;
+    }
+
+    /**
+     * Aliase (Server-Formen) einmalig befüllen, falls leer: bevorzugt aus dem
+     * mitgelieferten Wiki-Default (Original-Geschlechtsformen), sonst aus den
+     * aktuellen Varianten. Positionell zu den Varianten ausgerichtet.
+     */
+    private void seedAliases(Entry e) {
+        if (e.aliases != null && !e.aliases.isEmpty()) {
+            return;
+        }
+        List<String> seed = new ArrayList<>();
+        Entry bundled = bundledDefault(e.id).orElse(null);
+        if (bundled != null && bundled.variants != null && !bundled.variants.isEmpty()) {
+            seed.addAll(bundled.variants);
+        } else if (e.variants != null) {
+            seed.addAll(e.variants);
+        }
+        e.aliases = seed;
     }
 
     public List<Entry> all() {
@@ -230,15 +268,33 @@ public final class TitleCatalogStore {
             return raw;
         }
         String norm = TitleRegistry.normalize(raw);
+        // 1. Roh-Titel ist bereits genau eine Anzeige-Variante -> behalten.
         if (e.variants != null) {
             for (String v : e.variants) {
                 if (v != null && !v.isBlank() && TitleRegistry.normalize(v).equals(norm)) {
-                    return v; // Träger hat genau diese Variante -> behalten
+                    return v;
                 }
             }
+        }
+        // 2. Roh-Titel ist eine Server-Form (Alias) -> die zugehörige Anzeige-
+        //    Variante gleicher Position (so wirkt das Umbenennen einer Variante).
+        if (e.aliases != null) {
+            for (int i = 0; i < e.aliases.size(); i++) {
+                String a = e.aliases.get(i);
+                if (a != null && !a.isBlank() && TitleRegistry.normalize(a).equals(norm)) {
+                    if (e.variants != null && i < e.variants.size()
+                            && e.variants.get(i) != null && !e.variants.get(i).isBlank()) {
+                        return e.variants.get(i);
+                    }
+                    break;
+                }
+            }
+        }
+        // 3. Treffer über Standard-Titel -> primäre (erste) Variante.
+        if (e.variants != null) {
             for (String v : e.variants) {
                 if (v != null && !v.isBlank()) {
-                    return v; // Standard-Treffer -> primäre (erste) Variante
+                    return v;
                 }
             }
         }
