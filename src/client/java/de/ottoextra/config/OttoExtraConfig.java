@@ -36,8 +36,52 @@ public final class OttoExtraConfig {
     public Letter letter = new Letter();
     public Chat chat = new Chat();
     public ResourcePack resourcepack = new ResourcePack();
+    public Tweaks tweaks = new Tweaks();
 
     // ---- Sektionen -------------------------------------------------------
+
+    /** Optionale Spiel-Tweaks / clientseitige Effekte. */
+    public static final class Tweaks {
+        public LowHealth lowHealth = new LowHealth();
+
+        /** Low-Health-Adrenalin-Effekt (roter Rand + Herzschlag). Rein clientseitig. */
+        public static final class LowHealth {
+            /** Master-Schalter (Standard aus — opt-in). */
+            public boolean enabled = false;
+            public boolean vignetteEnabled = true;
+            public boolean heartbeatEnabled = true;
+            /** Edge-Blur / Tunnelblick (Mitte scharf, Ränder verschwommen). */
+            public boolean blurEnabled = true;
+            /** Ab dieser Herzzahl beginnt der Edge-Blur (1 Herz = 2 Health). */
+            public float blurStartHearts = 7.0f;
+            /** Stärke des Edge-Blurs (0 = aus … 3 = stark); skaliert die Pässe. */
+            public float blurStrength = 1.0f;
+            /** Leichter FOV-Anstieg (Adrenalin-Gefühl) bei niedriger Health. */
+            public boolean fovEnabled = true;
+            /** Maximaler FOV-Zuschlag in Grad bei voller Intensität. */
+            public float fovMaxDegrees = 8.0f;
+            /** Health, ab der der Effekt startet (Server-Max 40 = 20 Herzen). */
+            public float startHealth = 20.0f;
+            /** Gesamtintensität (Dezent ~0.7, Normal 1.0, Stark ~1.4). */
+            public float intensityScale = 1.0f;
+            public float vignetteMinAlpha = 0.06f;
+            public float vignetteMaxAlpha = 0.62f;
+            public boolean reduceWhenScreenOpen = true;
+            public float screenOpenMultiplier = 0.35f;
+            public boolean calmAfterNoDamage = true;
+            public int calmAfterNoDamageSeconds = 8;
+            public float calmMinHealth = 12.0f;
+            public float calmVisualMultiplier = 0.35f;
+            public float heartbeatMinIntensity = 0.12f;
+            public int heartbeatMaxIntervalMs = 1500;
+            public int heartbeatMinIntervalMs = 450;
+            public float heartbeatMinVolume = 0.18f;
+            public float heartbeatMaxVolume = 0.75f;
+            public float heartbeatMinPitch = 0.85f;
+            public float heartbeatMaxPitch = 1.15f;
+            public float fadeSpeed = 0.12f;
+        }
+    }
 
     public static final class Api {
         public boolean enabled = true;

@@ -568,6 +568,40 @@ public final class SettingsRegistry {
                         v -> c.letter.pageModeSendDelayMs = v, 200, 5000)
                         .tooltip("ottoextra.set.letter.pageModeDelay.tip"));
 
+        // Tweaks (optionale clientseitige Effekte)
+        var tweaks = r.module("tweaks", "ottoextra.module.tweaks", "ottoextra.set.tweaks.desc");
+        var tweaksBase = tab(tweaks, "ottoextra.set.tab.base");
+        card(tweaksBase, "ottoextra.set.tweaks.lowhealth", "ottoextra.set.tweaks.lowhealth.desc",
+                Option.bool("ottoextra.config.tweaks.lowhealth", "tweaks.lowHealth.enabled",
+                        () -> c.tweaks.lowHealth.enabled, v -> c.tweaks.lowHealth.enabled = v),
+                Option.bool("ottoextra.config.tweaks.lowhealth.vignette", "tweaks.lowHealth.vignetteEnabled",
+                        () -> c.tweaks.lowHealth.vignetteEnabled, v -> c.tweaks.lowHealth.vignetteEnabled = v),
+                Option.bool("ottoextra.config.tweaks.lowhealth.heartbeat", "tweaks.lowHealth.heartbeatEnabled",
+                        () -> c.tweaks.lowHealth.heartbeatEnabled, v -> c.tweaks.lowHealth.heartbeatEnabled = v),
+                Option.bool("ottoextra.config.tweaks.lowhealth.blur", "tweaks.lowHealth.blurEnabled",
+                        () -> c.tweaks.lowHealth.blurEnabled, v -> c.tweaks.lowHealth.blurEnabled = v)
+                        .tooltip("ottoextra.set.tweaks.lowhealth.blur.tip"),
+                Option.floatVal("ottoextra.config.tweaks.lowhealth.blurHearts", "tweaks.lowHealth.blurStartHearts",
+                        () -> c.tweaks.lowHealth.blurStartHearts, v -> c.tweaks.lowHealth.blurStartHearts = v, 1.0, 10.0)
+                        .tooltip("ottoextra.set.tweaks.lowhealth.blurHearts.tip"),
+                Option.floatVal("ottoextra.config.tweaks.lowhealth.blurStrength", "tweaks.lowHealth.blurStrength",
+                        () -> c.tweaks.lowHealth.blurStrength, v -> c.tweaks.lowHealth.blurStrength = v, 0.0, 3.0)
+                        .tooltip("ottoextra.set.tweaks.lowhealth.blurStrength.tip"),
+                Option.bool("ottoextra.config.tweaks.lowhealth.fov", "tweaks.lowHealth.fovEnabled",
+                        () -> c.tweaks.lowHealth.fovEnabled, v -> c.tweaks.lowHealth.fovEnabled = v)
+                        .tooltip("ottoextra.set.tweaks.lowhealth.fov.tip"),
+                Option.floatVal("ottoextra.config.tweaks.lowhealth.fovMax", "tweaks.lowHealth.fovMaxDegrees",
+                        () -> c.tweaks.lowHealth.fovMaxDegrees, v -> c.tweaks.lowHealth.fovMaxDegrees = v, 0.0, 25.0)
+                        .tooltip("ottoextra.set.tweaks.lowhealth.fovMax.tip"),
+                Option.floatVal("ottoextra.config.tweaks.lowhealth.startHealth", "tweaks.lowHealth.startHealth",
+                        () -> c.tweaks.lowHealth.startHealth, v -> c.tweaks.lowHealth.startHealth = v, 2.0, 40.0)
+                        .tooltip("ottoextra.set.tweaks.lowhealth.startHealth.tip"),
+                Option.floatVal("ottoextra.config.tweaks.lowhealth.intensity", "tweaks.lowHealth.intensityScale",
+                        () -> c.tweaks.lowHealth.intensityScale, v -> c.tweaks.lowHealth.intensityScale = v, 0.3, 2.0),
+                Option.bool("ottoextra.config.tweaks.lowhealth.calm", "tweaks.lowHealth.calmAfterNoDamage",
+                        () -> c.tweaks.lowHealth.calmAfterNoDamage, v -> c.tweaks.lowHealth.calmAfterNoDamage = v)
+                        .tooltip("ottoextra.set.tweaks.lowhealth.calm.tip"));
+
         return r;
     }
 }

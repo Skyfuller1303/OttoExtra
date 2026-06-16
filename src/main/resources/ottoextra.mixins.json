@@ -17,7 +17,8 @@
     "ChatCommandSyncMixin",
     "PlayerCustomizationAccessor",
     "GuiMapMixin",
-    "ChatMessageSplitMixin"
+    "ChatMessageSplitMixin",
+    "GameRendererBlurMixin"
   ],
   "injectors": {
     "defaultRequire": 1

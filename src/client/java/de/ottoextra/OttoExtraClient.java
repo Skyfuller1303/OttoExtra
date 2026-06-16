@@ -51,7 +51,8 @@ public final class OttoExtraClient implements ClientModInitializer {
                 new RpNamesModule(),
                 new NametagModule(),
                 new LetterModule(),
-                new ChatModule()
+                new ChatModule(),
+                new de.ottoextra.tweaks.TweaksModule()
         );
         context.setModules(modules);
 
