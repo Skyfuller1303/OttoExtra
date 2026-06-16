@@ -6,6 +6,28 @@ Alle nennenswerten Änderungen an OttoExtra. Format angelehnt an
 
 ## [0.1.8] – Unveröffentlicht
 
+### Hinzugefügt
+- **Neues Modul „Tweaks"** mit eigenem Einstellungstab — optionale,
+  clientseitige Effekte und Spiel-Tweaks.
+- **Low-Health-Adrenalin-Effekt** (unter 10 Herzen, rein clientseitig, opt-in):
+  - **Rote Blut-Vignette** am Bildschirmrand, prozedural gezeichnet und leicht
+    pulsierend; stärker je niedriger die Health, bei offenem Screen reduziert.
+  - **Warden-Herzschlag** lokal als wiederholter Einzel-Sound — Tempo,
+    Lautstärke und Tonhöhe skalieren mit der Intensität (kein Loop, kein Spam).
+  - **Edge-Blur / Tunnelblick** über einen eigenen Posteffekt: die Bildmitte
+    bleibt scharf, die Ränder verschwimmen zunehmend. Das HUD bleibt scharf
+    (Blur läuft nach dem Welt-Render, vor der GUI). Unabhängig von der
+    Menü-Hintergrund-Unschärfe; funktioniert auch mit Iris/Shaderpacks (best
+    effort, sonst bleiben Vignette + Herzschlag aktiv).
+  - **FOV-Adrenalin**: leichter, additiver FOV-Anstieg bei niedriger Health.
+  - **Beruhigung**: Herzschlag und starker Blur beruhigen sich nach einigen
+    Sekunden ohne neuen Schaden; die rote Vignette bleibt health-basiert.
+  - Einstellbar pro Effekt: an/aus, Start-Health bzw. Herz-Schwelle (Blur),
+    Intensität, Blur-Stärke, FOV-Zuschlag.
+  - **Test-Commands** (Single-/Multiplayer): `/ottoextra tweaks lowhealth
+    test [0..1]` erzwingt eine Intensität, `… stop` hebt das auf, `… on`/`… off`
+    schalten den automatischen Effekt.
+
 ## [0.1.7] – 2026-06-16
 
 ### Hinzugefügt
