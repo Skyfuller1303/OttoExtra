@@ -4,7 +4,7 @@ Alle nennenswerten Änderungen an OttoExtra. Format angelehnt an
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/); Versionierung nach
 [SemVer](https://semver.org/lang/de/).
 
-## [0.1.9] – Unveröffentlicht
+## [0.1.9] – 2026-06-30
 
 ### Hinzugefügt
 - **Neue Chat-Kanäle**: **Murmeln** (`/m`, Farbe `#58666f`) und **Brüllen**
@@ -377,4 +377,5 @@ Erste Version für Minecraft 1.21.11 (Fabric).
 - Brief-Editor: Buch-Import entfernt, „Parameter prüfen" als Icon, „Gespeicherte Entwürfe" als Button.
 - Z-Reihenfolge der Karte: Lehnsnamen/Wappen als oberste Overlay-Ebene.
 
+[0.1.9]: https://github.com/Skyfuller1303/OttoExtra/releases/tag/0.1.9
 [0.1.0]: https://example.com/ottoextra/releases/0.1.0
