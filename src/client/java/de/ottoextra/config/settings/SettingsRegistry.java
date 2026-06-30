@@ -258,10 +258,7 @@ public final class SettingsRegistry {
                         .tooltip("ottoextra.set.chat.autoSprechen.tip"),
                 Option.bool("ottoextra.config.chat.shiftTab", "chat.shiftTabCycleChannels",
                         () -> c.chat.shiftTabCycleChannels, v -> c.chat.shiftTabCycleChannels = v)
-                        .tooltip("ottoextra.set.chat.shiftTab.tip"),
-                Option.bool("ottoextra.config.chat.playerHeads", "chat.showPlayerHeads",
-                        () -> c.chat.showPlayerHeads, v -> c.chat.showPlayerHeads = v)
-                        .tooltip("ottoextra.set.chat.playerHeads.tip"));
+                        .tooltip("ottoextra.set.chat.shiftTab.tip"));
         card(chatBase, "ottoextra.set.chat.bang", "ottoextra.set.chat.bang.desc",
                 Option.bool("ottoextra.config.chat.bang", "chat.offtopicBangEnabled",
                         () -> c.chat.offtopicBangEnabled, v -> c.chat.offtopicBangEnabled = v),

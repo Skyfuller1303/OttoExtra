@@ -524,8 +524,7 @@ public final class OttoExtraSettingsScreen extends Screen {
 
     @Override
     public boolean keyPressed(KeyInput input) {
-        if (input.key() == GLFW.GLFW_KEY_S
-                && (input.modifiers() & GLFW.GLFW_MOD_CONTROL) != 0) {
+        if (input.key() == GLFW.GLFW_KEY_S && input.hasCtrlOrCmd()) {
             saveAndClose();
             return true;
         }

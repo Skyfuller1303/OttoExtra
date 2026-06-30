@@ -81,7 +81,9 @@ public final class ChatChannelButton {
         return switch (channel) {
             case SPRECHEN -> 0xFFDFC8A7;
             case FLUESTERN -> 0xFF768491;
+            case MURMELN -> 0xFF58666F;
             case RUFEN -> 0xFFD2BF6A;
+            case BRUELLEN -> 0xFFFCF47E;
             case OFFTOPIC -> 0xFFB4BEC6;
             case HILFE -> 0xFFB53764;
         };

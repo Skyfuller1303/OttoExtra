@@ -353,75 +353,10 @@ public final class RpNamesServices {
             } else {
                 result = rewriter.rewrite(message, config);
             }
-            // Sprecher-UUID aus dem Hover (Account -> UUID) der Namenszone zuordnen,
-            // damit der Chat-Kopf den richtigen Skin zeigt (nicht über RP-Name raten).
-            mapSpeakerHead(result, ids);
-            // Optionaler Spielerkopf: Platz schaffen (Einrückung), Zeichnen im Mixin.
-            return de.ottoextra.chat.ChatHeads.withHeadIndent(result);
+            return result;
         } catch (Throwable t) {
             return message;
         }
     }
 
-    /**
-     * Ordnet die Namenszone der gerenderten Nachricht der UUID des Sprechers zu
-     * (Account aus dem Hover -> UUID), damit der Chat-Kopf den richtigen Skin
-     * zeigt — statt den Sprecher über den RP-Namen zu raten.
-     */
-    private static void mapSpeakerHead(Text result, java.util.List<HoverIdentityParser.ParsedIdentity> ids) {
-        try {
-            if (result == null || ids.isEmpty() || !de.ottoextra.chat.ChatHeads.enabled()) {
-                return;
-            }
-            String zone = de.ottoextra.chat.ChatHeads.nameZone(result.getString());
-            if (zone == null) {
-                return;
-            }
-            String zl = zone.toLowerCase(java.util.Locale.ROOT);
-            for (HoverIdentityParser.ParsedIdentity id : ids) {
-                String rp = id.rpName();
-                if (rp == null || rp.isBlank()) {
-                    continue;
-                }
-                String rpl = rp.toLowerCase(java.util.Locale.ROOT);
-                if (zl.equals(rpl) || zl.endsWith(" " + rpl)) { // Sprecher steht am Zonen-Ende
-                    java.util.UUID u = uuidForAccount(id.accountName());
-                    if (u != null) {
-                        de.ottoextra.chat.ChatHeads.mapSpeaker(zone, u);
-                        return;
-                    }
-                }
-            }
-        } catch (Throwable ignored) {
-            // Kopf ist optional — nie den Chat brechen
-        }
-    }
-
-    /** UUID zu einem Account: Tabliste (echte UUID) bevorzugt, sonst Store. */
-    private static java.util.UUID uuidForAccount(String account) {
-        if (account == null || account.isBlank()) {
-            return null;
-        }
-        var mc = net.minecraft.client.MinecraftClient.getInstance();
-        if (mc.getNetworkHandler() != null) {
-            for (var entry : mc.getNetworkHandler().getPlayerList()) {
-                var gp = entry.getProfile();
-                if (gp != null && gp.id() != null && gp.name() != null
-                        && account.equalsIgnoreCase(gp.name())) {
-                    return gp.id();
-                }
-            }
-        }
-        if (store != null) {
-            var p = store.findByName(account).orElse(null);
-            if (p != null && p.uuid != null && !p.uuid.isBlank()) {
-                try {
-                    return java.util.UUID.fromString(p.uuid);
-                } catch (Exception ignored) {
-                    // ungültige UUID -> null
-                }
-            }
-        }
-        return null;
-    }
 }

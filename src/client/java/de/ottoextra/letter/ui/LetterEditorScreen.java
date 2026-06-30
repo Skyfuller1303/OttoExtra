@@ -359,7 +359,8 @@ public final class LetterEditorScreen extends Screen {
     @Override
     public boolean keyPressed(KeyInput input) {
         int key = input.key();
-        boolean ctrl = (input.modifiers() & GLFW.GLFW_MOD_CONTROL) != 0;
+        // Plattform-korrekt: Strg (Win/Linux) bzw. Cmd (macOS) für Kopieren/Einfügen/…
+        boolean ctrl = input.hasCtrlOrCmd();
         boolean shift = (input.modifiers() & GLFW.GLFW_MOD_SHIFT) != 0;
         String t = text();
         java.util.List<String> sugg = suggestions();

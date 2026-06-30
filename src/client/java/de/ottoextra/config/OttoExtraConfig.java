@@ -353,7 +353,9 @@ public final class OttoExtraConfig {
         public boolean showInSprechen = true;
         public boolean showInReden = true;
         public boolean showInRufen = true;
+        public boolean showInBruellen = true;
         public boolean showInFluestern = true;
+        public boolean showInMurmeln = true;
         // OOC-Kanäle (Offtopic + Hilfe): RP-Namen standardmäßig aus, per Setting opt-in
         public boolean showInHilfe = false;
         public boolean showInOfftopic = false;
@@ -473,8 +475,6 @@ public final class OttoExtraConfig {
         public String voiceKey = "key.keyboard.v";
         public String helpKey = "key.keyboard.h";
         public String offtopicKey = "key.keyboard.o";
-        /** Spielerkopf links neben dem Namen im Chat anzeigen (optional). */
-        public boolean showPlayerHeads = false;
     }
 
     /** Automatischer Server-Resourcepack-Downloader. */

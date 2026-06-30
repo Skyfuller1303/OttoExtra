@@ -185,8 +185,6 @@
   "ottoextra.meet.edit": "Edit name",
   "ottoextra.config.chat.shiftTab": "Shift+Tab cycles channel",
   "ottoextra.set.chat.shiftTab.tip": "Shift+Tab in chat cycles the channel (instead of vanilla player-name autocomplete). Default: on.",
-  "ottoextra.config.chat.playerHeads": "Player heads in chat",
-  "ottoextra.set.chat.playerHeads.tip": "Shows the player head left of the name. Default: off.",
   "ottoextra.set.chat.longchat": "Long messages",
   "ottoextra.set.chat.longchat.desc": "Type unlimited on one line; on send split automatically into several messages.",
   "ottoextra.config.chat.longchat": "Split long messages",

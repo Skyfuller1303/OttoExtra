@@ -185,8 +185,6 @@
   "ottoextra.meet.edit": "Namen bearbeiten",
   "ottoextra.config.chat.shiftTab": "Shift+Tab wechselt Kanal",
   "ottoextra.set.chat.shiftTab.tip": "Shift+Tab im Chat wechselt den Kanal (statt Vanilla-Autovervollständigung der Spielernamen). Standard: an.",
-  "ottoextra.config.chat.playerHeads": "Spielerköpfe im Chat",
-  "ottoextra.set.chat.playerHeads.tip": "Zeigt links neben dem Namen den Spielerkopf an. Standard: aus.",
   "ottoextra.set.chat.longchat": "Lange Nachrichten",
   "ottoextra.set.chat.longchat.desc": "Einzeilig unbegrenzt tippen; beim Senden automatisch in mehrere Teilnachrichten splitten.",
   "ottoextra.config.chat.longchat": "Lange Nachrichten splitten",

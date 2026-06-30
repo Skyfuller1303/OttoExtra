@@ -3,6 +3,7 @@ package de.ottoextra.mixin;
 import de.ottoextra.chat.ChatChannelButton;
 import de.ottoextra.chat.ChatChannelState;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.screen.ChatInputSuggestor;
 import net.minecraft.client.gui.screen.ChatScreen;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.client.input.KeyInput;
@@ -25,6 +26,9 @@ public abstract class ChatScreenMixin {
 
     @Shadow
     protected TextFieldWidget chatField;
+
+    @Shadow
+    ChatInputSuggestor chatInputSuggestor;
 
     /** Vanilla-Layout des Feldes (init): x=4, Breite bis screenWidth-4. */
     private static final int VANILLA_X = 4;
@@ -67,7 +71,7 @@ public abstract class ChatScreenMixin {
         }
     }
 
-    /** Shift+Tab wechselt im Chat den Kanal durch (inkl. OOC). */
+    /** Shift+Tab wechselt im Chat den Kanal durch (alle, inkl. OOC). */
     @Inject(method = "keyPressed(Lnet/minecraft/client/input/KeyInput;)Z",
             at = @At("HEAD"), cancellable = true)
     private void ottoextra$shiftTabChannel(KeyInput input, CallbackInfoReturnable<Boolean> cir) {
@@ -77,6 +81,13 @@ public abstract class ChatScreenMixin {
             // immer abfangen -> kein Vanilla-Autofill der Spielernamen bei Shift+Tab
             try {
                 ChatChannelState.cycleAllChannels();
+                // Vorschlags-Popup + inline-Ghost schließen (nur Kanalwechsel, keine Namen)
+                if (chatInputSuggestor != null) {
+                    chatInputSuggestor.clearWindow();
+                }
+                if (chatField != null) {
+                    chatField.setSuggestion(null);
+                }
             } catch (Throwable ignored) {
                 // Chat darf nie brechen
             }

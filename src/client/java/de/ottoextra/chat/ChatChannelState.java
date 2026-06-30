@@ -11,7 +11,7 @@ import java.util.function.BooleanSupplier;
  * aktueller Kanal + zuletzt genutzter RP-/OOC-Kanal, Klick-Logik
  * (Links = RP-Zyklus bzw. zurück aus OOC; Shift = OOC-Zyklus bzw. hinein)
  * und Synchronisation mit manuell getippten Befehlen
- * ({@code /s /f /r /o /h /leave h /leave o}).
+ * ({@code /s /f /m /r /b /o /h /leave h /leave o}).
  *
  * <p>Der Kanalwechsel sendet den Serverbefehl; der angezeigte Prefix ist nur
  * UI und wird nie in die Nachricht eingefügt.</p>
@@ -21,7 +21,9 @@ public final class ChatChannelState {
     public enum ChatChannel {
         SPRECHEN("[Sprechen]", "s", true),
         FLUESTERN("[Flüstern]", "f", true),
+        MURMELN("[Murmeln]", "m", true),
         RUFEN("[Rufen]", "r", true),
+        BRUELLEN("[Brüllen]", "b", true),
         OFFTOPIC("[Offtopic]", "o", false),
         HILFE("[Hilfe]", "h", false);
 
@@ -81,8 +83,10 @@ public final class ChatChannelState {
     public static void cycleAllChannels() {
         ChatChannel next = switch (currentChannel) {
             case SPRECHEN -> ChatChannel.FLUESTERN;
-            case FLUESTERN -> ChatChannel.RUFEN;
-            case RUFEN -> ChatChannel.OFFTOPIC;
+            case FLUESTERN -> ChatChannel.MURMELN;
+            case MURMELN -> ChatChannel.RUFEN;
+            case RUFEN -> ChatChannel.BRUELLEN;
+            case BRUELLEN -> ChatChannel.OFFTOPIC;
             case OFFTOPIC -> ChatChannel.HILFE;
             case HILFE -> ChatChannel.SPRECHEN;
         };
@@ -102,9 +106,13 @@ public final class ChatChannelState {
             switchToChannel(lastRpChannel != null ? lastRpChannel : ChatChannel.SPRECHEN);
             return;
         }
+        // RP-Lautstärke aufsteigend: Flüstern → Murmeln → Sprechen → Rufen → Brüllen
         ChatChannel next = switch (currentChannel) {
-            case SPRECHEN -> ChatChannel.FLUESTERN;
-            case FLUESTERN -> ChatChannel.RUFEN;
+            case FLUESTERN -> ChatChannel.MURMELN;
+            case MURMELN -> ChatChannel.SPRECHEN;
+            case SPRECHEN -> ChatChannel.RUFEN;
+            case RUFEN -> ChatChannel.BRUELLEN;
+            case BRUELLEN -> ChatChannel.FLUESTERN;
             default -> ChatChannel.SPRECHEN;
         };
         switchToChannel(next);
@@ -147,7 +155,9 @@ public final class ChatChannelState {
         switch (normalized) {
             case "s" -> setCurrentChannelFromExternal(ChatChannel.SPRECHEN);
             case "f" -> setCurrentChannelFromExternal(ChatChannel.FLUESTERN);
+            case "m" -> setCurrentChannelFromExternal(ChatChannel.MURMELN);
             case "r" -> setCurrentChannelFromExternal(ChatChannel.RUFEN);
+            case "b" -> setCurrentChannelFromExternal(ChatChannel.BRUELLEN);
             case "o" -> setCurrentChannelFromExternal(ChatChannel.OFFTOPIC);
             case "h" -> setCurrentChannelFromExternal(ChatChannel.HILFE);
             case "leave h", "leave o" -> setCurrentChannelFromExternal(

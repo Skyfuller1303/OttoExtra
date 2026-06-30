@@ -50,7 +50,7 @@ public final class ChatNameRewriter {
     public Text rewriteTitleOnly(Text message, OttoExtraConfig.RpNames cfg) {
         try {
             SpeakerInfo si = findSpeaker(message, cfg, new StringBuilder(), true);
-            if (si != null && si.profile().hasTitle()) {
+            if (si != null && ownTitleApplies(si.profile())) {
                 return collapseSpaces(rebuild(message, si, new int[]{0}, true), new boolean[]{false});
             }
             return message;
@@ -76,7 +76,7 @@ public final class ChatNameRewriter {
         if (!trimmed.isEmpty()) {
             LocalRpProfile p = store.findByName(trimmed).orElse(null);
             boolean match = p != null && p.showInChat && (titleOnly
-                    ? p.hasTitle()
+                    ? ownTitleApplies(p)
                     : (p.hasRpName() || cfg.showUnknownAsUnknown));
             if (match) {
                 int bracket = flat.lastIndexOf("]");
@@ -106,10 +106,12 @@ public final class ChatNameRewriter {
         int start = flatPos[0];
         MutableText copy;
         boolean known = si.profile().hasRpName();
-        // Titel nur bei bekannten Personen rendern; Server-Titel bei Unbekannten
-        // (oder wenn wir einen eigenen rendern) ausblenden -> kein Titel für Fremde.
-        boolean renderOurTitle = known && si.profile().hasTitle();
-        boolean blankServerTitle = !known || si.profile().hasTitle();
+        // Titel nur bei bekannten Personen + eigenem (Katalog-)Titel rendern;
+        // Server-Titel nur dann blanken. Server-Ränge (kein Katalog-Titel) bleiben
+        // mit ihrer Server-Farbe stehen, Unbekannte verlieren den Server-Titel.
+        boolean ownTitle = ownTitleApplies(si.profile());
+        boolean renderOurTitle = known && ownTitle;
+        boolean blankServerTitle = !known || ownTitle;
         if (node == si.node()) {
             if (titleOnly) {
                 // nur Titel voranstellen, Original-Name (Account/Nick) behalten
@@ -174,9 +176,26 @@ public final class ChatNameRewriter {
         return displayName(profile, baseStyle, true);
     }
 
-    /** Gefärbter Titel-Prefix ("Titel ") nach Farbkette, oder null wenn kein Titel. */
+    /**
+     * Gilt der gespeicherte Titel als <b>unser</b> (Katalog-)Titel? Nur dann
+     * blanken/ersetzen wir den Server-Titel. Server-Ränge (z. B. „Gamemaster"),
+     * die nicht im Titelkatalog oder einer Titelgruppe stehen, bleiben mit ihrer
+     * Server-Farbe unangetastet.
+     */
+    private boolean ownTitleApplies(LocalRpProfile profile) {
+        if (profile == null || !profile.hasTitle()) {
+            return false;
+        }
+        var catalog = de.ottoextra.rpnames.RpNamesServices.catalog();
+        if (catalog != null && catalog.find(profile.title).isPresent()) {
+            return true;
+        }
+        return titles.find(profile.title).isPresent();
+    }
+
+    /** Gefärbter Titel-Prefix ("Titel ") nach Farbkette, oder null wenn kein (eigener) Titel. */
     private MutableText titleComponent(LocalRpProfile profile) {
-        if (!profile.hasTitle()) {
+        if (!ownTitleApplies(profile)) {
             return null;
         }
         var catalog = de.ottoextra.rpnames.RpNamesServices.catalog();

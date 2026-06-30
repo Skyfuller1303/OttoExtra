@@ -4,6 +4,37 @@ Alle nennenswerten Änderungen an OttoExtra. Format angelehnt an
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/); Versionierung nach
 [SemVer](https://semver.org/lang/de/).
 
+## [0.1.9] – Unveröffentlicht
+
+### Hinzugefügt
+- **Neue Chat-Kanäle**: **Murmeln** (`/m`, Farbe `#58666f`) und **Brüllen**
+  (`/b`, Farbe `#fcf47e`) ergänzen die RP-Sprechkanäle. Kanal-Button-Zyklus
+  (links) läuft jetzt lautstärke-aufsteigend Flüstern → Murmeln → Sprechen →
+  Rufen → Brüllen. Eingehende `[Murmeln]`/`[Brüllen]`-Zeilen bekommen RP-Namen
+  und werden fürs proaktive Kennenlernen erkannt.
+
+### Geändert
+- **Shift+Tab** im Chat schaltet den Kanal durch **alle** Kanäle
+  (Sprechen → Flüstern → Murmeln → Rufen → Brüllen → Offtopic → Hilfe).
+
+### Entfernt
+- **Spielerköpfe im Chat**: Das Modul rückte die Chatzeile ein und brach damit
+  die serverseitigen Kopf-Token (z. B. `[flizko head]` bei Teamlern) — Köpfe
+  erschienen als roher Text. Feature inkl. Einstellung entfernt; die
+  Server-Köpfe rendern wieder selbst. Skin-Auflösung für GUIs (Empfängerliste)
+  bleibt erhalten.
+
+### Behoben
+- **macOS: Einfügen im Brief-Editor ging nicht**: Der Editor prüfte nur Strg;
+  auf macOS liegt Kopieren/Einfügen/Ausschneiden/Alles-markieren auf **Cmd**.
+  Nutzt jetzt die plattform-korrekte Prüfung (`hasCtrlOrCmd`); ebenso
+  Cmd/Strg+S im Einstellungs-Screen.
+- **Teamler-/Server-Ränge verloren ihre Farbe im Chat**: Server-Ränge wie
+  „Gamemaster" wurden als Titel behandelt, der farbige Server-Titel geblankt und
+  durch einen (weißen) Ersatz überschrieben. Es werden jetzt nur noch **eigene
+  Katalog-/Gruppen-Titel** ersetzt; unbekannte Server-Ränge bleiben mit ihrer
+  Server-Farbe stehen (Chat).
+
 ## [0.1.8] – Unveröffentlicht
 
 ### Geändert

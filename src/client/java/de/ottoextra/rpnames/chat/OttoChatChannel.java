@@ -10,7 +10,9 @@ public enum OttoChatChannel {
     SPRECHEN,
     REDEN,
     RUFEN,
+    BRUELLEN,
     FLUESTERN,
+    MURMELN,
     HILFE,
     OFFTOPIC,
     OOC,
@@ -30,8 +32,14 @@ public enum OttoChatChannel {
         if (plain.startsWith("[Rufen]")) {
             return RUFEN;
         }
+        if (plain.startsWith("[Brüllen]") || plain.startsWith("[Bruellen]")) {
+            return BRUELLEN;
+        }
         if (plain.startsWith("[Flüstern]") || plain.startsWith("[Fluestern]")) {
             return FLUESTERN;
+        }
+        if (plain.startsWith("[Murmeln]")) {
+            return MURMELN;
         }
         if (plain.startsWith("[Hilfe]")) {
             return HILFE;
@@ -57,7 +65,9 @@ public enum OttoChatChannel {
             case SPRECHEN -> cfg.showInSprechen;
             case REDEN -> cfg.showInReden;
             case RUFEN -> cfg.showInRufen;
+            case BRUELLEN -> cfg.showInBruellen;
             case FLUESTERN -> cfg.showInFluestern;
+            case MURMELN -> cfg.showInMurmeln;
             case HILFE -> cfg.showInHilfe;
             case OFFTOPIC -> cfg.showInOfftopic;
             case OOC -> cfg.showInOoc;
@@ -72,13 +82,14 @@ public enum OttoChatChannel {
 
     /** RP-Sprechkanäle (reden/flüstern/rufen) — für proaktives Kennenlernen. */
     public boolean isRpSpeak() {
-        return this == SPRECHEN || this == REDEN || this == RUFEN || this == FLUESTERN;
+        return this == SPRECHEN || this == REDEN || this == RUFEN
+                || this == BRUELLEN || this == FLUESTERN || this == MURMELN;
     }
 
     /** Lern-Gate: Hover gilt als server-bestätigt — RP-Kanäle + Hilfe. */
     public boolean shouldLearn() {
         return switch (this) {
-            case SPRECHEN, REDEN, RUFEN, FLUESTERN, HILFE -> true;
+            case SPRECHEN, REDEN, RUFEN, BRUELLEN, FLUESTERN, MURMELN, HILFE -> true;
             default -> false;
         };
     }
