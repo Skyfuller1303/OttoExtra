@@ -33,6 +33,14 @@ Alle nennenswerten Änderungen an OttoExtra. Format angelehnt an
   bleibt erhalten.
 
 ### Behoben
+- **Politisches Overlay: Lehen fälschlich als unabhängig gruppiert**: Führt die
+  API denselben Fraktionsnamen doppelt (z. B. ein stale „Ungelandet"-Eintrag
+  neben dem echten Lehen, wie bei Schaffenberg), gewann beim Namens-Lookup der
+  erste Treffer — die Lehnsherr-Kette riss ab und das Lehen samt Vasallen
+  (Rosenhain) erschien als eigene, unabhängige Gruppe statt beim obersten
+  Lehnsherrn. Bei Duplikaten gewinnt jetzt der aussagekräftigere Datensatz
+  (gelandet vor ungelandet, dann mit Lehnsherr vor ohne) — in Worldmap-Gruppen,
+  Minimap-Lehnsherr-HUD und Gefolge-Liste.
 - **Lange Nachrichten: RP-Spans überleben den Split**: Wurde eine lange
   Nachricht mitten in einem `*…*`- (Darstellung) oder `(…)`-Span (Offtopic)
   geteilt, verlor der Server die Einfärbung — er färbt nur, wenn Stern/Klammer

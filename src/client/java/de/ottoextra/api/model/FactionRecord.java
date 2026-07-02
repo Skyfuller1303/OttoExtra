@@ -39,4 +39,37 @@ public record FactionRecord(
         }
         return banner_path;
     }
+
+    /** Gelandet = echtes Lehen mit Region (Region gesetzt und nicht "Ungelandet"). */
+    public boolean isLanded() {
+        boolean hasRegion = (region_name != null && !region_name.isBlank()
+                && !"-".equals(region_name.trim()))
+                || (region_id != null && !region_id.isBlank());
+        return hasRegion && !"Ungelandet".equalsIgnoreCase(rank_name);
+    }
+
+    /**
+     * Bei Namens-Duplikaten den aussagekräftigeren Datensatz wählen — die API
+     * kann denselben Namen mehrfach führen (z. B. ein stale „Ungelandet"-Eintrag
+     * neben dem echten Lehen), was sonst Lehnsherr-Ketten an der falschen Stelle
+     * abreißen lässt. Vorrang: gelandet vor ungelandet, dann mit Lehnsherr vor
+     * ohne, sonst der erste.
+     */
+    public static FactionRecord better(FactionRecord a, FactionRecord b) {
+        if (a == null) {
+            return b;
+        }
+        if (b == null) {
+            return a;
+        }
+        if (a.isLanded() != b.isLanded()) {
+            return a.isLanded() ? a : b;
+        }
+        boolean aLord = a.lord_name() != null && !a.lord_name().isBlank();
+        boolean bLord = b.lord_name() != null && !b.lord_name().isBlank();
+        if (aLord != bLord) {
+            return aLord ? a : b;
+        }
+        return a;
+    }
 }

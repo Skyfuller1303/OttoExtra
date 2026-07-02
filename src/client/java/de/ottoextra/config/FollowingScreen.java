@@ -186,7 +186,7 @@ public final class FollowingScreen extends Screen {
         Map<String, FactionRecord> byName = new HashMap<>();
         for (FactionRecord f : all) {
             if (f.name() != null && !f.name().isBlank()) {
-                byName.putIfAbsent(normalize(f.name()), f);
+                byName.merge(normalize(f.name()), f, FactionRecord::better);
             }
         }
         Map<String, List<FactionRecord>> kids = new HashMap<>();
@@ -448,7 +448,7 @@ public final class FollowingScreen extends Screen {
         Map<String, FactionRecord> byName = new HashMap<>();
         for (FactionRecord f : data.allFactions()) {
             if (f.name() != null && !f.name().isBlank()) {
-                byName.putIfAbsent(normalize(f.name()), f);
+                byName.merge(normalize(f.name()), f, FactionRecord::better);
             }
         }
         String rootNorm = normalize(rootName);

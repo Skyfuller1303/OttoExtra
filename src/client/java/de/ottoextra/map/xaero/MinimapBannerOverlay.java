@@ -230,7 +230,8 @@ public final class MinimapBannerOverlay {
                 new java.util.HashMap<>();
         for (var f : data.allFactions()) {
             if (f.name() != null && !f.name().isBlank()) {
-                byName.putIfAbsent(f.name().toLowerCase(java.util.Locale.ROOT), f);
+                byName.merge(f.name().toLowerCase(java.util.Locale.ROOT), f,
+                        de.ottoextra.api.model.FactionRecord::better);
             }
         }
         String lordName = directLord;

@@ -453,7 +453,9 @@ public final class PoliticalOverlay {
         Map<String, FactionRecord> byName = new HashMap<>();
         for (FactionRecord f : factions) {
             if (f.name() != null && !f.name().isBlank()) {
-                byName.putIfAbsent(normalizeName(f.name()), f);
+                // Duplikat-Namen: besseren Datensatz wählen (stale "Ungelandet"-
+                // Einträge würden sonst die Lehnsherr-Kette abreißen)
+                byName.merge(normalizeName(f.name()), f, FactionRecord::better);
             }
         }
         // Polygon -> Wurzel-Gruppe. Zwei Quellen:
