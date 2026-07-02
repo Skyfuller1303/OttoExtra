@@ -9,7 +9,8 @@ import java.util.function.BooleanSupplier;
 /**
  * Kanal-State für den Chat-Channel-Button:
  * aktueller Kanal + zuletzt genutzter RP-/OOC-Kanal, Klick-Logik
- * (Links = RP-Zyklus bzw. zurück aus OOC; Shift = OOC-Zyklus bzw. hinein)
+ * (Links = RP-Zyklus bzw. zurück aus OOC; Shift = OOC-Zyklus bzw. hinein;
+ * Alt = ein Kanal zurück über alle Kanäle)
  * und Synchronisation mit manuell getippten Befehlen
  * ({@code /s /f /m /r /b /o /h /leave h /leave o}).
  *
@@ -37,6 +38,12 @@ public final class ChatChannelState {
             this.rp = rp;
         }
     }
+
+    /** Zyklus-Reihenfolge fürs Durchschalten (vor- und rückwärts). */
+    private static final ChatChannel[] ORDER = {
+            ChatChannel.MURMELN, ChatChannel.FLUESTERN, ChatChannel.SPRECHEN,
+            ChatChannel.RUFEN, ChatChannel.BRUELLEN,
+            ChatChannel.OFFTOPIC, ChatChannel.HILFE};
 
     private static volatile ChatChannel currentChannel = ChatChannel.SPRECHEN;
     private static volatile ChatChannel lastRpChannel = ChatChannel.SPRECHEN;
@@ -81,20 +88,28 @@ public final class ChatChannelState {
 
     /** Alle Kanäle der Reihe nach durchwechseln (inkl. OOC) — für Shift+Tab. */
     public static void cycleAllChannels() {
-        ChatChannel next = switch (currentChannel) {
-            case SPRECHEN -> ChatChannel.FLUESTERN;
-            case FLUESTERN -> ChatChannel.MURMELN;
-            case MURMELN -> ChatChannel.RUFEN;
-            case RUFEN -> ChatChannel.BRUELLEN;
-            case BRUELLEN -> ChatChannel.OFFTOPIC;
-            case OFFTOPIC -> ChatChannel.HILFE;
-            case HILFE -> ChatChannel.SPRECHEN;
-        };
-        switchToChannel(next);
+        switchToChannel(step(currentChannel, +1));
     }
 
-    public static void clickChannelButton(boolean shiftDown) {
-        if (shiftDown) {
+    /** Einen Kanal in der Reihenfolge zurück — für Alt+Linksklick. */
+    public static void cycleAllChannelsBackwards() {
+        switchToChannel(step(currentChannel, -1));
+    }
+
+    /** Nachbar von {@code channel} in ORDER ({@code dir} = ±1, mit Umlauf). */
+    private static ChatChannel step(ChatChannel channel, int dir) {
+        for (int i = 0; i < ORDER.length; i++) {
+            if (ORDER[i] == channel) {
+                return ORDER[Math.floorMod(i + dir, ORDER.length)];
+            }
+        }
+        return ChatChannel.SPRECHEN;
+    }
+
+    public static void clickChannelButton(boolean shiftDown, boolean altDown) {
+        if (altDown) {
+            cycleAllChannelsBackwards();
+        } else if (shiftDown) {
             cycleOocChannel();
         } else {
             cycleRpChannelOrReturnFromOoc();
@@ -106,15 +121,11 @@ public final class ChatChannelState {
             switchToChannel(lastRpChannel != null ? lastRpChannel : ChatChannel.SPRECHEN);
             return;
         }
-        // RP-Lautstärke aufsteigend: Flüstern → Murmeln → Sprechen → Rufen → Brüllen
-        ChatChannel next = switch (currentChannel) {
-            case FLUESTERN -> ChatChannel.MURMELN;
-            case MURMELN -> ChatChannel.SPRECHEN;
-            case SPRECHEN -> ChatChannel.RUFEN;
-            case RUFEN -> ChatChannel.BRUELLEN;
-            case BRUELLEN -> ChatChannel.FLUESTERN;
-            default -> ChatChannel.SPRECHEN;
-        };
+        // RP-Zyklus in ORDER-Reihenfolge: Murmeln → Flüstern → Sprechen → Rufen → Brüllen
+        ChatChannel next = step(currentChannel, +1);
+        if (!next.rp) {
+            next = ORDER[0];
+        }
         switchToChannel(next);
     }
 

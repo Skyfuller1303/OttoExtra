@@ -77,7 +77,8 @@ public final class ChatModule implements OttoExtraModule {
                     return true;
                 }
                 boolean shift = (click.modifiers() & GLFW.GLFW_MOD_SHIFT) != 0;
-                ChatChannelState.clickChannelButton(shift);
+                boolean alt = (click.modifiers() & GLFW.GLFW_MOD_ALT) != 0;
+                ChatChannelState.clickChannelButton(shift, alt);
                 return false;
             });
             ScreenEvents.afterRender(screen).register((s, drawContext, mouseX, mouseY, tickDelta) -> {

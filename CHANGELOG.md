@@ -6,6 +6,12 @@ Alle nennenswerten Änderungen an OttoExtra. Format angelehnt an
 
 ## [Unreleased] – 0.1.10
 
+### Geändert
+- **Kanal-Zyklus neu sortiert**: Durchschalten (Kanal-Button und Shift+Tab)
+  läuft jetzt Murmeln → Flüstern → Sprechen → Rufen → Brüllen → Offtopic →
+  Hilfe (Button nur RP-Kanäle, Shift+Tab alle). Neu: **Alt+Linksklick** auf
+  den Kanalnamen schaltet einen Kanal zurück (z. B. Offtopic → Brüllen).
+
 ### Behoben
 - **Wappen/Name/Stand-HUD verschwand bei F3+B (Hitboxen)**: Seit MC 1.21.11
   meldet `shouldShowDebugHud()` auch aktive Einzel-Debug-Einträge (z. B. den
