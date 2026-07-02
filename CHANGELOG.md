@@ -25,6 +25,13 @@ Alle nennenswerten Änderungen an OttoExtra. Format angelehnt an
   bleibt erhalten.
 
 ### Behoben
+- **Lange Nachrichten: RP-Spans überleben den Split**: Wurde eine lange
+  Nachricht mitten in einem `*…*`- (Darstellung) oder `(…)`-Span (Offtopic)
+  geteilt, verlor der Server die Einfärbung — er färbt nur, wenn Stern/Klammer
+  in derselben Nachricht geschlossen wird. Offene Spans werden jetzt am Ende
+  des Teilstücks (vor dem Fortsetzungs-Marker) geschlossen und im nächsten
+  Teilstück direkt wieder geöffnet; auch verschachtelt (`(bla *foo` →
+  `…*)` / `(*…`) und über beliebig viele Teilstücke.
 - **Wortweise Cursor-Navigation und Markierung im Brief-Editor**: Strg+Pfeil
   (Wortsprung) und Strg+Shift+Pfeil (wortweise markieren) waren auf keiner
   Plattform implementiert — die Pfeiltasten-Handler ignorierten die Modifier.
