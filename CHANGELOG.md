@@ -25,6 +25,13 @@ Alle nennenswerten Änderungen an OttoExtra. Format angelehnt an
   bleibt erhalten.
 
 ### Behoben
+- **Wortweise Cursor-Navigation und Markierung im Brief-Editor**: Strg+Pfeil
+  (Wortsprung) und Strg+Shift+Pfeil (wortweise markieren) waren auf keiner
+  Plattform implementiert — die Pfeiltasten-Handler ignorierten die Modifier.
+  Jetzt plattform-korrekt: **Strg+Pfeil** (Windows/Linux) bzw. **Option+Pfeil**
+  (macOS) springt wortweise, **Cmd+Pfeil** (macOS) springt an Zeilenanfang/-ende;
+  jeweils mit Shift wird markiert. Hinweis macOS: Ctrl+Pfeil fängt oft das
+  System ab (Mission Control) — dort Option+Pfeil nutzen.
 - **macOS: Einfügen im Brief-Editor ging nicht**: Der Editor prüfte nur Strg;
   auf macOS liegt Kopieren/Einfügen/Ausschneiden/Alles-markieren auf **Cmd**.
   Nutzt jetzt die plattform-korrekte Prüfung (`hasCtrlOrCmd`); ebenso

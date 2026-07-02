@@ -26,6 +26,7 @@ import net.minecraft.text.Style;
 import net.minecraft.text.Text;
 import net.minecraft.text.TextColor;
 import net.minecraft.util.Formatting;
+import net.minecraft.util.Util;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
@@ -362,6 +363,14 @@ public final class LetterEditorScreen extends Screen {
         // Plattform-korrekt: Strg (Win/Linux) bzw. Cmd (macOS) für Kopieren/Einfügen/…
         boolean ctrl = input.hasCtrlOrCmd();
         boolean shift = (input.modifiers() & GLFW.GLFW_MOD_SHIFT) != 0;
+        boolean alt = (input.modifiers() & GLFW.GLFW_MOD_ALT) != 0;
+        boolean rawCtrl = (input.modifiers() & GLFW.GLFW_MOD_CONTROL) != 0;
+        boolean mac = Util.getOperatingSystem() == Util.OperatingSystem.OSX;
+        // Wortsprung: Strg+Pfeil (Win/Linux) bzw. Option+Pfeil (macOS; Strg+Pfeil
+        // fängt dort meist das System ab — wird trotzdem akzeptiert, falls es ankommt).
+        boolean wordJump = mac ? (alt || rawCtrl) : ctrl;
+        // macOS: Cmd+Pfeil = Zeilenanfang/-ende (Systemkonvention).
+        boolean macLineJump = mac && ctrl;
         String t = text();
         java.util.List<String> sugg = suggestions();
         if (!sugg.isEmpty()) {
@@ -418,11 +427,23 @@ public final class LetterEditorScreen extends Screen {
                 return true;
             }
             case GLFW.GLFW_KEY_LEFT -> {
-                moveCursor(cursor - 1, shift);
+                if (macLineJump) {
+                    moveCursor(lineStartOf(cursor), shift);
+                } else if (wordJump) {
+                    moveCursor(prevWordBoundary(cursor), shift);
+                } else {
+                    moveCursor(cursor - 1, shift);
+                }
                 return true;
             }
             case GLFW.GLFW_KEY_RIGHT -> {
-                moveCursor(cursor + 1, shift);
+                if (macLineJump) {
+                    moveCursor(lineEndOf(cursor), shift);
+                } else if (wordJump) {
+                    moveCursor(nextWordBoundary(cursor), shift);
+                } else {
+                    moveCursor(cursor + 1, shift);
+                }
                 return true;
             }
             case GLFW.GLFW_KEY_UP, GLFW.GLFW_KEY_DOWN -> {
@@ -602,6 +623,32 @@ public final class LetterEditorScreen extends Screen {
             }
         }
         return spans.size() - 1;
+    }
+
+    /** Position des Wortanfangs links von {@code pos} (Strg/Option+Links). */
+    private int prevWordBoundary(int pos) {
+        String t = text();
+        int i = Math.min(pos, t.length());
+        while (i > 0 && !Character.isLetterOrDigit(t.charAt(i - 1))) {
+            i--;
+        }
+        while (i > 0 && Character.isLetterOrDigit(t.charAt(i - 1))) {
+            i--;
+        }
+        return i;
+    }
+
+    /** Position des Wortendes rechts von {@code pos} (Strg/Option+Rechts). */
+    private int nextWordBoundary(int pos) {
+        String t = text();
+        int i = Math.max(pos, 0);
+        while (i < t.length() && !Character.isLetterOrDigit(t.charAt(i))) {
+            i++;
+        }
+        while (i < t.length() && Character.isLetterOrDigit(t.charAt(i))) {
+            i++;
+        }
+        return i;
     }
 
     private int lineStartOf(int pos) {
