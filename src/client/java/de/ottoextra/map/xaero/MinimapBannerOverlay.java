@@ -69,7 +69,11 @@ public final class MinimapBannerOverlay {
                     && !(client.currentScreen instanceof xaero.lib.client.gui.IScreenBase)) {
                 return;
             }
-            if (client.getDebugHud().shouldShowDebugHud() && session.getHideMinimapUnderF3()) {
+            // Nur beim echten F3-Screen verstecken (wie Xaeros MinimapRenderer).
+            // shouldShowDebugHud() ist seit 1.21.11 auch true, wenn nur einzelne
+            // Debug-Eintraege aktiv sind (z. B. F3+B-Hitboxen) — dann bleibt die
+            // Minimap sichtbar und das Wappen-HUD muss es auch.
+            if (client.debugHudEntryList.isF3Enabled() && session.getHideMinimapUnderF3()) {
                 return;
             }
             for (Element e : computeElements(client, cfg, session)) {

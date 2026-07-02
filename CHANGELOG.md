@@ -6,6 +6,13 @@ Alle nennenswerten Änderungen an OttoExtra. Format angelehnt an
 
 ## [Unreleased] – 0.1.10
 
+### Behoben
+- **Wappen/Name/Stand-HUD verschwand bei F3+B (Hitboxen)**: Seit MC 1.21.11
+  meldet `shouldShowDebugHud()` auch aktive Einzel-Debug-Einträge (z. B. den
+  Hitbox-Toggle) — das HUD hielt das für den F3-Screen und versteckte sich,
+  obwohl die Minimap sichtbar blieb. Jetzt zählt wie bei Xaero selbst nur der
+  echte F3-Screen (`debugHudEntryList.isF3Enabled()`).
+
 ## [0.1.9] – 2026-06-30
 
 ### Hinzugefügt
