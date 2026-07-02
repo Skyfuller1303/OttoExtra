@@ -7,6 +7,14 @@ Alle nennenswerten Änderungen an OttoExtra. Format angelehnt an
 ## [0.1.9] – 2026-06-30
 
 ### Hinzugefügt
+- **Tweak „Werkzeugschutz"** (Standard an, abschaltbar): Bricht Links- und
+  Rechtsklick-Interaktionen clientseitig ab, wenn dem gehaltenen Werkzeug nur
+  noch wenige Nutzungen bleiben (einstellbar, Default 10) — statt dessen
+  erscheint eine Actionbar-Meldung, dass es kurz vor dem Kaputtgehen ist.
+  Zusätzlich einmalige Actionbar-Warnung, wenn die Haltbarkeit unter einen
+  Prozentsatz fällt (einstellbar, Default 10 %) — auch beim Auswählen eines
+  bereits fast kaputten Items; erneut nach Item-Wechsel oder Reparatur.
+  Gilt für beide Hände. Einstellungen → Tweaks → Werkzeugschutz.
 - **Neue Chat-Kanäle**: **Murmeln** (`/m`, Farbe `#58666f`) und **Brüllen**
   (`/b`, Farbe `#fcf47e`) ergänzen die RP-Sprechkanäle. Kanal-Button-Zyklus
   (links) läuft jetzt lautstärke-aufsteigend Flüstern → Murmeln → Sprechen →

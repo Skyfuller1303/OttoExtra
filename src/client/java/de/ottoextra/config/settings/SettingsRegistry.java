@@ -568,6 +568,17 @@ public final class SettingsRegistry {
         // Tweaks (optionale clientseitige Effekte)
         var tweaks = r.module("tweaks", "ottoextra.module.tweaks", "ottoextra.set.tweaks.desc");
         var tweaksBase = tab(tweaks, "ottoextra.set.tab.base");
+        card(tweaksBase, "ottoextra.set.tweaks.toolprotect", "ottoextra.set.tweaks.toolprotect.desc",
+                Option.bool("ottoextra.config.tweaks.toolprotect", "tweaks.toolProtect.enabled",
+                        () -> c.tweaks.toolProtect.enabled, v -> c.tweaks.toolProtect.enabled = v),
+                Option.intVal("ottoextra.config.tweaks.toolprotect.blockAtUses", "tweaks.toolProtect.blockAtUses",
+                        () -> c.tweaks.toolProtect.blockAtUses,
+                        v -> c.tweaks.toolProtect.blockAtUses = v, 1, 50)
+                        .tooltip("ottoextra.set.tweaks.toolprotect.blockAtUses.tip"),
+                Option.intVal("ottoextra.config.tweaks.toolprotect.warnPercent", "tweaks.toolProtect.warnBelowPercent",
+                        () -> c.tweaks.toolProtect.warnBelowPercent,
+                        v -> c.tweaks.toolProtect.warnBelowPercent = v, 1, 50)
+                        .tooltip("ottoextra.set.tweaks.toolprotect.warnPercent.tip"));
         card(tweaksBase, "ottoextra.set.tweaks.lowhealth", "ottoextra.set.tweaks.lowhealth.desc",
                 Option.bool("ottoextra.config.tweaks.lowhealth", "tweaks.lowHealth.enabled",
                         () -> c.tweaks.lowHealth.enabled, v -> c.tweaks.lowHealth.enabled = v),

@@ -9,6 +9,7 @@ import de.ottoextra.tweaks.lowhealth.LowHealthHudOverlay;
 import de.ottoextra.tweaks.lowhealth.LowHealthMath;
 import de.ottoextra.tweaks.lowhealth.LowHealthSoundController;
 import de.ottoextra.tweaks.lowhealth.LowHealthState;
+import de.ottoextra.tweaks.toolprotect.ToolProtectHandler;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -54,9 +55,11 @@ public final class TweaksModule implements OttoExtraModule {
         HudRenderCallback.EVENT.register((ctx, tick) ->
                 LowHealthHudOverlay.render(ctx, lowHealth, config.tweaks.lowHealth));
 
+        ToolProtectHandler.register(config);
+
         registerCommands(config);
 
-        OttoExtra.LOGGER.info("[tweaks] initialisiert (Low-Health-Effekt + Test-Commands).");
+        OttoExtra.LOGGER.info("[tweaks] initialisiert (Low-Health-Effekt + Werkzeugschutz + Test-Commands).");
     }
 
     /**

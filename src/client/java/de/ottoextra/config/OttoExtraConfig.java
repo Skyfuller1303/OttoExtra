@@ -43,6 +43,17 @@ public final class OttoExtraConfig {
     /** Optionale Spiel-Tweaks / clientseitige Effekte. */
     public static final class Tweaks {
         public LowHealth lowHealth = new LowHealth();
+        public ToolProtect toolProtect = new ToolProtect();
+
+        /** Werkzeugschutz: Interaktionen mit fast kaputten Werkzeugen abbrechen. */
+        public static final class ToolProtect {
+            /** Master-Schalter (Standard an — abschaltbar). */
+            public boolean enabled = true;
+            /** Links-/Rechtsklick blockieren, wenn ≤ so viele Nutzungen übrig sind. */
+            public int blockAtUses = 10;
+            /** Einmalige Actionbar-Warnung, wenn die Haltbarkeit unter diesen Prozentsatz fällt. */
+            public int warnBelowPercent = 10;
+        }
 
         /** Low-Health-Adrenalin-Effekt (roter Rand + Herzschlag). Rein clientseitig. */
         public static final class LowHealth {
