@@ -129,6 +129,11 @@ public final class OttoExtraConfig {
         public boolean paintedMapSimple = false;
         /** Politisches Overlay: Lehen-Flächen nach Gefolge eingefärbt (Klick = fokussieren). */
         public boolean politicalFill = true;
+        /** Beim Rauszoomen (politische Karte aktiv) Xaero-Terrain ausblenden und
+         *  die gemalte Karte flächendeckend zu 100 % zeigen. Greift auf der
+         *  Zoomstufe, ab der nur noch die Wappen der obersten Lehnsherren
+         *  angezeigt werden (Crossfade wie die Gruppen-Labels). */
+        public boolean paintedFullCoverZoomOut = false;
         /** Manueller Versatz der gemalten Karte in Blöcken (Pfeil-Buttons auf der Worldmap). */
         public int paintedMapOffsetX = 0;
         public int paintedMapOffsetZ = 0;

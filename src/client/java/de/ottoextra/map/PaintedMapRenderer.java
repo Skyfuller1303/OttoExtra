@@ -260,7 +260,9 @@ public final class PaintedMapRenderer {
             }
             // HudGuard wie Legacy: 14px * GUI-Scale schützt Xaeros Koordinaten-/Zoom-Anzeige
             float hudGuard = (float) (14.0 * client.getWindow().getScaleFactor());
-            writeParams((float) adjScaleX, hudGuard, night, detailBlend, upperAlpha, lowerAlpha, overallAlpha);
+            float fullCover = fullCoverBlend(eff);
+            writeParams((float) adjScaleX, hudGuard, night, detailBlend, upperAlpha, lowerAlpha,
+                    overallAlpha, fullCover);
 
             // 5) Fullscreen-Quad zeichnen (Beschriftung zoomabhängig: Legacy-Schwelle 0.15)
             Identifier upperTex = eff > 0.15 ? TEX_UPPER_HIRES : TEX_UPPER;
@@ -372,13 +374,35 @@ public final class PaintedMapRenderer {
             ByteBuffer.allocateDirect(32).order(ByteOrder.nativeOrder());
 
     private static void writeParams(float fadeScale, float hudGuard, float night,
-                                    float detail, float upper, float lower, float overall) {
+                                    float detail, float upper, float lower, float overall,
+                                    float fullCover) {
         PARAMS_STAGING.clear();
         PARAMS_STAGING.putFloat(fadeScale).putFloat(hudGuard).putFloat(night).putFloat(detail)
-                .putFloat(upper).putFloat(lower).putFloat(overall).putFloat(0f);
+                .putFloat(upper).putFloat(lower).putFloat(overall).putFloat(fullCover);
         PARAMS_STAGING.flip();
         RenderSystem.getDevice().createCommandEncoder()
                 .writeToBuffer(paramsBuffer.slice(0, 32), PARAMS_STAGING);
+    }
+
+    /**
+     * Vollflächen-Blend fürs Rauszoomen (0 = normale Erkundungs-Maske,
+     * 1 = Karte flächendeckend, Xaero-Terrain verdeckt). Nur bei aktivierter
+     * Option UND aktiver politischer Karte. Gekoppelt an die Gruppen-Label-Stufe
+     * des Overlays: voll, sobald nur noch die Wappen der obersten Lehnsherren
+     * gezeigt werden (invertierter fadeIn über nameMinScale, gleiche
+     * Crossfade-Zone wie MapOverlayRenderer.groupAlpha).
+     */
+    private static float fullCoverBlend(double eff) {
+        var map = de.ottoextra.config.OttoExtraConfig.active().map;
+        if (!map.paintedFullCoverZoomOut || !map.politicalFill) {
+            return 0f;
+        }
+        double min = map.nameMinScale;
+        if (min <= 0) {
+            return 0f;
+        }
+        float t = clamp01((float) ((eff - min) / (min * 0.6)));
+        return 1f - t * t * (3f - 2f * t);
     }
 
     // ---- Draw (Muster: Xaero ImmediateRenderUtil) ------------------------------

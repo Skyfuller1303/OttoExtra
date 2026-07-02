@@ -19,7 +19,7 @@ layout(std140) uniform MapParams {
     float UpperAlpha;   // obere Ebene sichtbar
     float LowerAlpha;   // 1.0 = volle Farben, 0.0 = abgedunkelt
     float OverallAlpha; // Gesamt-Fade (hoher Zoom)
-    float _pad0;
+    float FullCover;    // 1.0 = Karte flächendeckend (Xaero-Terrain verdeckt)
 };
 
 in vec2 texCoord0;
@@ -48,13 +48,17 @@ void main() {
     vec3 screenColor = texture(Sampler1, screenUV).rgb;
     float screenLum = dot(screenColor, vec3(0.299, 0.587, 0.114));
 
-    // HUD-Schutzbaender (Xaero-Koordinaten oben / Zoom unten)
+    float cover = clamp(FullCover, 0.0, 1.0);
+
+    // HUD-Schutzbaender (Xaero-Koordinaten oben / Zoom unten). Nur im
+    // Masken-Modus: bei Vollabdeckung ist das Terrain ueberall hell und die
+    // Luma-Heuristik wuerde das ganze Band aufreissen.
     float normX = gl_FragCoord.x / screenSize.x;
     bool inTopBand = normX > 0.30 && normX < 0.70;
     bool inBotBand = normX > 0.35 && normX < 0.65;
     bool topHit = gl_FragCoord.y < HudGuardFB && inTopBand && screenLum > 0.15;
     bool botHit = (screenSize.y - gl_FragCoord.y) < (HudGuardFB * 4.0) && inBotBand && screenLum > 0.15;
-    if (topHit || botHit) {
+    if ((topHit || botHit) && cover <= 0.5) {
         fragColor = vec4(0.0);
         return;
     }
@@ -89,14 +93,15 @@ void main() {
 
     float ratio = loaded / 40.0;
 
-    if (ratio > 0.95 && screenLum > 0.05) {
+    if (ratio > 0.95 && screenLum > 0.05 && cover <= 0.001) {
         fragColor = vec4(0.0);
         return;
     }
 
     float nearUnloaded = 1.0 - ratio;
     float proximityAlpha = smoothstep(0.0, 0.45, nearUnloaded);
-    float alpha = proximityAlpha;
+    // FullCover uebersteuert die Erkundungs-Maske: Karte ueberall deckend
+    float alpha = max(proximityAlpha, cover);
 
     vec3 finalColor = mapColor.rgb * NightBrightness * lowerBrightness;
     fragColor = vec4(finalColor, alpha * OverallAlpha * mapColor.a);

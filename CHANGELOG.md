@@ -4,7 +4,16 @@ Alle nennenswerten Änderungen an OttoExtra. Format angelehnt an
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/); Versionierung nach
 [SemVer](https://semver.org/lang/de/).
 
-## [Unreleased] – 0.1.10
+## [0.1.10] – 2026-07-02
+
+### Hinzugefügt
+- **Vollflächige Karte beim Rauszoomen** (optional, Standard aus): Blendet auf
+  der Worldmap Xaeros Terrain aus und zeigt die gemalte Karte überall zu
+  100 % — sobald das politische Overlay nur noch die Wappen der obersten
+  Lehnsherren zeigt (gleiche Zoom-Stufe wie die Gruppen-Labels). Nur bei
+  aktiver politischer Karte. Einstellungen → Karte. Die HUD-Schutzbänder des
+  Karten-Shaders (Xaero-Koordinaten/Zoom-Anzeige) bleiben im normalen Modus
+  erhalten und reißen die Vollabdeckung nicht mehr auf.
 
 ### Geändert
 - **Kanal-Zyklus neu sortiert**: Durchschalten (Kanal-Button und Shift+Tab)

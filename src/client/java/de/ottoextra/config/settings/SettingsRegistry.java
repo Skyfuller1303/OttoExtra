@@ -382,6 +382,9 @@ public final class SettingsRegistry {
                         () -> c.map.paintedMap, v -> c.map.paintedMap = v),
                 Option.bool("ottoextra.config.map.political", "map.politicalFill",
                         () -> c.map.politicalFill, v -> c.map.politicalFill = v),
+                Option.bool("ottoextra.config.map.paintedFullCover", "map.paintedFullCoverZoomOut",
+                        () -> c.map.paintedFullCoverZoomOut, v -> c.map.paintedFullCoverZoomOut = v)
+                        .tooltip("ottoextra.set.map.paintedFullCover.tip"),
                 Option.bool("ottoextra.config.map.activity", "map.showActivity",
                         () -> c.map.showActivity, v -> c.map.showActivity = v),
                 Option.bool("ottoextra.config.map.npcVillages", "map.showNpcVillages",

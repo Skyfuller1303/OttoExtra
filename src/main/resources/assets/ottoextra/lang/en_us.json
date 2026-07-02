@@ -143,6 +143,8 @@
   "ottoextra.config.map.paintedSimple": "Painted map: simple mode",
   "ottoextra.set.map.paintedSimple.tip": "Renders the painted map without the special shader. Enable if the map stays black (some modpacks). No day/night blending.",
   "ottoextra.config.map.political": "Political map",
+  "ottoextra.config.map.paintedFullCover": "Full painted map when zoomed out",
+  "ottoextra.set.map.paintedFullCover.tip": "Hides Xaero's terrain when zoomed out and shows the painted map everywhere at 100% — once only the top lieges' banners are shown. Only while the political map is active.",
   "ottoextra.adv.dashLengthPx": "Dash length (px)",
   "ottoextra.adv.dashGapPx": "Dash gap (px)",
   "key.ottoextra.map_toggle": "Toggle map overlay",
