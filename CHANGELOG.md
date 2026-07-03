@@ -4,6 +4,15 @@ Alle nennenswerten Änderungen an OttoExtra. Format angelehnt an
 [Keep a Changelog](https://keepachangelog.com/de/1.1.0/); Versionierung nach
 [SemVer](https://semver.org/lang/de/).
 
+## [0.1.11] – 2026-07-03
+
+### Hinzugefügt
+- **Addon-Schnittstelle**: Andere Mods können sich per Fabric-Entrypoint
+`"ottoextra"` (Interface `de.ottoextra.addon.OttoExtraAddon`) als eigenes
+Modul in die OttoExtra-Einstellungen einhängen. Fehler einzelner Addons
+werden geloggt und reißen weder OttoExtra noch andere Addons mit. Erstes
+Addon: **OttoExtra-TranslateUtils** (eigenes Repository, eigene JAR).
+
 ## [0.1.10] – 2026-07-02
 
 ### Hinzugefügt
