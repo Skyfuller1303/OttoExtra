@@ -43,6 +43,11 @@ public final class RpNamesModule implements OttoExtraModule {
     public void onInitializeClient(OttoExtraContext context) {
         RpNamesServices.init(context.config().rpnames);
 
+        // Debug: /ottoextra rpnames hoverdebug on|off — dumpt Chat-Hover roh
+        // ins Log (Format-Änderungen des Servers sichtbar machen). Vor dem
+        // Legacy-Gate registriert, damit es auch dann nutzbar bleibt.
+        registerHoverDebugCommand();
+
         // Alt-Mods parallel? Dann eigene Ersetzung stilllegen
         boolean legacyPresent = FabricLoader.getInstance().isModLoaded("ottochat_rpnames")
                 || FabricLoader.getInstance().isModLoaded("ottotalk")
@@ -117,6 +122,40 @@ public final class RpNamesModule implements OttoExtraModule {
 
         OttoExtra.LOGGER.info("[rpnames] initialisiert (lokales Bekanntschaftssystem, {} Personen).",
                 RpNamesServices.store().size());
+    }
+
+    /** {@code /ottoextra rpnames hoverdebug on|off} — Hover-Dump ins Log. */
+    private void registerHoverDebugCommand() {
+        net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback.EVENT
+                .register((dispatcher, access) -> dispatcher.register(
+                        net.fabricmc.fabric.api.client.command.v2.ClientCommandManager
+                                .literal("ottoextra")
+                                .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager
+                                        .literal("rpnames")
+                                        .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager
+                                                .literal("hoverdebug")
+                                                .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager
+                                                        .literal("on")
+                                                        .executes(c -> {
+                                                            de.ottoextra.rpnames.chat.HoverDebug.setEnabled(true);
+                                                            feedback("§a[RP-Namen]§7 Hover-Debug §aAN§7 — "
+                                                                    + "Chat-Hover werden ins Log (latest.log) geschrieben.");
+                                                            return 1;
+                                                        }))
+                                                .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager
+                                                        .literal("off")
+                                                        .executes(c -> {
+                                                            de.ottoextra.rpnames.chat.HoverDebug.setEnabled(false);
+                                                            feedback("§a[RP-Namen]§7 Hover-Debug §cAUS§7.");
+                                                            return 1;
+                                                        }))))));
+    }
+
+    private static void feedback(String text) {
+        var client = MinecraftClient.getInstance();
+        if (client.player != null) {
+            client.player.sendMessage(net.minecraft.text.Text.literal(text), false);
+        }
     }
 
     private void syncSeenPlayers(MinecraftClient client) {

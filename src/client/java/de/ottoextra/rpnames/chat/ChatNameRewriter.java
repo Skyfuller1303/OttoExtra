@@ -75,6 +75,11 @@ public final class ChatNameRewriter {
         String trimmed = own.trim();
         if (!trimmed.isEmpty()) {
             LocalRpProfile p = store.findByName(trimmed).orElse(null);
+            if (p == null) {
+                // RP-Kanäle (Server-Format 2026-07): sichtbar ist der RP-Name,
+                // der Account steht als letztes Wort der ersten Hover-Zeile.
+                p = profileFromHover(node);
+            }
             boolean match = p != null && p.showInChat && (titleOnly
                     ? ownTitleApplies(p)
                     : (p.hasRpName() || cfg.showUnknownAsUnknown));
@@ -91,6 +96,33 @@ public final class ChatNameRewriter {
             }
         }
         return null;
+    }
+
+    /**
+     * Profil über den Hover des Knotens: Account = letztes Wort der ersten
+     * Hover-Zeile ({@code Titel Spielername}, RP-Kanäle). Liefert null, wenn
+     * kein ShowText-Hover oder kein bekanntes Profil — OOC-Hover
+     * ({@code Titel RP-Name}) treffen so praktisch nie falsch.
+     */
+    private LocalRpProfile profileFromHover(Text node) {
+        try {
+            Style style = node.getStyle();
+            if (style == null
+                    || !(style.getHoverEvent() instanceof net.minecraft.text.HoverEvent.ShowText shown)) {
+                return null;
+            }
+            String flat = shown.value().getString();
+            int nl = flat.indexOf('\n');
+            String firstLine = (nl >= 0 ? flat.substring(0, nl) : flat).trim();
+            if (firstLine.isEmpty()) {
+                return null;
+            }
+            int sp = firstLine.lastIndexOf(' ');
+            String account = sp >= 0 ? firstLine.substring(sp + 1) : firstLine;
+            return store.findByName(account).orElse(null);
+        } catch (Throwable t) {
+            return null;
+        }
     }
 
     // ---- Komponenten-Rebuild ---------------------------------------------------

@@ -316,6 +316,9 @@ public final class RpNamesServices {
      * das Original.
      */
     public static Text processChatMessage(Text message) {
+        // Hover-Debug läuft VOR dem Aktiv-Gate, damit auch bei inaktivem
+        // Modul sichtbar ist, was der Server schickt.
+        de.ottoextra.rpnames.chat.HoverDebug.dump(message);
         if (!isActive() || message == null) {
             return message;
         }
@@ -332,7 +335,11 @@ public final class RpNamesServices {
             // Proaktiv: RP-Namen NICHT automatisch lernen (nur manuell via Kennenlernen).
             boolean learn = channel.shouldLearn() && !proactiveMeetEnabled();
             boolean meet = proactiveMeetEnabled();
-            java.util.List<HoverIdentityParser.ParsedIdentity> ids = hoverParser.parseMessage(message);
+            // Server-Format (2026-07): RP-Kanäle hovern Titel+ACCOUNT (sichtbar
+            // ist der RP-Name), OOC-Kanäle hovern Titel+RP-NAME.
+            java.util.List<HoverIdentityParser.ParsedIdentity> ids =
+                    hoverParser.parseMessage(message, channel.isRpSpeak());
+            de.ottoextra.rpnames.chat.HoverDebug.logParsed(ids);
             for (HoverIdentityParser.ParsedIdentity id : ids) {
                 // ROH-Titel speichern; die Anzeige-Form (Varianten-Override) wird
                 // live beim Rendern aufgelöst.
@@ -340,9 +347,14 @@ public final class RpNamesServices {
                     store.learnIdentity(id.accountName(), id.rpName(), id.title(),
                             id.titleGroup(), RpNameSource.LEARNED_FROM_HOVER);
                 }
-                // Proaktiv: Server-Identität nur als Vorschlag merken (Prefill GUI)
+                // Proaktiv: Server-Identität nur als Vorschlag merken (Prefill GUI).
+                // Account kommt aus dem Hover — zuverlässiger als speakerAccount
+                // (Plaintext trägt in RP-Kanälen den RP-Namen, nicht den Account).
                 if (meet) {
                     suggestIdentity(id.accountName(), id.rpName(), id.title());
+                    if (channel.isRpSpeak()) {
+                        markHeardInRpChat(id.accountName());
+                    }
                 }
                 store.updateTitleIfChanged(id.accountName(), null, id.title());
             }
