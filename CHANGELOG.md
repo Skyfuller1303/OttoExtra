@@ -12,6 +12,25 @@ Alle nennenswerten Änderungen an OttoExtra. Format angelehnt an
 Modul in die OttoExtra-Einstellungen einhängen. Fehler einzelner Addons
 werden geloggt und reißen weder OttoExtra noch andere Addons mit. Erstes
 Addon: **OttoExtra-TranslateUtils** (eigenes Repository, eigene JAR).
+- **Verbandserkennung übers Wappen** (politische Karte): Fraktionslose Lehen
+  mit dem Wappen einer anderen Region (Wappen-Dateiname ↦ gleichnamige
+  Region, z. B. `maehrstein.png` ↦ Mährstein) zählen als deren Verband —
+  Fallback, wenn die API weder Fraktion noch Region-Hierarchie liefert.
+  Mitglieder bekommen Verbandsfarbe und Vasallen-Streifen, nur das
+  namensgebende Lehen ist Wurzel; Labels zeigen einzeilig den Lehensnamen.
+  Region-Wappen fallen zusätzlich auf `suggested_banner_path` zurück.
+
+### Behoben
+- **Doppelte Verbands-Labels auf der politischen Karte** (2× „Mährstein",
+  2× „Kreuztal"): Verbände konnten in zwei Gruppen mit zwei Sammel-Labels
+  zerfallen — der Region-Detail-Endpoint überschreibt Records zur Laufzeit
+  ohne Hierarchie-Felder, und Gefolge-Wurzeln führen selbst keine
+  `vassal_uuids` (Gefolge hängt nur am `lord_name` der Kinder). Alle
+  Erkennungswege (Lehnsherr-Kette, Region-Hierarchie, Verbandswappen)
+  münden jetzt in derselben Gruppe.
+- **Wurzel-Lehen beim Rauszoomen doppelt beschriftet**: Trägt ein Lehen exakt
+  den Verbandsnamen (z. B. Mährstein selbst), wird sein Einzel-Label
+  ausgeblendet, sobald das Sammel-Label einblendet.
 
 ## [0.1.10] – 2026-07-02
 

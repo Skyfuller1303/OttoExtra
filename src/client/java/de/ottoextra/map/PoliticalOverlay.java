@@ -56,11 +56,24 @@ public final class PoliticalOverlay {
     private static volatile Map<String, String> groupNameOverrides = Map.of();
     private static volatile Set<String> vassalPolyKeys = Set.of();
     private static volatile Map<String, String> groupNameByPoly = Map.of();
+    /** Region-Verbände (Hierarchie oder Verbandswappen, z. B. Mährstein):
+     *  Lehen-Key -> Verbandsname. */
+    private static volatile Map<String, String> verbandNameByPoly = Map.of();
     private static volatile List<GroupLabel> groupLabels = List.of();
 
     /** Gruppen-Anzeigename (oberster Lehnsherr/Verband) für ein Lehen, oder null. */
     public static String groupDisplayName(String polyKey) {
         return groupNameByPoly.get(polyKey);
+    }
+
+    /**
+     * Verbandsname eines Wappen-Verband-Lehens (z. B. "Mährstein"), sonst null.
+     * Verbandslehen zeigen auf der Karte nur den Verbandsnamen — keinen
+     * eigenen Lehensnamen.
+     */
+    public static String verbandDisplayName(String polyKey) {
+        refreshGroupsIfStale();
+        return verbandNameByPoly.get(polyKey);
     }
 
     /** Flächen-Tint (ARGB) eines Lehens für externe Renderer (Minimap). */
@@ -451,11 +464,18 @@ public final class PoliticalOverlay {
         // Fraktionsname -> lord_name bis zum obersten Lord (leeres lord_name).
         List<FactionRecord> factions = data.allFactions();
         Map<String, FactionRecord> byName = new HashMap<>();
+        // Wer ist irgendwo als Lehnsherr eingetragen? Gefolge hängt NUR an
+        // lord_name der Kinder — die Wurzel selbst führt oft weder
+        // vassal_uuids noch vassal_count (z. B. Kreuztal).
+        Set<String> lordNames = new HashSet<>();
         for (FactionRecord f : factions) {
             if (f.name() != null && !f.name().isBlank()) {
                 // Duplikat-Namen: besseren Datensatz wählen (stale "Ungelandet"-
                 // Einträge würden sonst die Lehnsherr-Kette abreißen)
                 byName.merge(normalizeName(f.name()), f, FactionRecord::better);
+            }
+            if (f.lord_name() != null && !f.lord_name().isBlank()) {
+                lordNames.add(normalizeName(f.lord_name()));
             }
         }
         // Polygon -> Wurzel-Gruppe. Zwei Quellen:
@@ -492,15 +512,67 @@ public final class PoliticalOverlay {
                     current = lord;
                 }
                 isVassal = !root.equals(self);
-                FactionRecord rootFaction = byName.getOrDefault(root, current);
-                metaOfGroup.putIfAbsent(root, GroupMeta.ofFaction(rootFaction, root));
+                // Verbandswappen-Fallback NUR für Solitär-Fraktionen (kein
+                // Lehnsherr, keine Vasallen — z. B. Bootstrap-Pseudofraktionen
+                // der Fehde-Lehen). Echte Gefolge-Wurzeln (Kreuztal) bleiben in
+                // ihrer Ketten-Gruppe, sonst splittet der Verband in zwei
+                // Gruppen und es stehen zwei gleichnamige Sammel-Labels da.
+                boolean standalone = !isVassal
+                        && (f.vassal_uuids() == null || f.vassal_uuids().isEmpty())
+                        && f.vassal_count() <= 0
+                        && !lordNames.contains(self);
+                String verband = standalone
+                        ? bannerVerband(data, f.effectiveBannerPath()) : null;
+                if (verband != null) {
+                    RegionRecord eponym = data.regionByName(verband).orElse(null);
+                    if (eponym != null) {
+                        // Gleicher Gruppen-Key wie der Hierarchie-Zweig, damit
+                        // beide Erkennungswege in EINER Gruppe landen.
+                        root = "region:" + verband;
+                        isVassal = !verband.equals(self);
+                        metaOfGroup.putIfAbsent(root, GroupMeta.ofRegion(eponym));
+                    }
+                }
+                if (!root.startsWith("region:")) {
+                    FactionRecord rootFaction = byName.getOrDefault(root, current);
+                    metaOfGroup.putIfAbsent(root, GroupMeta.ofFaction(rootFaction, root));
+                }
             } else {
                 // Region-Hierarchie: zum Wurzel-Lehen klettern
                 RegionRecord r = data.regionByName(poly.key()).orElse(null);
                 boolean isRoot = r != null && r.vassal_region_refs() != null
                         && !r.vassal_region_refs().isEmpty();
-                if (r == null || (!r.hasParentRegion() && !isRoot)) {
-                    continue; // wirklich verbandslos -> neutral
+                if (r == null) {
+                    continue;
+                }
+                if (!r.hasParentRegion() && !isRoot) {
+                    // Kein Hierarchie-Signal in den API-Daten: Lehen mit dem
+                    // Wappen einer (anderen) Region gehören zu deren Verband
+                    // (z. B. uploads/maehrstein.png -> Mährstein-Fehde).
+                    String verband = bannerVerband(data, r.effectiveRegionBannerPath());
+                    RegionRecord eponym = verband != null
+                            ? data.regionByName(verband).orElse(null) : null;
+                    if (eponym == null) {
+                        continue; // wirklich verbandslos -> neutral
+                    }
+                    // Gleicher Key wie der Hierarchie-Pfad ("region:" + Name
+                    // bzw. Gefolge-Gruppe der Wurzel-Fraktion): der Region-
+                    // Detail-Endpoint liefert Records OHNE Hierarchie-Felder
+                    // und überschreibt den Index zur Laufzeit — gemischte
+                    // Datenstände müssen in derselben Gruppe landen.
+                    FactionRecord epf = data.factionForRegion(eponym.id()).orElse(null);
+                    if (epf != null && epf.name() != null && !epf.name().isBlank()) {
+                        root = normalizeName(epf.name());
+                        metaOfGroup.putIfAbsent(root, GroupMeta.ofFaction(epf, root));
+                    } else {
+                        root = "region:" + verband;
+                        metaOfGroup.putIfAbsent(root, GroupMeta.ofRegion(eponym));
+                    }
+                    groupOfPoly.put(poly.key(), root);
+                    if (!poly.key().equals(eponym.id())) {
+                        vassals.add(poly.key()); // nur Mährstein selbst ist Wurzel
+                    }
+                    continue;
                 }
                 RegionRecord cur = r;
                 for (int depth = 0; depth < 8 && cur.hasParentRegion(); depth++) {
@@ -557,13 +629,18 @@ public final class PoliticalOverlay {
         groupTintOverview = Map.copyOf(overview);
         vassalPolyKeys = Set.copyOf(vassals);
         Map<String, String> names = new HashMap<>();
+        Map<String, String> verbandNames = new HashMap<>();
         groupOfPoly.forEach((pk, g) -> {
             GroupMeta m = metaOfGroup.get(g);
             if (m != null) {
                 names.put(pk, m.displayName());
+                if (g.startsWith("region:")) {
+                    verbandNames.put(pk, m.displayName());
+                }
             }
         });
         groupNameByPoly = Map.copyOf(names);
+        verbandNameByPoly = Map.copyOf(verbandNames);
         groupLabels = buildGroupLabels(groupOfPoly, metaOfGroup);
     }
 
@@ -580,6 +657,32 @@ public final class PoliticalOverlay {
             return new GroupMeta(r.name() != null ? r.name() : r.id(), null,
                     "region-" + r.id(), r.effectiveRegionBannerPath());
         }
+    }
+
+    /**
+     * Verbands-Key aus einem Wappenpfad: Dateistamm ("uploads/maehrstein.png"
+     * -> "maehrstein"), normalisiert — aber nur, wenn eine gleichnamige Region
+     * existiert (eponymes Verbandswappen). Generische Heraldik-Wappen
+     * ("geviert_rot_silber.png") matchen keine Region und liefern null.
+     */
+    private static String bannerVerband(RegionDataService data, String bannerPath) {
+        if (bannerPath == null || bannerPath.isBlank()) {
+            return null;
+        }
+        String file = bannerPath.replace('\\', '/');
+        int slash = file.lastIndexOf('/');
+        if (slash >= 0) {
+            file = file.substring(slash + 1);
+        }
+        int dot = file.lastIndexOf('.');
+        if (dot > 0) {
+            file = file.substring(0, dot);
+        }
+        String stem = normalizeName(file);
+        if (stem.isEmpty()) {
+            return null;
+        }
+        return data.regionByName(stem).isPresent() ? stem : null;
     }
 
     private static String parentKey(RegionRecord r) {

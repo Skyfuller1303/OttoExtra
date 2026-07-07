@@ -109,7 +109,7 @@ public final class MapOverlayRenderer {
                     continue;
                 }
                 drawLabel(ctx, tr, view, poly, drawNames ? nameAlpha : 0f,
-                        drawBanners ? bannerAlpha : 0f, cfg);
+                        drawBanners ? bannerAlpha : 0f, groupAlpha, cfg);
             }
         }
 
@@ -224,18 +224,40 @@ public final class MapOverlayRenderer {
 
     private static void drawLabel(DrawContext ctx, TextRenderer tr, XaeroMapBridge.View view,
                                   LehenPolygon poly, float nameAlpha, float bannerAlpha,
-                                  OttoExtraConfig.Map cfg) {
+                                  float groupAlpha, OttoExtraConfig.Map cfg) {
         float sx = view.screenX(poly.centroidX());
         float sy = view.screenY(poly.centroidZ());
         if (sx < -64 || sy < -64 || sx > view.width() + 64 || sy > view.height() + 64) {
             return;
         }
-        String lehenName = displayName(poly);
-        String factionName = factionName(poly);
-        // Hauptzeile = Gefolge (Fraktion), Lehensname kleiner darunter — beide
-        // Zeilen auch bei gleichem Namen. Ohne Fraktionsdaten nur Lehensname.
-        String primary = factionName != null ? factionName : lehenName;
-        String secondary = factionName != null ? lehenName : null;
+        // Wappen-Verbandslehen (Mährstein-Fehde): einzeilig der eigene
+        // Lehensname — der Verbandsname steht am Sammel-Label, und die
+        // Fallback-Pseudofraktion (= Lehensname) wäre nur eine Dopplung.
+        String verbandName = PoliticalOverlay.verbandDisplayName(poly.key());
+        String primary;
+        String secondary;
+        if (verbandName != null) {
+            primary = displayName(poly);
+            secondary = null;
+        } else {
+            String lehenName = displayName(poly);
+            String factionName = factionName(poly);
+            // Hauptzeile = Gefolge (Fraktion), Lehensname kleiner darunter — beide
+            // Zeilen auch bei gleichem Namen. Ohne Fraktionsdaten nur Lehensname.
+            primary = factionName != null ? factionName : lehenName;
+            secondary = factionName != null ? lehenName : null;
+        }
+
+        // Sammel-Label schon sichtbar und dieses Lehen trägt exakt den
+        // Gruppennamen (Wurzel-Lehen, z. B. Mährstein selbst)? Dann nicht
+        // doppelt beschriften — sonst steht beim Rauszoomen 2x derselbe Name.
+        if (groupAlpha > 0.02f) {
+            String groupName = PoliticalOverlay.groupDisplayName(poly.key());
+            if (groupName != null
+                    && primary.equals(PoliticalOverlay.displayNameFor(groupName))) {
+                return;
+            }
+        }
 
         // Größen smooth zwischen den Breakpoints A (weit draussen) und B (nah)
         float t = breakpointT(view.effScale(), cfg.labelZoomA, cfg.labelZoomB);

@@ -23,12 +23,17 @@ public record RegionRecord(
         RegionCapabilities region_capabilities,
         RegionInfo region_info
 ) {
-    /** Bevorzugter Banner-Pfad der Region (Override vor Standard). */
+    /** Bevorzugter Banner-Pfad der Region (Override vor Standard vor
+     *  {@code region_info.suggested_banner_path} — Bootstrap liefert das
+     *  Wappen fraktionsloser Lehen oft nur dort). */
     public String effectiveRegionBannerPath() {
         if (banner_override_path != null && !banner_override_path.isBlank()) {
             return banner_override_path;
         }
-        return banner_path;
+        if (banner_path != null && !banner_path.isBlank()) {
+            return banner_path;
+        }
+        return region_info != null ? region_info.suggested_banner_path() : null;
     }
 
     /** Hat die Region einen Eltern-Verband (Fehde-/Region-Hierarchie)? */
