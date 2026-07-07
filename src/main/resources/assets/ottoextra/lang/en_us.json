@@ -17,6 +17,7 @@
   "ottoextra.set.tweaks.toolprotect.warnPercent.tip": "One-time actionbar warning when durability drops below this percentage.",
   "ottoextra.tweaks.toolprotect.blocked": "%s is about to break!",
   "ottoextra.tweaks.toolprotect.warn": "%s is below %s%% durability!",
+  "ottoextra.tweaks.toolprotect.weapon": "%s will break soon!",
   "ottoextra.set.tweaks.lowhealth": "Injury & Adrenaline",
   "ottoextra.set.tweaks.lowhealth.desc": "Red adrenaline edge and heartbeat at low health. Client-side only.",
   "ottoextra.config.tweaks.lowhealth": "Enable effect",

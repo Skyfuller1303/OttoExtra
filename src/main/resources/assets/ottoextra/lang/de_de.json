@@ -17,6 +17,7 @@
   "ottoextra.set.tweaks.toolprotect.warnPercent.tip": "Einmalige Actionbar-Warnung, wenn die Haltbarkeit unter diesen Prozentsatz fällt.",
   "ottoextra.tweaks.toolprotect.blocked": "%s ist kurz vor dem Kaputtgehen!",
   "ottoextra.tweaks.toolprotect.warn": "%s hat weniger als %s%% Haltbarkeit!",
+  "ottoextra.tweaks.toolprotect.weapon": "%s geht bald kaputt!",
   "ottoextra.set.tweaks.lowhealth": "Verwundung & Adrenalin",
   "ottoextra.set.tweaks.lowhealth.desc": "Roter Adrenalin-Rand und Herzschlag bei niedriger Health. Rein clientseitig.",
   "ottoextra.config.tweaks.lowhealth": "Effekt aktivieren",

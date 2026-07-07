@@ -53,6 +53,43 @@ public final class OttoExtraConfig {
             public int blockAtUses = 10;
             /** Einmalige Actionbar-Warnung, wenn die Haltbarkeit unter diesen Prozentsatz fällt. */
             public int warnBelowPercent = 10;
+            /**
+             * Blöcke mit eigenem UI (Kiste, Werkbank, Amboss, ...) bleiben trotz
+             * fast kaputtem Werkzeug anklickbar — der Klick öffnet nur das UI und
+             * verbraucht keine Haltbarkeit. Zusätzlich greift eine Heuristik
+             * (Screen-Factory / Container-BlockEntity), die Liste deckt Blöcke ab,
+             * die die Heuristik nicht erkennt (z. B. Fletching Table).
+             */
+            public java.util.List<String> uiBlocks = defaultUiBlocks();
+
+            private static java.util.List<String> defaultUiBlocks() {
+                return new java.util.ArrayList<>(java.util.List.of(
+                        "minecraft:crafting_table",
+                        "minecraft:cartography_table",
+                        "minecraft:smithing_table",
+                        "minecraft:fletching_table",
+                        "minecraft:anvil",
+                        "minecraft:chipped_anvil",
+                        "minecraft:damaged_anvil",
+                        "minecraft:chest",
+                        "minecraft:trapped_chest",
+                        "minecraft:ender_chest",
+                        "minecraft:barrel",
+                        "minecraft:furnace",
+                        "minecraft:blast_furnace",
+                        "minecraft:smoker",
+                        "minecraft:loom",
+                        "minecraft:grindstone",
+                        "minecraft:stonecutter",
+                        "minecraft:enchanting_table",
+                        "minecraft:brewing_stand",
+                        "minecraft:beacon",
+                        "minecraft:lectern",
+                        "minecraft:crafter",
+                        "minecraft:hopper",
+                        "minecraft:dispenser",
+                        "minecraft:dropper"));
+            }
         }
 
         /** Low-Health-Adrenalin-Effekt (roter Rand + Herzschlag). Rein clientseitig. */
@@ -575,6 +612,12 @@ public final class OttoExtraConfig {
         if (letter == null) letter = new Letter();
         if (chat == null) chat = new Chat();
         if (resourcepack == null) resourcepack = new ResourcePack();
+        if (tweaks == null) tweaks = new Tweaks();
+        if (tweaks.lowHealth == null) tweaks.lowHealth = new Tweaks.LowHealth();
+        if (tweaks.toolProtect == null) tweaks.toolProtect = new Tweaks.ToolProtect();
+        if (tweaks.toolProtect.uiBlocks == null) {
+            tweaks.toolProtect.uiBlocks = Tweaks.ToolProtect.defaultUiBlocks();
+        }
         if (resourcepack.maxSizeBytes <= 0) resourcepack.maxSizeBytes = new ResourcePack().maxSizeBytes;
         Regions rd = new Regions();
         if (regions.maxTextWidth < 50) regions.maxTextWidth = rd.maxTextWidth;
@@ -635,6 +678,8 @@ public final class OttoExtraConfig {
         copyFields(parsed.letter, letter);
         copyFields(parsed.chat, chat);
         copyFields(parsed.resourcepack, resourcepack);
+        copyFields(parsed.tweaks.lowHealth, tweaks.lowHealth);
+        copyFields(parsed.tweaks.toolProtect, tweaks.toolProtect);
     }
 
     private static void copyFields(Object from, Object to) {
