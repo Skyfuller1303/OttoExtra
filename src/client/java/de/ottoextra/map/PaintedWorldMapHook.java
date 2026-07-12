@@ -6,16 +6,6 @@ import net.minecraft.client.gui.screen.Screen;
 
 import java.util.function.BooleanSupplier;
 
-/**
- * Brücke für den GuiMap-Mixin: rendert die gemalte Karte (PaintedMap) auf der
- * Xaero-Weltkarte ZWISCHEN den Terrain-Kacheln und der Element-/Waypoint-Ebene.
- *
- * <p>Vorher lief das Composite im {@code afterRender} der Screen — also NACH den
- * Waypoints, wodurch die Kartentextur über nicht aufgedeckten Bereichen die
- * (z. B. schwarzen) Waypoints überdeckte. Der Mixin ruft hier kurz vor
- * {@code MapElementRenderHandler.render} auf, sodass die Waypoints danach
- * obenauf liegen.</p>
- */
 public final class PaintedWorldMapHook {
 
     private static volatile OttoExtraConfig.Map cfg;
@@ -29,7 +19,6 @@ public final class PaintedWorldMapHook {
         visible = visibleCheck;
     }
 
-    /** Vom GuiMap-Mixin aufgerufen — direkt vor der Waypoint-/Element-Ebene. */
     public static void renderUnderElements(Screen screen) {
         OttoExtraConfig.Map c = cfg;
         BooleanSupplier v = visible;

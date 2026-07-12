@@ -3,12 +3,6 @@ package de.ottoextra.letter.placeholder;
 import de.ottoextra.letter.model.LetterPlaceholder;
 import de.ottoextra.letter.model.PlaceholderResolveResult;
 
-/**
- * Löst einzelne Platzhalter über den {@link RpIdentityResolver} auf
- *: name → RP-Name, title → Titel, full → "Titel RP-Name",
- * mc → Accountname (wenn bekannt). Nie automatisch beim Tippen — nur auf
- * Tab/Knopf (Aufrufer entscheidet).
- */
 public final class PlaceholderResolveService {
 
     private final RpIdentityResolver resolver;
@@ -36,7 +30,6 @@ public final class PlaceholderResolveService {
         return new PlaceholderResolveResult(p, value, value != null ? "resolver" : "none");
     }
 
-    /** Text mit aufgelöstem Platzhalter; bei Fehlschlag unverändert. */
     public String apply(String text, PlaceholderResolveResult result) {
         if (!result.ok()) {
             return text;

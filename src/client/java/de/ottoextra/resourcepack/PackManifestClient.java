@@ -15,19 +15,6 @@ import java.time.Duration;
 import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 
-/**
- * Lädt und parst die Update-Quelle. Unterstützt zwei Schemata:
- *
- * <ul>
- *   <li><b>GitHub Releases</b> ({@code api.github.com/.../releases/latest}) — wird
- *       automatisch erkannt. Liest {@code tag_name} als Version und das passende
- *       Asset ({@code name}, {@code browser_download_url}, {@code digest}).</li>
- *   <li><b>Eigenes Manifest</b> (latest.json) mit {@code url}/{@code sha256}.</li>
- * </ul>
- *
- * <p>GitHub verlangt einen {@code User-Agent}; der wird gesetzt. Ohne Auth gilt das
- * GitHub-Limit von 60 Anfragen/Stunde/IP — bei einem Check pro Start unkritisch.</p>
- */
 public final class PackManifestClient {
 
     private final Gson gson = new Gson();
@@ -74,8 +61,6 @@ public final class PackManifestClient {
         return host != null && host.toLowerCase(Locale.ROOT).endsWith("api.github.com");
     }
 
-    // ---- GitHub Releases -------------------------------------------------
-
     private PackManifest parseGitHubRelease(URI uri, String body, String assetName) {
         JsonObject root = JsonParser.parseString(body).getAsJsonObject();
         String tag = optString(root, "tag_name");
@@ -108,7 +93,6 @@ public final class PackManifestClient {
         return new PackManifest(tag, url, sha, size, null, null, notes);
     }
 
-    /** "sha256:abcdef..." -> "abcdef...", sonst durchreichen/null. */
     private static String normalizeDigest(String digest) {
         if (digest == null || digest.isBlank()) {
             return null;
@@ -118,8 +102,6 @@ public final class PackManifestClient {
         return colon >= 0 ? d.substring(colon + 1) : d;
     }
 
-    // ---- Eigenes latest.json --------------------------------------------
-
     private PackManifest parseManifest(URI uri, String body) {
         PackManifest m = gson.fromJson(body, PackManifest.class);
         if (m == null || !m.hasUrl()) {
@@ -127,8 +109,6 @@ public final class PackManifestClient {
         }
         return m;
     }
-
-    // ---- Helfer ----------------------------------------------------------
 
     private static String optString(JsonObject o, String key) {
         JsonElement e = o.get(key);

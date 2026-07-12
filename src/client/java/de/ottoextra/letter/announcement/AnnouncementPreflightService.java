@@ -8,14 +8,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Verkündungs-Preflight: pro Seite offene Platzhalter,
- * Länge, Chunkbarkeit, Leerseiten. Probleme blockieren den Versand — niemals
- * still abschneiden.
- */
 public final class AnnouncementPreflightService {
 
-    /** Discord-Nachrichtenlimit (Bot postet 1 Nachricht pro Seite). */
     public static final int DISCORD_MESSAGE_LIMIT = 2000;
     public static final int MAX_CHUNKS_PER_PAGE = 20;
 

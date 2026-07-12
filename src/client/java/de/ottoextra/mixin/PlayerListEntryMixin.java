@@ -10,11 +10,6 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-/**
- * Tabliste: lokale RP-Namen/Farben statt Accountname (Muster aus
- * OttoPlus PlayerListEntryMixin). RETURN-Inject, null-sicher; ohne lokales
- * Profil oder bei deaktivierter Option bleibt der Vanilla-Name.
- */
 @Mixin(PlayerListEntry.class)
 public abstract class PlayerListEntryMixin {
 
@@ -27,7 +22,7 @@ public abstract class PlayerListEntryMixin {
                 cir.setReturnValue(replaced);
             }
         } catch (Throwable ignored) {
-            // Tabliste darf nie brechen
+
         }
     }
 }

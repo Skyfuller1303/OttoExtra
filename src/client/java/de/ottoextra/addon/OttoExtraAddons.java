@@ -8,11 +8,6 @@ import net.fabricmc.loader.api.entrypoint.EntrypointContainer;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Lädt und kapselt alle installierten {@link OttoExtraAddon}-Entrypoints
- * (Schlüssel {@code "ottoextra"}). Fehler einzelner Addons werden geloggt
- * und dürfen weder OttoExtra noch andere Addons mitreißen.
- */
 public final class OttoExtraAddons {
 
     private static List<OttoExtraAddon> addons;
@@ -39,7 +34,6 @@ public final class OttoExtraAddons {
         return addons;
     }
 
-    /** Hängt alle Addon-Module an die Live-Settings-Registry. */
     public static void registerSettings(SettingsRegistry registry) {
         for (OttoExtraAddon addon : addons()) {
             try {
@@ -50,7 +44,6 @@ public final class OttoExtraAddons {
         }
     }
 
-    /** Hängt alle Addon-Module an die Default-Registry (Standardwert-Anzeige). */
     public static void registerDefaultSettings(SettingsRegistry registry) {
         for (OttoExtraAddon addon : addons()) {
             try {

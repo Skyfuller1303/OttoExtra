@@ -6,17 +6,6 @@ import net.minecraft.client.MinecraftClient;
 import java.util.Locale;
 import java.util.function.BooleanSupplier;
 
-/**
- * Kanal-State für den Chat-Channel-Button:
- * aktueller Kanal + zuletzt genutzter RP-/OOC-Kanal, Klick-Logik
- * (Links = RP-Zyklus bzw. zurück aus OOC; Shift = OOC-Zyklus bzw. hinein;
- * Alt = ein Kanal zurück über alle Kanäle)
- * und Synchronisation mit manuell getippten Befehlen
- * ({@code /s /f /m /r /b /o /h /leave h /leave o}).
- *
- * <p>Der Kanalwechsel sendet den Serverbefehl; der angezeigte Prefix ist nur
- * UI und wird nie in die Nachricht eingefügt.</p>
- */
 public final class ChatChannelState {
 
     public enum ChatChannel {
@@ -39,7 +28,6 @@ public final class ChatChannelState {
         }
     }
 
-    /** Zyklus-Reihenfolge fürs Durchschalten (vor- und rückwärts). */
     private static final ChatChannel[] ORDER = {
             ChatChannel.MURMELN, ChatChannel.FLUESTERN, ChatChannel.SPRECHEN,
             ChatChannel.RUFEN, ChatChannel.BRUELLEN,
@@ -63,12 +51,10 @@ public final class ChatChannelState {
         return config;
     }
 
-    /** Button sichtbar/aktiv? (Modul an + auf Ottonien) */
     public static boolean buttonActive() {
         return config != null && config.enabled && onOttonien.getAsBoolean();
     }
 
-    /** Shift+Tab soll den Kanal wechseln (Modul an + auf Ottonien + Option an)? */
     public static boolean shiftTabCycleEnabled() {
         return buttonActive() && config.shiftTabCycleChannels;
     }
@@ -77,26 +63,20 @@ public final class ChatChannelState {
         return currentChannel;
     }
 
-    // ---- Klick-Logik -----------------------------------------------------------
-
-    /** Direkt auf einen Kanal wechseln (für Hotkeys): State setzen + Befehl senden. */
     public static void selectChannel(ChatChannel channel) {
         if (channel != null) {
             switchToChannel(channel);
         }
     }
 
-    /** Alle Kanäle der Reihe nach durchwechseln (inkl. OOC) — für Shift+Tab. */
     public static void cycleAllChannels() {
         switchToChannel(step(currentChannel, +1));
     }
 
-    /** Einen Kanal in der Reihenfolge zurück — für Alt+Linksklick. */
     public static void cycleAllChannelsBackwards() {
         switchToChannel(step(currentChannel, -1));
     }
 
-    /** Nachbar von {@code channel} in ORDER ({@code dir} = ±1, mit Umlauf). */
     private static ChatChannel step(ChatChannel channel, int dir) {
         for (int i = 0; i < ORDER.length; i++) {
             if (ORDER[i] == channel) {
@@ -121,7 +101,7 @@ public final class ChatChannelState {
             switchToChannel(lastRpChannel != null ? lastRpChannel : ChatChannel.SPRECHEN);
             return;
         }
-        // RP-Zyklus in ORDER-Reihenfolge: Murmeln → Flüstern → Sprechen → Rufen → Brüllen
+
         ChatChannel next = step(currentChannel, +1);
         if (!next.rp) {
             next = ORDER[0];
@@ -155,9 +135,6 @@ public final class ChatChannelState {
         }
     }
 
-    // ---- Sync mit manuell getippten Befehlen -------------------------------------
-
-    /** Vom sendChatCommand-Mixin gerufen (Befehl OHNE führenden Slash). */
     public static void handleOutgoingCommand(String command) {
         if (command == null) {
             return;

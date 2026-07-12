@@ -17,23 +17,12 @@ import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-/**
- * Import aus der öffentlichen Regions-API:
- * {@code public-player-compact} liefert uuid, minecraft_name, rp_name, title,
- * state (= Titelgruppe System/Adel/Klerus).
- *
- * <p>Regeln: lokale/manuelle Daten schlagen API — bestehende Profile werden
- * nur über {@link LocalRpIdentityStore#importApi} ergänzt (füllt leere
- * Felder, Konflikte landen in {@code apiConflict}). Modus "alle" legt
- * zusätzlich fehlende Profile mit RP-Daten als API_IMPORTED an.</p>
- */
 public final class RegionsApiRpNameImporter {
 
     private static final String URL =
             "https://regions.skyfuller.de/api/index.php?action=public-player-compact";
     private static final Gson GSON = new Gson();
 
-    /** Ergebnis-Statistik für die UI. */
     public record Result(int total, int updated, int created, int conflicts, String error) {
         public static Result failure(String error) {
             return new Result(0, 0, 0, 0, error);
@@ -62,19 +51,10 @@ public final class RegionsApiRpNameImporter {
     private RegionsApiRpNameImporter() {
     }
 
-    /**
-     * Async-Import; {@code createMissing} legt unbekannte Spieler mit
-     * RP-Daten neu an (Modus "alle"), sonst werden nur vorhandene ergänzt.
-     */
     public static CompletableFuture<Result> run(LocalRpIdentityStore store, boolean createMissing) {
         return CompletableFuture.supplyAsync(() -> doImport(store, createMissing, true));
     }
 
-    /**
-     * Automatischer Hintergrund-Abgleich (z. B. beim Server-Join): ergänzt nur
-     * vorhandene Profile und cached den API-RP-Namen (Quelle fürs Zurücksetzen),
-     * ohne neue Spieler anzulegen und ohne Backup-Datei (kein Spam bei jedem Join).
-     */
     public static CompletableFuture<Result> runAuto(LocalRpIdentityStore store) {
         return CompletableFuture.supplyAsync(() -> doImport(store, false, false));
     }
@@ -108,8 +88,7 @@ public final class RegionsApiRpNameImporter {
         if (backup) {
             store.backup();
         }
-        // Eigenen Account immer mitnehmen — der Tablist-Sync legt einen selbst
-        // nie an, sonst fehlt der eigene Char auch nach dem Import
+
         String selfName = null;
         try {
             selfName = net.minecraft.client.MinecraftClient.getInstance().getSession().getUsername();
@@ -147,7 +126,7 @@ public final class RegionsApiRpNameImporter {
                 profile.accountName = account;
                 if (rpName != null) {
                     profile.rpName = rpName;
-                    profile.apiRpName = rpName; // Original fürs Zurücksetzen merken
+                    profile.apiRpName = rpName;
                 }
                 if (title != null) {
                     profile.title = title;
@@ -171,7 +150,6 @@ public final class RegionsApiRpNameImporter {
         return new Result(env.players.size(), updated, created, conflicts, null);
     }
 
-    /** Titelgruppe nur in automatisch verwaltete, leere Profile übernehmen. */
     private static boolean applyGroup(LocalRpProfile profile, String group) {
         if (group == null || profile.locked || !profile.knowledgeState.allowsAutomaticUpdates()
                 || (profile.titleGroup != null && !profile.titleGroup.isBlank())) {
@@ -181,11 +159,6 @@ public final class RegionsApiRpNameImporter {
         return true;
     }
 
-    /**
-     * API liefert doppelt (teils dreifach) UTF-8-kodierte Umlaute
-     * ({@code Ã¤} statt {@code ä}); Rückdekodierung über ISO-8859-1, solange
-     * Mojibake-Marker vorhanden sind und das Ergebnis gültig bleibt.
-     */
     private static String clean(String s) {
         if (s == null) {
             return null;
@@ -195,7 +168,7 @@ public final class RegionsApiRpNameImporter {
             String decoded = new String(fixed.getBytes(StandardCharsets.ISO_8859_1),
                     StandardCharsets.UTF_8);
             if (decoded.indexOf('�') >= 0) {
-                break; // war doch kein Mojibake
+                break;
             }
             fixed = decoded;
         }

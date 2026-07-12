@@ -18,65 +18,43 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Politisches Karten-Overlay: färbt Lehen-Flächen nach Gefolge (Lehnsverband)
- * ein und fokussiert per Klick auf ein Lehen (Quelle: OttoMap-Gruppenansicht).
- *
- * <p>Gruppenbildung über den API-Vasallengraphen: Kind→Lord aus
- * {@code vassal_uuids}; der oberste Lord ist der Gruppenschlüssel. Farben aus
- * der Legacy-Palette (GROUP_TINTS), stabil über sortierte Gruppennamen.
- * Triangulation (Ear-Clipping) wird pro Polygon-Key dauerhaft gecacht; der
- * Gruppen-Lookup wird alle 60 s gegen die Regions-Dienste neu aufgebaut.
- * Rendering läuft immediate (unter den deferred Grenzen/Labels).</p>
- */
 public final class PoliticalOverlay {
 
-    /** Neutrale Fläche für Lehen ohne (auflösbare) Fraktion — sicht- und klickbar. */
     private static final int NEUTRAL_TINT = 0x5055585E;
-    /** Alpha der Gruppen-Flächen — hoch genug, um auch über dunklem
-     *  (geladenem) Terrain sichtbar zu bleiben. */
+
     private static final int GROUP_ALPHA = 0x52;
 
     private static final long GROUPS_TTL_MS = 60_000L;
     private static final int CLICK_HIGHLIGHT_COLOR = 0xFFE0A0;
 
-    // Pro Polygon-INSTANZ (mehrteilige Lehen teilen sich den logischen Key)
     private static final Map<LehenPolygon, int[]> TRI_CACHE = new ConcurrentHashMap<>();
 
     private static volatile Map<String, Integer> tintByPolyKey = Map.of();
-    /** Anzeigename -> aktueller Tint (für das Gefolgefarben-UI). */
+
     private static volatile Map<String, Integer> groupTintOverview = Map.of();
-    /** Nutzer-Overrides: normalisierter Gruppenname -> "#RRGGBB" (Config). */
+
     private static volatile Map<String, String> userGroupColors = Map.of();
-    /** Farb-Overrides je Lehen: Lehen-Key -> RGB (Config map.lehenColors). */
+
     private static volatile Map<String, Integer> userLehenColors = Map.of();
-    /** Farb-Overrides je Fraktion: normalisierter Fraktionsname -> RGB. */
+
     private static volatile Map<String, Integer> userFactionColors = Map.of();
-    /** Anzeige-Namens-Overrides: normalisierter Originalname -> Anzeigename. */
+
     private static volatile Map<String, String> groupNameOverrides = Map.of();
     private static volatile Set<String> vassalPolyKeys = Set.of();
     private static volatile Map<String, String> groupNameByPoly = Map.of();
-    /** Region-Verbände (Hierarchie oder Verbandswappen, z. B. Mährstein):
-     *  Lehen-Key -> Verbandsname. */
+
     private static volatile Map<String, String> verbandNameByPoly = Map.of();
     private static volatile List<GroupLabel> groupLabels = List.of();
 
-    /** Gruppen-Anzeigename (oberster Lehnsherr/Verband) für ein Lehen, oder null. */
     public static String groupDisplayName(String polyKey) {
         return groupNameByPoly.get(polyKey);
     }
 
-    /**
-     * Verbandsname eines Wappen-Verband-Lehens (z. B. "Mährstein"), sonst null.
-     * Verbandslehen zeigen auf der Karte nur den Verbandsnamen — keinen
-     * eigenen Lehensnamen.
-     */
     public static String verbandDisplayName(String polyKey) {
         refreshGroupsIfStale();
         return verbandNameByPoly.get(polyKey);
     }
 
-    /** Flächen-Tint (ARGB) eines Lehens für externe Renderer (Minimap). */
     public static int fillTintFor(String polyKey) {
         refreshGroupsIfStale();
         return tintByPolyKey.getOrDefault(polyKey, NEUTRAL_TINT);
@@ -88,15 +66,11 @@ public final class PoliticalOverlay {
     private static boolean stripesLoaded;
     private static net.minecraft.client.gl.GpuSampler stripesSampler;
 
-    /** Sammel-Label eines Gefolges: oberster Lehnsherr + Flächen-Schwerpunkt.
-     *  Bei Region-Verbänden (rootFaction null) kommt das Wappen vom
-     *  Region-Bannerpfad. */
     public record GroupLabel(FactionRecord rootFaction, String displayName,
                              String bannerCacheKey, String bannerPath,
                              double centerX, double centerZ) {
     }
 
-    /** Gruppen-Labels für die rausgezoomte politische Ansicht. */
     public static List<GroupLabel> groupLabels() {
         refreshGroupsIfStale();
         return groupLabels;
@@ -108,20 +82,14 @@ public final class PoliticalOverlay {
     private PoliticalOverlay() {
     }
 
-    // ---- Klick-Fokus ---------------------------------------------------------
-
-    /**
-     * Klick auf die Karte: trifft er ein Lehen, Kamera dorthin zentrieren und
-     * Fläche kurz hervorheben. Liefert true bei Treffer.
-     */
     public static boolean handleClick(net.minecraft.client.gui.screen.Screen screen,
                                       XaeroMapBridge.View view, double mouseX, double mouseY) {
         LehenPolygon poly = polyAt(view, mouseX, mouseY);
         if (poly == null) {
             return false;
         }
-        if (clickedPoly == poly) {
-            clickedPoly = null; // zweiter Klick hebt Auswahl auf
+        if (clickedPoly != null && clickedPoly.key().equals(poly.key())) {
+            clickedPoly = null;
             return true;
         }
         clickedPoly = poly;
@@ -130,13 +98,19 @@ public final class PoliticalOverlay {
         return true;
     }
 
-    /** Gruppen-Übersicht fürs Farb-UI (Anzeigename -> aktueller Tint), sortiert. */
+    public static LehenPolygon selectedPolygon() {
+        return clickedPoly;
+    }
+
+    public static void clearSelection() {
+        clickedPoly = null;
+    }
+
     public static Map<String, Integer> groupTintOverview() {
         refreshGroupsIfStale();
         return groupTintOverview;
     }
 
-    /** Nutzer-Farb-Overrides setzen (normalisierte Namen -> "#RRGGBB") + Rebuild. */
     public static void setUserGroupColors(Map<String, String> colors) {
         Map<String, String> normalized = new HashMap<>();
         if (colors != null) {
@@ -150,7 +124,6 @@ public final class PoliticalOverlay {
         invalidateGroups();
     }
 
-    /** Farb-Overrides je Lehen setzen (Lehen-Key -> "#RRGGBB") + Rebuild. */
     public static void setUserLehenColors(Map<String, String> colors) {
         Map<String, Integer> parsed = new HashMap<>();
         if (colors != null) {
@@ -165,7 +138,6 @@ public final class PoliticalOverlay {
         invalidateGroups();
     }
 
-    /** Farb-Overrides je Fraktion setzen (Fraktionsname -> "#RRGGBB") + Rebuild. */
     public static void setUserFactionColors(Map<String, String> colors) {
         Map<String, Integer> parsed = new HashMap<>();
         if (colors != null) {
@@ -180,13 +152,11 @@ public final class PoliticalOverlay {
         invalidateGroups();
     }
 
-    /** Standard-Farbe einer Gruppe aus der ausgelieferten JSON (group_colors), oder null. */
     public static String jsonDefaultColor(String groupName) {
         Integer rgb = LehenPolygonStore.groupColors().get(normalizeName(groupName));
         return rgb == null ? null : String.format("#%06X", rgb & 0xFFFFFF);
     }
 
-    /** Anzeige-Namens-Overrides setzen (Originalname -> Anzeigename). */
     public static void setGroupNameOverrides(Map<String, String> overrides) {
         Map<String, String> normalized = new HashMap<>();
         if (overrides != null) {
@@ -197,10 +167,9 @@ public final class PoliticalOverlay {
             });
         }
         groupNameOverrides = Map.copyOf(normalized);
-        invalidateGroups(); // Gruppenlabels neu bauen, sonst bleibt der alte Name auf der Karte
+        invalidateGroups();
     }
 
-    /** Anzeigename eines Gefolges (Override -> Originalname). */
     public static String displayNameFor(String originalName) {
         if (originalName == null) {
             return "";
@@ -208,13 +177,11 @@ public final class PoliticalOverlay {
         return groupNameOverrides.getOrDefault(normalizeName(originalName), originalName);
     }
 
-    /** Farb-/Gruppenzuordnung beim nächsten Frame neu aufbauen. */
     public static void invalidateGroups() {
         groupsBuiltAt = 0;
         TRI_CACHE.clear();
     }
 
-    /** "#RRGGBB" -> RGB-Int, sonst null. */
     private static Integer parseHex(String hex) {
         if (hex == null || hex.isBlank()) {
             return null;
@@ -226,7 +193,6 @@ public final class PoliticalOverlay {
         }
     }
 
-    /** Lehen-Polygon unter der Maus (Screen-Koordinaten), oder null. */
     private static LehenPolygon polyAt(XaeroMapBridge.View view, double mouseX, double mouseY) {
         if (view == null) {
             return null;
@@ -243,20 +209,13 @@ public final class PoliticalOverlay {
         return null;
     }
 
-    // ---- Rendering -----------------------------------------------------------
-
-    /**
-     * Politische Flächen + Klick-Highlight, immediate (vor den deferred
-     * DrawContext-Elementen — liegt damit unter Grenzen/Labels).
-     */
     public static void renderFills(XaeroMapBridge.View view, boolean politicalEnabled,
                                    double maxScale, int mouseX, int mouseY) {
         MinecraftClient client = MinecraftClient.getInstance();
-        // Fade: politische Flächen oberhalb der Config-Zoomgrenze ausblenden
-        // (Rampe = letztes Drittel der Grenze)
+
         double ramp = Math.max(0.01, maxScale / 3.0);
         float zoomAlpha = clamp01((float) ((maxScale - view.effScale()) / ramp));
-        // Nutzer-Deckkraft (Slider) × Tag/Nacht-Faktor (nachts dunkler -> weniger).
+
         float opacity = overlayOpacity(client);
 
         BufferBuilder buf = null;
@@ -271,14 +230,13 @@ public final class PoliticalOverlay {
                         view.worldMaxX(), view.worldMaxZ())) {
                     continue;
                 }
-                // Ohne Fraktion/Gruppe: neutrale Fläche, bleibt sicht- und klickbar
+
                 int tint = tints.getOrDefault(poly.key(), NEUTRAL_TINT);
                 if (buf == null) {
                     buf = Tessellator.getInstance().begin(
                             VertexFormat.DrawMode.QUADS, RenderPipelines.GUI.getVertexFormat());
                 }
-                // Vasallen: Grundfläche nur 30% der Lehnsherr-Farbe — die
-                // Streifen (voll) liefern den Rest des Musters
+
                 float strength = vassalPolyKeys.contains(poly.key()) ? 0.3f : 1.0f;
                 int col = withAlpha(tint, zoomAlpha * strength * opacity);
                 if (poly.key().equals(hoveredKey)) {
@@ -288,7 +246,6 @@ public final class PoliticalOverlay {
             }
         }
 
-        // Ohne politisches Layout: gehovertes Lehen dezent aufhellen
         if (!politicalEnabled && zoomAlpha > 0.02f) {
             LehenPolygon hoveredPart = polyAt(view, mouseX, mouseY);
             if (hoveredPart != null) {
@@ -305,29 +262,23 @@ public final class PoliticalOverlay {
             }
         }
 
-        // Klick-Highlight: 3 s voll, 0.5 s ausblenden (Legacy-Puls)
         if (clickedPoly != null) {
             long elapsed = System.currentTimeMillis() - clickTime;
-            float a = elapsed < 3000L ? 1.0f
-                    : elapsed < 3500L ? 1.0f - (elapsed - 3000L) / 500.0f : 0.0f;
-            if (a <= 0.0f) {
-                clickedPoly = null;
-            } else {
-                if (buf == null) {
-                    buf = Tessellator.getInstance().begin(
-                            VertexFormat.DrawMode.QUADS, RenderPipelines.GUI.getVertexFormat());
-                }
-                int hl = (int) (a * 80.0f) << 24 | CLICK_HIGHLIGHT_COLOR;
-                for (LehenPolygon part : LehenPolygonStore.polygons()) {
-                    if (part.key().equals(clickedPoly.key())) {
-                        quads += emitPolygon(buf, part, view, hl);
-                    }
+            float a = elapsed < 900L
+                    ? 0.55f + 0.45f * (float) Math.sin(elapsed / 900.0 * Math.PI)
+                    : 0.28f;
+            if (buf == null) {
+                buf = Tessellator.getInstance().begin(
+                        VertexFormat.DrawMode.QUADS, RenderPipelines.GUI.getVertexFormat());
+            }
+            int hl = (int) (a * 120.0f) << 24 | CLICK_HIGHLIGHT_COLOR;
+            for (LehenPolygon part : LehenPolygonStore.polygons()) {
+                if (part.key().equals(clickedPoly.key())) {
+                    quads += emitPolygon(buf, part, view, hl);
                 }
             }
         }
 
-        // Erst Flächen zeichnen (Tessellator-Buffer MUSS beendet sein, bevor
-        // der nächste begin() kommt — ein gemeinsamer Allocator!)
         if (buf != null) {
             if (quads == 0) {
                 buf.endNullable();
@@ -338,7 +289,6 @@ public final class PoliticalOverlay {
             }
         }
 
-        // Danach Vasallen-Schraffur: Streifen (screen-locked, -35 Grad, repeat)
         if (politicalEnabled && zoomAlpha > 0.02f) {
             ensureStripes(client);
             if (stripesSampler == null) {
@@ -361,7 +311,7 @@ public final class PoliticalOverlay {
                     stripeBuf = Tessellator.getInstance().begin(
                             VertexFormat.DrawMode.QUADS, RenderPipelines.GUI_TEXTURED.getVertexFormat());
                 }
-                // Streifen in voller Lehnsherr-Farbe (Grundfläche darunter: 30%)
+
                 emitPolygonStriped(stripeBuf, poly, view, withAlpha(tint, zoomAlpha * opacity));
             }
             if (stripeBuf != null) {
@@ -374,7 +324,6 @@ public final class PoliticalOverlay {
         }
     }
 
-    /** Streifen-UVs: Screen-Koordinaten um -35 Grad gedreht, 16-px-Kachel. */
     private static void emitPolygonStriped(BufferBuilder buf, LehenPolygon poly,
                                            XaeroMapBridge.View view, int argb) {
         int[] tris = triangles(poly);
@@ -384,11 +333,11 @@ public final class PoliticalOverlay {
         float b = (argb & 0xFF) / 255f;
         final float cos = (float) Math.cos(Math.toRadians(-35));
         final float sin = (float) Math.sin(Math.toRadians(-35));
-        // Kachelgröße zoomabhängig: weiter draussen feineres Muster
+
         final float tile = Math.max(6f, Math.min(16f, (float) (view.effScale() * 53.0)));
         for (int t = 0; t + 2 < tris.length; t += 3) {
             for (int k = 0; k < 4; k++) {
-                int idx = tris[t + Math.min(k, 2)]; // v0,v1,v2,v2 (degeneriertes Quad)
+                int idx = tris[t + Math.min(k, 2)];
                 float sx = view.screenX(poly.xs()[idx]);
                 float sy = view.screenY(poly.zs()[idx]);
                 float u = (sx * cos - sy * sin) / tile;
@@ -418,12 +367,11 @@ public final class PoliticalOverlay {
             stripesLoaded = true;
         } catch (Exception e) {
             de.ottoextra.OttoExtra.LOGGER.warn("[map] Streifen-Textur fehlt: {}", e.toString());
-            stripesLoaded = true; // kein Retry-Sturm; Schraffur bleibt aus
+            stripesLoaded = true;
             stripesSampler = null;
         }
     }
 
-    /** Dreiecke als degenerierte Quads (v0,v1,v2,v2) in den GUI-Buffer. */
     private static int emitPolygon(BufferBuilder buf, LehenPolygon poly,
                                    XaeroMapBridge.View view, int argb) {
         int[] tris = triangles(poly);
@@ -448,8 +396,6 @@ public final class PoliticalOverlay {
         return emitted;
     }
 
-    // ---- Gefolge-Gruppen (API-Vasallengraph) ----------------------------------
-
     private static void refreshGroupsIfStale() {
         long now = System.currentTimeMillis();
         if (now - groupsBuiltAt < GROUPS_TTL_MS && !tintByPolyKey.isEmpty()) {
@@ -460,30 +406,23 @@ public final class PoliticalOverlay {
         if (data == null) {
             return;
         }
-        // Gefolge-Cluster über lord_name (public-region-list): Kette
-        // Fraktionsname -> lord_name bis zum obersten Lord (leeres lord_name).
+
         List<FactionRecord> factions = data.allFactions();
         Map<String, FactionRecord> byName = new HashMap<>();
-        // Wer ist irgendwo als Lehnsherr eingetragen? Gefolge hängt NUR an
-        // lord_name der Kinder — die Wurzel selbst führt oft weder
-        // vassal_uuids noch vassal_count (z. B. Kreuztal).
+
         Set<String> lordNames = new HashSet<>();
         for (FactionRecord f : factions) {
             if (f.name() != null && !f.name().isBlank()) {
-                // Duplikat-Namen: besseren Datensatz wählen (stale "Ungelandet"-
-                // Einträge würden sonst die Lehnsherr-Kette abreißen)
+
                 byName.merge(normalizeName(f.name()), f, FactionRecord::better);
             }
             if (f.lord_name() != null && !f.lord_name().isBlank()) {
                 lordNames.add(normalizeName(f.lord_name()));
             }
         }
-        // Polygon -> Wurzel-Gruppe. Zwei Quellen:
-        // 1) Fraktions-Kette lord_name bis zum obersten Lord
-        // 2) Region-Hierarchie (parent_region_id/vassal_region_refs) für
-        //    fraktionslose Verbände wie die Mährstein-Fehde
+
         Map<String, String> groupOfPoly = new HashMap<>();
-        Map<String, String> factionOfPoly = new HashMap<>(); // polyKey -> normalisierter Fraktionsname
+        Map<String, String> factionOfPoly = new HashMap<>();
         Map<String, GroupMeta> metaOfGroup = new HashMap<>();
         Set<String> vassals = new HashSet<>();
         for (LehenPolygon poly : LehenPolygonStore.polygons()) {
@@ -507,16 +446,12 @@ public final class PoliticalOverlay {
                     root = lordKey;
                     FactionRecord lord = byName.get(lordKey);
                     if (lord == null) {
-                        break; // Lord nicht im Datensatz: Name selbst bleibt Gruppe
+                        break;
                     }
                     current = lord;
                 }
                 isVassal = !root.equals(self);
-                // Verbandswappen-Fallback NUR für Solitär-Fraktionen (kein
-                // Lehnsherr, keine Vasallen — z. B. Bootstrap-Pseudofraktionen
-                // der Fehde-Lehen). Echte Gefolge-Wurzeln (Kreuztal) bleiben in
-                // ihrer Ketten-Gruppe, sonst splittet der Verband in zwei
-                // Gruppen und es stehen zwei gleichnamige Sammel-Labels da.
+
                 boolean standalone = !isVassal
                         && (f.vassal_uuids() == null || f.vassal_uuids().isEmpty())
                         && f.vassal_count() <= 0
@@ -526,8 +461,7 @@ public final class PoliticalOverlay {
                 if (verband != null) {
                     RegionRecord eponym = data.regionByName(verband).orElse(null);
                     if (eponym != null) {
-                        // Gleicher Gruppen-Key wie der Hierarchie-Zweig, damit
-                        // beide Erkennungswege in EINER Gruppe landen.
+
                         root = "region:" + verband;
                         isVassal = !verband.equals(self);
                         metaOfGroup.putIfAbsent(root, GroupMeta.ofRegion(eponym));
@@ -538,7 +472,7 @@ public final class PoliticalOverlay {
                     metaOfGroup.putIfAbsent(root, GroupMeta.ofFaction(rootFaction, root));
                 }
             } else {
-                // Region-Hierarchie: zum Wurzel-Lehen klettern
+
                 RegionRecord r = data.regionByName(poly.key()).orElse(null);
                 boolean isRoot = r != null && r.vassal_region_refs() != null
                         && !r.vassal_region_refs().isEmpty();
@@ -546,20 +480,14 @@ public final class PoliticalOverlay {
                     continue;
                 }
                 if (!r.hasParentRegion() && !isRoot) {
-                    // Kein Hierarchie-Signal in den API-Daten: Lehen mit dem
-                    // Wappen einer (anderen) Region gehören zu deren Verband
-                    // (z. B. uploads/maehrstein.png -> Mährstein-Fehde).
+
                     String verband = bannerVerband(data, r.effectiveRegionBannerPath());
                     RegionRecord eponym = verband != null
                             ? data.regionByName(verband).orElse(null) : null;
                     if (eponym == null) {
-                        continue; // wirklich verbandslos -> neutral
+                        continue;
                     }
-                    // Gleicher Key wie der Hierarchie-Pfad ("region:" + Name
-                    // bzw. Gefolge-Gruppe der Wurzel-Fraktion): der Region-
-                    // Detail-Endpoint liefert Records OHNE Hierarchie-Felder
-                    // und überschreibt den Index zur Laufzeit — gemischte
-                    // Datenstände müssen in derselben Gruppe landen.
+
                     FactionRecord epf = data.factionForRegion(eponym.id()).orElse(null);
                     if (epf != null && epf.name() != null && !epf.name().isBlank()) {
                         root = normalizeName(epf.name());
@@ -570,7 +498,7 @@ public final class PoliticalOverlay {
                     }
                     groupOfPoly.put(poly.key(), root);
                     if (!poly.key().equals(eponym.id())) {
-                        vassals.add(poly.key()); // nur Mährstein selbst ist Wurzel
+                        vassals.add(poly.key());
                     }
                     continue;
                 }
@@ -582,7 +510,7 @@ public final class PoliticalOverlay {
                     }
                     cur = parent;
                 }
-                // Wurzel-Region mit Fraktion? Dann in deren Gefolge-Gruppe
+
                 FactionRecord rf = data.factionForRegion(cur.id()).orElse(null);
                 if (rf != null && rf.name() != null && !rf.name().isBlank()) {
                     root = normalizeName(rf.name());
@@ -595,30 +523,29 @@ public final class PoliticalOverlay {
             }
             groupOfPoly.put(poly.key(), root);
             if (isVassal) {
-                vassals.add(poly.key()); // Vasall: bekommt Streifen-Muster
+                vassals.add(poly.key());
             }
         }
         Map<String, Integer> tintOfGroup = assignDomainColors(metaOfGroup, groupOfPoly);
         Map<String, Integer> result = new HashMap<>();
         groupOfPoly.forEach((polyKey, group) -> {
             Integer tint = tintOfGroup.get(group);
-            if (tint != null) { // null würde Map.copyOf sprengen -> neutral lassen
+            if (tint != null) {
                 result.put(polyKey, tint);
             }
         });
-        // Pro-Fraktion-Farbe: überschreibt die Verband-(Gruppen-)Farbe, nur für
-        // die Lehen genau dieser Fraktion.
+
         factionOfPoly.forEach((polyKey, fac) -> {
             Integer rgb = userFactionColors.get(fac);
             if (rgb != null) {
                 result.put(polyKey, (GROUP_ALPHA << 24) | (rgb & 0xFFFFFF));
             }
         });
-        // Pro-Lehen-Farbe (höchste Priorität): überschreibt Fraktion/Gruppe.
+
         userLehenColors.forEach((polyKey, rgb) ->
                 result.put(polyKey, (GROUP_ALPHA << 24) | (rgb & 0xFFFFFF)));
         tintByPolyKey = Map.copyOf(result);
-        // Gruppen-Übersicht fürs Farb-UI (Anzeigename -> aktueller Tint)
+
         Map<String, Integer> overview = new java.util.TreeMap<>();
         metaOfGroup.forEach((g, meta) -> {
             Integer tint = tintOfGroup.get(g);
@@ -644,7 +571,6 @@ public final class PoliticalOverlay {
         groupLabels = buildGroupLabels(groupOfPoly, metaOfGroup);
     }
 
-    /** Anzeige-/Banner-Infos einer Gruppe (Fraktions- oder Region-Wurzel). */
     record GroupMeta(String displayName, FactionRecord rootFaction,
                      String bannerCacheKey, String bannerPath) {
         static GroupMeta ofFaction(FactionRecord f, String fallbackName) {
@@ -659,12 +585,6 @@ public final class PoliticalOverlay {
         }
     }
 
-    /**
-     * Verbands-Key aus einem Wappenpfad: Dateistamm ("uploads/maehrstein.png"
-     * -> "maehrstein"), normalisiert — aber nur, wenn eine gleichnamige Region
-     * existiert (eponymes Verbandswappen). Generische Heraldik-Wappen
-     * ("geviert_rot_silber.png") matchen keine Region und liefern null.
-     */
     private static String bannerVerband(RegionDataService data, String bannerPath) {
         if (bannerPath == null || bannerPath.isBlank()) {
             return null;
@@ -692,13 +612,9 @@ public final class PoliticalOverlay {
         return "lehen_" + r.parent_region_id();
     }
 
-    /**
-     * Pro Gefolge ein Label am flächengewichteten Schwerpunkt aller
-     * zugehörigen Lehen-Polygone; Name/Wappen vom obersten Lehnsherrn.
-     */
     private static List<GroupLabel> buildGroupLabels(Map<String, String> groupOfPoly,
                                                      Map<String, GroupMeta> metaOfGroup) {
-        Map<String, double[]> acc = new HashMap<>(); // group -> [sumX*w, sumZ*w, sumW]
+        Map<String, double[]> acc = new HashMap<>();
         for (LehenPolygon poly : LehenPolygonStore.polygons()) {
             String group = groupOfPoly.get(poly.key());
             if (group == null) {
@@ -741,18 +657,11 @@ public final class PoliticalOverlay {
         return sum / 2.0;
     }
 
-    /**
-     * Domain-Farben nach dem Godot-Kartentool: Name-Hash (djb2) seeded
-     * Godot-PCG32 -> RGB je [0.2, 0.6]. Der Konfliktpass läuft hier gegen die
-     * KARTEN-NACHBARN (geteilte Grenzsegmente) mit realer HSV-Schwelle —
-     * angrenzende Gefolge können nicht mehr fast identisch ausfallen.
-     * Vasallen erben die Farbe des obersten Lehnsherrn (Gruppen-Mechanik).
-     */
     private static Map<String, Integer> assignDomainColors(Map<String, GroupMeta> metaOfGroup,
                                                            Map<String, String> groupOfPoly) {
         List<String> sorted = new ArrayList<>(metaOfGroup.keySet());
         sorted.sort(String::compareTo);
-        // Gruppen-Adjazenz über geteilte Grenzsegmente
+
         Map<String, Set<String>> adjacent = new HashMap<>();
         for (BorderSegment seg : LehenPolygonStore.segments()) {
             List<String> owners = seg.ownerKeys();
@@ -770,8 +679,7 @@ public final class PoliticalOverlay {
         }
         Map<String, float[]> colorOfGroup = new HashMap<>();
         Map<String, Integer> tintOfGroup = new HashMap<>();
-        // Pass 0: Nutzer-Overrides aus der Config (ModMenu-Gefolgefarben) —
-        // höchste Priorität, schlagen auch die JSON-Fixfarben.
+
         Map<String, String> userColors = userGroupColors;
         for (String key : sorted) {
             GroupMeta meta = metaOfGroup.get(key);
@@ -786,8 +694,7 @@ public final class PoliticalOverlay {
                 tintOfGroup.put(key, (GROUP_ALPHA << 24) | rgb);
             }
         }
-        // Pass 1: fixe Farben aus lehen_polygons.json (group_colors) — werden
-        // nie verschoben; generierte Nachbarn weichen ihnen aus.
+
         Map<String, Integer> fixedColors = LehenPolygonStore.groupColors();
         for (String key : sorted) {
             if (tintOfGroup.containsKey(key)) {
@@ -804,7 +711,7 @@ public final class PoliticalOverlay {
                 tintOfGroup.put(key, (GROUP_ALPHA << 24) | fixed);
             }
         }
-        // Pass 2: Godot-Farben für den Rest
+
         for (String key : sorted) {
             if (tintOfGroup.containsKey(key)) {
                 continue;
@@ -841,7 +748,6 @@ public final class PoliticalOverlay {
         return tintOfGroup;
     }
 
-    /** Godot String.hash(): djb2 (hash*33 + zeichen, Start 5381, uint32). */
     private static int godotStringHash(String s) {
         int h = 5381;
         for (int i = 0; i < s.length(); i++) {
@@ -850,7 +756,6 @@ public final class PoliticalOverlay {
         return h;
     }
 
-    /** Godot RandomNumberGenerator (PCG32, identisches Seeding/Output). */
     private static final class Pcg32 {
         private static final long MULT = 6364136223846793005L;
         private static final long DEFAULT_INC = 1442695040888963407L;
@@ -882,7 +787,6 @@ public final class PoliticalOverlay {
         }
     }
 
-    /** Godot hsv_similarity: 0.6*HueDist (zirkulär) + 0.25*SatDist + 0.15*ValDist. */
     private static float hsvSimilarity(float[] rgb1, float[] rgb2) {
         float[] a = rgbToHsv(rgb1);
         float[] b = rgbToHsv(rgb2);
@@ -907,7 +811,6 @@ public final class PoliticalOverlay {
         };
     }
 
-    /** RGB [0..1] -> {h (0..1), s, v}. */
     private static float[] rgbToHsv(float[] rgb) {
         float r = rgb[0];
         float g = rgb[1];
@@ -929,8 +832,6 @@ public final class PoliticalOverlay {
         return new float[]{h, s, max};
     }
 
-    // ---- Geometrie -------------------------------------------------------------
-
     private static boolean containsPoint(LehenPolygon poly, double px, double pz) {
         boolean inside = false;
         int n = poly.pointCount();
@@ -946,7 +847,6 @@ public final class PoliticalOverlay {
         return inside;
     }
 
-    /** Ear-Clipping-Triangulation (Legacy-Algorithmus), gecacht pro Polygon. */
     private static int[] triangles(LehenPolygon poly) {
         return TRI_CACHE.computeIfAbsent(poly, PoliticalOverlay::triangulate);
     }
@@ -1011,9 +911,7 @@ public final class PoliticalOverlay {
             tris.add(idx.get(1));
             tris.add(idx.get(2));
         }
-        // Fallback bei Ear-Clipping-Abbruch (z. B. Selbstüberschneidung):
-        // vollständig = n-2 Dreiecke; sonst Fan-Triangulation — bei konkaven
-        // Stellen leicht ungenau, aber die Fläche ist komplett und klickbar.
+
         if (tris.size() / 3 != n - 2) {
             tris.clear();
             for (int i = 1; i + 1 < n; i++) {
@@ -1026,8 +924,7 @@ public final class PoliticalOverlay {
         for (int i = 0; i < result.length; i++) {
             result[i] = tris.get(i);
         }
-        // CCW-Polygone liefern CCW-Dreiecke -> Backface-Culling frisst die
-        // Fläche. Auf CW (Screen-Winding der übrigen Polygone) drehen.
+
         if (ccw) {
             for (int i = 0; i + 2 < result.length; i += 3) {
                 int tmp = result[i + 1];
@@ -1053,7 +950,6 @@ public final class PoliticalOverlay {
         return (a << 24) | (tint & 0xFFFFFF);
     }
 
-    /** Hover-Aufhellung: RGB Richtung Weiss, Alpha verstärkt. */
     private static int lighten(int argb) {
         int a = Math.min(255, Math.round(((argb >>> 24) & 0xFF) * 1.9f));
         int r = (argb >>> 16) & 0xFF;
@@ -1069,39 +965,31 @@ public final class PoliticalOverlay {
         return Math.max(0f, Math.min(1f, v));
     }
 
-    /**
-     * Gesamt-Deckkraft des politischen Overlays: Nutzer-Slider (Tag) interpoliert
-     * mit dem Nacht-Slider nach Tageszeit. Nachts ist die Karte dunkler -> weniger
-     * Deckkraft (automatisch).
-     */
     private static float overlayOpacity(MinecraftClient client) {
         var map = de.ottoextra.config.OttoExtraConfig.active().map;
         float day = clamp01(map.politicalOpacity / 100f);
         float night = clamp01(map.politicalOpacityNight / 100f);
-        float t = dayFactor(client); // 1 = Tag, 0 = Nacht
+        float t = dayFactor(client);
         return night + (day - night) * t;
     }
 
-    /** Tagesanteil 0..1 (1 = heller Tag, 0 = tiefe Nacht) mit weichen Dämmerungen. */
     private static float dayFactor(MinecraftClient client) {
         if (client.world == null) {
             return 1f;
         }
         long t = ((client.world.getTimeOfDay() % 24000L) + 24000L) % 24000L;
         if (t < 12000L) {
-            return 1f;                          // Tag
+            return 1f;
         }
         if (t < 13800L) {
-            return 1f - (t - 12000L) / 1800f;   // Abenddämmerung
+            return 1f - (t - 12000L) / 1800f;
         }
         if (t < 22200L) {
-            return 0f;                          // Nacht
+            return 0f;
         }
-        return (t - 22200L) / 1800f;            // Morgendämmerung
+        return (t - 22200L) / 1800f;
     }
 
-    /** Mojibake-feste Normalisierung (ae/oe/ue-Faltung) — lord_name kommt aus
-     *  der API teils anders kodiert als faction.name. */
     private static String normalizeName(String name) {
         return de.ottoextra.regions.RegionNameKeys.normalize(name);
     }

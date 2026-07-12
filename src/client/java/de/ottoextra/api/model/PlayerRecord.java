@@ -2,7 +2,6 @@ package de.ottoextra.api.model;
 
 import java.util.List;
 
-/** Vollständiges Spielerprofil aus der Regions-API. */
 public record PlayerRecord(
         String entity_key,
         String uuid,

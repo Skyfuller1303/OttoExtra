@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-/** Brief-/Verkündungsentwurf: Seitentexte + Metadaten (GSON-direkt). */
 public final class LetterDraft {
 
     public LetterDraftMeta meta = new LetterDraftMeta();

@@ -11,17 +11,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Lädt das Blockbench-Cube-Model (assets/.../models/entity/meet_marker.json) und
- * baut daraus statische Quads (Position + UV + Normale), zentriert um den
- * Modellmittelpunkt und in Block-Einheiten. Gerendert wird von
- * {@link MeetMarkerRenderer}. Texturgröße fix 16×16 (Blockbench-Standard).
- */
 public final class MeetMarkerModel {
 
     private static final float TEX = 16.0f;
 
-    /** Eine Fläche: 4 Eckpunkte (xyz), 4 UVs (uv), eine Normale. */
     public record Quad(float[][] pos, float[][] uv, float nx, float ny, float nz) {
     }
 
@@ -58,7 +51,7 @@ public final class MeetMarkerModel {
             if (elements == null) {
                 return out;
             }
-            // Mittelpunkt über alle Cubes (Pixelraum) -> Rotation um Modellmitte
+
             float minX = Float.MAX_VALUE, minY = Float.MAX_VALUE, minZ = Float.MAX_VALUE;
             float maxX = -Float.MAX_VALUE, maxY = -Float.MAX_VALUE, maxZ = -Float.MAX_VALUE;
             for (var el : elements) {
@@ -113,9 +106,9 @@ public final class MeetMarkerModel {
         if (face == null) {
             return;
         }
-        float[] uv = arr(face.getAsJsonArray("uv")); // [u0, v0, u1, v1] in Pixel
+        float[] uv = arr(face.getAsJsonArray("uv"));
         float u0 = uv[0] / TEX, v0 = uv[1] / TEX, u1 = uv[2] / TEX, v1 = uv[3] / TEX;
-        // UV-Ecken in derselben Reihenfolge wie pos: BL, BR, TR, TL
+
         float[][] uvs = {{u0, v1}, {u1, v1}, {u1, v0}, {u0, v0}};
         out.add(new Quad(pos, uvs, nx, ny, nz));
     }

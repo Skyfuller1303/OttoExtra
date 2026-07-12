@@ -7,7 +7,6 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Split-Logik für lange Nachrichten inkl. RP-Span-Fortführung (*…* / (…)). */
 class LongChatSenderSplitTest {
 
     @Test
@@ -28,7 +27,7 @@ class LongChatSenderSplitTest {
 
     @Test
     void offenerSternSpanWirdGeschlossenUndWiederGeoeffnet() {
-        // Span beginnt im ersten Teil, endet im zweiten
+
         List<String> parts = LongChatSender.split("er sagt *und dann passiert etwas ganz tolles*", 30, " >");
         assertTrue(parts.size() >= 2);
         String first = parts.get(0);
@@ -51,7 +50,7 @@ class LongChatSenderSplitTest {
 
     @Test
     void geschlosseneSpansBleibenUnveraendert() {
-        // Span komplett im ersten Teil -> kein zusätzliches Zeichen
+
         List<String> parts = LongChatSender.split("*kurz* und dann noch ganz viel weiterer text hier", 30, " >");
         assertTrue(parts.get(0).startsWith("*kurz*"));
         assertEquals(0, countChar(parts.get(parts.size() - 1), '*'));
@@ -78,7 +77,7 @@ class LongChatSenderSplitTest {
     @Test
     void ueberzaehligeSchliessklammerIgnoriert() {
         List<String> parts = LongChatSender.split("komisch) aber ok und noch mehr text dahinter dran", 25, " >");
-        // darf nicht crashen und keine Phantom-Klammern erzeugen
+
         assertTrue(parts.get(parts.size() - 1).indexOf('(') < 0);
     }
 

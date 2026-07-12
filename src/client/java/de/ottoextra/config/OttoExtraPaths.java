@@ -4,12 +4,6 @@ import net.fabricmc.loader.api.FabricLoader;
 
 import java.nio.file.Path;
 
-/**
- * Zentrale Pfadverwaltung für Config und Disk-Caches.
- *
- * <p>Alle OttoExtra-Daten liegen unter {@code config/ottoextra/}. Cache-Pfade
- * werden hier gebündelt, nicht pro Feature verstreut.</p>
- */
 public final class OttoExtraPaths {
 
     private OttoExtraPaths() {
@@ -43,12 +37,9 @@ public final class OttoExtraPaths {
         return root().resolve("drafts");
     }
 
-    /** Ablage für lokale Importdateien (z. B. OttoPlus-JSONs). */
     public static Path importDir() {
         return root().resolve("import");
     }
-
-    // ---- RP-Namen (lokales Bekanntschaftssystem) -------------------------
 
     public static Path rpnamesDir() {
         return root().resolve("rpnames");
@@ -70,8 +61,6 @@ public final class OttoExtraPaths {
         return rpnamesDir().resolve("backups");
     }
 
-    // ---- Resourcepack-Downloader ----------------------------------------
-
     public static Path resourcepackDir() {
         return root().resolve("resourcepack");
     }
@@ -84,12 +73,10 @@ public final class OttoExtraPaths {
         return resourcepackDir().resolve("download.tmp");
     }
 
-    /** Vanilla-Resourcepack-Ordner im Run-Directory (nicht hart {@code .minecraft} annehmen). */
     public static Path resourcePacksFolder() {
         return FabricLoader.getInstance().getGameDir().resolve("resourcepacks");
     }
 
-    /** Zielname des Server-Packs — identisch zum GitHub-Asset, kein Umbenennen. */
     public static String serverPackFileName() {
         return "Ottonien.zip";
     }

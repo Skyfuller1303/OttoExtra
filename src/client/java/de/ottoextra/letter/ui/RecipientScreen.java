@@ -18,11 +18,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
-/**
- * Empfänger-Auswahl für Briefe: Suche über das lokale
- * Personenbuch (Accounts + RP-Namen), Klick wählt, Senden startet die
- * Brief-Queue ({@code /letter}-Zeilen + {@code /post <Empfänger>}).
- */
 public final class RecipientScreen extends Screen {
 
     private static final int ROW_H = 11;
@@ -66,8 +61,7 @@ public final class RecipientScreen extends Screen {
         ButtonWidget send = ButtonWidget.builder(
                 Text.translatable("ottoextra.letter.recipient.send"), b -> {
                     if (selected != null) {
-                        // Brief ist beim „Schreiben" bereits geschrieben — hier nur
-                        // noch der Abschluss /post an den Empfänger.
+
                         LetterServices.sendPost(config, selected);
                         LetterServices.consumePending();
                         MinecraftClient.getInstance().setScreen(null);
@@ -95,13 +89,12 @@ public final class RecipientScreen extends Screen {
                 filtered.add(p);
             }
         }
-        // Online-Spieler zuerst, dann alphabetisch.
+
         filtered.sort(Comparator
                 .comparing((LocalRpProfile p) -> !isOnline(p))
                 .thenComparing(p -> p.accountName.toLowerCase(Locale.ROOT)));
     }
 
-    /** Ist der Spieler aktuell online (in der Tabliste)? */
     private boolean isOnline(LocalRpProfile p) {
         var nh = MinecraftClient.getInstance().getNetworkHandler();
         if (nh == null || p.accountName == null) {
@@ -114,13 +107,12 @@ public final class RecipientScreen extends Screen {
             try {
                 return nh.getPlayerListEntry(java.util.UUID.fromString(p.uuid)) != null;
             } catch (IllegalArgumentException ignored) {
-                // ungültige UUID
+
             }
         }
         return false;
     }
 
-    /** Skin-Texturen: Live-Skin online, sonst Default-Skin nach UUID (kein Netz). */
     private net.minecraft.entity.player.SkinTextures skinFor(LocalRpProfile p) {
         var nh = MinecraftClient.getInstance().getNetworkHandler();
         net.minecraft.client.network.PlayerListEntry entry = null;
@@ -129,7 +121,7 @@ public final class RecipientScreen extends Screen {
                 try {
                     entry = nh.getPlayerListEntry(java.util.UUID.fromString(p.uuid));
                 } catch (IllegalArgumentException ignored) {
-                    // ungültige UUID -> per Name
+
                 }
             }
             if (entry == null && p.accountName != null) {
@@ -139,14 +131,13 @@ public final class RecipientScreen extends Screen {
         if (entry != null) {
             return entry.getSkinTextures();
         }
-        // Offline: lokal gecachten Skin (eigenes PNG) über die echte UUID nutzen,
-        // statt Mojang/Default.
+
         if (p.uuid != null && !p.uuid.isBlank()) {
             try {
                 return de.ottoextra.chat.ChatHeads.skinForUuid(
                         java.util.UUID.fromString(p.uuid), p.accountName);
             } catch (IllegalArgumentException ignored) {
-                // ungültige UUID -> Default unten
+
             }
         }
         java.util.UUID uuid = net.minecraft.util.Uuids.getOfflinePlayerUuid(
@@ -194,7 +185,7 @@ public final class RecipientScreen extends Screen {
             if (isSel) {
                 ctx.fill(listX() - 2, y - 1, listX() + 182, y + ROW_H - 1, 0x337A5A3A);
             }
-            // Gecachter/Live-Kopf (8px) links neben dem Namen.
+
             net.minecraft.client.gui.PlayerSkinDrawer.draw(ctx, skinFor(p),
                     listX(), y, 8);
             boolean online = isOnline(p);

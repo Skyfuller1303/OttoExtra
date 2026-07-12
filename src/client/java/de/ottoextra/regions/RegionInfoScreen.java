@@ -18,21 +18,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Lehen-Info-Screen mit echten API-Daten (Portierung der OttoRegions-Inhalte).
- *
- * <p>Sidebar links: Wappen, Rang, Regionsname, Tabs (Überblick / Spieler /
- * Vasallen / Schließen). Rechts scrollbarer Inhalt:
- * Überblick = Beschreibung + Führung + Eigenschafts-Karten (Landwirtschaft/
- * Minen/Bonus aus capabilities + mapped-Beschreibungen);
- * Spieler = Liste mit Titel/Name, Rang, Kasse in Heller;
- * Vasallen = Liste mit Mini-Wappen, Name, Bewohner, "Mehr erfahren" (rekursiv).</p>
- */
 public final class RegionInfoScreen extends Screen {
 
     private enum Tab { OVERVIEW, PLAYERS, VASSALS }
 
-    // OttoRegions-inspirierte Palette (dunkel)
     private static final int COL_PANEL = 0xE0182230;
     private static final int COL_SIDEBAR = 0xE61B2735;
     private static final int COL_BORDER = 0xFF344459;
@@ -66,13 +55,10 @@ public final class RegionInfoScreen extends Screen {
         this.parent = parent;
     }
 
-    /** Bequemer Einstieg für den aktuellen Regionskontext. */
     public static RegionInfoScreen current(Screen parent) {
         RegionState state = RegionMessageService.current();
         return new RegionInfoScreen(state != null ? state.regionName() : "", parent);
     }
-
-    // ---- Layout-Helfer -----------------------------------------------------
 
     private int panelX() {
         return Math.max(8, (width - panelW()) / 2);
@@ -109,8 +95,6 @@ public final class RegionInfoScreen extends Screen {
     private int contentH() {
         return panelH() - 16;
     }
-
-    // ---- Lifecycle ---------------------------------------------------------
 
     @Override
     protected void init() {
@@ -169,7 +153,6 @@ public final class RegionInfoScreen extends Screen {
         tabVassals.active = tab != Tab.VASSALS;
     }
 
-    /** Vasallen-Tab: "Mehr erfahren"-Buttons je sichtbarer Zeile neu aufbauen. */
     private void rebuildRowButtons() {
         rowButtons.forEach(this::remove);
         rowButtons.clear();
@@ -201,8 +184,6 @@ public final class RegionInfoScreen extends Screen {
         return faction != null ? Integer.toString(faction.player_count()) : "?";
     }
 
-    // ---- Rendering ---------------------------------------------------------
-
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
         int px = panelX();
@@ -210,7 +191,6 @@ public final class RegionInfoScreen extends Screen {
         int pw = panelW();
         int ph = panelH();
 
-        // Panel + Sidebar + Rahmen
         ctx.fill(px - 1, py - 1, px + pw + 1, py + ph + 1, COL_BORDER);
         ctx.fill(px, py, px + pw, py + ph, COL_PANEL);
         ctx.fill(px, py, px + sidebarW(), py + ph, COL_SIDEBAR);
@@ -218,7 +198,6 @@ public final class RegionInfoScreen extends Screen {
 
         renderSidebarHeader(ctx);
 
-        // Inhalt mit Scissor (Scroll)
         ctx.enableScissor(contentX(), contentY(), contentX() + contentW(), contentY() + contentH());
         switch (tab) {
             case OVERVIEW -> renderOverview(ctx);
@@ -227,7 +206,6 @@ public final class RegionInfoScreen extends Screen {
         }
         ctx.disableScissor();
 
-        // Scroll-Indikator
         if (contentHeight > contentH()) {
             int track = contentH();
             int thumb = Math.max(12, track * track / contentHeight);
@@ -246,7 +224,6 @@ public final class RegionInfoScreen extends Screen {
         int py = panelY();
         int cx = px + sidebarW() / 2;
 
-        // Wappen 48x48 zentriert
         Identifier banner = faction != null && RegionsServices.banners() != null
                 ? RegionsServices.banners().bannerFor(faction).orElse(null) : null;
         int bSize = 48;
@@ -285,7 +262,6 @@ public final class RegionInfoScreen extends Screen {
             return;
         }
 
-        // Beschreibung (region_info.note > faction.description)
         String description = resolveDescription();
         if (!description.isBlank()) {
             for (OrderedText l : textRenderer.wrapLines(Text.literal(description), w)) {
@@ -295,7 +271,6 @@ public final class RegionInfoScreen extends Screen {
             y += 4;
         }
 
-        // Führungs-Satz
         String lead = leadSentence();
         for (OrderedText l : textRenderer.wrapLines(Text.literal(lead), w)) {
             ctx.drawText(textRenderer, l, x, y, COL_BODY, true);
@@ -303,7 +278,6 @@ public final class RegionInfoScreen extends Screen {
         }
         y += 6;
 
-        // Eigenschaften
         RegionCapabilities caps = capabilities();
         if (caps != null) {
             ctx.drawText(textRenderer, Text.translatable("ottoextra.regions.properties"),
@@ -410,8 +384,6 @@ public final class RegionInfoScreen extends Screen {
         contentHeight = 14 + vassals.size() * rowH;
     }
 
-    // ---- Daten-Helfer ------------------------------------------------------
-
     private RegionCapabilities capabilities() {
         if (region != null && region.region_capabilities() != null) {
             return region.region_capabilities();
@@ -465,8 +437,6 @@ public final class RegionInfoScreen extends Screen {
         CapabilityEntry first = list.get(0);
         return first.description() != null ? first.description() : "";
     }
-
-    // ---- Input -------------------------------------------------------------
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {

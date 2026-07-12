@@ -1,15 +1,7 @@
 package de.ottoextra.map;
 
-/**
- * Ein Lehen-Polygon in Welt-Blockkoordinaten (Overworld, [x,z]).
- * Immutable; Zentroid und BoundingBox sind vorberechnet (Culling/Labels).
- *
- * <p>Mehrteilige Lehen: JSON-Keys wie {@code lehen_65#2} sind weitere Teile
- * desselben Lehens — {@link #key()} ist der logische Key ohne Suffix,
- * {@code labelOwner} nur beim Hauptteil (Key ohne {@code #}) true.</p>
- */
 public record LehenPolygon(
-        String key,          // logisch, z. B. "lehen_7" (Suffix #N entfernt)
+        String key,
         double[] xs,
         double[] zs,
         double centroidX,
@@ -18,7 +10,7 @@ public record LehenPolygon(
         double minZ,
         double maxX,
         double maxZ,
-        boolean labelOwner   // nur der Hauptteil trägt Wappen + Namen
+        boolean labelOwner
 ) {
     public int pointCount() {
         return xs.length;

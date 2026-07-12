@@ -11,14 +11,6 @@ import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import org.lwjgl.glfw.GLFW;
 
-/**
- * Modul: Region-HUD &amp; Lehen-Menü (Quelle: OttoRegions).
- *
- * <p>Fängt Region-Betreten-Meldungen über {@code ClientPlayNetworkHandlerMixin}
- * ab (Logik im {@link RegionMessageService}), zeigt ein HUD-Overlay
- * ({@link RegionNotificationOverlay}) und öffnet per Keybind den
- * {@link RegionInfoScreen}.</p>
- */
 public final class RegionsModule implements OttoExtraModule {
 
     private KeyBinding menuKey;
@@ -49,10 +41,7 @@ public final class RegionsModule implements OttoExtraModule {
                 code,
                 KeyBinding.Category.MISC);
         KeyBindingHelper.registerKeyBinding(menuKey);
-        // ACHTUNG: getBoundKeyLocalizedText() ruft intern glfwGetKeyName() auf.
-        // Im Entrypoint läuft das VOR glfwInit() -> queued GLFW-Fehler 0x10001 ->
-        // "GLFW error before init"-Crash beim Backend-Start. Deshalb LAZY im Tick
-        // auflösen (Fenster existiert dann garantiert).
+
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (!menuKeyNameResolved) {
                 menuKeyNameResolved = true;
@@ -60,7 +49,7 @@ public final class RegionsModule implements OttoExtraModule {
                     RegionNotificationOverlay.setMenuKeyName(
                             menuKey.getBoundKeyLocalizedText().getString());
                 } catch (Throwable ignored) {
-                    // Fallback-Name bleibt ("L")
+
                 }
             }
             while (menuKey.wasPressed()) {
@@ -96,7 +85,6 @@ public final class RegionsModule implements OttoExtraModule {
         RegionsServices.shutdown();
     }
 
-    /** Liest den GLFW-Code aus einem Translation-Key (z. B. {@code key.keyboard.l}). */
     private static int keyCode(String translationKey, int fallback) {
         if (translationKey == null || translationKey.isBlank()) {
             return fallback;

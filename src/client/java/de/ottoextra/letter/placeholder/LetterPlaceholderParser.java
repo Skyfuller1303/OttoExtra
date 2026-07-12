@@ -8,11 +8,6 @@ import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * Findet RP-Platzhalter {@code {{name:Spieler}}}, {@code {{title:...}}},
- * {@code {{full:...}}}, {@code {{mc:...}}}. Auch unvollständige
- * Öffnungen ohne schließende Klammern werden als Problem erkannt.
- */
 public final class LetterPlaceholderParser {
 
     public static final Pattern PATTERN =
@@ -36,7 +31,6 @@ public final class LetterPlaceholderParser {
         return out;
     }
 
-    /** Platzhalter, in dem der Cursor steht (start <= cursor <= end), sonst null. */
     public static LetterPlaceholder at(String text, int cursor) {
         for (LetterPlaceholder p : parse(text)) {
             if (cursor >= p.start() && cursor <= p.end()) {
@@ -46,7 +40,6 @@ public final class LetterPlaceholderParser {
         return null;
     }
 
-    /** Nächster Platzhalter ab Cursor (wrap-around), sonst null. */
     public static LetterPlaceholder next(String text, int cursor) {
         List<LetterPlaceholder> all = parse(text);
         for (LetterPlaceholder p : all) {
@@ -57,7 +50,6 @@ public final class LetterPlaceholderParser {
         return all.isEmpty() ? null : all.get(0);
     }
 
-    /** Vorheriger Platzhalter vor Cursor (wrap-around), sonst null. */
     public static LetterPlaceholder previous(String text, int cursor) {
         List<LetterPlaceholder> all = parse(text);
         LetterPlaceholder best = null;
@@ -72,10 +64,6 @@ public final class LetterPlaceholderParser {
         return all.isEmpty() ? null : all.get(all.size() - 1);
     }
 
-    /**
-     * Anzahl offener {@code {{}}-Sequenzen, die KEIN gültiger Platzhalter sind
-     * (unvollständig/ungültiger Typ) — blockiert den Versand.
-     */
     public static int countInvalidOpenings(String text) {
         if (text == null || text.isEmpty()) {
             return 0;

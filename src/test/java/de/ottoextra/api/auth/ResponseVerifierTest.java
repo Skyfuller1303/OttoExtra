@@ -16,7 +16,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Ed25519-Antwortsignaturen: gültig/manipuliert/fehlend/unbekannte Key-Id. */
 class ResponseVerifierTest {
 
     private static KeyPair keyPair;
@@ -25,7 +24,7 @@ class ResponseVerifierTest {
     @BeforeAll
     static void generateKeys() throws Exception {
         keyPair = KeyPairGenerator.getInstance("Ed25519").generateKeyPair();
-        // getEncoded() liefert das erwartete X.509-SubjectPublicKeyInfo-Format
+
         keys = Map.of("k1", Base64.getEncoder().encodeToString(keyPair.getPublic().getEncoded()));
     }
 
@@ -58,7 +57,7 @@ class ResponseVerifierTest {
         byte[] body = "{\"regions\":[]}".getBytes(StandardCharsets.UTF_8);
         String sig = Base64.getEncoder().encodeToString(sign(body));
         byte[] tampered = body.clone();
-        tampered[1] ^= 1; // ein Byte gekippt
+        tampered[1] ^= 1;
         ResponseVerifier verifier = new ResponseVerifier(keys, () -> false);
         assertEquals(ResponseVerifier.Result.INVALID, verifier.check(headers(sig, "k1"), tampered));
         assertFalse(verifier.accept(headers(sig, "k1"), tampered));
@@ -79,14 +78,13 @@ class ResponseVerifierTest {
         ResponseVerifier lenient = new ResponseVerifier(keys, () -> false);
         ResponseVerifier strict = new ResponseVerifier(keys, () -> true);
         assertEquals(ResponseVerifier.Result.MISSING, lenient.check(headers(null, null), body));
-        assertTrue(lenient.accept(headers(null, null), body));   // Übergangsphase
-        assertFalse(strict.accept(headers(null, null), body));   // nach Rollout
+        assertTrue(lenient.accept(headers(null, null), body));
+        assertFalse(strict.accept(headers(null, null), body));
     }
 
     @Test
     void embeddedProductionKeysAreParseable() {
-        // Produktiv-Konstruktor = einkompilierte k1+k2. Falsche, aber wohlgeformte
-        // Signatur muss sauber INVALID ergeben (kein Parse-Crash der Keys).
+
         ResponseVerifier production = new ResponseVerifier(() -> true);
         byte[] body = "x".getBytes(StandardCharsets.UTF_8);
         String wrongSig = Base64.getEncoder().encodeToString(new byte[64]);

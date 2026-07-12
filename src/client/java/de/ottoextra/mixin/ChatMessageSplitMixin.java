@@ -8,12 +8,6 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/**
- * Lange Chatnachrichten splitten: ist eine Nachricht länger als das Chunk-Limit,
- * wird sie an Wortgrenzen geteilt und gestaffelt gesendet ({@link LongChatSender}).
- * Die einzelnen Teilstücke (≤ Limit) laufen erneut durch diese Methode, lösen die
- * Bedingung aber nicht aus -> keine Rekursion. Ziel: {@link ClientPlayNetworkHandler}.
- */
 @Mixin(ClientPlayNetworkHandler.class)
 public class ChatMessageSplitMixin {
 
@@ -30,9 +24,9 @@ public class ChatMessageSplitMixin {
             LongChatSender.configureMs(cfg.longChatDelayMs);
             LongChatSender.enqueue(
                     LongChatSender.split(content, cfg.longChatChunk, cfg.longChatMarker));
-            ci.cancel(); // Original (zu lange) Nachricht nicht senden
+            ci.cancel();
         } catch (Throwable ignored) {
-            // Chat darf nie brechen -> im Zweifel Vanilla senden lassen
+
         }
     }
 }

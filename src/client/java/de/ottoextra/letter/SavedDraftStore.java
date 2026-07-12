@@ -13,12 +13,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
 
-/**
- * Benannte, dauerhaft gespeicherte Brief-/Verkündungsentwürfe unter
- * {@code config/ottoextra/drafts/<draftId>.json} — getrennt vom flüchtigen
- * Arbeits-Cache ({@link LetterDraftCache}). Speichern/Laden ist best effort;
- * defekte Dateien werden beim Listen übersprungen.
- */
 public final class SavedDraftStore {
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting()
@@ -35,7 +29,6 @@ public final class SavedDraftStore {
         return dir().resolve(id + ".json");
     }
 
-    /** Kopie des Entwurfs unter dem Namen speichern (eigene draftId bleibt). */
     public static synchronized LetterDraft save(LetterDraft source, String name) {
         LetterDraft copy = deepCopy(source);
         copy.repair();
@@ -50,12 +43,11 @@ public final class SavedDraftStore {
             Files.writeString(tmp, GSON.toJson(copy), StandardCharsets.UTF_8);
             Files.move(tmp, f, StandardCopyOption.REPLACE_EXISTING);
         } catch (Exception ignored) {
-            // best effort
+
         }
         return copy;
     }
 
-    /** Alle gespeicherten Entwürfe, neueste zuerst. */
     public static synchronized List<LetterDraft> list() {
         List<LetterDraft> out = new ArrayList<>();
         Path d = dir();
@@ -73,11 +65,11 @@ public final class SavedDraftStore {
                                 out.add(draft);
                             }
                         } catch (Exception ignored) {
-                            // defekte Datei überspringen
+
                         }
                     });
         } catch (Exception ignored) {
-            // best effort
+
         }
         out.sort(Comparator.comparingLong((LetterDraft dr) -> dr.meta.updatedAtMs).reversed());
         return out;
@@ -104,7 +96,7 @@ public final class SavedDraftStore {
         try {
             Files.deleteIfExists(fileFor(id));
         } catch (Exception ignored) {
-            // best effort
+
         }
     }
 

@@ -40,23 +40,8 @@ import java.nio.ByteOrder;
 import java.util.OptionalDouble;
 import java.util.OptionalInt;
 
-/**
- * Gemalte Ottonien-Karte auf der Xaero-Worldmap (Portierung des
- * OttoMap-Composite-Shaders auf die 1.21.11-GPU-Pipeline).
- *
- * <p>Ablauf pro Frame (nur bei offener Worldmap): Framebuffer in eine
- * Copy-Textur kopieren (Luma-Maske: schwarz = unerkundet), dann Fullscreen-Quad
- * mit 4 Samplern (Karte/Copy/Beschriftung/Karte-ohne-Details) + MapParams-UBO
- * zeichnen. Erkundetes Terrain bleibt sichtbar, unerkundetes zeigt die gemalte
- * Karte mit weichem Übergang. Draw-Muster nach Xaeros ImmediateRenderUtil
- * (RenderPass + DynamicTransforms + bindDefaultUniforms).</p>
- *
- * <p>Geo-Mapping exakt aus Legacy: Welt-Bounds X −10525..13559 / Z −7394..7108,
- * Quad-Affine cx−650/cz+150, hw·0.99/hz·0.98, Kamera-Adjust (65|−50, 0.98|1.01).</p>
- */
 public final class PaintedMapRenderer {
 
-    // Legacy-Geobounds der gemalten Karte
     private static final double MAP_MIN_X = -10525.0;
     private static final double MAP_MAX_X = 13559.0;
     private static final double MAP_MIN_Z = -7394.0;
@@ -67,20 +52,14 @@ public final class PaintedMapRenderer {
     private static final Identifier TEX_UPPER = OttoExtra.id("textures/map/otto-large_map_upper_layer.png");
     private static final Identifier TEX_UPPER_HIRES = OttoExtra.id("textures/map/otto-large_map_upper_layer_high_res.png");
 
-    /**
-     * Transienter Fehlerzustand (kein dauerhaftes Aus). Bei einem Renderfehler
-     * werden die GPU-Ressourcen verworfen und nach kurzer Pause neu aufgebaut —
-     * heilt insbesondere den Iris-Shader-Wechsel (pipeline rebuild, KEIN
-     * Resource-Reload), nach dem die gecachte Composite-Pipeline stale war.
-     */
     private static volatile boolean worldmapFailed = false;
     private static int worldmapRetryCooldown = 0;
-    /** Minimap separat (eigener Fehlerzustand), teilt aber die GPU-Ressourcen. */
+
     private static volatile boolean minimapFailed = false;
     private static int minimapRetryCooldown = 0;
-    /** Frames Pause nach einem Fehler, bevor der Neuaufbau versucht wird (~2 s). */
+
     private static final int RETRY_COOLDOWN_FRAMES = 40;
-    /** Manueller Nutzer-Versatz (Blöcke), gesetzt von MapModule aus der Config. */
+
     private static volatile double userOffsetX = 0;
     private static volatile double userOffsetZ = 0;
 
@@ -103,23 +82,17 @@ public final class PaintedMapRenderer {
     private PaintedMapRenderer() {
     }
 
-    /**
-     * Früher ein dauerhafter Kill-Switch; heute heilt sich der Renderer selbst,
-     * daher nie dauerhaft „disabled". Die Frame-Drosselung passiert intern in
-     * {@link #render}, damit der Wiederversuch überhaupt läuft.
-     */
     public static boolean isDisabled() {
         return false;
     }
 
-    /** true = diesen Frame überspringen (Fehler-Cooldown läuft noch). */
     private static boolean worldmapSkipFrame() {
         if (worldmapFailed) {
             if (worldmapRetryCooldown > 0) {
                 worldmapRetryCooldown--;
                 return true;
             }
-            invalidateGpu(); // frischer Aufbau beim Wiederversuch (z. B. nach Shader-Wechsel)
+            invalidateGpu();
         }
         return false;
     }
@@ -169,7 +142,6 @@ public final class PaintedMapRenderer {
         }
     }
 
-    /** GPU-Ressourcen verwerfen, damit {@link #ensureResources} sie neu aufbaut. */
     private static void invalidateGpu() {
         pipeline = null;
         texturesRegistered = false;
@@ -177,7 +149,7 @@ public final class PaintedMapRenderer {
             try {
                 copyTexture.close();
             } catch (Throwable ignored) {
-                // egal
+
             }
             copyTexture = null;
             copyView = null;
@@ -186,15 +158,6 @@ public final class PaintedMapRenderer {
         }
     }
 
-    /**
-     * Zeichnet die gemalte Karte als Fullscreen-Composite. Aufruf aus dem
-     * Worldmap-afterRender-Hook, VOR den Grenzlinien.
-     *
-     * @param view    Xaero-Sicht (Kamera/Zoom) — unangepasst; Affine passiert hier
-     * @param screenW GUI-skalierte Screenbreite des Screens
-     * @param screenH GUI-skalierte Screenhöhe
-     */
-    /** DIAGNOSE: true = Vanilla-Pipeline statt Composite (Plumbing-Bisektion). */
     private static final boolean DEBUG_SIMPLE_DRAW = false;
 
     public static void render(XaeroMapBridge.View view, int screenW, int screenH) {
@@ -204,17 +167,14 @@ public final class PaintedMapRenderer {
         MinecraftClient client = MinecraftClient.getInstance();
         try {
             ensureResources(client);
-            worldmapRecovered(); // Ressourcen frisch aufgebaut -> Fehlerzustand verlassen
-            // Einfacher Pfad (Config): ohne Screen-Copy/Custom-Shader, rendert die
-            // Kartentextur über GUI_TEXTURED zuverlässig (z. B. wenn das Composite
-            // im Modpack schwarz bleibt). Verliert das Tag/Nacht-/Detail-Blending.
+            worldmapRecovered();
+
             if (DEBUG_SIMPLE_DRAW
                     || de.ottoextra.config.OttoExtraConfig.active().map.paintedMapSimple) {
                 renderBackground(view, screenW, screenH);
                 return;
             }
 
-            // 1) Framebuffer-Copy (Xaero-Terrain als Masken-Quelle)
             Framebuffer fb = client.getFramebuffer();
             int fbW = fb.textureWidth;
             int fbH = fb.textureHeight;
@@ -222,14 +182,12 @@ public final class PaintedMapRenderer {
             CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
             encoder.copyTextureToTexture(fb.getColorAttachment(), copyTexture, 0, 0, 0, 0, 0, fbW, fbH);
 
-            // 2) Kamera-/Skalen-Affine (Legacy)
             double eff = view.effScale();
             double adjCamX = (view.cameraX() - 65.0) / 0.98;
             double adjCamZ = (view.cameraZ() + 50.0) / 1.01;
             double adjScaleX = eff * 0.98;
             double adjScaleZ = eff * 1.01;
 
-            // 3) Karten-Rect in Screen-Koordinaten -> UV-Mapping des Fullscreen-Quads
             double cx = (MAP_MIN_X + MAP_MAX_X) / 2.0 - 650.0 + userOffsetX;
             double cz = (MAP_MIN_Z + MAP_MAX_Z) / 2.0 + 150.0 + userOffsetZ;
             double hw = (MAP_MAX_X - MAP_MIN_X) / 2.0 * 0.99;
@@ -246,8 +204,6 @@ public final class PaintedMapRenderer {
             float vTop = (0.0f - y1) / (y2 - y1);
             float vBottom = (screenH - y1) / (y2 - y1);
 
-            // 4) Uniform-Werte (Legacy-Formeln)
-            // 1.21.11: getSkyBrightness entfallen -> aus AmbientDarkness (0=Tag..11=Nacht) ableiten
             float skyBrightness = client.world != null
                     ? clamp01(1.0f - client.world.getAmbientDarkness() / 11.0f) : 1.0f;
             float night = 0.7f * (0.3f + 0.7f * skyBrightness);
@@ -258,13 +214,12 @@ public final class PaintedMapRenderer {
             if (overallAlpha <= 0.0f) {
                 return;
             }
-            // HudGuard wie Legacy: 14px * GUI-Scale schützt Xaeros Koordinaten-/Zoom-Anzeige
+
             float hudGuard = (float) (14.0 * client.getWindow().getScaleFactor());
             float fullCover = fullCoverBlend(eff);
             writeParams((float) adjScaleX, hudGuard, night, detailBlend, upperAlpha, lowerAlpha,
                     overallAlpha, fullCover);
 
-            // 5) Fullscreen-Quad zeichnen (Beschriftung zoomabhängig: Legacy-Schwelle 0.15)
             Identifier upperTex = eff > 0.15 ? TEX_UPPER_HIRES : TEX_UPPER;
             withGuiOrtho(client, () ->
                     drawQuad(client, upperTex, screenW, screenH, uLeft, uRight, vTop, vBottom));
@@ -273,14 +228,6 @@ public final class PaintedMapRenderer {
         }
     }
 
-    // ---- Ressourcen ----------------------------------------------------------
-
-    /**
-     * Nach einem Resource-Reload (z. B. Server-Resourcepack-Aktivierung) sind die
-     * Core-Shader neu geladen — die einmalig gebaute {@code map_composite}-Pipeline
-     * wäre dann stale (gemalte Karte schwarz). Pipeline + Texturen verwerfen, damit
-     * {@link #ensureResources} sie beim nächsten Frame neu aufbaut.
-     */
     public static void onResourceReload() {
         invalidateGpu();
         worldmapFailed = false;
@@ -314,9 +261,7 @@ public final class PaintedMapRenderer {
                     GpuBuffer.USAGE_UNIFORM | GpuBuffer.USAGE_COPY_DST, 32L);
         }
         if (!texturesRegistered) {
-            // ReloadableTexture-Registrierung lädt mid-game NICHT (erst beim
-            // Resource-Reload) -> selbst dekodieren + sofort hochladen
-            // (bewährtes Muster aus BannerTextureService).
+
             loadMapTexture(client, TEX_LOWER);
             loadMapTexture(client, TEX_NODETAILS);
             loadMapTexture(client, TEX_UPPER);
@@ -332,9 +277,7 @@ public final class PaintedMapRenderer {
     }
 
     private static void loadMapTexture(MinecraftClient client, Identifier id) {
-        // DIREKT aus dem Mod-JAR (Classpath) laden, NICHT über den ResourceManager:
-        // Ein aktiver Server-Resourcepack (Ottonien.zip) darf die gemalte Karte
-        // nicht überschreiben/strippen (sonst schwarz). Mod-eigene Textur ist fix.
+
         String path = "/assets/" + id.getNamespace() + "/" + id.getPath();
         try (var stream = PaintedMapRenderer.class.getResourceAsStream(path)) {
             if (stream == null) {
@@ -369,7 +312,6 @@ public final class PaintedMapRenderer {
         copyH = h;
     }
 
-    /** Wiederverwendeter DIREKTER Buffer — die GPU-API verlangt Off-Heap-Speicher. */
     private static final ByteBuffer PARAMS_STAGING =
             ByteBuffer.allocateDirect(32).order(ByteOrder.nativeOrder());
 
@@ -384,14 +326,6 @@ public final class PaintedMapRenderer {
                 .writeToBuffer(paramsBuffer.slice(0, 32), PARAMS_STAGING);
     }
 
-    /**
-     * Vollflächen-Blend fürs Rauszoomen (0 = normale Erkundungs-Maske,
-     * 1 = Karte flächendeckend, Xaero-Terrain verdeckt). Nur bei aktivierter
-     * Option UND aktiver politischer Karte. Gekoppelt an die Gruppen-Label-Stufe
-     * des Overlays: voll, sobald nur noch die Wappen der obersten Lehnsherren
-     * gezeigt werden (invertierter fadeIn über nameMinScale, gleiche
-     * Crossfade-Zone wie MapOverlayRenderer.groupAlpha).
-     */
     private static float fullCoverBlend(double eff) {
         var map = de.ottoextra.config.OttoExtraConfig.active().map;
         if (!map.paintedFullCoverZoomOut || !map.politicalFill) {
@@ -404,8 +338,6 @@ public final class PaintedMapRenderer {
         float t = clamp01((float) ((eff - min) / (min * 0.6)));
         return 1f - t * t * (3f - 2f * t);
     }
-
-    // ---- Draw (Muster: Xaero ImmediateRenderUtil) ------------------------------
 
     private static void drawQuad(MinecraftClient client, Identifier upperTexId, int screenW, int screenH,
                                  float uL, float uR, float vT, float vB) {
@@ -464,13 +396,6 @@ public final class PaintedMapRenderer {
         return Math.max(0f, Math.min(1f, v));
     }
 
-    /**
-     * Gemalte Karte in der MINIMAP — v3: Maske aus Xaeros Tile-Daten statt
-     * Framebuffer (FBO-Kopien sind im Minimap-Pass nicht erlaubt). Pro
-     * unerkundetem Chunk ein texturiertes Quad im Element-Raum; Chunks mit
-     * erkundeten Nachbarn bekommen reduziertes Alpha = weicher Rand.
-     * {@code explored} liefert, ob Xaero fuer (chunkX, chunkZ) Daten hat.
-     */
     public static void renderMinimap(Matrix4f poseMatrix, double camX, double camZ,
                                      double ps, double pc, double zoom,
                                      int halfView, boolean circle,
@@ -504,7 +429,7 @@ public final class PaintedMapRenderer {
                     if (explored.test(ccx, ccz)) {
                         continue;
                     }
-                    // Chunk-Mitte im Element-Raum: grobes Cull
+
                     double mx = ccx * 16 + 8 - camX;
                     double mz = ccz * 16 + 8 - camZ;
                     double ex = (ps * mx - pc * mz) * zoom;
@@ -512,7 +437,7 @@ public final class PaintedMapRenderer {
                     if (ex * ex + ey * ey > clipR * clipR) {
                         continue;
                     }
-                    // weicher Rand: erkundete 4er-Nachbarn senken das Alpha
+
                     int exploredNeighbors = 0;
                     if (explored.test(ccx + 1, ccz)) exploredNeighbors++;
                     if (explored.test(ccx - 1, ccz)) exploredNeighbors++;
@@ -533,7 +458,7 @@ public final class PaintedMapRenderer {
             }
             TextureManager tm = client.getTextureManager();
             AbstractTexture lower = tm.getTexture(TEX_LOWER);
-            // Aktive Projection/ModelView des Minimap-Passes nutzen (kein Ortho)
+
             drawImmediate(client, buf,
                     net.minecraft.client.gl.RenderPipelines.GUI_TEXTURED,
                     lower.getGlTextureView(), mapSampler);
@@ -542,14 +467,8 @@ public final class PaintedMapRenderer {
         }
     }
 
-    /** Kreis-Approximation fürs Clipping (Halbebenen-Anzahl). */
     private static final int CIRCLE_CLIP_SIDES = 32;
 
-    /**
-     * Chunk-Quad gegen die Minimap-Kontur clippen (Sutherland-Hodgman gegen
-     * Quadrat bzw. 32-Eck) und als Fan-Quads emittieren (letzter Vertex
-     * doppelt = Dreieck, DrawMode bleibt QUADS).
-     */
     private static void emitClippedChunkQuad(BufferBuilder buf, Matrix4f pose,
                                              int ccx, int ccz,
                                              double camX, double camZ, double ps, double pc, double zoom,
@@ -557,7 +476,7 @@ public final class PaintedMapRenderer {
                                              float night, float alpha, int halfView, boolean circle) {
         double wx0 = ccx * 16;
         double wz0 = ccz * 16;
-        // Quad-Ecken in den Element-Raum transformieren
+
         double[] xs = new double[40];
         double[] ys = new double[40];
         int n = 0;
@@ -570,7 +489,7 @@ public final class PaintedMapRenderer {
             ys[n] = (pc * ox + ps * oy) * zoom;
             n++;
         }
-        // Schnellpfad: komplett innerhalb -> ungeclippt
+
         boolean inside = true;
         for (int i = 0; i < 4 && inside; i++) {
             if (circle) {
@@ -602,7 +521,7 @@ public final class PaintedMapRenderer {
                 return;
             }
         }
-        // Fan-Zerlegung in Quads (Dreieck = letzter Vertex doppelt)
+
         for (int i = 1; i + 1 < n; i++) {
             emitElementVertex(buf, pose, xs[0], ys[0], camX, camZ, ps, pc, zoom, cx, cz, hw, hz, night, alpha);
             emitElementVertex(buf, pose, xs[i], ys[i], camX, camZ, ps, pc, zoom, cx, cz, hw, hz, night, alpha);
@@ -611,7 +530,6 @@ public final class PaintedMapRenderer {
         }
     }
 
-    /** Polygon gegen Halbebene a*x + b*y <= c clippen; Ergebnis in tx/ty. */
     private static int clipHalfPlane(double[] xs, double[] ys, int n,
                                      double a, double b, double c,
                                      double[] tx, double[] ty) {
@@ -635,7 +553,6 @@ public final class PaintedMapRenderer {
         return out;
     }
 
-    /** Vertex im Element-Raum; UV über inverse Minimap-Rotation aus der Welt. */
     private static void emitElementVertex(BufferBuilder buf, Matrix4f pose,
                                           double ex, double ey,
                                           double camX, double camZ, double ps, double pc, double zoom,
@@ -643,8 +560,7 @@ public final class PaintedMapRenderer {
                                           float night, float alpha) {
         double ox = (ps * ex + pc * ey) / zoom;
         double oy = (-pc * ex + ps * ey) / zoom;
-        // Welt -> Kartenraum: gleiche Legacy-Kalibrierung wie die Worldmap
-        // (adjCam (x-65)/0.98 bzw. (z+50)/1.01), sonst liegt das Bild daneben
+
         double kx = (camX + ox - 65.0) / 0.98;
         double kz = (camZ + oy + 50.0) / 1.01;
         float u = (float) ((kx - (cx - hw)) / (2 * hw));
@@ -652,13 +568,6 @@ public final class PaintedMapRenderer {
         buf.vertex(pose, (float) ex, (float) ey, 0f).texture(u, v).color(night, night, night, alpha);
     }
 
-    /**
-     * GuiMap stellt nach seinem Terrain-Render die Welt-Projection wieder her
-     * (Xaero Misc.minecraftOrtho-Backup) — unser afterRender-Hook läuft also
-     * OHNE GUI-Ortho. Immediate-Draws brauchen deshalb eigene Ortho +
-     * Identity-ModelView (Parameter wie Vanilla-GuiRenderer: near 1000, far
-     * 11000, invertY; z-Shift −11000 wie Xaero).
-     */
     static void withGuiOrtho(MinecraftClient client, Runnable draw) {
         com.mojang.blaze3d.buffers.GpuBufferSlice projBackup = RenderSystem.getProjectionMatrixBuffer();
         ProjectionType projTypeBackup = RenderSystem.getProjectionType();
@@ -681,11 +590,6 @@ public final class PaintedMapRenderer {
         }
     }
 
-    /**
-     * Gemalte Karte als IMMEDIATE-Hintergrund (beforeRender): eigene RenderPass-
-     * Draws mit Vanilla-GUI-Pipelines, damit Xaeros (ebenfalls immediate)
-     * Terrain/Marker DANACH darüber liegen. Kein Masken-Shader nötig.
-     */
     public static void renderBackground(XaeroMapBridge.View view, int screenW, int screenH) {
         if (view == null || worldmapSkipFrame()) {
             return;
@@ -725,13 +629,13 @@ public final class PaintedMapRenderer {
             AbstractTexture upperTex = tm.getTexture(eff > 0.15 ? TEX_UPPER_HIRES : TEX_UPPER);
 
             withGuiOrtho(client, () -> {
-                // Meeres-/Außenfläche (#6E7B8B, volle Helligkeit)
+
                 drawImmediateColorQuad(client, 0, 0, screenW, screenH,
                         packColor(0x6E, 0x7B, 0x8B, overallAlpha));
-                // Untere Kartenebene (volle Helligkeit — keine Doppel-Abdunklung mehr)
+
                 drawImmediateTexturedQuad(client, lowerTex, x1, y1, x2, y2,
                         packColor(0xFF, 0xFF, 0xFF, overallAlpha));
-                // Beschriftungs-Ebene
+
                 if (upperAlpha > 0.02f) {
                     drawImmediateTexturedQuad(client, upperTex, x1, y1, x2, y2,
                             packColor(0xFF, 0xFF, 0xFF, upperAlpha * overallAlpha));
@@ -777,7 +681,6 @@ public final class PaintedMapRenderer {
         drawImmediate(client, buf, pl, null, null);
     }
 
-    /** Gemeinsamer Immediate-Draw (Muster: Xaero ImmediateRenderUtil). */
     static void drawImmediate(MinecraftClient client, BufferBuilder buffer,
                               RenderPipeline pl, GpuTextureView texView, GpuSampler sampler) {
         Framebuffer target = client.getFramebuffer();
@@ -816,13 +719,6 @@ public final class PaintedMapRenderer {
         }
     }
 
-    // ---- Einfacher Deferred-Pfad (Hintergrund unter Xaero, ohne Masken-Shader) ----
-
-    /**
-     * Zeichnet die gemalte Karte als normalen (deferred) GUI-Draw — gedacht für
-     * {@code beforeRender}: liegt dadurch UNTER Xaeros Terrain-Tiles. Kein
-     * Composite-Shader/FB-Copy nötig; erkundetes Terrain deckt die Karte ab.
-     */
     public static void renderSimple(net.minecraft.client.gui.DrawContext ctx,
                                     XaeroMapBridge.View view, int screenW, int screenH) {
         if (view == null || worldmapSkipFrame()) {
@@ -863,17 +759,15 @@ public final class PaintedMapRenderer {
                 return;
             }
 
-            // Füllfarbe hinter der Karte (Meer/ausserhalb der Geobounds)
             int nb = (int) (255 * night);
             int fill = 0xFF000000 | (tint(0x6E, night) << 16) | (tint(0x7B, night) << 8) | tint(0x8B, night);
             ctx.fill(0, 0, screenW, screenH, withOverall(fill, overallAlpha));
 
-            // Untere Ebene: Details vs. ohne Details (zoomabhängig)
             Identifier lowerTex = detailBlend > 0.5f ? TEX_LOWER : TEX_NODETAILS;
             int tintCol = tintColor(night, overallAlpha);
             ctx.drawTexture(net.minecraft.client.gl.RenderPipelines.GUI_TEXTURED, lowerTex,
                     x1, y1, 0f, 0f, w, h, w, h, tintCol);
-            // Obere Ebene (Beschriftung) mit eigenem Alpha
+
             if (upperAlpha > 0.02f) {
                 ctx.drawTexture(net.minecraft.client.gl.RenderPipelines.GUI_TEXTURED,
                         eff > 0.15 ? TEX_UPPER_HIRES : TEX_UPPER,

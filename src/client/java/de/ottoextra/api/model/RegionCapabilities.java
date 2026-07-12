@@ -2,7 +2,6 @@ package de.ottoextra.api.model;
 
 import java.util.List;
 
-/** Wirtschaftliche/strukturelle Kapazitäten einer Region (aus public-bootstrap). */
 public record RegionCapabilities(
         String id,
         String name,

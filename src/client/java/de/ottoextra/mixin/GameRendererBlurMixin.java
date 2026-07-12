@@ -17,17 +17,6 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-/**
- * Low-Health Edge-Blur (Tunnelblick): wendet einen eigenen Posteffekt
- * ({@code ottoextra:low_health_edge_blur}) auf das Welt-Framebuffer an —
- * Mitte scharf, Ränder verschwommen. Stärke = Anzahl der Pässe.
- *
- * <p>Ziel: {@code GameRenderer.render(RenderTickCounter, boolean)}, INVOKE auf
- * {@code renderWorld(...)}, Shift AFTER — also nach der Welt und VOR der GUI, damit
- * das HUD scharf bleibt. Fallback: Ist der Effekt aus oder die Intensität unter der
- * Schwelle, liefert {@link TweaksModule#lowHealthBlurPasses()} 0 und es passiert
- * nichts. Kein Eingriff in andere Mods (nur eigener Posteffekt auf MAIN).</p>
- */
 @Mixin(GameRenderer.class)
 public abstract class GameRendererBlurMixin {
 
@@ -59,10 +48,6 @@ public abstract class GameRendererBlurMixin {
         }
     }
 
-    /**
-     * Leichter FOV-Anstieg (Adrenalin) bei niedriger Health. Nur auf das
-     * Sicht-FOV ({@code changingFov == true}), additiv und intensitätsskaliert.
-     */
     @Inject(method = "getFov(Lnet/minecraft/client/render/Camera;FZ)F",
             at = @At("RETURN"), cancellable = true)
     private void ottoextra$lowHealthFov(Camera camera, float tickProgress, boolean changingFov,

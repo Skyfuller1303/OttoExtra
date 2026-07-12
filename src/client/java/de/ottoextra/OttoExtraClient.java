@@ -16,19 +16,6 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 
 import java.util.List;
 
-/**
- * Client-Entrypoint von OttoExtra.
- *
- * <p>Verantwortlich nur für Komposition und Lifecycle:</p>
- * <ol>
- *   <li>Config laden, zentralen API-Client erzeugen, Kontext bauen.</li>
- *   <li>Aktive Feature-Module registrieren und initialisieren.</li>
- *   <li>Server-Join/Disconnect/Stop an die Module verteilen (Ottonien-Gate beim Join).</li>
- * </ol>
- *
- * <p>Keine Feature-Logik hier — die liegt in den Modulen. Keine automatische
- * Texterzeugung (no-ai-text-helper-policy).</p>
- */
 public final class OttoExtraClient implements ClientModInitializer {
 
     private OttoExtraContext context;
@@ -37,7 +24,6 @@ public final class OttoExtraClient implements ClientModInitializer {
     public void onInitializeClient() {
         OttoExtra.LOGGER.info("Initialisiere {} ...", OttoExtra.MOD_NAME);
 
-        // Pflicht-Backup VOR dem ersten Config-Load/Save
         de.ottoextra.config.OttoExtraBackupService.ensurePreMigrationBackup();
         OttoExtraConfig config = OttoExtraConfig.load();
         de.ottoextra.chat.SkinCache.load();
@@ -72,10 +58,6 @@ public final class OttoExtraClient implements ClientModInitializer {
                 OttoExtra.MOD_NAME, context.activeModules().size());
     }
 
-    /**
-     * Icon-Button unten links im Pause-Menü -> direkter Sprung in die
-     * OttoExtra-Einstellungen. Per Screen-Event eingehängt (kein Mixin).
-     */
     private void registerMenuButton() {
         net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register(
                 (client, screen, scaledWidth, scaledHeight) -> {

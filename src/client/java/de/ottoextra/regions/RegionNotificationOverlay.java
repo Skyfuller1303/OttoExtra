@@ -13,16 +13,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Region-Betreten-Toast oben rechts: Wappen + "Du betrittst" + Regionsname +
- * Hierarchie + Tasten-Hinweis. Slide-in von rechts mit Alpha-Fade.
- *
- * <p>Design portiert aus OttoRegions (dunkles Theme): Anzeige 4200 ms,
- * Fade-in 260 ms, Fade-out 360 ms, Panelbreite 170–330 px, Banner 24 px.</p>
- */
 public final class RegionNotificationOverlay {
 
-    private static final long DISPLAY_MS = 4_200L;
+    private static final long DEFAULT_DISPLAY_MS = 4_200L;
     private static final long FADE_IN_MS = 260L;
     private static final long FADE_OUT_MS = 360L;
 
@@ -36,7 +29,6 @@ public final class RegionNotificationOverlay {
     private static final int ICON_GAP = 6;
     private static final int MARGIN = 6;
 
-    /** Farbpalette (OttoRegions-Themes; Light = Ottonien-Server-Standard). */
     private record Palette(int bg, int borderOut, int borderTl, int borderBr,
                            int title, int region, int hierarchy, int hint) {
     }
@@ -48,16 +40,15 @@ public final class RegionNotificationOverlay {
             0xFF212D3B, 0xFF0A0A0A, 0xFF344459, 0xFF191F22,
             0xFFFFFFFF, 0xFFFFFFFF, 0xFF9BC7DC, 0xFF9D9D9D);
 
-    /** Overlay-Positionen (Server-Standard: TOP_CENTER). */
     public enum Position { TOP_CENTER, TOP_RIGHT, TOP_LEFT, CENTER }
 
     private static volatile String regionName = "";
     private static volatile String hierarchy = "";
     private static volatile long shownAt = 0;
-    /** Dauer-Vorschau (Theme-Editor): kein Timeout, voll sichtbar. */
+
     private static volatile boolean sticky = false;
     private static volatile String menuKeyName = "L";
-    /** Live-Referenz auf die Regions-Config — Änderungen (auch aus dem Menü) greifen sofort. */
+
     private static volatile de.ottoextra.config.OttoExtraConfig.Regions cfg;
 
     private RegionNotificationOverlay() {
@@ -70,7 +61,6 @@ public final class RegionNotificationOverlay {
         sticky = false;
     }
 
-    /** Dauer-Vorschau für den Theme-Editor (bleibt sichtbar bis {@link #clear()}). */
     public static void holdPreview(String name, String hierarchyLine) {
         regionName = name == null ? "" : name;
         hierarchy = hierarchyLine == null ? "" : hierarchyLine;
@@ -108,10 +98,9 @@ public final class RegionNotificationOverlay {
                 }
             }
         }
-        return LIGHT; // unbekanntes Theme -> Standard
+        return LIGHT;
     }
 
-    /** Custom-Theme (Hex-Strings) in eine Palette mit volldeckendem Alpha wandeln. */
     private static Palette paletteOf(de.ottoextra.config.OttoExtraConfig.RegionTheme t) {
         return new Palette(
                 hex(t.bg, 0xFFC8AC8E), hex(t.borderOut, 0xFF513E2A),
@@ -120,7 +109,6 @@ public final class RegionNotificationOverlay {
                 hex(t.hierarchy, 0xFF7A5A3A), hex(t.hint, 0xFF6A4D33));
     }
 
-    /** "#RRGGBB" -> 0xFFRRGGBB; Fallback bei Murks. */
     private static int hex(String s, int fallback) {
         if (s == null) {
             return fallback;
@@ -132,14 +120,12 @@ public final class RegionNotificationOverlay {
         return 0xFF000000 | Integer.parseInt(h, 16);
     }
 
-    /** Schatten nur auf dunklem Panel (Luminanz des Hintergrunds). */
     private static boolean needsShadow(Palette pal) {
         int bg = pal.bg();
         int r = (bg >> 16) & 0xFF, g = (bg >> 8) & 0xFF, b = bg & 0xFF;
         return (0.2126 * r + 0.7152 * g + 0.0722 * b) < 128.0;
     }
 
-    /** Aufgelöste Toast-Gestaltung: Palette + Layout + Schrift + Sichtbarkeit. */
     private record Style(Palette pal,
                          float baseTextScale, float titleScale, float regionScale,
                          float hierarchyScale, float hintScale,
@@ -150,10 +136,6 @@ public final class RegionNotificationOverlay {
                          int padLeft, int padRight, int padTop, int padBottom) {
     }
 
-    /**
-     * Aktives Design. Custom-Theme: alles (Farben/Schrift/Sichtbarkeit/Abstände)
-     * aus dem Theme. Built-in light/dark: globale Erweitert-Werte der Config.
-     */
     private static Style activeStyle() {
         de.ottoextra.config.OttoExtraConfig.Regions c = cfg;
         if (c != null && c.theme != null && c.customThemes != null
@@ -181,6 +163,11 @@ public final class RegionNotificationOverlay {
                 c.iconSize, c.iconGap, c.paddingLeft, c.paddingRight, c.paddingTop, c.paddingBottom);
     }
 
+    private static long activeDisplayMs() {
+        de.ottoextra.config.OttoExtraConfig.Regions c = cfg;
+        return c == null ? DEFAULT_DISPLAY_MS : Math.max(1_500L, c.displayDurationMs);
+    }
+
     private static Position activePosition() {
         de.ottoextra.config.OttoExtraConfig.Regions c = cfg;
         if (c == null || c.overlayPosition == null) {
@@ -193,7 +180,6 @@ public final class RegionNotificationOverlay {
         }
     }
 
-    /** HudRenderCallback-Ziel. */
     public static void render(DrawContext ctx, RenderTickCounter tickCounter) {
         long start = shownAt;
         if (start == 0) {
@@ -201,7 +187,8 @@ public final class RegionNotificationOverlay {
         }
         boolean hold = sticky;
         long elapsed = System.currentTimeMillis() - start;
-        if (!hold && elapsed > DISPLAY_MS) {
+        long displayMs = activeDisplayMs();
+        if (!hold && elapsed > displayMs) {
             shownAt = 0;
             return;
         }
@@ -210,21 +197,19 @@ public final class RegionNotificationOverlay {
             return;
         }
 
-        // Fade + Slide-Fortschritt (0..1 sichtbar); Dauer-Vorschau = voll sichtbar
         float progress;
         if (hold) {
             progress = 1f;
         } else if (elapsed < FADE_IN_MS) {
             progress = elapsed / (float) FADE_IN_MS;
-        } else if (elapsed > DISPLAY_MS - FADE_OUT_MS) {
-            progress = (DISPLAY_MS - elapsed) / (float) FADE_OUT_MS;
+        } else if (elapsed > displayMs - FADE_OUT_MS) {
+            progress = (displayMs - elapsed) / (float) FADE_OUT_MS;
         } else {
             progress = 1f;
         }
         progress = Math.max(0f, Math.min(1f, progress));
-        float ease = 1f - (1f - progress) * (1f - progress); // ease-out
+        float ease = 1f - (1f - progress) * (1f - progress);
 
-        // Aufgelöstes Design (Custom-Theme oder globale Erweitert-Werte)
         Style st = activeStyle();
         Palette pal = st.pal();
         int maxTextWidth = st.maxTextWidth();
@@ -238,7 +223,6 @@ public final class RegionNotificationOverlay {
         int padBottom = st.padBottom();
         int margin = st.topMargin();
 
-        // Gemeinsame Basis-Schriftgröße; Zeilen-Scales sind relative Faktoren darauf.
         float base = st.baseTextScale();
         float titleScale = base * st.titleScale();
         float regionScale = base * st.regionScale();
@@ -250,21 +234,32 @@ public final class RegionNotificationOverlay {
         boolean hasHierarchy = st.showHierarchy() && !hierarchy.isBlank();
         String hint = Text.translatable("ottoextra.regions.hint", menuKeyName).getString();
         boolean renderHint = st.showHint();
+        de.ottoextra.config.OttoExtraConfig.Regions regionCfg = cfg;
+        FactionRecord currentFaction = null;
+        RegionDataService regionData = RegionsServices.data();
+        if (regionData != null) {
+            currentFaction = regionData.factionForRegion(regionName).orElse(null);
+        }
+        String factionLine = currentFaction != null && currentFaction.name() != null
+                ? currentFaction.name() : "";
+        String leaderLine = currentFaction != null
+                ? firstNonBlank(currentFaction.leader_name(), currentFaction.lord_name()) : "";
+        MinecraftClient mc = MinecraftClient.getInstance();
+        String coordinateLine = mc.player != null
+                ? Math.round(mc.player.getX()) + " / " + Math.round(mc.player.getZ()) : "";
 
-        // Banner (falls Daten + sichtbar)
         Identifier banner = null;
         if (st.showBanner()) {
             banner = resolveBanner();
         }
         int iconArea = banner != null ? bannerSize + iconGap : 0;
 
-        // Zeilenliste mit individueller Skalierung (Schriftgrößen aus dem Design)
         List<ScaledLine> lines = new ArrayList<>();
         if (st.showEnteredTitle()) {
             lines.add(new ScaledLine(Text.literal(title).asOrderedText(), titleScale, pal.title()));
         }
         int regionWrap = Math.max(20, (int) (maxTextWidth / Math.max(0.3f, regionScale)));
-        // Gefolge-/Region-Anzeigename-Override anwenden (Lookups oben bleiben roh)
+
         String regionShown = de.ottoextra.map.PoliticalOverlay.displayNameFor(regionName);
         for (net.minecraft.text.OrderedText regionLine
                 : tr.wrapLines(Text.literal(regionShown), regionWrap)) {
@@ -273,11 +268,23 @@ public final class RegionNotificationOverlay {
         if (hasHierarchy) {
             lines.add(new ScaledLine(Text.literal(hierarchy).asOrderedText(), hierarchyScale, pal.hierarchy()));
         }
+        if (regionCfg != null && regionCfg.showFaction && !factionLine.isBlank()) {
+            String shownFaction = de.ottoextra.map.PoliticalOverlay.displayNameFor(factionLine);
+            lines.add(new ScaledLine(Text.literal("Herrschaft: " + shownFaction).asOrderedText(),
+                    hierarchyScale, pal.hierarchy()));
+        }
+        if (regionCfg != null && regionCfg.showLeader && !leaderLine.isBlank()) {
+            lines.add(new ScaledLine(Text.literal("Lehnsherr: " + leaderLine).asOrderedText(),
+                    hierarchyScale, pal.hierarchy()));
+        }
+        if (regionCfg != null && regionCfg.showCoordinates && !coordinateLine.isBlank()) {
+            lines.add(new ScaledLine(Text.literal("Koordinaten: " + coordinateLine).asOrderedText(),
+                    hintScale, pal.hint()));
+        }
         if (renderHint) {
             lines.add(new ScaledLine(Text.literal(hint).asOrderedText(), hintScale, pal.hint()));
         }
 
-        // Breite/Höhe aus skalierten Massen
         int textW = 0;
         int contentH = 0;
         int gap = 2;
@@ -294,7 +301,6 @@ public final class RegionNotificationOverlay {
         int screenW = client.getWindow().getScaledWidth();
         int screenH = client.getWindow().getScaledHeight();
 
-        // Position + Slide-Richtung
         int x;
         int y;
         switch (activePosition()) {
@@ -309,16 +315,15 @@ public final class RegionNotificationOverlay {
             }
             case CENTER -> {
                 x = (screenW - w) / 2;
-                y = Math.max(margin, screenH - 92 - h); // über der Hotbar, statisch
+                y = Math.max(margin, screenH - 92 - h);
             }
-            default -> { // TOP_CENTER (Server-Standard): Slide von oben
+            default -> {
                 x = (screenW - w) / 2;
                 y = Math.round((-h - 4) + (margin - (-h - 4)) * ease);
             }
         }
         float alpha = progress;
 
-        // Panel: Aussenrand, Innenrand (top/left hell, right/bottom dunkel), Fläche
         ctx.fill(x - 1, y - 1, x + w + 1, y + h + 1, withAlpha(pal.borderOut(), alpha));
         ctx.fill(x, y, x + w, y + h, withAlpha(pal.bg(), alpha));
         ctx.fill(x, y, x + w, y + 1, withAlpha(pal.borderTl(), alpha));
@@ -326,7 +331,6 @@ public final class RegionNotificationOverlay {
         ctx.fill(x, y + h - 1, x + w, y + h, withAlpha(pal.borderBr(), alpha));
         ctx.fill(x + w - 1, y, x + w, y + h, withAlpha(pal.borderBr(), alpha));
 
-        // Banner links, vertikal zentriert
         int tx = x + padLeft;
         if (banner != null) {
             int by = y + (h - bannerSize) / 2;
@@ -335,10 +339,8 @@ public final class RegionNotificationOverlay {
             tx += bannerSize + iconGap;
         }
 
-        // Schatten nur auf dunklem Panel (Luminanz) — auf hellem stört er
         boolean shadow = needsShadow(pal);
-        // Echte vertikale Zentrierung des gesamten Textblocks im Panel
-        // (unabhängig von Padding-Asymmetrie und Zeilenanzahl).
+
         float ty = y + (h - contentH) / 2f;
         var matrices = ctx.getMatrices();
         for (ScaledLine sl : lines) {
@@ -352,7 +354,6 @@ public final class RegionNotificationOverlay {
         }
     }
 
-    /** Eine Toast-Zeile mit eigener Schrift-Skalierung und Farbe. */
     private record ScaledLine(net.minecraft.text.OrderedText text, float scale, int color) {
     }
 
@@ -366,11 +367,18 @@ public final class RegionNotificationOverlay {
         return faction.flatMap(banners::bannerFor).orElse(null);
     }
 
+    private static String firstNonBlank(String a, String b) {
+        if (a != null && !a.isBlank()) {
+            return a;
+        }
+        return b == null ? "" : b;
+    }
+
     private static int withAlpha(int argb, float a) {
         int baseAlpha = (argb >>> 24) & 0xFF;
         int newAlpha = Math.round(baseAlpha * Math.max(0f, Math.min(1f, a)));
         if (newAlpha < 4) {
-            newAlpha = 0; // vermeidet Geister-Pixel bei sehr kleinem Alpha
+            newAlpha = 0;
         }
         return (newAlpha << 24) | (argb & 0x00FFFFFF);
     }

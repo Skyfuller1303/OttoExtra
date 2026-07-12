@@ -13,12 +13,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-/**
- * Gefolge-Farben der politischen Karte als Liste (ModMenu → Karte):
- * pro Gruppe aktueller Farb-Swatch + Hex-Feld. Eingabe überschreibt die
- * generierte/fixe Farbe (Config {@code map.groupColors}), leeres Feld =
- * zurück zur Automatik. Änderungen wirken sofort (Overlay-Rebuild).
- */
 public final class MapGroupColorsScreen extends Screen {
 
     private static final int ROW_H = 20;
@@ -82,8 +76,6 @@ public final class MapGroupColorsScreen extends Screen {
         addDrawableChild(ButtonWidget.builder(Text.translatable("gui.done"), b -> close())
                 .dimensions(panelX() + panelW() - 60, panelY() + panelH() - 24, 52, 16).build());
 
-        // Alle aktuell angezeigten Farben (fix + generiert) als Overrides
-        // persistieren — Algorithmus bleibt Fallback für neue Gruppen
         addDrawableChild(ButtonWidget.builder(Text.translatable("ottoextra.map.groupColors.adopt"), b -> {
             for (Map.Entry<String, Integer> e : PoliticalOverlay.groupTintOverview().entrySet()) {
                 config.map.groupColors.putIfAbsent(e.getKey(),
@@ -128,7 +120,6 @@ public final class MapGroupColorsScreen extends Screen {
         applyScroll();
     }
 
-    /** Gültiges Hex übernehmen, leer = Override entfernen; Overlay sofort neu. */
     private void applyColor(String name, String raw) {
         String s = raw == null ? "" : raw.trim().replace("#", "");
         if (s.isEmpty()) {

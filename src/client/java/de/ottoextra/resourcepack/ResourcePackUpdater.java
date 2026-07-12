@@ -15,14 +15,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/**
- * Orchestriert Update-Check, Download, Verifikation, Installation und Aktivierung
- * des Server-Resourcepacks.
- *
- * <p>Alle Netz-/Datei-Schritte laufen off-thread; nur Aktivierung/Reload landen via
- * {@link PackInstaller} auf dem Render-Thread. Fehler/Offline sind tolerant: der
- * zuletzt gecachte Pack bleibt aktiv, kein Crash, kein Hang.</p>
- */
 public final class ResourcePackUpdater {
 
     private final OttoExtraConfig.ResourcePack cfg;
@@ -34,9 +26,7 @@ public final class ResourcePackUpdater {
 
     public ResourcePackUpdater(OttoExtraConfig config) {
         this.cfg = config.resourcepack;
-        // WICHTIG: HttpClient-Executor und der blockierende Download-Lese-Thread
-        // MUESSEN getrennt sein. Sonst liest ofInputStream() auf demselben Thread,
-        // auf dem der HttpClient die Bytes liefern muss -> Deadlock, Download hängt.
+
         this.httpExecutor = Executors.newFixedThreadPool(2, daemonThreads("http"));
         this.ioExecutor = Executors.newSingleThreadExecutor(daemonThreads("io"));
         this.http = HttpClient.newBuilder()
@@ -58,7 +48,6 @@ public final class ResourcePackUpdater {
         };
     }
 
-    /** Einstiegspunkt; non-blocking. */
     public void runAsync() {
         String source = cfg.effectiveSource();
         if (source.isBlank()) {
@@ -90,8 +79,7 @@ public final class ResourcePackUpdater {
 
     private CompletableFuture<Void> manifestFlow(URI manifestUri, PackState state) {
         return manifestClient.fetch(manifestUri, cfg.assetName).thenCompose(manifest -> {
-            // Änderungserkennung: per SHA-256 (bevorzugt), sonst per Versions-Tag
-            // (GitHub liefert 'digest' nicht immer).
+
             boolean upToDate = manifest.hasSha()
                     ? state.matchesSha(manifest.sha256())
                     : (manifest.version() != null && manifest.version().equals(state.version));
@@ -120,10 +108,6 @@ public final class ResourcePackUpdater {
         });
     }
 
-    /**
-     * Modus B (ohne Manifest): lädt nur, wenn lokal noch kein Pack vorhanden ist.
-     * Vollwertige ETag-Erkennung ist als späterer Ausbau vorgesehen.
-     */
     private CompletableFuture<Void> directZipFlow(URI zipUri, PackState state) {
         if (Files.exists(OttoExtraPaths.serverPackFile())) {
             OttoExtra.LOGGER.info("[resourcepack] Direkt-Modus: Pack vorhanden, kein erneuter Download (ETag-Check folgt).");
@@ -156,7 +140,7 @@ public final class ResourcePackUpdater {
 
         boolean userDisabled = cfg.respectUserDisable && !previous.enabled;
         if (cfg.autoEnable && !userDisabled) {
-            // NICHT sofort aktivieren — erst am Titelscreen (siehe PackInstaller).
+
             PackInstaller.requestActivation(cfg.priorityTop);
             OttoExtra.LOGGER.info("[resourcepack] Aktivierung vorgemerkt (greift am Titelscreen).");
         } else {
@@ -171,21 +155,15 @@ public final class ResourcePackUpdater {
         markChecked(state, null);
     }
 
-    /**
-     * Self-Heal: stellt sicher, dass ein bereits vorhandener Pack aktiv ist, falls
-     * eine frühere Aktivierung nicht durchkam ("heruntergeladen, nicht ausgewählt").
-     * Reloadet nur, wenn wirklich nachaktiviert werden muss.
-     */
     private void ensureActivation(PackState state) {
         boolean userDisabled = cfg.respectUserDisable && !state.enabled;
         if (!cfg.autoEnable || userDisabled) {
             return;
         }
-        // Vormerken — die Tick-Routine prüft am Titelscreen, ob überhaupt aktiviert werden muss.
+
         PackInstaller.requestActivation(cfg.priorityTop);
     }
 
-    /** Hält den Prüf-Zeitstempel (und ggf. die zuletzt gesehene Remote-Version) fest. */
     private void markChecked(PackState state, String remoteVersion) {
         state.lastCheckedAt = Instant.now().toString();
         if (remoteVersion != null) {
@@ -200,7 +178,7 @@ public final class ResourcePackUpdater {
         try {
             http.close();
         } catch (Throwable ignored) {
-            // best effort
+
         }
     }
 }

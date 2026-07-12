@@ -4,21 +4,15 @@ import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
-/**
- * Baut die Routen der multiplexten Regions-API ({@code api/index.php?action=...}).
- *
- * <p>Einziger Ort, an dem rohe URLs entstehen. Feature-Module sehen
- * nur Services, nie diese Klasse.</p>
- */
 public final class OttoExtraApiRoutes {
 
-    private final String base; // normalisiert, endet ohne Slash
+    private final String base;
 
     public OttoExtraApiRoutes(String baseUrl) {
         String b = (baseUrl == null || baseUrl.isBlank())
                 ? "https://regions.skyfuller.de/"
                 : baseUrl.trim();
-        // https ist Pflicht — http hart reparieren
+
         if (b.startsWith("http://")) {
             b = "https://" + b.substring("http://".length());
         }
@@ -81,8 +75,6 @@ public final class OttoExtraApiRoutes {
         return action("public-player-head", "uuid", uuid);
     }
 
-    // ---- v2 (authentifizierte API) ---------
-
     private URI v2(String path) {
         return URI.create(base + "/v2/" + path);
     }
@@ -127,7 +119,6 @@ public final class OttoExtraApiRoutes {
         return v2("player-compact");
     }
 
-    /** Löst einen relativen Pfad (z. B. banner_path) gegen die Basis-URL auf. */
     public URI resolveRelative(String relativePath) {
         if (relativePath == null || relativePath.isBlank()) {
             return null;

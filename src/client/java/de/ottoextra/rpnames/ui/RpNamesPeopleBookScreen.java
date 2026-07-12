@@ -1,5 +1,6 @@
 package de.ottoextra.rpnames.ui;
 
+import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.rpnames.RpNamesServices;
 import de.ottoextra.rpnames.chat.ChatNameRewriter;
 import de.ottoextra.rpnames.importer.RegionsApiRpNameImporter;
@@ -27,24 +28,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
-/**
- * RP-Personenbuch: lokales Adressbuch für RP-Wissen.
- *
- * <p>Adaptives Panel, drei Tabs:</p>
- * <ul>
- *   <li><b>Personen</b> — Filter-Chips + Suche + zweizeilige Liste links,
- *       Identitäts-Editor mit Farben pro Anzeigeort (Chat/Tab/Schild) in der
- *       Mitte, Live-Vorschau (echte Formatter) + Konfliktpanel rechts.</li>
- *   <li><b>Gruppen</b> — Titelgruppen-Editor (Label, Farben, Titel).</li>
- *   <li><b>Import</b> — API-Import-Modi mit Spoiler-Warnung, Backup,
- *       Alle vergessen.</li>
- * </ul>
- * Local-first: Speichern = MANUAL(_LOCKED); Import/Lernen überschreibt nie.
- */
 public final class RpNamesPeopleBookScreen extends Screen {
 
-    // Vanilla-Dark-Palette (wie Settings-GUI / MoreCulling-Stil).
-    // Hintergrund liefert super.render (gedimmt/geblurrt); Karten transluzent.
     private static final int COL_PANEL = 0xC8141418;
     private static final int COL_BORDER = 0xFF000000;
     private static final int COL_TITLE = 0xFFFFFFFF;
@@ -57,12 +42,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
 
     private enum Tab { PEOPLE, TITLES, GROUPS, IMPORT }
 
-    /**
-     * Titel-Tab-Filter: feste Status-Filter + dynamisch ALLE Katalog-Kategorien
-     * (inkl. neu angelegter). IDs mit Prefix {@link #TF_CAT_PREFIX} stehen für
-     * eine Kategorie. Früher hartkodiertes Enum -> neue Kategorien waren nicht
-     * filterbar.
-     */
     private static final String TF_ALL = "__all__";
     private static final String TF_ACTIVE = "__active__";
     private static final String TF_INACTIVE = "__inactive__";
@@ -70,11 +49,9 @@ public final class RpNamesPeopleBookScreen extends Screen {
     private static final String TF_WIKI = "__wiki__";
     private static final String TF_CAT_PREFIX = "cat:";
 
-    /** Ein Eintrag im Filter-Dropdown (ID + Anzeigename). */
     private record FilterOption(String id, Text label) {
     }
 
-    /** Filter-Chips. */
     private enum Chip {
         ALL("ottoextra.rpbook.chip.all"),
         UNKNOWN("ottoextra.rpbook.chip.unknown"),
@@ -99,14 +76,13 @@ public final class RpNamesPeopleBookScreen extends Screen {
     private Tab tab = Tab.PEOPLE;
     private Chip chip = Chip.ALL;
 
-    // Personen-Tab
     private TextFieldWidget searchField;
     private TextFieldWidget rpNameField;
     private TextFieldWidget titleField;
     private TextFieldWidget notesField;
     private CheckboxWidget lockCheckbox;
     private CheckboxWidget titleLockCheckbox;
-    /** Unterdrückt das Auto-Sperren während programmatischem Befüllen (select). */
+
     private boolean suppressLockAuto;
     private ButtonWidget chatFlagButton;
     private ButtonWidget tabFlagButton;
@@ -118,7 +94,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
     private ButtonWidget keepLocalButton;
     private ButtonWidget takeApiButton;
     private final List<ButtonWidget> chipButtons = new ArrayList<>();
-    /** Aufklappbarer Filter (statt Chip-Reihen — ragte in die Liste). */
+
     private boolean filterDropdownOpen;
     private ButtonWidget filterButton;
 
@@ -126,13 +102,12 @@ public final class RpNamesPeopleBookScreen extends Screen {
     private final Set<String> onlineNamesLower = new HashSet<>();
     private LocalRpProfile selected;
 
-    // 3D-Spielervorschau (gecacht je Account)
     private net.minecraft.client.network.AbstractClientPlayerEntity previewEntity;
     private String previewEntityKey;
-    /** Konstante UUID für den fixen Fallback-Skin. */
+
     private static final java.util.UUID FALLBACK_SKIN_UUID =
             new java.util.UUID(0L, 0L);
-    /** Marken-Fallback-Skin-Textur (assets/ottoextra/textures/entity/fallback_skin.png). */
+
     private static net.minecraft.entity.player.SkinTextures fallbackSkinCache;
 
     private static net.minecraft.entity.player.SkinTextures fallbackSkin() {
@@ -146,7 +121,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
         return fallbackSkinCache;
     }
 
-    // Gruppen-Tab
     private TextFieldWidget groupLabelField;
     private TextFieldWidget groupTitleColorField;
     private TextFieldWidget groupNameColorField;
@@ -155,7 +129,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
     private final List<String> groupKeys = new ArrayList<>();
     private String selectedGroupKey;
 
-    // Titel-Tab
     private String titleFilter = TF_ALL;
     private TextFieldWidget titleSearchField;
     private TextFieldWidget catTitleField;
@@ -174,22 +147,22 @@ public final class RpNamesPeopleBookScreen extends Screen {
     private de.ottoextra.rpnames.title.TitleCatalogStore.Entry selectedTitle;
     private String catCategoryValue = "unclassified";
 
-    // Import-Tab
     private ButtonWidget forgetAllButton;
     private boolean forgetAllArmed = false;
     private boolean importRunning = false;
 
     private int listScroll = 0;
     private volatile String statusLine = "";
-    /** Aktueller Autofill-Vorschlag fürs Titel-Feld (Tab übernimmt). */
+
     private String titleAutofill;
 
-    /** Beim Öffnen vorzuselektierender Account (Shift-Klick), sonst null. */
     private String pendingSelectAccount;
 
     public RpNamesPeopleBookScreen(Screen parent) {
         super(Text.translatable("ottoextra.rpbook.title"));
         this.parent = parent;
+
+        RpNamesServices.ensureInitialized(OttoExtraConfig.active().rpnames);
         this.store = RpNamesServices.store();
         this.titles = RpNamesServices.titles();
     }
@@ -199,11 +172,8 @@ public final class RpNamesPeopleBookScreen extends Screen {
         this.pendingSelectAccount = selectAccount;
     }
 
-    /**
-     * Personenbuch beim Eintrag einer Person öffnen (Shift-Klick im Chat /
-     * Shift-Rechtsklick auf Spieler). Legt den Eintrag bei Bedarf an.
-     */
     public static void openFor(Screen parent, String rawName, String uuid) {
+        RpNamesServices.ensureInitialized(OttoExtraConfig.active().rpnames);
         LocalRpIdentityStore store = RpNamesServices.store();
         if (store == null || rawName == null || rawName.isBlank()) {
             return;
@@ -214,8 +184,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 de.ottoextra.rpnames.model.RpNameSource.SEEN_ONLINE);
         MinecraftClient.getInstance().setScreen(new RpNamesPeopleBookScreen(parent, account));
     }
-
-    // ---- Adaptives Layout -------------------------------------
 
     private int panelW() {
         return Math.max(520 > width - 16 ? width - 16 : 520, Math.min(width - 48, 900));
@@ -230,7 +198,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
     }
 
     private int panelY() {
-        return 0; // Vollbild-Layout wie Settings-GUI
+        return 0;
     }
 
     private int contentY() {
@@ -238,7 +206,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
     }
 
     private int contentBottom() {
-        return height - 36; // Platz für Footer-Button
+        return height - 36;
     }
 
     private int listX() {
@@ -266,14 +234,11 @@ public final class RpNamesPeopleBookScreen extends Screen {
         return right - editX();
     }
 
-    /** Breite der Eingabe-Felder im Editor (gekappt, damit rechts Platz fürs
-     *  3D-Modell bleibt). Account-Label nutzt 50px links der Felder. */
     private int peopleFieldsW() {
         int avail = editW() - 50;
         return Math.max(120, Math.min(avail, 210));
     }
 
-    /** Linke Kante der 3D-Modell-Spalte (rechts neben den Feldern). */
     private int modelX() {
         return editX() + 50 + peopleFieldsW() + 12;
     }
@@ -290,15 +255,11 @@ public final class RpNamesPeopleBookScreen extends Screen {
         return Math.max(180, Math.min(260, panelW() / 4));
     }
 
-    // ---- Init ----------------------------------------------------------------
-
     @Override
     protected void init() {
         chipButtons.clear();
         refreshOnline();
 
-        // Tab-Leiste, zentriert (wie Settings-GUI)
-        // Gruppen-Tab entfernt — Gruppen sind titelgebunden (Titelkatalog-Kategorien)
         String[] tabKeys = {"ottoextra.rpbook.tab.people",
                 "ottoextra.rpbook.tab.titles", "ottoextra.rpbook.tab.import"};
         int tabsTotal = 0;
@@ -324,7 +285,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
         }
     }
 
-    /** Vorauswahl per openFor: Person filtern + im Editor selektieren. */
     private void selectPendingIfAny() {
         if (pendingSelectAccount == null) {
             return;
@@ -353,8 +313,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
         return x + w + 4;
     }
 
-    // ---- Personen-Tab ----------------------------------------------------------
-
     private void initPeople() {
         searchField = new TextFieldWidget(textRenderer, listX(), contentY(), listW(), 16,
                 Text.translatable("ottoextra.rpbook.search"));
@@ -367,7 +325,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
         });
         addDrawableChild(searchField);
 
-        // Filter als Dropdown (aufklappbar, ragt nie in die Liste)
         filterDropdownOpen = false;
         filterButton = ButtonWidget.builder(filterLabel(), b ->
                         filterDropdownOpen = !filterDropdownOpen)
@@ -386,9 +343,9 @@ public final class RpNamesPeopleBookScreen extends Screen {
         y += 21;
         titleField = new TextFieldWidget(textRenderer, x, y, w, 16, Text.empty());
         titleField.setMaxLength(48);
-        // Autofill aus dem Titelkatalog: grauer Vorschlag, Tab übernimmt
+
         titleField.setChangedListener(s -> {
-            // Titel-Edit sperrt NUR den Titel (nicht den Spieler).
+
             autoLockTitle();
             titleAutofill = null;
             titleField.setSuggestion("");
@@ -414,8 +371,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
         addDrawableChild(titleField);
         y += 21;
 
-        // Gruppe ist titelgebunden (readonly, steht in der Kopfzeile).
-        // Zwei Sperren: ganzer Spieler (links) und nur der Titel (rechts).
         lockCheckbox = CheckboxWidget.builder(Text.translatable("ottoextra.rpbook.lock"), textRenderer)
                 .pos(x, y - 1).build();
         addDrawableChild(lockCheckbox);
@@ -425,8 +380,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
         addDrawableChild(titleLockCheckbox);
         y += 21;
 
-        // Farben pro Anzeigeort: 3 Zeilen (Chat/Tab/Schild) à Titel+Name,
-        // vorbefüllt mit der effektiven Default-Farbe; Abweichung = Override
         int fieldW = (w - 16 - 4) / 2 - 12;
         for (int row = 0; row < 3; row++) {
             int fy = y + 12 + row * 19;
@@ -435,7 +388,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
         }
         y += 12 + 3 * 19 + 2;
 
-        // "Farben löschen" entfernt — Reset pro Farbe über Icon im Feld (siehe render/mouseClicked)
         copyChatColorsButton = ButtonWidget.builder(Text.translatable("ottoextra.rpbook.colors.copyChat"), b -> {
             colorFields[2].setText(colorFields[0].getText());
             colorFields[3].setText(colorFields[1].getText());
@@ -466,7 +418,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 .dimensions(x + w / 2 + 2, y, w / 2 - 2, 16).build();
         addDrawableChild(forgetButton);
 
-        // Konflikt-Aktionen (rechts unten im Vorschau-Bereich)
         if (previewVisible()) {
             int px = previewX();
             int pw = previewW();
@@ -505,7 +456,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
         return f;
     }
 
-    /** Manuelle Änderung an RP-Name/Farbe -> Profil automatisch sperren. */
     private void autoLock() {
         if (suppressLockAuto || tab != Tab.PEOPLE || selected == null || lockCheckbox == null
                 || !lockCheckbox.active || lockCheckbox.isChecked()) {
@@ -514,7 +464,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
         lockCheckbox.onPress(null);
     }
 
-    /** Manuelle Titel-Änderung -> nur den Titel sperren (Spieler bleibt aktiv). */
     private void autoLockTitle() {
         if (suppressLockAuto || tab != Tab.PEOPLE || selected == null || titleLockCheckbox == null
                 || !titleLockCheckbox.active || titleLockCheckbox.isChecked()) {
@@ -547,12 +496,10 @@ public final class RpNamesPeopleBookScreen extends Screen {
         }
     }
 
-    /** Label des Filter-Dropdowns: "Filter: <aktiv>". */
     private Text filterLabel() {
         return Text.translatable("ottoextra.rpbook.filter", currentFilterLabel());
     }
 
-    /** Anzeigename des aktuell gewählten Filters. */
     private Text currentFilterLabel() {
         String cur = tab == Tab.TITLES ? titleFilter : chip.name();
         for (FilterOption o : filterOptions()) {
@@ -563,10 +510,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
         return Text.literal("?");
     }
 
-    /**
-     * Dropdown-Optionen für den aktiven Tab. Titel-Tab: feste Status-Filter +
-     * dynamisch alle Katalog-Kategorien (Anzeigename = Kategorie-Label).
-     */
     private List<FilterOption> filterOptions() {
         List<FilterOption> opts = new ArrayList<>();
         if (tab == Tab.TITLES) {
@@ -667,7 +610,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 filtered.add(p);
             }
         }
-        // Default-Sortierung: online > Konflikt > manuell > Rest
+
         filtered.sort(Comparator
                 .comparing((LocalRpProfile p) -> !isOnline(p))
                 .thenComparing(p -> p.apiConflict == null || p.apiConflict.isBlank())
@@ -681,12 +624,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
         return hay != null && hay.toLowerCase(Locale.ROOT).contains(needle);
     }
 
-    /**
-     * Effektive Default-Farben (ohne Spieler-Override) für die 6 Felder:
-     * Titel = Katalog (Override/Kategorie) bzw. Legacy-Gruppe, Name =
-     * Titel-Namensfarbe (falls gesetzt) sonst Standard-Namensfarbe (#c7a87f) —
-     * Reihenfolge chat/tab/tag × titel/name.
-     */
     private String[] defaultColorsFor(String title) {
         var catalog = RpNamesServices.catalog();
         String titleColor = catalog != null ? catalog.titleColor(title).orElse(null) : null;
@@ -694,14 +631,13 @@ public final class RpNamesPeopleBookScreen extends Screen {
             titleColor = titles.find(title == null ? "" : title)
                     .map(r -> r.group().titleColor).orElse("");
         }
-        // Titel-eigene Namensfarbe ist der Default, sonst globale Default-Farbe.
+
         String nameColor = catalog != null
                 ? catalog.titleNameColor(title).orElse(catalog.defaultNameColor())
                 : "#c7a87f";
         return new String[]{titleColor, nameColor, titleColor, nameColor, titleColor, nameColor};
     }
 
-    /** Gruppen-/Kategorienname des Titels (titelgebunden, readonly). */
     private String groupForTitle(String title) {
         var catalog = RpNamesServices.catalog();
         if (catalog != null) {
@@ -732,7 +668,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         if (titleLockCheckbox.isChecked() != profile.titleLocked) {
             titleLockCheckbox.onPress(null);
         }
-        // Vorbefüllen: Override falls gesetzt, sonst effektiver Default
+
         String[] overrides = {profile.colors.chatTitleColor, profile.colors.chatNameColor,
                 profile.colors.tabTitleColor, profile.colors.tabNameColor,
                 profile.colors.nametagTitleColor, profile.colors.nametagNameColor};
@@ -784,8 +720,8 @@ public final class RpNamesPeopleBookScreen extends Screen {
         String rpName = rpNameField.getText().trim();
         String title = titleField.getText().trim();
         String notes = notesField.getText().trim();
-        String group = groupForTitle(title); // titelgebunden, nicht editierbar
-        // Feldwert == effektiver Default -> kein Override speichern
+        String group = groupForTitle(title);
+
         String[] defaults = defaultColorsFor(title);
         String[] hex = new String[6];
         for (int i = 0; i < 6; i++) {
@@ -793,9 +729,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
             hex[i] = v != null && v.equalsIgnoreCase(normalizeHex(defaults[i]) == null
                     ? "" : normalizeHex(defaults[i])) ? null : v;
         }
-        // Katalog-Titelfarbe NICHT als Spieler-Override backen — Feld == Default
-        // (Katalogfarbe) bleibt null, damit spätere Katalog-Farbänderungen überall
-        // automatisch greifen. Manuell abweichende Farbe bleibt als Override erhalten.
+
         boolean showChat = selected.showInChat;
         boolean showTab = selected.showInTablist;
         boolean showTag = selected.showInNametag;
@@ -803,9 +737,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         LocalRpProfile updated = store.updateManual(selected.accountName, p -> {
             p.rpName = rpName.isEmpty() ? LocalRpProfile.UNKNOWN_NAME : rpName;
             p.title = title;
-            // Titel-Sperre aus der Checkbox (auto-an bei Titel-Edit) — schützt
-            // NUR den Titel vor Auto-Reset (Server-Hover/Chat, Katalog-Rename),
-            // der Spieler bleibt aktiv. Leerer Titel kann nicht gesperrt sein.
+
             p.titleLocked = titleLockCheckbox.isChecked() && !title.isEmpty();
             p.titleGroup = group;
             p.notes = notes;
@@ -835,7 +767,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
         refilter();
     }
 
-    /** Konfliktauflösung: behalten (Vermerk löschen) oder API-Namen übernehmen. */
     private void resolveConflict(boolean takeApi) {
         if (selected == null || selected.apiConflict == null) {
             return;
@@ -864,8 +795,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
         }
         return "#" + s.toUpperCase(Locale.ROOT);
     }
-
-    // ---- Titel-Tab (Titelkatalog) ---------------------------------------
 
     private void initTitles() {
         titleChipButtons.clear();
@@ -908,8 +837,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
             int idx = Math.max(0, keys.indexOf(catCategoryValue));
             catCategoryValue = keys.get((idx + 1) % keys.size());
             b.setMessage(catCategoryLabel());
-            updateTitleFieldLock();
-            // Farbe folgt der Kategorie, solange kein eigener Override gesetzt ist
+
             if (selectedTitle != null
                     && (selectedTitle.colorOverride == null || selectedTitle.colorOverride.isBlank())) {
                 catColorField.setText(categoryColor(catCategoryValue));
@@ -921,7 +849,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 .pos(x + w / 2 + 2, y - 1).build();
         addDrawableChild(catEnabledCheckbox);
         y += 21;
-        // Eigene Kategorie anlegen: Name eingeben + "+"
+
         catNewCategoryField = new TextFieldWidget(textRenderer, x, y, w / 2 - 18, 16, Text.empty());
         catNewCategoryField.setMaxLength(32);
         catNewCategoryField.setSuggestion(
@@ -942,7 +870,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 .checked(true).pos(x + w / 2 + 2, y - 1).build();
         addDrawableChild(catOverrideColorCheckbox);
         y += 21;
-        // Namensfarbe für Personen mit diesem Titel (leer = global/Standard).
+
         catNameColorField = colorField(x, y, w / 2 - 16);
         y += 21;
         catSaveButton = ButtonWidget.builder(Text.translatable("ottoextra.rpbook.save"),
@@ -952,8 +880,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 b -> deleteTitle()).dimensions(x + w / 2 + 2, y, w / 2 - 2, 16).build();
         addDrawableChild(catDeleteButton);
         y += 21;
-        // Reset pro Feld über Reset-Icon im jeweiligen Feld (siehe render/mouseClicked)
-        // "Neuer Titel" breit unter der Titelliste (auffälliger)
+
         addDrawableChild(ButtonWidget.builder(Text.translatable("ottoextra.rpbook.titles.new"),
                 b -> newTitle()).dimensions(listX(), listBottom() + 2, listW(), 18).build());
 
@@ -965,7 +892,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
         }
     }
 
-    /** Neue Kategorie aus dem Eingabefeld anlegen (Farbe = aktuelles Farbfeld). */
     private void addCategoryFromField() {
         if (catNewCategoryField == null) {
             return;
@@ -978,7 +904,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
         if (key != null) {
             catCategoryValue = key;
             catCategoryButton.setMessage(catCategoryLabel());
-            updateTitleFieldLock();
             catNewCategoryField.setText("");
         }
     }
@@ -988,7 +913,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
         return cats.isEmpty() ? List.of("unclassified") : new ArrayList<>(cats);
     }
 
-    /** Default-Farbe der Kategorie ("" wenn unbekannt). */
     private String categoryColor(String key) {
         var c = RpNamesServices.catalog().categories().get(key);
         return c != null && c.color != null ? c.color : "";
@@ -1041,7 +965,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         catVariant2Field.setText(e.variants.size() > 1 ? e.variants.get(1) : "");
         catCategoryValue = e.category == null || e.category.isBlank() ? "unclassified" : e.category;
         catCategoryButton.setMessage(catCategoryLabel());
-        // Farbe automatisch aus Kategorie-Default, Override überschreibt
+
         catColorField.setText(e.colorOverride != null && !e.colorOverride.isBlank()
                 ? e.colorOverride : categoryColor(catCategoryValue));
         catNameColorField.setText(e.nameColor == null ? "" : e.nameColor);
@@ -1052,17 +976,12 @@ public final class RpNamesPeopleBookScreen extends Screen {
             catOverrideColorCheckbox.onPress(null);
         }
         setTitleEditEnabled(true);
-        // Wiki-Titel: nur das Löschen sperren. Der Standard-Titel oben ist nur in
-        // der Kategorie "custom" editierbar (setTitleEditEnabled); bei Katalog-/
-        // Wiki-Titeln werden nur die Anzeige-Varianten angepasst.
+
         catDeleteButton.active = !"WIKI_IMPORT".equals(e.source);
     }
 
     private void setTitleEditEnabled(boolean enabled) {
-        // Der Standard-Titel (oben) ist nur in der Kategorie "custom" frei
-        // editierbar; bei Katalog-/Wiki-Titeln bleibt er fest, nur die Varianten
-        // (Anzeige-Form) dürfen angepasst werden.
-        catTitleField.setEditable(enabled && isCustomCategory());
+        catTitleField.setEditable(enabled);
         catVariant1Field.setEditable(enabled);
         catVariant2Field.setEditable(enabled);
         catColorField.setEditable(enabled);
@@ -1074,25 +993,13 @@ public final class RpNamesPeopleBookScreen extends Screen {
         catDeleteButton.active = enabled;
     }
 
-    /** Ist die aktuell gewählte Kategorie die freie „custom"-Kategorie? */
-    private boolean isCustomCategory() {
-        return "custom".equalsIgnoreCase(catCategoryValue);
-    }
-
-    /** Titel-Feld passend zur aktuellen Kategorie sperren/freigeben. */
-    private void updateTitleFieldLock() {
-        catTitleField.setEditable(catCategoryButton.active && isCustomCategory());
-    }
-
     private void saveTitle() {
         if (selectedTitle == null) {
             return;
         }
         var e = selectedTitle;
         e.title = catTitleField.getText().trim();
-        // Variante 1/2 = einstellbare Anzeige-Form. Den Standard-Titel als
-        // Match-Alias mitführen, damit Server-Titel (= title) auf den Eintrag
-        // matchen und die Anzeige-Variante bekommen.
+
         List<String> variants = new ArrayList<>();
         for (String t : new String[]{catVariant1Field.getText().trim(),
                 catVariant2Field.getText().trim()}) {
@@ -1105,7 +1012,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         }
         e.variants = variants;
         e.category = catCategoryValue;
-        // Farbe == Kategorie-Default -> kein Override (folgt künftigen Defaults)
+
         String hex = normalizeHex(catColorField.getText());
         e.colorOverride = hex != null && hex.equalsIgnoreCase(categoryColor(catCategoryValue))
                 ? null : hex;
@@ -1116,8 +1023,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
             e.id = TitleRegistry.normalize(e.title);
         }
         RpNamesServices.catalog().save();
-        // Anzeige ist live: Tab/Name/Schild/Chat/GUI lösen die Variante beim
-        // Rendern via canonicalTitle auf — kein Durchschreiben der Profile nötig.
+
         refilterTitles();
         statusLine = Text.translatable("ottoextra.rpbook.saved").getString();
     }
@@ -1132,7 +1038,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
         refilterTitles();
     }
 
-    /** Eigenen Titel anlegen (source MANUAL) und direkt zum Bearbeiten öffnen. */
     private void newTitle() {
         var e = new de.ottoextra.rpnames.title.TitleCatalogStore.Entry();
         e.title = "";
@@ -1149,8 +1054,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
         selectTitle(e);
         catTitleField.setFocused(true);
     }
-
-    // ---- Gruppen-Tab -------------------------------------------------------------
 
     private void initGroups() {
         groupKeys.clear();
@@ -1219,8 +1122,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
         titles.save();
         statusLine = Text.translatable("ottoextra.rpbook.saved").getString();
     }
-
-    // ---- Import-Tab ----------------------------------------------------------------
 
     private void initImport() {
         int x = listX();
@@ -1316,8 +1217,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
         statusLine = Text.translatable("ottoextra.rpbook.forgotAll").getString();
     }
 
-    // ---- Liste / Maus ----------------------------------------------------------
-
     private int listSize() {
         return switch (tab) {
             case PEOPLE -> filtered.size();
@@ -1334,7 +1233,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
     private int currentListTop() {
         return switch (tab) {
             case PEOPLE -> listTop();
-            case TITLES -> listTop(); // Dropdown statt Chip-Reihen
+            case TITLES -> listTop();
             default -> contentY() + 12;
         };
     }
@@ -1349,7 +1248,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
 
     @Override
     public boolean keyPressed(net.minecraft.client.input.KeyInput input) {
-        // Tab übernimmt den Titel-Autofill-Vorschlag
+
         if (input.key() == org.lwjgl.glfw.GLFW.GLFW_KEY_TAB
                 && tab == Tab.PEOPLE && titleField != null && titleField.isFocused()
                 && titleAutofill != null) {
@@ -1358,7 +1257,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
             titleAutofill = null;
             return true;
         }
-        // Enter im Titel-Feld: Titelfarbe sofort aus dem Katalog tauschen
+
         if ((input.key() == org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER
                 || input.key() == org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER)
                 && tab == Tab.PEOPLE && titleField != null && titleField.isFocused()) {
@@ -1368,8 +1267,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
         return super.keyPressed(input);
     }
 
-    /** Titelfarbe (Chat/Tab/Schild) live aus dem Katalog setzen, wenn der Titel
-     *  "Farbe überschreibt" hat. */
     private void applyTitleColorFromCatalog() {
         String t = titleField.getText().trim();
         if (t.isEmpty()) {
@@ -1415,13 +1312,13 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 selectFilter((int) ((my - dy) / rh));
                 return true;
             }
-            // Klick außerhalb (außer auf den Button selbst): zuklappen
+
             if (filterButton == null || !filterButton.isMouseOver(mx, my)) {
                 filterDropdownOpen = false;
                 return true;
             }
         }
-        // Reset-Icon im jeweiligen Farbfeld -> diese Farbe auf Default
+
         if (tab == Tab.PEOPLE && selected != null && click.button() == 0) {
             for (int i = 0; i < colorFields.length; i++) {
                 if (resetIconHit(colorFields[i], mx, my)) {
@@ -1429,8 +1326,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
                     return true;
                 }
             }
-            // RP-Name zurücksetzen: API-Original (apiRpName/apiConflict) bevorzugt,
-            // sonst der gespeicherte Name — nicht leeren.
+
             if (resetIconHit(rpNameField, mx, my)) {
                 String original = firstNonBlank(selected.apiRpName,
                         firstNonBlank(selected.apiConflict,
@@ -1439,15 +1335,14 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 return true;
             }
             if (resetIconHit(titleField, mx, my)) {
-                // Titel auf den Original-Server-Titel zurücksetzen (sonst leeren)
+
                 String serverTitle = RpNamesServices.serverTitleFor(selected.accountName);
                 titleField.setText(serverTitle != null ? serverTitle : "");
                 applyTitleColorFromCatalog();
                 return true;
             }
         }
-        // Titel-Tab: Reset-Icon je Feld -> dieses Feld auf Werkseinstellung
-        // (Wiki-Default aus dem gebündelten Katalog), sonst leeren.
+
         if (tab == Tab.TITLES && selectedTitle != null && click.button() == 0) {
             var def = RpNamesServices.catalog().bundledDefault(selectedTitle.id).orElse(null);
             if (resetIconHit(catTitleField, mx, my)) {
@@ -1490,12 +1385,9 @@ public final class RpNamesPeopleBookScreen extends Screen {
         return super.mouseClicked(click, doubled);
     }
 
-    // ---- Render ----------------------------------------------------------------
-
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
-        // Neues Design: gedimmter/geblurrter Vanilla-Hintergrund + Widgets zuerst
-        // (wie OttoExtraSettingsScreen), Inhalt darüber.
+
         super.render(ctx, mouseX, mouseY, delta);
         ctx.drawCenteredTextWithShadow(textRenderer, getTitle(), width / 2, 8, COL_TITLE);
 
@@ -1519,13 +1411,13 @@ public final class RpNamesPeopleBookScreen extends Screen {
                             ? selectedTitle.title + " · " + selectedTitle.source
                             : Text.translatable("ottoextra.rpbook.titles.select").getString(),
                     editX(), contentY(), selectedTitle != null ? COL_TEXT : COL_MUTED, false);
-            // Feld-Labels links neben den Eingaben
+
             String[] fieldLabels = {
                     Text.translatable("ottoextra.rpbook.titles.name").getString(),
                     Text.translatable("ottoextra.rpbook.titles.variant1").getString(),
                     Text.translatable("ottoextra.rpbook.titles.variant2").getString(),
-                    null, // Kategorie-Zeile (Button hat eigenes Label)
-                    null, // Neue-Kategorie-Zeile
+                    null,
+                    null,
                     Text.translatable("ottoextra.rpbook.titles.color").getString(),
                     Text.translatable("ottoextra.rpbook.titles.nameColor").getString()};
             int ly = contentY() + 12;
@@ -1538,7 +1430,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
             drawSwatch(ctx, catColorField);
             drawSwatch(ctx, catNameColorField);
             if (selectedTitle != null) {
-                // Reset-Icon je Feld (nur dieses Feld auf Standard)
+
                 drawResetIcon(ctx, catTitleField);
                 drawResetIcon(ctx, catVariant1Field);
                 drawResetIcon(ctx, catVariant2Field);
@@ -1555,7 +1447,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
                     listX(), contentBottom() - 10, COL_MUTED, false);
         }
 
-        // Filter-Dropdown-Overlay (liegt über Liste/Editor)
         if (filterDropdownOpen && tab != Tab.IMPORT) {
             List<FilterOption> opts = filterOptions();
             int dx = dropdownX();
@@ -1603,7 +1494,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
                         + (e.enabled ? "" : " · inaktiv");
                 ctx.drawText(textRenderer, textRenderer.trimToWidth(line2, listW() - 18),
                         listX() + 2, ry + 12, COL_MUTED, false);
-                // Farb-Marker rechts (Override oder Kategorie)
+
                 String hex = e.colorOverride != null && !e.colorOverride.isBlank()
                         ? e.colorOverride
                         : RpNamesServices.catalog().categories().get(e.category) != null
@@ -1620,16 +1511,16 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 if (p == selected) {
                     ctx.fill(listX() - 1, ry, listX() + listW() + 1, ry + rh - 1, COL_SELECTED);
                 }
-                // Zeile 1: RP-Name (oder Unbekannt)
+
                 String line1 = p.hasRpName() ? p.rpName : LocalRpProfile.UNKNOWN_NAME;
                 ctx.drawText(textRenderer, textRenderer.trimToWidth(line1, listW() - 18),
                         listX() + 2, ry + 2, p.hasRpName() ? COL_TITLE : COL_MUTED, false);
-                // Zeile 2: account · STATE
+
                 String line2 = p.accountName + " · " + stateShort(p.knowledgeState)
                         + (p.titleGroup != null && !p.titleGroup.isBlank() ? " · " + p.titleGroup : "");
                 ctx.drawText(textRenderer, textRenderer.trimToWidth(line2, listW() - 18),
                         listX() + 2, ry + 12, COL_MUTED, false);
-                // Marker rechts: online (grün) / Konflikt (rot)
+
                 int markerX = listX() + listW() - 8;
                 if (isOnline(p)) {
                     ctx.fill(markerX, ry + 3, markerX + 5, ry + 8, COL_ONLINE);
@@ -1685,12 +1576,12 @@ public final class RpNamesPeopleBookScreen extends Screen {
                     Text.translatable("ottoextra.rpbook.select").getString(),
                     x, contentY(), COL_MUTED, false);
         }
-        // Feld-Labels links neben RP-Name/Titel
+
         ctx.drawText(textRenderer, Text.translatable("ottoextra.rpbook.rpname").getString(),
                 x, contentY() + 16, COL_TEXT, false);
         ctx.drawText(textRenderer, Text.translatable("ottoextra.rpbook.titleField").getString(),
                 x, contentY() + 37, COL_TEXT, false);
-        // Farb-Zeilen-Labels + Swatches
+
         String[] rowLabels = {
                 Text.translatable("ottoextra.rpbook.colors.chat").getString(),
                 Text.translatable("ottoextra.rpbook.colors.tab").getString(),
@@ -1702,18 +1593,17 @@ public final class RpNamesPeopleBookScreen extends Screen {
         for (TextFieldWidget f : colorFields) {
             drawSwatch(ctx, f);
             if (f != null && selected != null) {
-                // Reset-Icon im Feld rechts (Klick -> diese Farbe auf Default)
+
                 drawResetIcon(ctx, f);
             }
         }
-        // Reset-Icon in RP-Name und Titel (Klick -> auf Serverstandard zurücksetzen)
+
         if (selected != null) {
             drawResetIcon(ctx, rpNameField);
             drawResetIcon(ctx, titleField);
         }
     }
 
-    /** Reset-Icon-Größe: 70% der 16px-Textur. */
     private static final int RESET_ICON_SIZE = 11;
 
     private int resetIconX(TextFieldWidget f) {
@@ -1794,9 +1684,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
         return out;
     }
 
-    // ---- 3D-Spielervorschau ----------------------------------------------------
-
-    /** Stehender 3D-Spieler unten in der Vorschau: leichte Drehung + Kopf folgt Maus. */
     private void renderPlayerModel(DrawContext ctx, int mouseX, int mouseY) {
         if (selected == null) {
             return;
@@ -1808,7 +1695,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         int x1 = modelX();
         int x2 = (previewVisible() ? previewX() - 8 : panelX() + panelW() - 8);
         if (x2 - x1 < 60) {
-            return; // zu schmal -> kein Platz fürs Modell
+            return;
         }
         int boxTop = contentY() + 12;
         int boxBottom = listBottom();
@@ -1817,8 +1704,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
             return;
         }
         ctx.fill(x1, boxTop, x2, boxBottom, 0x50000000);
-        // Titel + Spielername über dem Modell, in den Namensschild-Farben,
-        // Breite auf die Box begrenzt (skaliert sonst runter, kein Überlauf).
+
         int cx = (x1 + x2) / 2;
         int maxW = (x2 - x1) - 8;
         int ly = boxTop + 3;
@@ -1828,7 +1714,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         }
         String displayName = selected.hasRpName() ? selected.rpName : selected.accountName;
         drawScaledCentered(ctx, displayName, cx, ly, previewNameColor(), maxW, 1.5f);
-        // Skalierung an Höhe UND Breite koppeln (Vollkörper passt)
+
         int size = (int) Math.min((boxBottom - boxTop) * 0.32f, (x2 - x1) * 0.8f);
         float sway = (float) Math.sin(System.currentTimeMillis() / 1400.0) * 25f;
         try {
@@ -1836,11 +1722,10 @@ public final class RpNamesPeopleBookScreen extends Screen {
                     ctx, x1, boxTop + 24, x2, boxBottom - 6, size, 0.0f,
                     mouseX - sway, mouseY, previewEntity);
         } catch (Throwable ignored) {
-            // Render darf das Buch nie brechen
+
         }
     }
 
-    /** Text zentriert, bei Überbreite auf {@code maxW} herunterskaliert (max {@code baseScale}). */
     private void drawScaledCentered(DrawContext ctx, String s, int cx, int y, int color,
                                     int maxW, float baseScale) {
         if (s == null || s.isEmpty()) {
@@ -1866,7 +1751,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
         return a != null && !a.isBlank() ? a : b;
     }
 
-    /** Namensschild-Titelfarbe der ausgewählten Person (Override -> Katalog -> Gruppe -> Fallback). */
     private int previewTitleColor() {
         var catalog = RpNamesServices.catalog();
         String catalogColor = catalog != null
@@ -1876,7 +1760,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
                         .map(r -> r.group().titleColor).orElse(null)
                 : null;
         String fallback = catalog != null ? catalog.fallbackTitleColor() : "#a17f5f";
-        // „Farbe überschreibt": Katalogfarbe schlägt den Personen-Override.
+
         String pers = selected.colors.nametagTitleColor;
         String hex = RpNamesServices.titleOverridesColor(selected.title)
                 ? previewFirst(catalogColor, previewFirst(pers, previewFirst(groupColor, fallback)))
@@ -1884,14 +1768,11 @@ public final class RpNamesPeopleBookScreen extends Screen {
         return previewArgb(hex, COL_TITLE);
     }
 
-    /** RP-Namensfarbe der ausgewählten Person: Override -> Titel-Namensfarbe ->
-     *  global -> Standard (mit „Farbe überschreibt"). */
     private int previewNameColor() {
         String hex = RpNamesServices.rpNameColor(selected.colors.nametagNameColor, selected.title);
         return previewArgb(hex, COL_TITLE);
     }
 
-    /** Dummy-Spieler (Skin aus UUID/Account) für die 3D-Vorschau, gecacht je Account. */
     private void ensurePreviewEntity(MinecraftClient client) {
         String key = selected.accountName;
         if (key == null || key.isBlank()) {
@@ -1904,16 +1785,16 @@ public final class RpNamesPeopleBookScreen extends Screen {
         previewEntityKey = key;
         previewEntity = null;
         try {
-            // Skin vom Server (Player-List-Profil mit Texturen); Mojang nur Backup
+
             com.mojang.authlib.GameProfile profile = serverProfile(client, key);
             final boolean online = profile != null;
             boolean fallback = false;
             if (profile == null) {
                 java.util.UUID uuid;
                 if (selected.uuid != null && !selected.uuid.isBlank()) {
-                    uuid = java.util.UUID.fromString(selected.uuid); // echte UUID -> lokaler/Mojang-Skin
+                    uuid = java.util.UUID.fromString(selected.uuid);
                 } else {
-                    uuid = FALLBACK_SKIN_UUID; // nie online / keine Textur -> Marken-Fallback
+                    uuid = FALLBACK_SKIN_UUID;
                     fallback = true;
                 }
                 profile = new com.mojang.authlib.GameProfile(uuid, key);
@@ -1927,7 +1808,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
                             if (useFallback) {
                                 return fallbackSkin();
                             }
-                            // Offline: lokal gecachten Skin (eigenes PNG) bevorzugen.
+
                             if (!online) {
                                 var local = de.ottoextra.chat.SkinCache.localSkin(previewUuid);
                                 if (local != null) {
@@ -1937,7 +1818,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
                             return super.getSkin();
                         }
                     };
-            // 2nd-Layer nur bei echtem Skin; Fallback-Textur ist ohne Overlay
+
             entity.getDataTracker().set(
                     de.ottoextra.mixin.PlayerCustomizationAccessor.ottoextra$customization(),
                     (byte) (useFallback ? 0x00 : 0x7F));
@@ -1949,7 +1830,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
         }
     }
 
-    /** Server-seitiges Profil (mit Skin-Texturen) aus der Player-Liste, oder null. */
     private com.mojang.authlib.GameProfile serverProfile(MinecraftClient client, String account) {
         var nh = client.getNetworkHandler();
         if (nh == null) {
@@ -1960,7 +1840,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
             try {
                 entry = nh.getPlayerListEntry(java.util.UUID.fromString(selected.uuid));
             } catch (IllegalArgumentException ignored) {
-                // ungültige UUID -> per Name versuchen
+
             }
         }
         if (entry == null) {
@@ -1968,8 +1848,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
         }
         return entry != null ? entry.getProfile() : null;
     }
-
-    // ---- Live-Vorschau (echte Formatter) -------------------------
 
     private void renderPreview(DrawContext ctx) {
         int x = previewX();
@@ -1982,7 +1860,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         if (selected == null) {
             return;
         }
-        // Chat: echte Rewriter-Pipeline auf konstruierter Zeile
+
         ctx.drawText(textRenderer, "Chat:", x + 2, y, COL_MUTED, false);
         y += 10;
         Text chatLine = Text.literal("[Reden] ")
@@ -1993,7 +1871,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 x + 2, y, 0xFFFFFFFF, false);
         y += 16;
 
-        // Tabliste: echter Formatter (braucht GameProfile mit UUID)
         ctx.drawText(textRenderer, "Tab:", x + 2, y, COL_MUTED, false);
         y += 10;
         Text tabText = null;
@@ -2004,7 +1881,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 tabText = TablistNameFormatter.format(gp, Text.literal(selected.accountName));
             }
         } catch (Exception ignored) {
-            // ungültige UUID -> Fallback unten
+
         }
         if (tabText == null) {
             tabText = fallbackStyled();
@@ -2012,7 +1889,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
         ctx.drawText(textRenderer, trimText(tabText, w - 6), x + 2, y, 0xFFFFFFFF, false);
         y += 16;
 
-        // Nametag: aus Profilfeldern (Renderer existiert noch nicht)
         ctx.drawText(textRenderer, "Schild:", x + 2, y, COL_MUTED, false);
         y += 10;
         MutableText line1 = fallbackStyled();
@@ -2021,7 +1897,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
         ctx.drawText(textRenderer, selected.accountName, x + 2, y, 0xFF9A9A9A, false);
         y += 16;
 
-        // Konfliktpanel
         if (selected.apiConflict != null && !selected.apiConflict.isBlank()) {
             ctx.drawText(textRenderer,
                     Text.translatable("ottoextra.rpbook.conflict.head").getString(),
@@ -2032,7 +1907,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
         }
     }
 
-    /** Titel + Name gefärbt nach der echten Farbkette (Tab-Fallback + Nametag-Vorschau). */
     private MutableText fallbackStyled() {
         String[] defaults = defaultColorsFor(selected.title);
         MutableText out = Text.empty();

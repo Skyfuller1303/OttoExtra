@@ -18,17 +18,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
-/**
- * Titelgruppen (System/Adel/Klerus/Custom) mit Default-Farben aus
- * {@code config/ottoextra/rpnames/title-groups.json}; fehlt die Datei, wird
- * der gebündelte Default geschrieben.
- *
- * <p>Titel-Matching ist umlautgefaltet + lowercase, damit Hover-Varianten wie
- * "Graefin" und "Gräfin" denselben Titel treffen.</p>
- */
 public final class TitleRegistry {
 
-    /** Eine Gruppe aus title-groups.json. GSON-direkt. */
     public static final class Group {
         public String label = "";
         public int priority = 0;
@@ -44,7 +35,6 @@ public final class TitleRegistry {
         Map<String, Group> groups = new LinkedHashMap<>();
     }
 
-    /** Aufgelöster Titel. */
     public record ResolvedTitle(String title, String groupKey, Group group) {
     }
 
@@ -52,9 +42,9 @@ public final class TitleRegistry {
     private static final String BUNDLED = "/assets/ottoextra/rpnames/title-groups-default.json";
 
     private volatile Map<String, Group> groups = new LinkedHashMap<>();
-    /** normalisierter Titel -> (Originaltitel, Gruppenkey). */
+
     private volatile Map<String, ResolvedTitle> byNormalizedTitle = Map.of();
-    /** Nach Länge absteigend sortierte normalisierte Titel (längster Präfix gewinnt). */
+
     private volatile List<String> normalizedByLength = List.of();
 
     public void load() {
@@ -113,7 +103,6 @@ public final class TitleRegistry {
         return groups;
     }
 
-    /** Gruppen nach title-groups.json schreiben + Index neu aufbauen (GUI-Editor). */
     public synchronized void save() {
         Path file = OttoExtraPaths.rpnamesTitleGroups();
         try {
@@ -129,7 +118,6 @@ public final class TitleRegistry {
         }
     }
 
-    /** Exakter Titel-Lookup ("Gräfin", "Graefin", "gräfin" -> ADEL). */
     public Optional<ResolvedTitle> find(String title) {
         if (title == null || title.isBlank()) {
             return Optional.empty();
@@ -137,10 +125,6 @@ public final class TitleRegistry {
         return Optional.ofNullable(byNormalizedTitle.get(normalize(title)));
     }
 
-    /**
-     * Findet einen bekannten Titel als Präfix einer Zeile ("Graf Alarich von
-     * Falkenfels" -> Graf). Längster Treffer gewinnt ("Kirchvogt" vor "Vogt").
-     */
     public Optional<ResolvedTitle> findPrefix(String line) {
         if (line == null || line.isBlank()) {
             return Optional.empty();
@@ -154,7 +138,6 @@ public final class TitleRegistry {
         return Optional.empty();
     }
 
-    /** Umlautfaltung + lowercase + Whitespace-Kollaps. */
     public static String normalize(String s) {
         if (s == null) {
             return "";

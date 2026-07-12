@@ -3,19 +3,12 @@ package de.ottoextra.tweaks.lowhealth;
 import de.ottoextra.config.OttoExtraConfig;
 import net.minecraft.client.MinecraftClient;
 
-/**
- * Zustand des Low-Health-Effekts: liest die Spieler-Health, merkt den letzten
- * Schadenszeitpunkt, berechnet die Ziel-Intensität (0..1) und glättet sie weich.
- *
- * <p>Für Tests kann eine feste Intensität erzwungen werden ({@link #setForced}),
- * unabhängig von Health und Master-Schalter.</p>
- */
 public final class LowHealthState {
 
     private float previousHealth = -1.0f;
     private float smoothedIntensity = 0.0f;
     private long lastDamageAtMs = 0L;
-    /** Test-Override: &lt;0 = aus. */
+
     private float forcedIntensity = -1.0f;
 
     public void setForced(float value) {
@@ -33,11 +26,11 @@ public final class LowHealthState {
     public void update(MinecraftClient client, OttoExtraConfig.Tweaks.LowHealth cfg) {
         float target;
         if (forcedIntensity >= 0.0f) {
-            // Test-Modus: feste Intensität, unabhängig von Health/enabled.
+
             target = forcedIntensity;
         } else if (client.player == null || client.world == null || !cfg.enabled) {
             previousHealth = -1.0f;
-            // sanft ausblenden
+
             smoothedIntensity += (0.0f - smoothedIntensity) * 0.2f;
             if (smoothedIntensity < 0.001f) {
                 smoothedIntensity = 0.0f;

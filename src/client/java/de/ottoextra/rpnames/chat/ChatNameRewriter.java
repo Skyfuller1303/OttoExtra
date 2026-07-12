@@ -5,21 +5,17 @@ import de.ottoextra.rpnames.model.LocalRpProfile;
 import de.ottoextra.rpnames.store.LocalRpIdentityStore;
 import de.ottoextra.rpnames.title.TitleRegistry;
 import net.minecraft.text.MutableText;
+import net.minecraft.text.ObjectTextContent;
+import net.minecraft.text.PlainTextContent;
 import net.minecraft.text.Style;
+import net.minecraft.text.StyleSpriteSource;
 import net.minecraft.text.Text;
 import net.minecraft.text.TextColor;
+import net.minecraft.text.TextContent;
 
+import java.util.Locale;
 import java.util.Optional;
 
-/**
- * Ersetzt Accountnamen im Chat durch Titel + RP-Name.
- *
- * <p>Primär: Komponenten-Rebuild — nur Knoten, deren eigener Text exakt dem
- * Accountnamen eines bekannten Profils entspricht, werden ersetzt; Style und
- * HoverEvent des Knotens bleiben erhalten. Fallback für reine Textzeilen:
- * Sprecherbereich zwischen {@code ]} und erstem {@code :}. Bei unklarem
- * Format bleibt die Originalnachricht unverändert.</p>
- */
 public final class ChatNameRewriter {
 
     private final LocalRpIdentityStore store;
@@ -31,79 +27,208 @@ public final class ChatNameRewriter {
     }
 
     public Text rewrite(Text message, OttoExtraConfig.RpNames cfg) {
+        return rewrite(message, cfg, null);
+    }
+
+    public Text rewrite(Text message, OttoExtraConfig.RpNames cfg, String forcedAccount) {
         try {
-            // Sprecher (Account-Knoten mit bekanntem Profil) suchen
-            SpeakerInfo si = findSpeaker(message, cfg, new StringBuilder(), false);
-            if (si != null) {
-                return collapseSpaces(rebuild(message, si, new int[]{0}, false), new boolean[]{false});
+            SpeakerBounds bounds = SpeakerBounds.from(message);
+            LocalRpProfile forced = forcedAccount == null || forcedAccount.isBlank()
+                    ? null : store.findByName(forcedAccount).orElse(null);
+            SpeakerInfo si = findSpeaker(message, cfg, bounds, forced, false);
+            if (si == null) {
+                return message;
             }
-            return plainFallback(message, cfg).orElse(message);
+            return collapseSpaces(rebuild(message, si, new int[]{0}, false),
+                    new boolean[]{false});
         } catch (Throwable t) {
-            return message; // Chat darf nie brechen
+            return message;
         }
     }
 
-    /**
-     * Nur den Titel voranstellen (OOC-Kanäle): RP-Name/Account bleibt unverändert,
-     * lediglich der lokale Titel (mit Override-Farbe) wird vor dem Sprecher ergänzt.
-     */
     public Text rewriteTitleOnly(Text message, OttoExtraConfig.RpNames cfg) {
         try {
-            SpeakerInfo si = findSpeaker(message, cfg, new StringBuilder(), true);
-            if (si != null && ownTitleApplies(si.profile())) {
-                return collapseSpaces(rebuild(message, si, new int[]{0}, true), new boolean[]{false});
+            SpeakerBounds bounds = SpeakerBounds.from(message);
+            SpeakerInfo si = findSpeaker(message, cfg, bounds, null, true);
+            if (si == null || !ownTitleApplies(si.profile())) {
+                return message;
             }
-            return message;
+            return collapseSpaces(rebuild(message, si, new int[]{0}, true),
+                    new boolean[]{false});
         } catch (Throwable t) {
             return message;
         }
     }
 
-    /** Gefundener Sprecher + Position seines Account-Knotens im Flach-Text. */
-    private record SpeakerInfo(Text node, LocalRpProfile profile, int accountStart,
+    private record SpeakerBounds(int start, int end) {
+        static SpeakerBounds from(Text message) {
+            if (message == null) {
+                return null;
+            }
+            String plain = message.getString();
+            int bracket = plain.indexOf(']');
+            int colon = bracket >= 0 ? separatorColon(plain, bracket + 1) : -1;
+            if (bracket < 0 || colon < 0 || colon <= bracket + 1) {
+                return null;
+            }
+            int start = bracket + 1;
+            while (start < colon && Character.isWhitespace(plain.charAt(start))) {
+                start++;
+            }
+            int end = colon;
+            while (end > start && Character.isWhitespace(plain.charAt(end - 1))) {
+                end--;
+            }
+            return end > start ? new SpeakerBounds(start, end) : null;
+        }
+
+        private static int separatorColon(String plain, int from) {
+            int nestedBrackets = 0;
+            int fallback = -1;
+            for (int i = Math.max(0, from); i < plain.length(); i++) {
+                char c = plain.charAt(i);
+                if (c == '[') {
+                    nestedBrackets++;
+                } else if (c == ']' && nestedBrackets > 0) {
+                    nestedBrackets--;
+                } else if (c == ':' && nestedBrackets == 0) {
+                    if (fallback < 0) {
+                        fallback = i;
+                    }
+                    if (i + 1 >= plain.length() || Character.isWhitespace(plain.charAt(i + 1))) {
+                        return i;
+                    }
+                }
+            }
+            return fallback;
+        }
+    }
+
+    private record ProfileMatch(LocalRpProfile profile, String visibleIdentity,
+                                int localStart, int localEnd, int score) {
+    }
+
+    private record SpeakerInfo(Text node, LocalRpProfile profile, String visibleIdentity,
+                               int nodeStart, int replaceStart, int replaceEnd,
                                int titleZoneStart) {
     }
 
-    /**
-     * Erster Knoten, dessen Eigentext einem bekannten Profil entspricht (Sprecher).
-     * {@code flat} = Pre-Order-Konkatenation der Eigentexte davor → liefert die
-     * Startposition + den Beginn der Server-Titel-Zone (nach der letzten {@code ]}).
-     */
-    private SpeakerInfo findSpeaker(Text node, OttoExtraConfig.RpNames cfg, StringBuilder flat,
-                                    boolean titleOnly) {
-        String own = ownText(node);
-        String trimmed = own.trim();
-        if (!trimmed.isEmpty()) {
-            LocalRpProfile p = store.findByName(trimmed).orElse(null);
-            if (p == null) {
-                // RP-Kanäle (Server-Format 2026-07): sichtbar ist der RP-Name,
-                // der Account steht als letztes Wort der ersten Hover-Zeile.
-                p = profileFromHover(node);
+    private static final class BestSpeaker {
+        private SpeakerInfo info;
+        private int score = Integer.MIN_VALUE;
+
+        void offer(SpeakerInfo candidate, int candidateScore) {
+            if (candidate == null) {
+                return;
             }
-            boolean match = p != null && p.showInChat && (titleOnly
-                    ? ownTitleApplies(p)
-                    : (p.hasRpName() || cfg.showUnknownAsUnknown));
-            if (match) {
-                int bracket = flat.lastIndexOf("]");
-                return new SpeakerInfo(node, p, flat.length(), bracket >= 0 ? bracket + 1 : 0);
+
+            if (info == null || candidateScore > score
+                    || (candidateScore == score
+                    && candidate.replaceEnd() > info.replaceEnd())) {
+                info = candidate;
+                score = candidateScore;
             }
         }
-        flat.append(own);
-        for (Text sibling : node.getSiblings()) {
-            SpeakerInfo r = findSpeaker(sibling, cfg, flat, titleOnly);
-            if (r != null) {
-                return r;
-            }
-        }
-        return null;
     }
 
-    /**
-     * Profil über den Hover des Knotens: Account = letztes Wort der ersten
-     * Hover-Zeile ({@code Titel Spielername}, RP-Kanäle). Liefert null, wenn
-     * kein ShowText-Hover oder kein bekanntes Profil — OOC-Hover
-     * ({@code Titel RP-Name}) treffen so praktisch nie falsch.
-     */
+    private SpeakerInfo findSpeaker(Text message, OttoExtraConfig.RpNames cfg,
+                                    SpeakerBounds bounds, LocalRpProfile forced,
+                                    boolean titleOnly) {
+        BestSpeaker best = new BestSpeaker();
+        findSpeakerNode(message, cfg, bounds, forced, titleOnly, new int[]{0}, best);
+        return best.info;
+    }
+
+    private void findSpeakerNode(Text node, OttoExtraConfig.RpNames cfg,
+                                 SpeakerBounds bounds, LocalRpProfile forced,
+                                 boolean titleOnly, int[] flatPos, BestSpeaker best) {
+        if (node == null) {
+            return;
+        }
+        String own = ownText(node);
+        int nodeStart = flatPos[0];
+        int nodeEnd = nodeStart + own.length();
+        TextContent content = node.getContent();
+
+        if (content instanceof PlainTextContent && !isVisualComponent(node)
+                && !own.isBlank() && overlapsSpeaker(nodeStart, nodeEnd, bounds)) {
+            int localFrom = bounds == null ? 0 : Math.max(0, bounds.start() - nodeStart);
+            int localTo = bounds == null ? own.length() : Math.min(own.length(), bounds.end() - nodeStart);
+            if (localFrom < localTo) {
+                String inSpeaker = own.substring(localFrom, localTo);
+                ProfileMatch match = findProfileInSpeakerText(inSpeaker, cfg, titleOnly);
+
+                LocalRpProfile hover = profileFromHover(node);
+                if (hover != null && profileAllowed(hover, cfg, titleOnly)) {
+                    String identity = identityInside(inSpeaker, hover);
+                    int identityAt = identityOffset(inSpeaker, identity);
+                    int rs = identityAt >= 0 ? nodeStart + localFrom + identityAt
+                            : nodeStart + localFrom;
+                    int re = identityAt >= 0 ? rs + identity.length()
+                            : nodeStart + localTo;
+                    best.offer(new SpeakerInfo(node, hover, identity,
+                                    nodeStart, rs, re, titleZoneStart(bounds, nodeStart)),
+                            10_000 + re);
+                }
+
+                if (match != null && profileAllowed(match.profile(), cfg, titleOnly)) {
+                    int rs = nodeStart + localFrom + match.localStart();
+                    int re = nodeStart + localFrom + match.localEnd();
+                    best.offer(new SpeakerInfo(node, match.profile(), match.visibleIdentity(),
+                                    nodeStart, rs, re, titleZoneStart(bounds, nodeStart)),
+                            8_000 + match.score() + re);
+                }
+
+                if (forced != null && profileAllowed(forced, cfg, titleOnly)) {
+                    String identity = identityInside(inSpeaker, forced);
+                    int identityAt = identityOffset(inSpeaker, identity);
+                    int rs;
+                    int re;
+                    int score;
+                    if (identityAt >= 0) {
+                        rs = nodeStart + localFrom + identityAt;
+                        re = rs + identity.length();
+                        score = 7_500 + identity.length();
+                    } else {
+
+                        rs = nodeStart + localFrom;
+                        re = nodeStart + localTo;
+                        score = 2_000 + re;
+                    }
+                    best.offer(new SpeakerInfo(node, forced, identity,
+                                    nodeStart, rs, re, titleZoneStart(bounds, nodeStart)),
+                            score);
+                }
+            }
+        }
+
+        flatPos[0] = nodeEnd;
+        for (Text sibling : node.getSiblings()) {
+            findSpeakerNode(sibling, cfg, bounds, forced, titleOnly, flatPos, best);
+        }
+    }
+
+    private static int titleZoneStart(SpeakerBounds bounds, int nodeStart) {
+        return bounds != null ? bounds.start() : nodeStart;
+    }
+
+    private static boolean overlapsSpeaker(int start, int end, SpeakerBounds bounds) {
+        return bounds == null || (start < bounds.end() && end > bounds.start());
+    }
+
+    private boolean profileAllowed(LocalRpProfile p, OttoExtraConfig.RpNames cfg,
+                                   boolean titleOnly) {
+        if (p == null || !p.showInChat) {
+            return false;
+        }
+        if (titleOnly) {
+            return ownTitleApplies(p);
+        }
+        return de.ottoextra.rpnames.RpNamesServices.isKnownForDisplay(p)
+                || (cfg != null && cfg.showUnknownAsUnknown)
+                || de.ottoextra.rpnames.RpNamesServices.proactiveMeetEnabled();
+    }
+
     private LocalRpProfile profileFromHover(Text node) {
         try {
             Style style = node.getStyle();
@@ -125,107 +250,151 @@ public final class ChatNameRewriter {
         }
     }
 
-    // ---- Komponenten-Rebuild ---------------------------------------------------
-
-    /**
-     * Baut die Nachricht neu: Account-Knoten → unser Titel (Override-Farbe) + RP-Name;
-     * den Server-Titel davor (Titel-Zone zwischen {@code ]} und Sprecher) blanken wir,
-     * damit kein doppelter Titel entsteht und unsere Titelfarbe greift. {@code flatPos}
-     * spiegelt die Positionen aus {@link #findSpeaker}.
-     */
     private Text rebuild(Text node, SpeakerInfo si, int[] flatPos, boolean titleOnly) {
         String own = ownText(node);
         int start = flatPos[0];
+        int end = start + own.length();
+        TextContent content = node.getContent();
+        Style style = safeStyle(node.getStyle());
         MutableText copy;
-        boolean known = si.profile().hasRpName();
-        // Titel nur bei bekannten Personen + eigenem (Katalog-)Titel rendern;
-        // Server-Titel nur dann blanken. Server-Ränge (kein Katalog-Titel) bleiben
-        // mit ihrer Server-Farbe stehen, Unbekannte verlieren den Server-Titel.
+
+        boolean known = de.ottoextra.rpnames.RpNamesServices
+                .isKnownForDisplay(si.profile());
         boolean ownTitle = ownTitleApplies(si.profile());
         boolean renderOurTitle = known && ownTitle;
         boolean blankServerTitle = !known || ownTitle;
-        if (node == si.node()) {
-            if (titleOnly) {
-                // nur Titel voranstellen, Original-Name (Account/Nick) behalten
-                MutableText out = Text.empty().setStyle(node.getStyle());
-                MutableText title = titleComponent(si.profile());
-                if (title != null) {
-                    out.append(title);
-                }
-                out.append(MutableText.of(node.getContent()).setStyle(node.getStyle()));
-                copy = out;
-            } else {
-                copy = displayName(si.profile(), node.getStyle(), renderOurTitle);
-            }
-        } else if (blankServerTitle && !own.trim().isEmpty()
-                && start >= si.titleZoneStart() && start + own.length() <= si.accountStart()) {
-            // Server-Titel-Zone leeren (auch im OOC-/titleOnly-Modus -> kein Doppeltitel)
-            copy = Text.empty().setStyle(node.getStyle());
+
+        if (isVisualComponent(node)) {
+
+            copy = MutableText.of(content).setStyle(style);
+        } else if (node == si.node()) {
+            copy = rebuildSpeakerNode(own, start, style, si, titleOnly,
+                    renderOurTitle, known);
+        } else if (content instanceof PlainTextContent && blankServerTitle
+                && !own.trim().isEmpty()
+                && start >= si.titleZoneStart() && end <= si.replaceStart()) {
+
+            copy = Text.literal(" ").setStyle(style);
         } else {
-            copy = MutableText.of(node.getContent()).setStyle(node.getStyle());
+            copy = MutableText.of(content).setStyle(style);
         }
-        flatPos[0] += own.length();
+
+        flatPos[0] = end;
         for (Text sibling : node.getSiblings()) {
             copy.append(rebuild(sibling, si, flatPos, titleOnly));
         }
         return copy;
     }
 
-    /**
-     * Kollabiert aufeinanderfolgende Leerzeichen (auch über Knotengrenzen) auf
-     * eins — entfernt die Lücke, die beim Leeren der Server-Titel-Zone entsteht.
-     * Style/Hover bleiben erhalten ({@link #rebuild} hat bereits literalisiert).
-     */
-    private Text collapseSpaces(Text node, boolean[] lastSpace) {
-        String own = ownText(node);
-        StringBuilder sb = new StringBuilder(own.length());
-        for (int i = 0; i < own.length(); i++) {
-            char c = own.charAt(i);
-            if (c == ' ') {
-                if (lastSpace[0]) {
-                    continue;
-                }
-                lastSpace[0] = true;
-            } else {
-                lastSpace[0] = false;
+    private MutableText rebuildSpeakerNode(String own, int nodeStart, Style style,
+                                           SpeakerInfo si, boolean titleOnly,
+                                           boolean renderOurTitle, boolean known) {
+        int localStart = Math.max(0, Math.min(own.length(), si.replaceStart() - nodeStart));
+        int localEnd = Math.max(localStart,
+                Math.min(own.length(), si.replaceEnd() - nodeStart));
+        boolean stripServerTitleInSameNode = (!known || ownTitleApplies(si.profile()))
+                && localStart > 0
+                && !own.substring(0, localStart).isBlank();
+        if (stripServerTitleInSameNode) {
+            int leadingWhitespace = 0;
+            while (leadingWhitespace < localStart
+                    && Character.isWhitespace(own.charAt(leadingWhitespace))) {
+                leadingWhitespace++;
             }
-            sb.append(c);
+            localStart = leadingWhitespace;
         }
-        MutableText copy = Text.literal(sb.toString())
-                .setStyle(node.getStyle() == null ? Style.EMPTY : node.getStyle());
+
+        MutableText out = Text.empty().setStyle(style);
+        if (localStart > 0) {
+            out.append(Text.literal(own.substring(0, localStart)));
+        } else if (nodeStart > si.titleZoneStart()) {
+
+            out.append(Text.literal(" "));
+        }
+
+        if (titleOnly) {
+            MutableText title = titleComponent(si.profile());
+            if (title != null) {
+                out.append(title);
+            }
+            String visible = si.visibleIdentity() == null || si.visibleIdentity().isBlank()
+                    ? own.substring(localStart, localEnd) : si.visibleIdentity();
+            out.append(Text.literal(visible));
+        } else if (!known) {
+
+            out.append(Text.literal(de.ottoextra.rpnames.RpNamesServices
+                    .unknownChatDisplay(si.profile().accountName)));
+        } else {
+            out.append(displayName(si.profile(), Style.EMPTY, renderOurTitle));
+        }
+
+        if (localEnd < own.length()) {
+            out.append(Text.literal(own.substring(localEnd)));
+        }
+        return out;
+    }
+
+    private Text collapseSpaces(Text node, boolean[] lastSpace) {
+        TextContent content = node.getContent();
+        Style style = safeStyle(node.getStyle());
+        MutableText copy;
+
+        if (isVisualComponent(node)) {
+            copy = MutableText.of(content).setStyle(style);
+            lastSpace[0] = false;
+        } else if (content instanceof PlainTextContent plain) {
+            String own = plain.string();
+            StringBuilder sb = new StringBuilder(own.length());
+            for (int i = 0; i < own.length(); i++) {
+                char c = own.charAt(i);
+                if (c == ' ') {
+                    if (lastSpace[0]) {
+                        continue;
+                    }
+                    lastSpace[0] = true;
+                } else {
+                    lastSpace[0] = false;
+                }
+                sb.append(c);
+            }
+            copy = Text.literal(sb.toString()).setStyle(style);
+        } else {
+            copy = MutableText.of(content).setStyle(style);
+            String own = ownText(node);
+            if (!own.isEmpty()) {
+                lastSpace[0] = Character.isWhitespace(own.charAt(own.length() - 1));
+            }
+        }
+
         for (Text sibling : node.getSiblings()) {
             copy.append(collapseSpaces(sibling, lastSpace));
         }
         return copy;
     }
 
-    /**
-     * Titel + RP-Name als gefärbte Komponente; Basis-Style (inkl. Hover) bleibt.
-     * Farbkette: Spieler-Override → Titelkatalog (Override/Kategorie)
-     * → Titelgruppe (Legacy) → Standard-Namensfarbe.
-     */
+    private static boolean isVisualComponent(Text node) {
+        if (node == null) {
+            return false;
+        }
+        if (node.getContent() instanceof ObjectTextContent) {
+            return true;
+        }
+        Style style = safeStyle(node.getStyle());
+        StyleSpriteSource font = style.getFont();
+        return font instanceof StyleSpriteSource.Player
+                || font instanceof StyleSpriteSource.Sprite;
+    }
+
     private MutableText displayName(LocalRpProfile profile, Style baseStyle) {
         return displayName(profile, baseStyle, true);
     }
 
-    /**
-     * Gilt der gespeicherte Titel als <b>unser</b> (Katalog-)Titel? Nur dann
-     * blanken/ersetzen wir den Server-Titel. Server-Ränge (z. B. „Gamemaster"),
-     * die nicht im Titelkatalog oder einer Titelgruppe stehen, bleiben mit ihrer
-     * Server-Farbe unangetastet.
-     */
     private boolean ownTitleApplies(LocalRpProfile profile) {
-        if (profile == null || !profile.hasTitle()) {
-            return false;
-        }
-        var catalog = de.ottoextra.rpnames.RpNamesServices.catalog();
-        if (catalog != null && catalog.find(profile.title).isPresent()) {
-            return true;
-        }
-        return titles.find(profile.title).isPresent();
+        return profile != null
+                && de.ottoextra.rpnames.RpNamesServices.isKnownForDisplay(profile)
+                && profile.hasTitle();
     }
 
-    /** Gefärbter Titel-Prefix ("Titel ") nach Farbkette, oder null wenn kein (eigener) Titel. */
     private MutableText titleComponent(LocalRpProfile profile) {
         if (!ownTitleApplies(profile)) {
             return null;
@@ -240,17 +409,17 @@ public final class ChatNameRewriter {
                 ? catalog.titleColor(profile.title).orElse(null) : null;
         String fallback = catalog != null ? catalog.fallbackTitleColor() : "#a17f5f";
         String pers = profile.colors.chatTitleColor;
-        // „Farbe überschreibt": Katalogfarbe schlägt den Personen-Override.
         String titleColor = de.ottoextra.rpnames.RpNamesServices.titleOverridesColor(profile.title)
-                ? firstNonBlank(catalogColor, firstNonBlank(pers, firstNonBlank(groupTitleColor, fallback)))
-                : firstNonBlank(pers, firstNonBlank(catalogColor, firstNonBlank(groupTitleColor, fallback)));
-        // Angezeigten Titel auf den Katalog-Kanon abbilden (umbenannte Titel
-        // greifen so auch im Chat).
-        return colored(de.ottoextra.rpnames.RpNamesServices.canonicalTitle(profile.title) + " ",
-                titleColor);
+                ? firstNonBlank(catalogColor,
+                firstNonBlank(pers, firstNonBlank(groupTitleColor, fallback)))
+                : firstNonBlank(pers,
+                firstNonBlank(catalogColor, firstNonBlank(groupTitleColor, fallback)));
+        return colored(de.ottoextra.rpnames.RpNamesServices
+                .canonicalTitle(profile.title) + " ", titleColor);
     }
 
-    private MutableText displayName(LocalRpProfile profile, Style baseStyle, boolean includeTitle) {
+    private MutableText displayName(LocalRpProfile profile, Style baseStyle,
+                                    boolean includeTitle) {
         MutableText out = Text.empty().setStyle(baseStyle == null ? Style.EMPTY : baseStyle);
         if (includeTitle) {
             MutableText title = titleComponent(profile);
@@ -258,26 +427,15 @@ public final class ChatNameRewriter {
                 out.append(title);
             }
         }
-        // Namen-Farbkette: Personen-Override -> Titel-Namensfarbe -> global -> Katalog.
-        // Unbekannt -> Accountname (Spieler-Farbkette) oder Platzhalter (grau).
-        String name;
-        String nameColor;
-        if (profile.hasRpName()) {
-            name = profile.rpName;
-            nameColor = de.ottoextra.rpnames.RpNamesServices.rpNameColor(
-                    profile.colors.chatNameColor, profile.title);
-        } else {
-            name = de.ottoextra.rpnames.RpNamesServices.unknownDisplay(profile.accountName);
-            nameColor = de.ottoextra.rpnames.RpNamesServices.unknownShowsAccount()
-                    ? de.ottoextra.rpnames.RpNamesServices.playerNameColor(null, profile.title)
-                    : "#8A8A8A";
-        }
+        String name = profile.rpName;
+        String nameColor = de.ottoextra.rpnames.RpNamesServices.rpNameColor(
+                profile.colors.chatNameColor, profile.title);
         out.append(colored(name, nameColor));
         return out;
     }
 
     private static MutableText colored(String text, String hex) {
-        MutableText t = Text.literal(text);
+        MutableText t = Text.literal(text == null ? "" : text);
         TextColor color = parseColor(hex);
         if (color != null) {
             t.setStyle(Style.EMPTY.withColor(color));
@@ -290,7 +448,8 @@ public final class ChatNameRewriter {
             return null;
         }
         try {
-            return TextColor.fromRgb(Integer.parseInt(hex.replace("#", "").trim(), 16) & 0xFFFFFF);
+            return TextColor.fromRgb(Integer.parseInt(
+                    hex.replace("#", "").trim(), 16) & 0xFFFFFF);
         } catch (NumberFormatException e) {
             return null;
         }
@@ -298,6 +457,101 @@ public final class ChatNameRewriter {
 
     private static String firstNonBlank(String a, String b) {
         return a != null && !a.isBlank() ? a : b;
+    }
+
+    private ProfileMatch findProfileInSpeakerText(String speaker,
+                                                  OttoExtraConfig.RpNames cfg,
+                                                  boolean titleOnly) {
+        if (speaker == null || speaker.isBlank()) {
+            return null;
+        }
+        ProfileMatch best = null;
+        for (LocalRpProfile p : store.all()) {
+            if (!profileAllowed(p, cfg, titleOnly)) {
+                continue;
+            }
+            ProfileMatch candidate = matchIdentity(speaker, p);
+            if (candidate != null && (best == null || candidate.score() > best.score())) {
+                best = candidate;
+            }
+        }
+        return best;
+    }
+
+    private static ProfileMatch matchIdentity(String speaker, LocalRpProfile profile) {
+        ProfileMatch best = null;
+        String account = profile.accountName == null ? "" : profile.accountName.trim();
+        if (!account.isEmpty()) {
+            ProfileMatch m = identityMatch(speaker, account, profile, true);
+            if (m != null) {
+                best = m;
+            }
+        }
+        if (profile.hasRpName()) {
+            String rp = profile.rpName.trim();
+            ProfileMatch m = identityMatch(speaker, rp, profile, false);
+            if (m != null && (best == null || m.score() > best.score())) {
+                best = m;
+            }
+        }
+        return best;
+    }
+
+    private static ProfileMatch identityMatch(String speaker, String identity,
+                                               LocalRpProfile profile, boolean account) {
+        int at = tokenIndex(speaker.toLowerCase(Locale.ROOT),
+                identity.toLowerCase(Locale.ROOT));
+        if (at < 0) {
+            return null;
+        }
+        String low = speaker.toLowerCase(Locale.ROOT);
+        String id = identity.toLowerCase(Locale.ROOT);
+        int score;
+        if (low.equals(id)) {
+            score = account ? 4_000 : 3_900;
+        } else if (at + id.length() == low.length()) {
+            score = account ? 3_000 : 2_900;
+        } else {
+            score = account ? 2_000 : 1_900;
+        }
+        return new ProfileMatch(profile, identity, at, at + identity.length(),
+                score + identity.length());
+    }
+
+    private static int tokenIndex(String text, String token) {
+        int from = 0;
+        while (from <= text.length() - token.length()) {
+            int at = text.indexOf(token, from);
+            if (at < 0) {
+                return -1;
+            }
+            int before = at - 1;
+            int after = at + token.length();
+            boolean left = before < 0 || !isIdentityChar(text.charAt(before));
+            boolean right = after >= text.length() || !isIdentityChar(text.charAt(after));
+            if (left && right) {
+                return at;
+            }
+            from = at + 1;
+        }
+        return -1;
+    }
+
+    private static boolean isIdentityChar(char c) {
+        return Character.isLetterOrDigit(c) || c == '_';
+    }
+
+    private static String identityInside(String text, LocalRpProfile profile) {
+        ProfileMatch match = matchIdentity(text, profile);
+        return match == null ? null : match.visibleIdentity();
+    }
+
+    private static int identityOffset(String text, String identity) {
+        if (text == null || identity == null || identity.isBlank()) {
+            return -1;
+        }
+        return tokenIndex(text.toLowerCase(Locale.ROOT),
+                identity.toLowerCase(Locale.ROOT));
     }
 
     private static String ownText(Text node) {
@@ -309,30 +563,7 @@ public final class ChatNameRewriter {
         return sb.toString();
     }
 
-    // ---- Plain-Fallback ([Kanal] Name: Nachricht) -------------------------------
-
-    private Optional<Text> plainFallback(Text message, OttoExtraConfig.RpNames cfg) {
-        String plain = message.getString();
-        if (plain.isEmpty() || plain.charAt(0) != '[') {
-            return Optional.empty();
-        }
-        int bracketEnd = plain.indexOf(']');
-        if (bracketEnd < 0) {
-            return Optional.empty();
-        }
-        int colon = plain.indexOf(':', bracketEnd);
-        if (colon < 0) {
-            return Optional.empty();
-        }
-        String speaker = plain.substring(bracketEnd + 1, colon).trim();
-        LocalRpProfile profile = store.findByName(speaker).orElse(null);
-        if (profile == null || !profile.showInChat
-                || (!profile.hasRpName() && !cfg.showUnknownAsUnknown)) {
-            return Optional.empty();
-        }
-        MutableText out = Text.literal(plain.substring(0, bracketEnd + 1) + " ");
-        out.append(displayName(profile, Style.EMPTY));
-        out.append(Text.literal(plain.substring(colon)));
-        return Optional.of(out);
+    private static Style safeStyle(Style style) {
+        return style == null ? Style.EMPTY : style;
     }
 }

@@ -13,23 +13,12 @@ import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import org.lwjgl.glfw.GLFW;
 
-/**
- * Modul: Chat-Kanal-Button.
- *
- * <p>Fester Kanal-Prefix-Button links unten im Chat-Screen: Linksklick
- * zykliert RP-Kanäle (bzw. zurück aus OOC), Shift-Klick zykliert OOC.
- * Kanalwechsel sendet den Serverbefehl; der Prefix ist reines UI. State
- * synchronisiert sich mit manuell getippten Befehlen (ChatCommandSyncMixin);
- * das Eingabefeld rückt über ChatScreenMixin ein. Nur auf Ottonien aktiv.</p>
- */
 public final class ChatModule implements OttoExtraModule {
 
-    /** Ticks bis zum Auto-/s nach Join (Spieler + Server bereit). */
     private static final int AUTO_SPRECHEN_DELAY_TICKS = 60;
 
     private int joinCountdown = -1;
 
-    /** Hotkeys je Kanal (Standard unbelegt — manuell in Steuerung binden). */
     private KeyBinding keySprechen;
     private KeyBinding keyFluestern;
     private KeyBinding keyRufen;
@@ -67,7 +56,7 @@ public final class ChatModule implements OttoExtraModule {
             if (!(screen instanceof ChatScreen)) {
                 return;
             }
-            // Klick VOR dem Chatfeld abfangen (allow=false blockt Weitergabe)
+
             ScreenMouseEvents.allowMouseClick(screen).register((s, click) -> {
                 if (click.button() != GLFW.GLFW_MOUSE_BUTTON_LEFT || !ChatChannelState.buttonActive()) {
                     return true;
@@ -105,7 +94,6 @@ public final class ChatModule implements OttoExtraModule {
         OttoExtra.LOGGER.info("[chat] initialisiert (Kanal-Button: Sprechen/Flüstern/Rufen + OOC).");
     }
 
-    /** Kanal-Hotkeys abfragen; nur auf Ottonien (Button aktiv) wirksam. */
     private void handleChannelHotkeys() {
         boolean active = ChatChannelState.buttonActive();
         pollChannelKey(keySprechen, ChatChannelState.ChatChannel.SPRECHEN, active);
@@ -129,7 +117,7 @@ public final class ChatModule implements OttoExtraModule {
 
     @Override
     public void onServerJoin(de.ottoextra.OttoExtraContext context) {
-        // Standardkanal Sprechen: kurz nach Join /s senden (einstellbar)
+
         joinCountdown = AUTO_SPRECHEN_DELAY_TICKS;
     }
 

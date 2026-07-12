@@ -2,12 +2,6 @@ package de.ottoextra.api.model;
 
 import java.util.List;
 
-/**
- * Fraktion/Lehen aus der Regions-API.
- *
- * <p>Feldnamen entsprechen exakt dem JSON (snake_case), damit Gson direkt mappt.
- * Parser sind tolerant gegenüber zusätzlichen, hier nicht gelisteten Feldern.</p>
- */
 public record FactionRecord(
         String uuid,
         String faction_ref,
@@ -32,7 +26,7 @@ public record FactionRecord(
         String description,
         RegionCapabilities region_capabilities
 ) {
-    /** Bevorzugter Banner-Pfad: explizites Override vor Standardpfad. */
+
     public String effectiveBannerPath() {
         if (media_override_path != null && !media_override_path.isBlank()) {
             return media_override_path;
@@ -40,7 +34,6 @@ public record FactionRecord(
         return banner_path;
     }
 
-    /** Gelandet = echtes Lehen mit Region (Region gesetzt und nicht "Ungelandet"). */
     public boolean isLanded() {
         boolean hasRegion = (region_name != null && !region_name.isBlank()
                 && !"-".equals(region_name.trim()))
@@ -48,13 +41,6 @@ public record FactionRecord(
         return hasRegion && !"Ungelandet".equalsIgnoreCase(rank_name);
     }
 
-    /**
-     * Bei Namens-Duplikaten den aussagekräftigeren Datensatz wählen — die API
-     * kann denselben Namen mehrfach führen (z. B. ein stale „Ungelandet"-Eintrag
-     * neben dem echten Lehen), was sonst Lehnsherr-Ketten an der falschen Stelle
-     * abreißen lässt. Vorrang: gelandet vor ungelandet, dann mit Lehnsherr vor
-     * ohne, sonst der erste.
-     */
     public static FactionRecord better(FactionRecord a, FactionRecord b) {
         if (a == null) {
             return b;

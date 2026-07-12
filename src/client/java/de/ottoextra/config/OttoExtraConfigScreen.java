@@ -14,17 +14,8 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-/**
- * OttoExtra-Einstellungen (ModMenu): Master-Detail im Pergament-Look.
- *
- * <p>Links die Modulliste (Resourcepack, Regionen, Namensschilder, ...), rechts
- * die Einstellungen des gewählten Moduls. Tiefgehende Werte liegen je Modul
- * unter "Erweitert" ({@link OttoExtraAdvancedScreen}). Farben folgen dem
- * Ottonien-Badge-Styling (ottoregions.json, Light-Theme).</p>
- */
 public final class OttoExtraConfigScreen extends Screen {
 
-    // Pergament-Palette (Badge-Styling)
     static final int COL_BG = 0xFFC8AC8E;
     static final int COL_PANEL = 0xFFBFA083;
     static final int COL_SIDEBAR = 0xFFB6967A;
@@ -36,7 +27,6 @@ public final class OttoExtraConfigScreen extends Screen {
     static final int COL_MUTED = 0xFF6A4D33;
     static final int COL_SELECTED = 0xFF7A5A3A;
 
-    /** Module der linken Liste. */
     private enum Module {
         RESOURCEPACK("ottoextra.module.resourcepack"),
         REGIONS("ottoextra.module.regions"),
@@ -58,7 +48,7 @@ public final class OttoExtraConfigScreen extends Screen {
     private Module selected = Module.RESOURCEPACK;
     private final List<ButtonWidget> moduleButtons = new ArrayList<>();
     private final List<ButtonWidget> detailWidgets = new ArrayList<>();
-    // Detail-Scrolling: Basis-Positionen + aktueller Offset
+
     private final List<Integer> detailBaseY = new ArrayList<>();
     private int detailScroll = 0;
 
@@ -67,8 +57,6 @@ public final class OttoExtraConfigScreen extends Screen {
         this.parent = parent;
         this.config = config;
     }
-
-    // ---- Layout ------------------------------------------------------------
 
     private int panelX() {
         return Math.max(8, (width - panelW()) / 2);
@@ -101,8 +89,6 @@ public final class OttoExtraConfigScreen extends Screen {
     private int detailW() {
         return panelX() + panelW() - 8 - detailX();
     }
-
-    // ---- Init ----------------------------------------------------------------
 
     @Override
     protected void init() {
@@ -138,8 +124,6 @@ public final class OttoExtraConfigScreen extends Screen {
         updateSidebarState();
     }
 
-    // ---- Detail-Scrolling ------------------------------------------------------
-
     private int detailViewBottom() {
         return panelY() + panelH() - 8;
     }
@@ -152,7 +136,6 @@ public final class OttoExtraConfigScreen extends Screen {
         return Math.max(0, contentBottom - detailViewBottom());
     }
 
-    /** Nach buildDetail(): Basis-Positionen merken + Offset anwenden. */
     private void captureAndApplyScroll() {
         detailBaseY.clear();
         for (ButtonWidget w : detailWidgets) {
@@ -189,8 +172,6 @@ public final class OttoExtraConfigScreen extends Screen {
             moduleButtons.get(i).active = values[i] != selected;
         }
     }
-
-    // ---- Detail-Panels -------------------------------------------------------
 
     private void buildDetail() {
         int x = detailX();
@@ -354,7 +335,6 @@ public final class OttoExtraConfigScreen extends Screen {
         return y + 21;
     }
 
-    /** Button, der durch Werte rotiert (Theme, Position, Modus). */
     private int cycle(int x, int y, int w, String key, Supplier<String> current, Supplier<String> next) {
         ButtonWidget btn = ButtonWidget.builder(cycleLabel(key, current.get()), b -> {
             String value = next.get();
@@ -366,7 +346,6 @@ public final class OttoExtraConfigScreen extends Screen {
         return y + 21;
     }
 
-    /** Toast-Vorschau: Beispieldaten anzeigen + Original-Sound (rendert live im Menü). */
     public static void triggerPreview() {
         RegionNotificationOverlay.show("Sankt Aegidius", "Abtei in Grafschaft Holdstewik");
         RegionMessageService.playEnterSound();
@@ -397,8 +376,6 @@ public final class OttoExtraConfigScreen extends Screen {
         return Text.translatable(key).copy().append(": " + value);
     }
 
-    // ---- Render ----------------------------------------------------------------
-
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
         int px = panelX();
@@ -406,25 +383,22 @@ public final class OttoExtraConfigScreen extends Screen {
         int pw = panelW();
         int ph = panelH();
 
-        // Pergament-Panel mit Doppelrahmen (Badge-Stil)
         ctx.fill(px - 2, py - 2, px + pw + 2, py + ph + 2, COL_BORDER);
         ctx.fill(px, py, px + pw, py + ph, COL_PANEL);
         ctx.fill(px, py, px + pw, py + 1, COL_INNER_TL);
         ctx.fill(px, py, px + 1, py + ph, COL_INNER_TL);
         ctx.fill(px, py + ph - 1, px + pw, py + ph, COL_INNER_BR);
         ctx.fill(px + pw - 1, py, px + pw, py + ph, COL_INNER_BR);
-        // Sidebar
+
         ctx.fill(px + 1, py + 1, px + sidebarW(), py + ph - 1, COL_SIDEBAR);
         ctx.fill(px + sidebarW(), py + 1, px + sidebarW() + 1, py + ph - 1, COL_BORDER);
 
-        // Titelzeile
         ctx.drawText(textRenderer, title, px + 8, py + 9, COL_TITLE, false);
         ctx.drawText(textRenderer, Text.translatable(selected.key),
                 detailX(), py + 9, COL_TITLE, false);
 
         super.render(ctx, mouseX, mouseY, delta);
 
-        // Scrollbar rechts im Detailbereich, wenn Inhalt nicht passt
         int maxScroll = detailMaxScroll();
         if (maxScroll > 0) {
             int trackX = panelX() + panelW() - 6;
@@ -440,7 +414,6 @@ public final class OttoExtraConfigScreen extends Screen {
                 Text.translatable("ottoextra.config.restart_hint"),
                 width / 2, py + ph + 6, 0xFF9A8C6A);
 
-        // Toast-Vorschau auch im Menü sichtbar
         RegionNotificationOverlay.render(ctx, null);
     }
 

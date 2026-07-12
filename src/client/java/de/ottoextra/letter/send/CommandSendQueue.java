@@ -9,17 +9,10 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.IntConsumer;
 
-/**
- * Gemeinsame Versand-Maschine: sendet Commands mit Delay
- * nacheinander, meldet nach JEDEM Command den Fortschritt (Recovery-Store)
- * und am Ende Completion. Bricht ab, wenn der Spieler die Verbindung verliert
- * — der persistierte Fortschritt erlaubt Fortsetzen nach Join.
- */
 public final class CommandSendQueue {
 
     public static final long COMMAND_DELAY_MS = 1500L;
 
-    /** Optionale per-Command-Verzögerungen (Index i = Pause VOR Command i). */
     private long[] delays;
 
     public CommandSendQueue withDelays(long[] perCommandDelays) {
@@ -65,7 +58,7 @@ public final class CommandSendQueue {
                     return;
                 }
                 if (client.player == null || client.getNetworkHandler() == null) {
-                    // Verbindung weg -> stehen lassen; Recovery übernimmt nach Join
+
                     OttoExtra.LOGGER.warn("[letter] Versand unterbrochen bei {}/{}",
                             sent, commands.size());
                     return;

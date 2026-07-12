@@ -7,19 +7,8 @@ import net.minecraft.text.Text;
 import java.util.List;
 import java.util.function.Consumer;
 
-/**
- * Optionale Formatierungs-Sidebar rechts neben dem Brief-Editor: schmaler
- * Pergament-Streifen mit zwei vertikalen Spalten — oben die 16 Farben
- * (8 Reihen × 2), darunter die Stilbuttons. Kennt das Textmodell nicht selbst,
- * sondern meldet Einfügungen über ein Callback zurück, damit
- * {@code LetterEditorScreen} Cursor/Selektion/Reflow behält.
- *
- * <p>Im Editor wird {@code §} eingefügt (live formatiert); die Umwandlung zu
- * {@code &} passiert erst beim Senden ({@link LetterFormattingCodes}).
- */
 public final class LetterFormattingSidebar {
 
-    // Pergament-/Tinten-Palette passend zum Editor.
     private static final int PAPER = 0xFFC8AC8E;
     private static final int PAPER_DARK = 0xFFB18F69;
     private static final int PAPER_LINE = 0x55643C38;
@@ -36,10 +25,12 @@ public final class LetterFormattingSidebar {
             "Gold", "Grau", "Dunkelgrau", "Blau", "Grün", "Aqua", "Rot", "Hellviolett",
             "Gelb", "Weiß"};
 
-    private static final char[] STYLE_CODES = {'l', 'o', 'n', 'm', 'r'};
-    private static final String[] STYLE_LABELS = {"B", "I", "U", "S", "R"};
+    private static final char CLEAR_FORMATTING = '\0';
+    private static final char[] STYLE_CODES = {'l', 'o', 'n', 'm', 'r', CLEAR_FORMATTING};
+    private static final String[] STYLE_LABELS = {"B", "I", "U", "S", "R", "Tx"};
     private static final String[] STYLE_NAMES = {
-            "Fett", "Kursiv", "Unterstrichen", "Durchgestrichen", "Reset (Format aus)"};
+            "Fett", "Kursiv", "Unterstrichen", "Durchgestrichen", "Reset (Format aus)",
+            "Formatierung aus Auswahl entfernen"};
 
     private static final int COLS = 2;
     private static final int CELL = 11;
@@ -47,27 +38,27 @@ public final class LetterFormattingSidebar {
     private static final int STEP = CELL + GAP;
     private static final int PAD = 4;
     private static final int DIVIDER_GAP = 5;
-    /** Schmale Karte: zwei Spalten + knapper Rand. */
+
     public static final int WIDTH = COLS * CELL + (COLS - 1) * GAP + 2 * PAD;
 
     private final Consumer<String> insertCode;
+    private final Runnable clearFormatting;
 
     private int x;
     private int y;
     private int h;
 
-    // Hitboxen (absolut), bei jedem layout() neu berechnet.
     private final int[] colorX = new int[16];
     private final int[] colorY = new int[16];
     private final int[] styleX = new int[STYLE_CODES.length];
     private final int[] styleY = new int[STYLE_CODES.length];
     private int dividerY;
 
-    public LetterFormattingSidebar(Consumer<String> insertCode) {
+    public LetterFormattingSidebar(Consumer<String> insertCode, Runnable clearFormatting) {
         this.insertCode = insertCode;
+        this.clearFormatting = clearFormatting;
     }
 
-    /** Bounds setzen (oben-links); Höhe ergibt sich aus dem Inhalt. */
     public void setBounds(int x, int y) {
         this.x = x;
         this.y = y;
@@ -75,8 +66,8 @@ public final class LetterFormattingSidebar {
     }
 
     private void layout() {
-        int colorRows = 16 / COLS;                              // 8
-        int styleRows = (STYLE_CODES.length + COLS - 1) / COLS; // 3
+        int colorRows = 16 / COLS;
+        int styleRows = (STYLE_CODES.length + COLS - 1) / COLS;
         int colorsH = colorRows * STEP - GAP;
         int stylesH = styleRows * STEP - GAP;
         int top = y + PAD;
@@ -96,12 +87,11 @@ public final class LetterFormattingSidebar {
     }
 
     public void render(DrawContext ctx, TextRenderer tr, int mouseX, int mouseY) {
-        // Karte: Außenrahmen + Pergament-Fläche + dezenter Glanz oben.
+
         ctx.fill(x - 1, y - 1, x + WIDTH + 1, y + h + 1, FRAME);
         ctx.fill(x, y, x + WIDTH, y + h, PAPER);
         ctx.fill(x + 2, y + 2, x + WIDTH - 2, y + 3, PAPER_DARK);
 
-        // Farben (8 Reihen × 2 Spalten)
         for (int i = 0; i < 16; i++) {
             int cx = colorX[i];
             int cyy = colorY[i];
@@ -113,18 +103,18 @@ public final class LetterFormattingSidebar {
             }
         }
 
-        // Trenner
         ctx.fill(x + PAD, dividerY, x + WIDTH - PAD, dividerY + 1, PAPER_LINE);
 
-        // Stil (gleiche zwei Spalten)
         for (int i = 0; i < STYLE_CODES.length; i++) {
             int bx = styleX[i];
             int by = styleY[i];
             boolean hovered = hit(mouseX, mouseY, bx, by, CELL, CELL);
             ctx.fill(bx - 1, by - 1, bx + CELL + 1, by + CELL + 1, FRAME);
             ctx.fill(bx, by, bx + CELL, by + CELL, hovered ? PAPER_DARK : 0xFFBE9D78);
-            // Label trägt seinen eigenen Stilcode (B fett, I kursiv …).
-            String label = "§" + STYLE_CODES[i] + STYLE_LABELS[i] + "§r";
+
+            String label = STYLE_CODES[i] == CLEAR_FORMATTING
+                    ? STYLE_LABELS[i]
+                    : "§" + STYLE_CODES[i] + STYLE_LABELS[i] + "§r";
             int lw = tr.getWidth(label);
             ctx.drawText(tr, label, bx + (CELL - lw + 1) / 2, by + 2, INK, false);
         }
@@ -145,16 +135,21 @@ public final class LetterFormattingSidebar {
         }
         for (int i = 0; i < STYLE_CODES.length; i++) {
             if (hit(mouseX, mouseY, styleX[i], styleY[i], CELL, CELL)) {
-                ctx.drawTooltip(tr, List.of(
-                        Text.literal(STYLE_NAMES[i]),
-                        Text.translatable("ottoextra.letter.fmt.code", "§" + STYLE_CODES[i],
-                                "&" + STYLE_CODES[i])), mouseX, mouseY);
+                if (STYLE_CODES[i] == CLEAR_FORMATTING) {
+                    ctx.drawTooltip(tr, List.of(
+                            Text.translatable("ottoextra.letter.fmt.clearSelection"),
+                            Text.translatable("ottoextra.letter.fmt.clearHint")), mouseX, mouseY);
+                } else {
+                    ctx.drawTooltip(tr, List.of(
+                            Text.literal(STYLE_NAMES[i]),
+                            Text.translatable("ottoextra.letter.fmt.code", "§" + STYLE_CODES[i],
+                                    "&" + STYLE_CODES[i])), mouseX, mouseY);
+                }
                 return;
             }
         }
     }
 
-    /** Klick verarbeiten; true = innerhalb der Sidebar konsumiert. */
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (button != 0) {
             return contains(mouseX, mouseY);
@@ -167,7 +162,11 @@ public final class LetterFormattingSidebar {
         }
         for (int i = 0; i < STYLE_CODES.length; i++) {
             if (hit(mouseX, mouseY, styleX[i], styleY[i], CELL, CELL)) {
-                insertCode.accept("§" + STYLE_CODES[i]);
+                if (STYLE_CODES[i] == CLEAR_FORMATTING) {
+                    clearFormatting.run();
+                } else {
+                    insertCode.accept("§" + STYLE_CODES[i]);
+                }
                 return true;
             }
         }

@@ -2,10 +2,6 @@ package de.ottoextra.regions;
 
 import de.ottoextra.api.OttoExtraApiClient;
 
-/**
- * Statischer Zugriffspunkt auf die Regions-Dienste für Overlay/Screens/Mixin-Pfad.
- * Lebenszyklus wird vom {@link RegionsModule} verwaltet.
- */
 public final class RegionsServices {
 
     private static volatile RegionDataService data;

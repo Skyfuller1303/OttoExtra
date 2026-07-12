@@ -10,19 +10,10 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.PlayerListEntry;
 
-/**
- * Modul: lokales RP-Bekanntschaftssystem.
- *
- * <p>First seen = lokal "Unbekannt"; RP-Name wird aus Chat-Hover gelernt;
- * lokale/manuelle Daten schlagen API. Chat-Ersetzung via ChatHudMixin,
- * Tabliste via PlayerListEntryMixin — beide laufen über
- * {@link RpNamesServices} und nur auf Ottonien (Server-Gate).</p>
- */
 public final class RpNamesModule implements OttoExtraModule {
 
-    /** Tablist-Sync: alle 100 Ticks (5 s) Online-Spieler als gesehen anlegen. */
     private static final int SEEN_SYNC_INTERVAL_TICKS = 100;
-    /** Titel-Abgleich aus der Tabliste: alle 600 Ticks (~30 s). */
+
     private static final int TITLE_SYNC_INTERVAL_TICKS = 600;
 
     private int tickCounter = 0;
@@ -43,12 +34,8 @@ public final class RpNamesModule implements OttoExtraModule {
     public void onInitializeClient(OttoExtraContext context) {
         RpNamesServices.init(context.config().rpnames);
 
-        // Debug: /ottoextra rpnames hoverdebug on|off — dumpt Chat-Hover roh
-        // ins Log (Format-Änderungen des Servers sichtbar machen). Vor dem
-        // Legacy-Gate registriert, damit es auch dann nutzbar bleibt.
         registerHoverDebugCommand();
 
-        // Alt-Mods parallel? Dann eigene Ersetzung stilllegen
         boolean legacyPresent = FabricLoader.getInstance().isModLoaded("ottochat_rpnames")
                 || FabricLoader.getInstance().isModLoaded("ottotalk")
                 || FabricLoader.getInstance().isModLoaded("ottonames");
@@ -56,10 +43,9 @@ public final class RpNamesModule implements OttoExtraModule {
             OttoExtra.LOGGER.warn(
                     "[rpnames] Legacy-Mod (ottochat_rpnames/ottotalk/ottonames) erkannt - "
                             + "OttoExtra-RP-Namen bleiben deaktiviert (Mixin-Konflikte).");
-            return; // setActive bleibt false -> alle Hooks sind No-ops
+            return;
         }
 
-        // First seen: Tabliste periodisch in den Store synchronisieren
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (peopleKey != null && peopleKey.wasPressed()) {
                 if (client.currentScreen == null && RpNamesServices.store() != null) {
@@ -81,7 +67,6 @@ public final class RpNamesModule implements OttoExtraModule {
             syncSeenPlayers(client);
         });
 
-        // Hotkey: Personen-Verwaltung (Standard unbelegt — in Steuerung setzen)
         peopleKey = new net.minecraft.client.option.KeyBinding(
                 "key.ottoextra.rpnames_people",
                 net.minecraft.client.util.InputUtil.Type.KEYSYM,
@@ -89,8 +74,6 @@ public final class RpNamesModule implements OttoExtraModule {
                 net.minecraft.client.option.KeyBinding.Category.MISC);
         net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper.registerKeyBinding(peopleKey);
 
-        // Shift-Rechtsklick auf einen Spieler öffnet das RP-Personenbuch
-        // (nur wenn aktiviert). Nur Haupthand, um Doppel-Trigger zu vermeiden.
         net.fabricmc.fabric.api.event.player.UseEntityCallback.EVENT.register(
                 (player, world, hand, entity, hitResult) -> {
                     boolean meet = RpNamesServices.proactiveMeetEnabled();
@@ -104,10 +87,10 @@ public final class RpNamesModule implements OttoExtraModule {
                     String uuid = target.getUuid() != null ? target.getUuid().toString() : null;
                     var p = RpNamesServices.store() != null
                             ? RpNamesServices.store().findByName(account).orElse(null) : null;
-                    boolean unknown = p == null || !p.hasRpName();
+                    boolean unknown = p == null || !RpNamesServices.isKnownForDisplay(p);
                     net.minecraft.client.MinecraftClient.getInstance().execute(() -> {
                         if (meet && unknown) {
-                            // Unbekannt + proaktiv: Kennenlern-GUI
+
                             net.minecraft.client.MinecraftClient.getInstance().setScreen(
                                     new de.ottoextra.rpnames.ui.MeetPersonScreen(null, account, uuid));
                         } else if (book) {
@@ -117,14 +100,12 @@ public final class RpNamesModule implements OttoExtraModule {
                     return net.minecraft.util.ActionResult.SUCCESS;
                 });
 
-        // 3D-Ausrufezeichen über unbekannten RP-Sprechern (proaktives Kennenlernen)
         MeetMarkerRenderer.register();
 
         OttoExtra.LOGGER.info("[rpnames] initialisiert (lokales Bekanntschaftssystem, {} Personen).",
                 RpNamesServices.store().size());
     }
 
-    /** {@code /ottoextra rpnames hoverdebug on|off} — Hover-Dump ins Log. */
     private void registerHoverDebugCommand() {
         net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback.EVENT
                 .register((dispatcher, access) -> dispatcher.register(
@@ -165,13 +146,12 @@ public final class RpNamesModule implements OttoExtraModule {
                 if (profile == null || profile.name() == null || profile.name().isBlank()) {
                     continue;
                 }
-                // Skin (signierte Textur-Property) jedes online gesehenen Spielers
-                // persistent cachen — auch den eigenen.
+
                 de.ottoextra.chat.SkinCache.remember(profile);
                 if (client.player != null
                         && profile.id() != null
                         && profile.id().equals(client.player.getUuid())) {
-                    continue; // sich selbst nicht anlegen
+                    continue;
                 }
                 RpNamesServices.store().ensureSeen(profile.name(),
                         profile.id() != null ? profile.id().toString() : null,
@@ -183,7 +163,6 @@ public final class RpNamesModule implements OttoExtraModule {
         }
     }
 
-    /** Titel der Online-Spieler aus der Tabliste abgleichen (außer lokal gesperrt). */
     private void syncTitlesFromTablist(MinecraftClient client) {
         try {
             for (PlayerListEntry entry : client.getNetworkHandler().getPlayerList()) {
@@ -191,23 +170,18 @@ public final class RpNamesModule implements OttoExtraModule {
                 if (profile == null || profile.name() == null || profile.name().isBlank()) {
                     continue;
                 }
-                // ORIGINAL-Displayname vom Server lesen (nicht unseren angepassten)
+
                 net.minecraft.text.Text display =
                         ((de.ottoextra.mixin.PlayerListEntryAccessor) (Object) entry)
                                 .ottoextra$rawDisplayName();
                 if (display == null) {
                     continue;
                 }
-                String flat = display.getString();
-                int idx = flat.indexOf(profile.name());
-                if (idx <= 0) {
-                    continue; // kein Titel-Prefix vor dem Account
-                }
-                String title = flat.substring(0, idx).trim();
+
+                String title = de.ottoextra.rpnames.tablist.TablistNameFormatter
+                        .extractServerTitle(display, profile.name());
                 if (!title.isEmpty()) {
-                    // ROH-Titel speichern; die Anzeige-Form (Varianten-Override)
-                    // wird live beim Rendern via canonicalTitle aufgelöst, damit
-                    // eine spätere Varianten-Änderung sofort überall greift.
+
                     RpNamesServices.store().updateTitleIfChanged(profile.name(),
                             profile.id() != null ? profile.id().toString() : null, title);
                 }
@@ -220,9 +194,7 @@ public final class RpNamesModule implements OttoExtraModule {
     @Override
     public void onServerJoin(OttoExtraContext context) {
         RpNamesServices.setActive(true);
-        // Beim Join einmal automatisch via API abgleichen: cached den API-RP-Namen
-        // (Quelle fürs Zurücksetzen) und ergänzt leere Felder — legt keine neuen
-        // Spieler an, schreibt keine Backup-Datei. Läuft asynchron, nie blockierend.
+
         var store = RpNamesServices.store();
         if (store != null && RpNamesServices.isActive()) {
             de.ottoextra.rpnames.importer.RegionsApiRpNameImporter.runAuto(store)

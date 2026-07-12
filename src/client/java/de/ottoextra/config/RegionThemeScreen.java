@@ -17,12 +17,6 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-/**
- * Toast-Theme-Verwaltung im neuen GUI-Design: Light/Dark als Vorlagen,
- * eigene Custom-Themes anlegen/benennen/löschen. Pro Custom editierbar:
- * Farben, Schriftgrößen, Sichtbarkeit der Elemente und Abstände/Layout.
- * Live-Vorschau (Dauer-Toast) liegt über dem Menü; alles wirkt sofort.
- */
 public final class RegionThemeScreen extends Screen {
 
     private static final int COL_LABEL = 0xFFFFFFFF;
@@ -30,7 +24,6 @@ public final class RegionThemeScreen extends Screen {
     private static final int COL_DESC = 0xFFA0A0A0;
     private static final int COL_SWATCH_BORDER = 0xFF000000;
 
-    /** Palette-Reihenfolge: bg, borderOut, borderTl, borderBr, title, region, hierarchy, hint. */
     private static final String[] SLOTS =
             {"bg", "borderOut", "borderTl", "borderBr", "title", "region", "hierarchy", "hint"};
     private static final String[] LIGHT_HEX =
@@ -43,12 +36,11 @@ public final class RegionThemeScreen extends Screen {
 
     private String selected;
 
-    /** Eine Editor-Zeile: optionales Widget + Label; Section-Header haben kein Widget. */
     private static final class Row {
-        ClickableWidget widget;   // null = reiner Header/Label
+        ClickableWidget widget;
         int baseY;
         Text label;
-        int colorSlot = -1;       // >=0: Swatch zeichnen
+        int colorSlot = -1;
         boolean header;
         Supplier<String> swatchHex;
     }
@@ -95,7 +87,6 @@ public final class RegionThemeScreen extends Screen {
         int listX = px + 8;
         int y = py + 30;
 
-        // Theme-Liste (links)
         for (String key : themeKeys()) {
             String label = displayName(key) + (key.equalsIgnoreCase(config.regions.theme) ? " ✓" : "");
             addDrawableChild(ButtonWidget.builder(Text.literal(label), b -> activate(key))
@@ -105,7 +96,6 @@ public final class RegionThemeScreen extends Screen {
         addDrawableChild(ButtonWidget.builder(Text.translatable("ottoextra.regions.themes.add"),
                 b -> addCustom()).dimensions(listX, y + 4, 116, 16).build());
 
-        // Editor (rechts) für das ausgewählte Custom-Theme
         int ex = px + 132;
         int ew = panelW() - 140;
         RegionTheme custom = customByName(selected);
@@ -125,14 +115,11 @@ public final class RegionThemeScreen extends Screen {
         RegionNotificationOverlay.holdPreview("Sankt Aegidius", "Abtei in Grafschaft Holdstewik");
     }
 
-    // ---- Editor-Aufbau ---------------------------------------------------------
-
     private void buildEditor(RegionTheme t, int ex, int ew) {
         int[] ry = {editorTop()};
         int fieldW = 60;
         int fieldX = ex + ew - fieldW;
 
-        // Name
         TextFieldWidget nameField = field(ex + 40, ry[0], ew - 40, t.name, 24, s -> renameCustom(t, s));
         rowWidget(nameField, ry[0], Text.translatable("ottoextra.regions.themes.name"));
         ry[0] += 20;
@@ -174,13 +161,13 @@ public final class RegionThemeScreen extends Screen {
     }
 
     private void header(int ex, int[] ry, String key) {
-        ry[0] += 8; // Abstand VOR der Zwischenüberschrift
+        ry[0] += 8;
         Row r = new Row();
         r.header = true;
         r.baseY = ry[0];
         r.label = Text.translatable(key);
         rows.add(r);
-        ry[0] += 16; // Überschrift + Trennlinie + Abstand danach
+        ry[0] += 16;
     }
 
     private void floatRow(RegionTheme t, int[] ry, int fx, int fw, String key,
@@ -191,7 +178,7 @@ public final class RegionThemeScreen extends Screen {
                 set.accept(Math.max(0.1f, Math.min(3f, v)));
                 config.save();
             } catch (NumberFormatException ignored) {
-                // ungültig -> ignorieren
+
             }
         });
         rowWidget(f, ry[0], Text.translatable(key));
@@ -206,7 +193,7 @@ public final class RegionThemeScreen extends Screen {
                 set.accept(Math.max(min, Math.min(max, v)));
                 config.save();
             } catch (NumberFormatException ignored) {
-                // ungültig -> ignorieren
+
             }
         });
         rowWidget(f, ry[0], Text.translatable(key));
@@ -255,8 +242,6 @@ public final class RegionThemeScreen extends Screen {
         return String.valueOf(v);
     }
 
-    // ---- Scroll ----------------------------------------------------------------
-
     private int contentBottomY() {
         int max = editorTop();
         for (Row r : rows) {
@@ -290,8 +275,6 @@ public final class RegionThemeScreen extends Screen {
         }
         return super.mouseScrolled(mouseX, mouseY, horizontal, vertical);
     }
-
-    // ---- Aktionen --------------------------------------------------------------
 
     private List<String> themeKeys() {
         List<String> keys = new ArrayList<>();
@@ -435,8 +418,6 @@ public final class RegionThemeScreen extends Screen {
         }
     }
 
-    // ---- Render ----------------------------------------------------------------
-
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
         super.render(ctx, mouseX, mouseY, delta);
@@ -477,7 +458,6 @@ public final class RegionThemeScreen extends Screen {
             ctx.disableScissor();
         }
 
-        // Vorschau ZULETZT -> über dem Menü
         RegionNotificationOverlay.render(ctx, null);
     }
 

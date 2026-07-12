@@ -17,17 +17,11 @@ import net.minecraft.util.math.Vec3d;
 
 import java.util.List;
 
-/**
- * Rendert das 3D-Kennenlern-Ausrufezeichen (Blockbench-Model {@link MeetMarkerModel})
- * über dem Kopf unbekannter Spieler, die gerade im RP-Chat geredet haben. Dreht
- * sich um die X-Achse und schwebt leicht auf/ab; Höhe, Größe, Drehtempo und
- * Leuchten (Fullbright) sind über die RP-Namen-Config einstellbar.
- */
 public final class MeetMarkerRenderer {
 
     private static final Identifier TEXTURE =
             de.ottoextra.OttoExtra.id("textures/entity/meet_marker.png");
-    private static final float BASE_SCALE = 1.0f; // Model ist bereits in Block-Einheiten
+    private static final float BASE_SCALE = 1.0f;
     private static final double RANGE = 48.0;
 
     private MeetMarkerRenderer() {
@@ -59,7 +53,7 @@ public final class MeetMarkerRenderer {
             Camera cam = mc.gameRenderer.getCamera();
             Vec3d camPos = cam.getCameraPos();
             VertexConsumer vc = consumers.getBuffer(RenderLayers.entityCutoutNoCull(TEXTURE));
-            // Render-Interpolation: sonst springt der Marker bei Bewegung (Tick-Lag)
+
             float delta = mc.getRenderTickCounter().getTickProgress(true);
 
             long time = System.currentTimeMillis();
@@ -87,7 +81,7 @@ public final class MeetMarkerRenderer {
                 drawModel(quads, matrices, vc, dx, dy, dz, spin, scale, light);
             }
         } catch (Throwable ignored) {
-            // Welt-Render darf nie brechen
+
         }
     }
 

@@ -4,15 +4,8 @@ import de.ottoextra.config.OttoExtraConfig;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 
-/**
- * Roter Adrenalin-Rand (Blut-Vignette) als HUD-Overlay. Prozedural gezeichnet
- * (kein Texture-Asset nötig): an jeder Bildschirmkante ein nach innen
- * ausblendender roter Verlauf; die Ecken überlagern sich zu einem Vignette-Look.
- * Leichtes Pulsieren simuliert den Adrenalinpuls.
- */
 public final class LowHealthHudOverlay {
 
-    /** Dunkelrot (ohne Alpha; Alpha kommt aus der Intensität). */
     private static final int RED = 0x7A0000;
 
     private LowHealthHudOverlay() {
@@ -42,7 +35,6 @@ public final class LowHealthHudOverlay {
             return;
         }
 
-        // Randbreite wächst leicht mit der Intensität (Tunnelblick-Gefühl).
         int edgeX = Math.round(w * (0.20f + 0.18f * intensity));
         int edgeY = Math.round(h * (0.24f + 0.20f * intensity));
 
@@ -52,8 +44,8 @@ public final class LowHealthHudOverlay {
                 continue;
             }
             int color = (a << 24) | RED;
-            ctx.fill(0, y, w, y + 1, color);            // oben
-            ctx.fill(0, h - 1 - y, w, h - y, color);    // unten
+            ctx.fill(0, y, w, y + 1, color);
+            ctx.fill(0, h - 1 - y, w, h - y, color);
         }
         for (int x = 0; x < edgeX; x++) {
             int a = alphaAt(alpha, x, edgeX);
@@ -61,14 +53,13 @@ public final class LowHealthHudOverlay {
                 continue;
             }
             int color = (a << 24) | RED;
-            ctx.fill(x, 0, x + 1, h, color);            // links
-            ctx.fill(w - 1 - x, 0, w - x, h, color);    // rechts
+            ctx.fill(x, 0, x + 1, h, color);
+            ctx.fill(w - 1 - x, 0, w - x, h, color);
         }
     }
 
-    /** Alpha-Byte für Abstand {@code i} von der Kante (0 = Kante, voll). */
     private static int alphaAt(float baseAlpha, int i, int edge) {
         float f = 1.0f - (float) i / edge;
-        return (int) (baseAlpha * f * f * 255.0f); // quadratisch -> weicherer Verlauf
+        return (int) (baseAlpha * f * f * 255.0f);
     }
 }

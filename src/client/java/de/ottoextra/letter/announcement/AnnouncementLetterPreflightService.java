@@ -6,16 +6,8 @@ import de.ottoextra.letter.placeholder.LetterPlaceholderParser;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Verkündungs-Layout-Guard: Verkündungen werden über
- * {@code /letter}-Zeilen geschrieben — der Preflight prüft pro Seite die
- * GEWRAPPTEN Zeilen gegen sichere (Warnung) und harte (Blocker) Grenzen,
- * dazu offene/ungültige Platzhalter und Leerseiten. Niemals stilles
- * Abschneiden oder heimliches Neuverteilen.
- */
 public final class AnnouncementLetterPreflightService {
 
-    /** Befund einer Seite (zeilenbasiert). */
     public record PageCheck(int pageIndex, List<String> lines, int usedLines,
                             int maxLineLength, List<String> warnings, List<String> blockers) {
         public boolean ok() {
@@ -27,7 +19,6 @@ public final class AnnouncementLetterPreflightService {
         }
     }
 
-    /** Gesamtbefund. */
     public record Result(String draftId, int pageCount, int totalLines, int totalCharacters,
                          List<PageCheck> pages, List<String> blockers, List<String> warnings) {
         public boolean canSend() {
@@ -104,11 +95,6 @@ public final class AnnouncementLetterPreflightService {
                 checks, blockers, warnings);
     }
 
-    /**
-     * "Automatisch optimieren": Layout an Wortgrenzen auf sichere
-     * Grenzen umbrechen, übervolle Seiten teilen — Inhalt bleibt identisch
-     * (kein Kürzen, keine Umformulierung).
-     */
     public List<String> optimize(List<String> pageTexts) {
         PageSplitter safe = new PageSplitter(safeChars, safeLines);
         List<String> out = new ArrayList<>();

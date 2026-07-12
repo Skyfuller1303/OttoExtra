@@ -10,28 +10,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Extrahiert (Accountname, RP-Name, Titel) aus Chat-Hover-Komponenten.
- *
- * <p>Das Server-Format ist je Kanal invertiert (Stand 2026-07):</p>
- * <ul>
- *   <li><b>RP-Kanäle</b> (Sprechen/Reden/…): sichtbarer Knotentext = RP-Name,
- *       erste Hover-Zeile = {@code Titel Spielername} — Account ist das letzte
- *       Wort der Hover-Zeile (MC-Namen haben keine Leerzeichen).</li>
- *   <li><b>OOC-Kanäle</b>: sichtbarer Knotentext = Accountname, erste
- *       Hover-Zeile = {@code Titel RP-Name} (klassische Heuristik aus
- *       TextRpNameResolver: bekannter Titel als Präfix gewinnt, sonst
- *       Farbsegment-Wechsel, sonst alles = Name).</li>
- * </ul>
- * Der gesamte Parser ist exceptionsicher.
- */
 public final class HoverIdentityParser {
 
-    /** Gefundene Identität aus einem Hover. */
     public record ParsedIdentity(String accountName, String rpName, String title, String titleGroup) {
     }
 
-    /** Gültiger Minecraft-Accountname (keine Leerzeichen, 3–16 Wortzeichen). */
     private static final java.util.regex.Pattern MC_NAME =
             java.util.regex.Pattern.compile("[A-Za-z0-9_]{3,16}");
 
@@ -41,24 +24,16 @@ public final class HoverIdentityParser {
         this.titles = titles;
     }
 
-    /**
-     * Alle Identitäten aus einer Chat-Nachricht (rekursiv über Siblings).
-     *
-     * @param hoverHasAccount true für RP-Kanäle (Hover = Titel + Accountname,
-     *                        sichtbar = RP-Name); false für OOC/klassisch
-     *                        (Hover = Titel + RP-Name, sichtbar = Account).
-     */
     public List<ParsedIdentity> parseMessage(Text message, boolean hoverHasAccount) {
         List<ParsedIdentity> out = new ArrayList<>(2);
         try {
             walk(message, out, hoverHasAccount);
         } catch (Throwable ignored) {
-            // kaputter/fremder Hover darf nie werfen (Skill-Test)
+
         }
         return out;
     }
 
-    /** Klassischer Modus (Hover = Titel + RP-Name). */
     public List<ParsedIdentity> parseMessage(Text message) {
         return parseMessage(message, false);
     }
@@ -79,10 +54,6 @@ public final class HoverIdentityParser {
         }
     }
 
-    /**
-     * RP-Kanal-Modus: erste Hover-Zeile = {@code Titel Spielername}, der
-     * sichtbare Knotentext ist der RP-Name (ggf. mit Titel-Präfix).
-     */
     Optional<ParsedIdentity> parseHoverWithAccount(String visibleName, Text hover) {
         List<Segment> segments = firstLineSegments(hover);
         if (segments.isEmpty()) {
@@ -92,7 +63,7 @@ public final class HoverIdentityParser {
         if (firstLine.isEmpty()) {
             return Optional.empty();
         }
-        // Account = letztes Wort (MC-Namen sind leerzeichenfrei), Titel = Rest
+
         int lastSpace = firstLine.lastIndexOf(' ');
         String account = lastSpace >= 0 ? firstLine.substring(lastSpace + 1).trim() : firstLine;
         String rawTitle = lastSpace >= 0 ? firstLine.substring(0, lastSpace).trim() : "";
@@ -110,7 +81,7 @@ public final class HoverIdentityParser {
                 title = rawTitle;
             }
         }
-        // Sichtbaren RP-Namen von einem evtl. Titel-Präfix befreien
+
         String rpName = visibleName;
         Optional<TitleRegistry.ResolvedTitle> visTitle = titles.findPrefix(rpName);
         if (visTitle.isPresent()) {
@@ -131,7 +102,6 @@ public final class HoverIdentityParser {
                 && text.charAt(prefix.length()) == ' ';
     }
 
-    /** Nur der eigene Inhalt des Knotens (ohne Siblings). */
     private static String plainOwnText(Text node) {
         StringBuilder sb = new StringBuilder();
         node.getContent().visit(s -> {
@@ -160,7 +130,7 @@ public final class HoverIdentityParser {
             group = known.get().groupKey();
             rpName = stripPrefixWords(firstLine, title);
         } else if (segments.size() >= 2 && differentColors(segments.get(0), segments.get(1))) {
-            // Farbsegment-Heuristik: erstes Segment = Titel, Rest = Name
+
             String candidate = segments.get(0).text.trim();
             String rest = join(segments.subList(1, segments.size())).trim();
             if (!candidate.isEmpty() && !rest.isEmpty() && candidate.split(" ").length <= 2) {
@@ -181,7 +151,7 @@ public final class HoverIdentityParser {
     }
 
     private static String stripPrefixWords(String line, String title) {
-        // Titel kann umlaut-variant geschrieben sein — wortweise überspringen
+
         int words = title.split(" ").length;
         String[] parts = line.split(" ");
         if (parts.length <= words) {
@@ -189,8 +159,6 @@ public final class HoverIdentityParser {
         }
         return String.join(" ", java.util.Arrays.copyOfRange(parts, words, parts.length));
     }
-
-    // ---- Segmentierung der ersten Hover-Zeile nach Farben ----------------------
 
     private record Segment(String text, TextColor color) {
     }

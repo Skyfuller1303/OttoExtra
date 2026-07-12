@@ -2,13 +2,6 @@ package de.ottoextra.map;
 
 import java.util.List;
 
-/**
- * Eine dedupliziertes Grenzsegment in Weltkoordinaten.
- *
- * <p>Teilen sich zwei Lehen eine Grenzkante, existiert sie hier genau einmal —
- * {@code ownerKeys} listet alle beteiligten Polygone (für die
- * Spieler-Hervorhebung).</p>
- */
 public record BorderSegment(
         double x1,
         double z1,
