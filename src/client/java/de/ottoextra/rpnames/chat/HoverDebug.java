@@ -8,17 +8,6 @@ import net.minecraft.text.Text;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Debug-Werkzeug für das Kennenlernen: dumpt jeden Chat-Hover roh ins Log
- * (latest.log), damit Format-Änderungen des Servers sichtbar werden.
- *
- * <p>Toggle: {@code /ottoextra rpnames hoverdebug on|off}. Ausgegeben werden
- * pro Hover der sichtbare Knotentext (Account-Kandidat), der Event-Typ, alle
- * Segmente des Hover-Texts mit Stil (Farbe/bold/italic, Zeilenumbrüche als
- * {@code \n}), das serialisierte JSON sowie das Ergebnis des aktuellen
- * {@link HoverIdentityParser}. Komplett exceptionsicher — Debug darf den
- * Chat nie brechen.</p>
- */
 public final class HoverDebug {
 
     private static volatile boolean enabled;
@@ -34,7 +23,6 @@ public final class HoverDebug {
         enabled = value;
     }
 
-    /** Dumpt alle Hover einer Chat-Nachricht ins Log (No-op wenn aus). */
     public static void dump(Text message) {
         if (!enabled || message == null) {
             return;
@@ -53,7 +41,6 @@ public final class HoverDebug {
         }
     }
 
-    /** Loggt, was der aktuelle Parser aus der Nachricht extrahiert hat. */
     public static void logParsed(List<HoverIdentityParser.ParsedIdentity> ids) {
         if (!enabled) {
             return;
@@ -71,8 +58,6 @@ public final class HoverDebug {
                     id.accountName(), id.rpName(), id.title(), id.titleGroup());
         }
     }
-
-    // ---- interner Baum-Dump ------------------------------------------------
 
     private static void walk(Text node, StringBuilder sb, int[] count) {
         Style style = node.getStyle();
@@ -94,7 +79,6 @@ public final class HoverDebug {
         }
     }
 
-    /** Alle Stil-Segmente des Hover-Texts, Zeilenumbrüche sichtbar gemacht. */
     private static void dumpSegments(Text hover, StringBuilder sb) {
         int[] i = {0};
         hover.visit((style, content) -> {
@@ -112,7 +96,6 @@ public final class HoverDebug {
         }
     }
 
-    /** Nur der eigene Inhalt des Knotens (ohne Siblings) — wie im Parser. */
     private static String ownText(Text node) {
         StringBuilder sb = new StringBuilder();
         node.getContent().visit(s -> {

@@ -6,13 +6,6 @@ import de.ottoextra.OttoExtraModule;
 import de.ottoextra.config.OttoExtraConfig;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 
-/**
- * Modul: automatischer Server-Resourcepack-Downloader.
- *
- * <p>Läuft beim Client-Start (kein Server-Gate), damit der Ottonien-Look bereits
- * im Hauptmenü steht. Lädt via Manifest/URL den neuesten Pack und aktiviert ihn.
- * Kein Mixin nötig — nur öffentliche Vanilla-/Fabric-APIs.</p>
- */
 public final class ResourcePackModule implements OttoExtraModule {
 
     private ResourcePackUpdater updater;
@@ -32,8 +25,6 @@ public final class ResourcePackModule implements OttoExtraModule {
         OttoExtra.LOGGER.info("[resourcepack] initialisiert — pruefe auf Update.");
         this.updater = new ResourcePackUpdater(context.config());
 
-        // Verzögerten Reload nur an sicheren Zeitpunkten ausführen (nicht im Startup),
-        // um GLFW-/Render-Crashes in modded Umgebungen zu vermeiden.
         ClientTickEvents.END_CLIENT_TICK.register(PackInstaller::tick);
 
         this.updater.runAsync();

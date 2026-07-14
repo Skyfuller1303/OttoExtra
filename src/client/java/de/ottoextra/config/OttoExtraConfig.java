@@ -11,16 +11,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
-/**
- * Zentrale, getypte Konfiguration von OttoExtra.
- *
- * <p>Spiegelt {@code config/ottoextra/ottoextra.json}.
- * Bewusst <b>ohne</b> KI-Felder (apiKey, apiProvider, model, temperature, ...) —
- * diese sind laut no-ai-text-helper-policy verboten.</p>
- *
- * <p>Lesen ist tolerant (fehlende Sektionen werden mit Defaults aufgefüllt),
- * Schreiben ist streng und atomar (Temp-Datei + Move).</p>
- */
 public final class OttoExtraConfig {
 
     private static final Gson GSON = new GsonBuilder()
@@ -38,28 +28,18 @@ public final class OttoExtraConfig {
     public ResourcePack resourcepack = new ResourcePack();
     public Tweaks tweaks = new Tweaks();
 
-    // ---- Sektionen -------------------------------------------------------
-
-    /** Optionale Spiel-Tweaks / clientseitige Effekte. */
     public static final class Tweaks {
         public LowHealth lowHealth = new LowHealth();
         public ToolProtect toolProtect = new ToolProtect();
 
-        /** Werkzeugschutz: Interaktionen mit fast kaputten Werkzeugen abbrechen. */
         public static final class ToolProtect {
-            /** Master-Schalter (Standard an — abschaltbar). */
+
             public boolean enabled = true;
-            /** Links-/Rechtsklick blockieren, wenn ≤ so viele Nutzungen übrig sind. */
+
             public int blockAtUses = 10;
-            /** Einmalige Actionbar-Warnung, wenn die Haltbarkeit unter diesen Prozentsatz fällt. */
+
             public int warnBelowPercent = 10;
-            /**
-             * Blöcke mit eigenem UI (Kiste, Werkbank, Amboss, ...) bleiben trotz
-             * fast kaputtem Werkzeug anklickbar — der Klick öffnet nur das UI und
-             * verbraucht keine Haltbarkeit. Zusätzlich greift eine Heuristik
-             * (Screen-Factory / Container-BlockEntity), die Liste deckt Blöcke ab,
-             * die die Heuristik nicht erkennt (z. B. Fletching Table).
-             */
+
             public java.util.List<String> uiBlocks = defaultUiBlocks();
 
             private static java.util.List<String> defaultUiBlocks() {
@@ -92,25 +72,24 @@ public final class OttoExtraConfig {
             }
         }
 
-        /** Low-Health-Adrenalin-Effekt (roter Rand + Herzschlag). Rein clientseitig. */
         public static final class LowHealth {
-            /** Master-Schalter (Standard aus — opt-in). */
+
             public boolean enabled = false;
             public boolean vignetteEnabled = true;
             public boolean heartbeatEnabled = true;
-            /** Edge-Blur / Tunnelblick (Mitte scharf, Ränder verschwommen). */
+
             public boolean blurEnabled = true;
-            /** Ab dieser Herzzahl beginnt der Edge-Blur (1 Herz = 2 Health). */
+
             public float blurStartHearts = 7.0f;
-            /** Stärke des Edge-Blurs (0 = aus … 3 = stark); skaliert die Pässe. */
+
             public float blurStrength = 1.0f;
-            /** Leichter FOV-Anstieg (Adrenalin-Gefühl) bei niedriger Health. */
+
             public boolean fovEnabled = true;
-            /** Maximaler FOV-Zuschlag in Grad bei voller Intensität. */
+
             public float fovMaxDegrees = 8.0f;
-            /** Health, ab der der Effekt startet (Server-Max 40 = 20 Herzen). */
+
             public float startHealth = 20.0f;
-            /** Gesamtintensität (Dezent ~0.7, Normal 1.0, Stark ~1.4). */
+
             public float intensityScale = 1.0f;
             public float vignetteMinAlpha = 0.06f;
             public float vignetteMaxAlpha = 0.62f;
@@ -138,18 +117,11 @@ public final class OttoExtraConfig {
         public int requestTimeoutMs = 20_000;
         public int syncIntervalSeconds = 1_800;
         public int playerDirectoryIntervalSeconds = 300;
-        /**
-         * v2-Auth (Mojang-Handshake + Bearer-Token) nutzen; bei nicht
-         * erreichbarem /v2 fällt der Client automatisch auf die alten
-         * public-*-Routen zurück.
-         */
-        public boolean useV2Auth = true;
-        /**
-         * Antworten ohne gültige Ed25519-Signatur verwerfen. Default false,
-         * bis der Server-Rollout abgeschlossen ist.
-         */
+
+        public boolean useV2Auth = false;
+
         public boolean requireSignatures = false;
-        /** SPKI-Pinning — greift nur, wenn Pins einkompiliert sind. */
+
         public boolean tlsPinning = true;
     }
 
@@ -158,68 +130,68 @@ public final class OttoExtraConfig {
         public boolean showBorders = true;
         public boolean showNames = true;
         public boolean showBanners = true;
-        /** Gemalte Ottonien-Karte über unerkundetem Terrain (Worldmap). */
+
         public boolean paintedMap = true;
-        /** Einfacher Render-Pfad der gemalten Karte (ohne Screen-Copy/Custom-Shader).
-         *  Aktivieren, falls die Karte schwarz bleibt (z. B. in manchen Modpacks);
-         *  verliert Tag/Nacht-/Detail-Blending, rendert aber zuverlässig. */
+
         public boolean paintedMapSimple = false;
-        /** Politisches Overlay: Lehen-Flächen nach Gefolge eingefärbt (Klick = fokussieren). */
+
         public boolean politicalFill = true;
-        /** Beim Rauszoomen (politische Karte aktiv) Xaero-Terrain ausblenden und
-         *  die gemalte Karte flächendeckend zu 100 % zeigen. Greift auf der
-         *  Zoomstufe, ab der nur noch die Wappen der obersten Lehnsherren
-         *  angezeigt werden (Crossfade wie die Gruppen-Labels). */
-        public boolean paintedFullCoverZoomOut = false;
-        /** Manueller Versatz der gemalten Karte in Blöcken (Pfeil-Buttons auf der Worldmap). */
+
+        public boolean paintedFullCoverZoomOut = true;
+
         public int paintedMapOffsetX = 0;
         public int paintedMapOffsetZ = 0;
-        /** Kalibrier-Pfeile (Karte verschieben) auf der Worldmap einblenden (Debug). */
+
         public boolean showCalibrationArrows = false;
-        /** Spieler-Aktivität (pulsierender Ring bei Versammlungen, Quelle: player_gathering). */
+
+        public boolean parchmentMode = true;
+        public int parchmentMarginPx = 5;
+
+        public boolean clickInfoPanel = true;
+
+        public double walkBlocksPerSecond = 4.3;
+        public double horseBlocksPerSecond = 8.5;
+
         public boolean showActivity = true;
-        /** NPC-Dörfer als kleine Labels auf der Worldmap. */
+
         public boolean showNpcVillages = true;
-        /** Editierbare NPC-Dorf-Liste (Name + X/Z). */
+
         public java.util.List<NpcVillage> npcVillages = defaultNpcVillages();
-        /** Overlay nur auf dem Ottonien-Server (false = auf allen Servern/Welten). */
+
         public boolean onlyOnOttonien = true;
-        /** Grenzlinien auch auf der Minimap. */
+
         public boolean minimapBorders = true;
-        /** Politische Flächen auch auf der Minimap. */
+
         public boolean minimapPolitical = false;
-        /** Gemalte Karte über unerkundetem Terrain auch auf der Minimap. */
+
         public boolean minimapPainted = true;
-        /** Wappen des aktuellen Lehens unten rechts an der Minimap. */
+
         public boolean minimapBanner = true;
         public int minimapBannerSize = 16;
-        /** Feinjustierung der Wappen-Position relativ zur Minimap-Ecke (px). */
+
         public int minimapBannerOffsetX = 18;
         public int minimapBannerOffsetY = -15;
-        /** Profil "runde Minimap": eigener Versatz (Toggle im Karten-Menü). */
+
         public boolean minimapBannerRound = true;
         public int minimapBannerOffsetXRound = 10;
         public int minimapBannerOffsetYRound = -30;
-        /** Lehnsherr in der Minimap: false = direkter Lehnsherr, true = oberster der Kette. */
+
         public boolean minimapLiegeTop = true;
-        /** Hotkey: Overlay auf der Worldmap an/aus. */
+
         public String toggleKey = "key.keyboard.k";
-        // --- Erweitert ---
-        /** Ab dieser Zoomstufe (px/Block) erscheinen Namen. */
+
         public double nameMinScale = 0.05;
-        /** Ab dieser Zoomstufe erscheinen Wappen. */
+
         public double bannerMinScale = 0.05;
-        /** Schriftgröße der Kartenlabels (globaler Faktor; 1.0 = Standard). */
+
         public float labelScale = 1.0f;
-        /** Politische Flächen blenden oberhalb dieser Zoomstufe aus (Xaero-Anzeige unten). */
+
         public double politicalMaxScale = 0.6;
-        /** Deckkraft des politischen Overlays in % (0-100), tagsüber. */
+
         public int politicalOpacity = 90;
-        /** Deckkraft des politischen Overlays nachts in % — die Karte ist dann
-         *  dunkler, daher automatisch weniger Deckkraft (0-100). */
+
         public int politicalOpacityNight = 60;
-        // Dynamische Label-/Wappen-Größen: Werte an zwei Zoom-Breakpoints
-        // (A = weit draussen, B = nah dran), dazwischen smooth interpoliert.
+
         public double labelZoomA = 0.06;
         public double labelZoomB = 0.45;
         public float factionScaleA = 0.7f;
@@ -230,22 +202,21 @@ public final class OttoExtraConfig {
         public int bannerSizeB = 28;
         public int bannerSizePx = 20;
         public int borderWidthPx = 1;
-        /** Grenzlinien-Farbe als Hex (#AARRGGBB oder #RRGGBB). */
+
         public String borderColor = "#493C30";
-        /** Grenzen als Strichgrafik (gestrichelt) statt durchgezogen. */
+
         public boolean dashedBorders = true;
         public int dashLengthPx = 6;
         public int dashGapPx = 4;
-        /** Gefolge-Farb-Overrides: Gruppen-Anzeigename -> "#RRGGBB". */
+
         public java.util.LinkedHashMap<String, String> groupColors = defaultGroupColors();
-        /** Gefolge-Namens-Overrides (Anzeige): normalisierter Originalname -> Anzeigename. */
+
         public java.util.LinkedHashMap<String, String> groupNameOverrides = new java.util.LinkedHashMap<>();
-        /** Farb-Overrides je Lehen: Lehen-Key (z. B. "lehen_7") -> "#RRGGBB". */
+
         public java.util.LinkedHashMap<String, String> lehenColors = new java.util.LinkedHashMap<>();
-        /** Farb-Overrides je Fraktion (einzelnes Gefolge): Fraktionsname -> "#RRGGBB". */
+
         public java.util.LinkedHashMap<String, String> factionColors = new java.util.LinkedHashMap<>();
 
-        /** Ingame abgestimmte Gefolge-Farben als Auslieferungs-Default. */
         private static java.util.LinkedHashMap<String, String> defaultGroupColors() {
             java.util.LinkedHashMap<String, String> m = new java.util.LinkedHashMap<>();
             m.put("Holdstewik", "#D5594F");
@@ -266,12 +237,12 @@ public final class OttoExtraConfig {
             m.put("Kreuztal", "#224A2F");
             return m;
         }
-        /** HUD-Elemente einzeln: Gefolgename + Stand (Hierarchie) als eigene Blöcke. */
+
         public boolean minimapBannerShowName = false;
         public boolean minimapBannerShowState = true;
-        /** Zusatzzeile: Gefolgename (Faction) unter dem Lehensnamen. */
+
         public boolean minimapBannerShowFaction = true;
-        /** Freie HUD-Positionen (Drag&Drop), je Element. -1 = Default-Andockung. */
+
         public int bannerHudX = 78;
         public int bannerHudY = 77;
         public boolean bannerHudFromRight = true;
@@ -288,15 +259,15 @@ public final class OttoExtraConfig {
         public int factionHudY = 110;
         public boolean factionHudFromRight = true;
         public boolean factionHudFromBottom = false;
-        /** Skalierung der Text-Elemente (Icon skaliert über minimapBannerSize). */
+
         public float nameHudScale = 0.52f;
         public float stateHudScale = 0.52f;
         public float factionHudScale = 0.97f;
-        /** Feste Boxbreite der Text-Elemente (px); Text linksbündig, Überlauf gekürzt. */
+
         public int nameHudWidth = 46;
         public int stateHudWidth = 91;
         public int factionHudWidth = 89;
-        /** Farben der Text-Elemente ("#RRGGBB"). */
+
         public String nameHudColor = "#E6C8A9";
         public String stateHudColor = "#B8A88F";
         public String factionHudColor = "#FFFFFF";
@@ -312,7 +283,6 @@ public final class OttoExtraConfig {
         }
     }
 
-    /** NPC-Dorf auf der Worldmap (Name + Weltkoordinaten). GSON-direkt. */
     public static final class NpcVillage {
         public String name = "";
         public int x;
@@ -333,16 +303,21 @@ public final class OttoExtraConfig {
         public boolean hideOriginalActionbar = true;
         public boolean playEnterSound = true;
         public boolean showBanner = true;
+
+        public boolean showFaction = true;
+        public boolean showLeader = true;
+        public boolean showCoordinates = false;
+
+        public int displayDurationMs = 5_200;
         public boolean hintTextEnabled = false;
-        /** Aktives Theme: "light", "dark" oder Name eines Custom-Themes. */
+
         public String theme = "light";
-        /** Eigene Toast-Themes (Name + 8 Farben), per GUI anlegbar/editierbar. */
+
         public java.util.List<RegionTheme> customThemes = new java.util.ArrayList<>();
-        /** TOP_CENTER (Server-Standard), TOP_RIGHT, TOP_LEFT, CENTER. */
+
         public String overlayPosition = "TOP_CENTER";
         public String menuKey = "key.keyboard.l";
 
-        // --- Erweitert: Toast-Layout (Werte aus ottoregions.json) ---
         public int maxTextWidth = 210;
         public int minToastWidth = 170;
         public int maxToastWidth = 330;
@@ -353,7 +328,7 @@ public final class OttoExtraConfig {
         public int paddingRight = 10;
         public int paddingTop = 6;
         public int paddingBottom = 6;
-        // Schrift-Skalierungen: effektiv = baseTextScale * Zeilen-Scale
+
         public float baseTextScale = 1.0f;
         public float titleScale = 0.65f;
         public float regionScale = 1.0f;
@@ -361,13 +336,9 @@ public final class OttoExtraConfig {
         public float hintScale = 0.35f;
     }
 
-    /**
-     * Benutzerdefiniertes Toast-Theme: Name + 8 Panel-Farben als "#RRGGBB".
-     * Defaults = Light-Palette. GSON-direkt, daher mutable.
-     */
     public static final class RegionTheme {
         public String name = "Custom";
-        // Farben
+
         public String bg = "#C8AC8E";
         public String borderOut = "#513E2A";
         public String borderTl = "#E6C8A9";
@@ -376,18 +347,18 @@ public final class OttoExtraConfig {
         public String region = "#503D29";
         public String hierarchy = "#7A5A3A";
         public String hint = "#6A4D33";
-        // Schrift (baseTextScale * Zeilen-Scale)
+
         public float baseTextScale = 1.0f;
         public float titleScale = 0.65f;
         public float regionScale = 1.0f;
         public float hierarchyScale = 0.68f;
         public float hintScale = 0.35f;
-        // Sichtbarkeit der Elemente
+
         public boolean showBanner = true;
-        public boolean showEnteredTitle = true; // "Du betrittst"-Zeile
-        public boolean showHierarchy = true;    // Hierarchie/Lehensname-Zeile
-        public boolean showHint = false;        // Tasten-Hinweis
-        // Abstände / Layout
+        public boolean showEnteredTitle = true;
+        public boolean showHierarchy = true;
+        public boolean showHint = false;
+
         public int maxTextWidth = 210;
         public int minToastWidth = 170;
         public int maxToastWidth = 330;
@@ -402,49 +373,46 @@ public final class OttoExtraConfig {
 
     public static final class RpNames {
         public boolean enabled = true;
-        // Chat-Anzeige je Kanal (RP-Kanäle an, OOC-artige aus)
+
         public boolean showInSprechen = true;
         public boolean showInReden = true;
         public boolean showInRufen = true;
         public boolean showInBruellen = true;
         public boolean showInFluestern = true;
         public boolean showInMurmeln = true;
-        // OOC-Kanäle (Offtopic + Hilfe): RP-Namen standardmäßig aus, per Setting opt-in
+
         public boolean showInHilfe = false;
         public boolean showInOfftopic = false;
         public boolean showInOoc = false;
         public boolean showInAllChannels = false;
-        /** Unbekannte Sprecher als "Unbekannt" zeigen statt Accountname. */
+
         public boolean showUnknownAsUnknown = true;
-        /** Unbekannte: Accountname zeigen (true) statt Platzhalter (false). */
+
         public boolean unknownShowAccount = false;
-        /** Platzhalter-Text für unbekannte RP-Namen ("Unbekannt", "???", ...). */
+
         public String unknownPlaceholder = "Unbekannt";
-        /** Globale Namensfarbe für Spieler-/Accountnamen (#RRGGBB). Leer = Katalog-Default. */
+
         public String globalPlayerNameColor = "";
-        /** Globale Namensfarbe für RP-Namen (#RRGGBB). Leer = Katalog-Default. */
+
         public String globalRpNameColor = "";
-        // Tabliste
+
         public boolean tablistEnabled = true;
         public boolean tablistShowTitle = true;
-        /** Titel auch ohne RP-Namen-Ersetzung in der Tabliste voranstellen. */
+
         public boolean tablistTitlesAlways = true;
         public boolean tablistShowAccountForUnknown = true;
-        /** Shift-Klick auf Spielernamen im Chat / Shift-Rechtsklick auf Spieler
-         *  öffnet das RP-Personenbuch beim Eintrag der Person. */
+
         public boolean openBookOnClick = false;
-        /** Proaktives Kennenlernen: unbekannte Sprecher (RP-Chat) bekommen ein "!"
-         *  über dem Kopf; Shift-Rechtsklick öffnet das Kennenlern-GUI. */
-        public boolean proactiveMeet = false;
-        /** Kennenlern-Marker (3D-Ausrufezeichen) — Debug/Feintuning. */
-        public double meetMarkerHeight = 0.55;   // Zusatzhöhe über dem Kopf (Blöcke)
-        public double meetMarkerSize = 1.0;      // Größenfaktor
-        public double meetMarkerSpinSpeed = 1.0; // X-Achsen-Drehgeschwindigkeit
-        public boolean meetMarkerGlow = true;    // Fullbright/Leuchten
-        // API ist optional — Default aus (lokales Bekanntschaftssystem)
+
+        public boolean proactiveMeet = true;
+
+        public double meetMarkerHeight = 0.55;
+        public double meetMarkerSize = 1.0;
+        public double meetMarkerSpinSpeed = 1.0;
+        public boolean meetMarkerGlow = true;
+
         public boolean syncFromPublicApi = true;
-        /** Standardmäßig aus: keine personenbezogenen Daten ungefragt hochladen. */
-        public boolean uploadLearnedNames = false;
+
     }
 
     public static final class Nametags {
@@ -454,12 +422,12 @@ public final class OttoExtraConfig {
         public boolean showRpName = true;
         public boolean showPlayerName = false;
         public String toggleKey = "key.keyboard.n";
-        /** Schriftgrößen je Zeile (1.0 = Vanilla) + Zeilenabstand in Label-Pixeln. */
+
         public float titleScale = 1.0f;
         public float nameScale = 1.0f;
         public float accountScale = 0.8f;
         public int lineSpacing = 10;
-        /** Farbe des Accountnamens über dem Kopf ("#RRGGBB"). */
+
         public String accountColor = "#666666";
     }
 
@@ -468,80 +436,71 @@ public final class OttoExtraConfig {
         public String triggerItemName = "Pergament und Feder";
         public int maxLinesPerPage = 12;
         public int maxCharsPerLine = 18;
-        /** Harte Zeilen-Obergrenze pro Seite im PAGE-Modus. Buch erlaubt 14, hier
-         *  bewusst 12 (lesbarer, kein Quetschen). Zusätzlich bindet das Zeichen-
-         *  Budget {@link #pageModeEffectiveCharBudget}. LEGACY nutzt {@link #maxLinesPerPage}. */
+
         public int pageModeMaxLinesPerPage = 12;
-        /** Effektives Zeichen-Budget pro PAGE-Seite (Umbruch zählt 2). 248 lässt
-         *  Platz für Buch-256 und den /letter-Payload (256 - "letter "). */
+
         public int pageModeEffectiveCharBudget = 248;
-        /** Versandmodus: "PAGE" = eine /letter-Nachricht pro Buchseite (\n-kodiert,
-         *  1 Seite = 1 Discord-Verkündung); "LEGACY" = eine /letter-Nachricht pro
-         *  sichtbarer Zeile (altes Verhalten). Default PAGE; LEGACY weiterhin wählbar. */
+
         public String sendMode = "PAGE";
-        /** Delay zwischen Seiten im PAGE-Modus (ms). */
+
         public int pageModeSendDelayMs = 1200;
-        /** Serverbefehle (ohne Slash) — abstrahiert, falls der Server andere nutzt. */
+
         public String letterCommand = "letter";
         public String postCommand = "post";
-        /** Abschlussbefehl der Verkündung (leer = manuell ausführen). */
+
         public String announcementSubmitCommand = "verkünden";
-        // Layout-Guard für Verkündungen: sichere vs. harte Grenzen
+
         public int announcementSafeLinesPerPage = 11;
         public int announcementSafeCharsPerLine = 17;
         public int announcementHardLinesPerPage = 12;
         public int announcementHardCharsPerLine = 18;
-        // Anti-Spam-Timing (randomisiert, Reihenfolge bleibt)
+
         public int letterSendDelayMinMs = 500;
         public int letterSendDelayMaxMs = 1200;
         public int letterPageDelayMinMs = 3000;
         public int letterPageDelayMaxMs = 5200;
-        // ---- Brief-Formatierung (Farben & Stile) ----
-        /** Formatierungshilfe insgesamt aktiv (Sidebar + Live-Vorschau + §→&). */
+
         public boolean formattingEnabled = true;
-        /** Formatierungs-Sidebar rechts neben dem Editor anzeigen. */
+
         public boolean formattingSidebarVisible = true;
-        /** Beim Einfügen gültige {@code &}-Codes zu {@code §} umwandeln (Live-Vorschau). */
+
         public boolean formattingConvertAmpersandOnPaste = true;
+
+        public boolean previewEnabled = true;
     }
 
     public static final class Chat {
         public boolean enabled = true;
-        /** Blinkende "!" vor [Offtopic] (Signal: öffentlicher Kanal). */
+
         public boolean offtopicBangEnabled = false;
-        /** Anzahl der "!" (1-3). */
+
         public int offtopicBangCount = 3;
-        /** Beim Server-Join automatisch /s senden (Sprechen als Standard). */
+
         public boolean autoSprechenOnJoin = true;
-        /** Shift+Tab im Chat wechselt den Kanal (statt Vanilla-Autovervollständigung). */
+
         public boolean shiftTabCycleChannels = true;
-        /** Lange Nachrichten einzeilig tippen, beim Senden automatisch splitten. */
+
         public boolean longChatEnabled = true;
-        /** Maximale Tipplänge im Chatfeld (Vanilla: 256). */
+
         public int longChatMaxInput = 8192;
-        /** Maximale Länge je gesendetem Teilstück (Serverlimit). */
+
         public int longChatChunk = 256;
-        /** Fortsetzungs-Marker am Ende nicht-letzter Teilstücke. */
+
         public String longChatMarker = " >";
-        /** Absende-Intervall zwischen Teilstücken in Millisekunden (500–1500). */
+
         public int longChatDelayMs = 800;
         public String voiceKey = "key.keyboard.v";
         public String helpKey = "key.keyboard.h";
         public String offtopicKey = "key.keyboard.o";
     }
 
-    /** Automatischer Server-Resourcepack-Downloader. */
     public static final class ResourcePack {
         public boolean enabled = true;
-        /**
-         * Bevorzugt: GitHub-Releases-API ({@code .../releases/latest}) ODER eine
-         * eigene latest.json (version + url + sha256). GitHub wird automatisch erkannt
-         * (Host {@code api.github.com}).
-         */
+
         public String manifestUrl = "https://api.github.com/repos/Ottonien/ottonien-reformed/releases/latest";
-        /** Name des Release-Assets (nur GitHub-Modus). */
+
         public String assetName = "Ottonien.zip";
-        /** Fallback: direkte ZIP-URL (nur wenn manifestUrl leer). */
+
         public String directZipUrl = "";
         public boolean autoEnable = true;
         public boolean checkOnStartup = true;
@@ -552,7 +511,6 @@ public final class OttoExtraConfig {
         public int requestTimeoutMs = 60_000;
         public boolean showToasts = true;
 
-        /** Aktive Bezugsqülle (Manifest bevorzugt). Leer => Feature inaktiv. */
         public String effectiveSource() {
             if (manifestUrl != null && !manifestUrl.isBlank()) {
                 return manifestUrl.trim();
@@ -568,9 +526,6 @@ public final class OttoExtraConfig {
         }
     }
 
-    // ---- Laden / Speichern ----------------------------------------------
-
-    /** Aktive Instanz (gesetzt von {@link #load()}) — für ModMenu-Screen. */
     private static volatile OttoExtraConfig active;
 
     public static OttoExtraConfig active() {
@@ -578,7 +533,6 @@ public final class OttoExtraConfig {
         return a != null ? a : load();
     }
 
-    /** Lädt die Config oder erzeugt sie mit Defaults. Wirft nie. */
     public static OttoExtraConfig load() {
         Path file = OttoExtraPaths.configFile();
         OttoExtraConfig config;
@@ -602,7 +556,6 @@ public final class OttoExtraConfig {
         return config;
     }
 
-    /** Füllt fehlende (null) Sektionen mit Defaults auf. */
     public void repair() {
         if (api == null) api = new Api();
         if (map == null) map = new Map();
@@ -646,24 +599,19 @@ public final class OttoExtraConfig {
         if (map.dashLengthPx < 2 || map.dashLengthPx > 64) map.dashLengthPx = md.dashLengthPx;
         if (map.dashGapPx < 0 || map.dashGapPx > 64) map.dashGapPx = md.dashGapPx;
         if (nametags.mode == null) nametags.mode = NameTagMode.REALISTIC;
+
+
         if (api.baseUrl == null || api.baseUrl.isBlank()) api.baseUrl = new Api().baseUrl;
-        // https ist Pflicht — http:// hart reparieren
+
         if (api.baseUrl.startsWith("http://")) {
             api.baseUrl = "https://" + api.baseUrl.substring("http://".length());
         }
     }
 
-    /** JSON-Snapshot fürs Settings-GUI (Dirty-Erkennung + Verwerfen). */
     public String snapshotJson() {
         return GSON.toJson(this);
     }
 
-    /**
-     * Stellt alle Sektionen aus einem Snapshot wieder her (Verwerfen).
-     * WICHTIG: kopiert Feldwerte IN die bestehenden Sektions-Objekte —
-     * Module (z. B. NametagService) halten Referenzen darauf und würden
-     * bei einem Objekt-Tausch eingefrorene Kopien lesen.
-     */
     public void restoreFrom(String json) {
         OttoExtraConfig parsed = GSON.fromJson(json, OttoExtraConfig.class);
         if (parsed == null) {
@@ -692,7 +640,6 @@ public final class OttoExtraConfig {
         }
     }
 
-    /** Schreibt atomar (Temp-Datei + ATOMIC_MOVE). */
     public void save() {
         Path file = OttoExtraPaths.configFile();
         try {

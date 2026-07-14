@@ -20,23 +20,8 @@ import xaero.hud.minimap.element.render.over.MinimapElementOverMapRendererHandle
 import java.lang.reflect.Field;
 import java.util.function.BooleanSupplier;
 
-/**
- * Lehengrenzen direkt in Xaeros Minimap-Element-Pipeline (OVER_MINIMAP).
- *
- * <p>Statt eigener Positions-/Rotations-Mathematik registrieren wir einen
- * echten {@link MinimapElementRenderer} (Muster: Xaeros WaypointMapRenderer).
- * Xaero stellt die Pose aufs Minimap-Zentrum; Rotation/Zoom lesen wir als
- * Ground-Truth direkt aus den {@code prepareRender}-Feldern des Handlers
- * (ps/pc/zoom/halfViewW/circle) — exakt die Werte, mit denen Xaero selbst
- * Waypoints platziert. Segmente werden auf das Sichtfenster geclippt
- * (Liang-Barsky) und als rotierte fill-Quads gezeichnet.</p>
- *
- * <p>Diese Klasse referenziert Xaero-Typen und darf nur geladen werden, wenn
- * xaerominimap installiert ist (Aufrufer prüft per isModLoaded).</p>
- */
 public final class XaeroMinimapBorders extends MinimapElementRenderer<XaeroMinimapBorders.Marker, Void> {
 
-    /** Pseudo-Element: ein einziger Marker an der Spielerposition (Offset 0 = Zentrum). */
     public static final class Marker {
         static final Marker INSTANCE = new Marker();
     }
@@ -45,11 +30,10 @@ public final class XaeroMinimapBorders extends MinimapElementRenderer<XaeroMinim
     private static final int COL_BORDER_INSIDE = 0xFFE6C8A9;
 
     private static boolean registered = false;
-    // Live-Form der Minimap (aus Xaeros prepareRender), fuer das Wappen-Overlay
+
     private static volatile boolean lastCircle = false;
     private static volatile long lastCircleStampMs = 0;
 
-    /** Minimap rund? null = aktuell unbekannt (Renderer lief nicht). */
     public static Boolean circleShape() {
         if (System.currentTimeMillis() - lastCircleStampMs > 5000L) {
             return null;
@@ -57,11 +41,6 @@ public final class XaeroMinimapBorders extends MinimapElementRenderer<XaeroMinim
         return lastCircle;
     }
 
-    /**
-     * Hat die Minimap für Chunk (ccx, ccz) ein geschriebenes Tile? Grid =
-     * {@code MinimapChunk[mapChunkX][mapChunkZ]} relativ zum Writer-Origin,
-     * 1 Map-Chunk = 4 Chunks, Tile-Index lokal 0..3.
-     */
     private static boolean minimapHasTile(xaero.common.minimap.region.MinimapChunk[][] blocks,
                                           int originX, int originZ, int ccx, int ccz) {
         int mcx = (ccx >> 2) - originX;
@@ -97,12 +76,6 @@ public final class XaeroMinimapBorders extends MinimapElementRenderer<XaeroMinim
         this.handler = handler;
     }
 
-    /**
-     * Registriert den Renderer bei Xaero (idempotent). Erst aufrufen, wenn
-     * {@code HudMod.INSTANCE} + Minimap initialisiert sind (z. B. im Client-Tick).
-     *
-     * @return true sobald registriert
-     */
     public static boolean tryRegister(OttoExtraConfig.Map cfg, BooleanSupplier visible) {
         if (registered) {
             return true;
@@ -123,12 +96,10 @@ public final class XaeroMinimapBorders extends MinimapElementRenderer<XaeroMinim
             return true;
         } catch (Throwable t) {
             OttoExtra.LOGGER.warn("[map] Minimap-Registrierung fehlgeschlagen: {}", t.toString());
-            registered = true; // nicht erneut versuchen
+            registered = true;
             return false;
         }
     }
-
-    // ---- MinimapElementRenderer ---------------------------------------------
 
     @Override
     public boolean shouldRender(MinimapElementRenderLocation location) {
@@ -174,7 +145,6 @@ public final class XaeroMinimapBorders extends MinimapElementRenderer<XaeroMinim
             double camX = info.renderPos.x;
             double camZ = info.renderPos.z;
 
-            // Welt-Culling: sichtbarer Radius in Blöcken (+Marge)
             double worldHalf = halfView / zoom + 64;
             double qMinX = camX - worldHalf;
             double qMaxX = camX + worldHalf;
@@ -189,8 +159,6 @@ public final class XaeroMinimapBorders extends MinimapElementRenderer<XaeroMinim
             MatrixStack pose = graphics.pose();
             int width = Math.max(1, cfg.borderWidthPx);
 
-            // Gemalte Karte über unerkundetem Minimap-Terrain — unterste
-            // Ebene; Maske = Writer-Grid (exakt das, was die Minimap zeichnet)
             if (cfg.minimapPainted && cfg.paintedMap) {
                 xaero.hud.minimap.module.MinimapSession session =
                         xaero.hud.minimap.BuiltInHudModules.MINIMAP.getCurrentSession();
@@ -208,7 +176,6 @@ public final class XaeroMinimapBorders extends MinimapElementRenderer<XaeroMinim
                 }
             }
 
-            // Politische Flächen (Scanline im Minimap-Raum, vor den Grenzen)
             if (cfg.minimapPolitical && cfg.politicalFill) {
                 for (de.ottoextra.map.LehenPolygon poly : LehenPolygonStore.polygons()) {
                     if (!poly.intersects(qMinX, qMinZ, qMaxX, qMaxZ)) {
@@ -219,14 +186,13 @@ public final class XaeroMinimapBorders extends MinimapElementRenderer<XaeroMinim
                 }
             }
 
-            // Deduplizierte Segmente: geteilte Lehnsgrenzen genau einmal
             for (de.ottoextra.map.BorderSegment seg : LehenPolygonStore.segments()) {
                 if (!seg.intersects(qMinX, qMinZ, qMaxX, qMaxZ)) {
                     continue;
                 }
                 boolean highlight = insideKey != null && seg.ownerKeys().contains(insideKey);
                 int color = highlight ? COL_BORDER_INSIDE : COL_BORDER;
-                // Welt-Offset -> Minimap-Koordinaten (Xaeros eigene Formel)
+
                 double ox1 = seg.x1() - camX;
                 double oy1 = seg.z1() - camZ;
                 double ox2 = seg.x2() - camX;
@@ -245,7 +211,7 @@ public final class XaeroMinimapBorders extends MinimapElementRenderer<XaeroMinim
 
     @Override
     public int getOrder() {
-        return 50; // unter Waypoints (100)
+        return 50;
     }
 
     private boolean resolveHandlerFields() {
@@ -286,10 +252,6 @@ public final class XaeroMinimapBorders extends MinimapElementRenderer<XaeroMinim
         throw new NoSuchFieldException(name);
     }
 
-    /**
-     * Clip auf das Sichtfenster — eckige Minimap: Liang-Barsky auf [-half,half]^2;
-     * runde Minimap: Linie-Kreis-Schnitt (Radius half) — dann rotiertes fill-Quad.
-     */
     private static void drawClippedSegment(MinimapElementGraphics graphics, MatrixStack pose,
                                            double x1, double y1, double x2, double y2,
                                            int half, boolean circle, int color, int widthPx,
@@ -299,19 +261,19 @@ public final class XaeroMinimapBorders extends MinimapElementRenderer<XaeroMinim
         double t0 = 0;
         double t1 = 1;
         if (circle) {
-            // |p1 + t*d|^2 <= r^2  -> quadratische Gleichung für Eintritt/Austritt
+
             double r = half;
             double a = dx * dx + dy * dy;
             double b = 2 * (x1 * dx + y1 * dy);
             double cQ = x1 * x1 + y1 * y1 - r * r;
             if (a < 1e-9) {
                 if (cQ > 0) {
-                    return; // Punkt ausserhalb
+                    return;
                 }
             } else {
                 double disc = b * b - 4 * a * cQ;
                 if (disc < 0) {
-                    return; // Linie verfehlt den Kreis
+                    return;
                 }
                 double sq = Math.sqrt(disc);
                 double tEnter = (-b - sq) / (2 * a);
@@ -319,7 +281,7 @@ public final class XaeroMinimapBorders extends MinimapElementRenderer<XaeroMinim
                 t0 = Math.max(0, tEnter);
                 t1 = Math.min(1, tExit);
                 if (t0 >= t1) {
-                    return; // Segmentabschnitt liegt ausserhalb
+                    return;
                 }
             }
         } else {
@@ -328,7 +290,7 @@ public final class XaeroMinimapBorders extends MinimapElementRenderer<XaeroMinim
             for (int k = 0; k < 4; k++) {
                 if (p[k] == 0) {
                     if (q[k] < 0) {
-                        return; // parallel ausserhalb
+                        return;
                     }
                 } else {
                     double r = q[k] / p[k];
@@ -377,10 +339,6 @@ public final class XaeroMinimapBorders extends MinimapElementRenderer<XaeroMinim
         pose.pop();
     }
 
-    /**
-     * Polygon-Fläche als 1px-Scanlines im (rotierten) Minimap-Raum; je Zeile
-     * auf Fenster (Quadrat) bzw. Kreisbreite geclippt.
-     */
     private static void fillPolygon(MinimapElementGraphics graphics,
                                     de.ottoextra.map.LehenPolygon poly,
                                     double camX, double camZ, double ps, double pc,
@@ -437,9 +395,6 @@ public final class XaeroMinimapBorders extends MinimapElementRenderer<XaeroMinim
         }
     }
 
-    // ---- Reader / Provider ---------------------------------------------------
-
-    /** Ein Element an der Render-Entity-Position (Offset 0 → Pose bleibt im Zentrum). */
     private static final class BorderReader extends MinimapElementReader<Marker, Void> {
         @Override
         public boolean isHidden(Marker e, Void ctx) {

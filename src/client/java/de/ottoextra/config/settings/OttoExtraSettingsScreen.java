@@ -19,17 +19,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Settings im Vanilla-Dark-Stil (Vorbild MoreCulling/XaeroPlus):
- * Modul-Tabs oben, Suche, Options-Zeilen mit Label links und
- * Wert-Button/Feld + "Zurücksetzen" rechts, Footer mit
- * "Änderungen verwerfen" / "Speichern &amp; Beenden".
- *
- * <p>Werte ändern sich live im Speicher (Module sehen sie sofort);
- * "Speichern &amp; Beenden" persistiert, "Verwerfen" stellt den Snapshot
- * vom Öffnen wieder her (Feld-Kopie, Referenzen bleiben stabil).
- * Esc = Speichern &amp; Beenden.</p>
- */
 public final class OttoExtraSettingsScreen extends Screen {
 
     private static final int ROW_H = 22;
@@ -45,18 +34,16 @@ public final class OttoExtraSettingsScreen extends Screen {
     private final OttoExtraConfig config;
     private final SettingsRegistry registry;
     private final String snapshot;
-    /** Defaults: frische Config → gleiche Registry → get() liefert Default. */
+
     private final Map<String, String> defaults = new HashMap<>();
 
-    private int selectedModule; // 0..n-1 Module, n = Backups
+    private int selectedModule;
     private int selectedTab;
     private int scroll;
     private int contentHeight;
 
     private TextFieldWidget searchField;
 
-    /** Modul-Auswahl als Dropdown statt Tab-Reihe, wenn die Reihe zu breit wird
-     *  (kleine Monitore). */
     private boolean tabCompact;
     private boolean tabMenuOpen;
     private final List<Text> tabLabels = new ArrayList<>();
@@ -64,7 +51,6 @@ public final class OttoExtraSettingsScreen extends Screen {
     private int tabMenuY;
     private int tabMenuW;
 
-    /** Eine Inhaltszeile: Label (gezeichnet) + Widgets (verschoben beim Scroll). */
     private static final class Row {
         int baseY;
         int height = ROW_H;
@@ -113,8 +99,6 @@ public final class OttoExtraSettingsScreen extends Screen {
         }
     }
 
-    // ---- Layout ------------------------------------------------------------
-
     private int contentW() {
         return Math.min(640, width - 40);
     }
@@ -131,13 +115,9 @@ public final class OttoExtraSettingsScreen extends Screen {
         return height - 36;
     }
 
-    // ---- Init / Seitenaufbau --------------------------------------------------
-
     @Override
     protected void init() {
-        // Modul-Tabs oben (aktiver Tab = ausgegraut wie Personenbuch/MoreCulling).
-        // Passt die Reihe nicht in die Breite (kleine Monitore), wird daraus ein
-        // Dropdown-Filter.
+
         tabLabels.clear();
         for (SettingsRegistry.ModulePage m : registry.modules()) {
             tabLabels.add(Text.translatable(m.titleKey()));
@@ -173,7 +153,6 @@ public final class OttoExtraSettingsScreen extends Screen {
                     .dimensions(tabMenuX, tabMenuY, tabMenuW, 16).build());
         }
 
-        // Suche
         searchField = new TextFieldWidget(textRenderer, contentX(), 42, contentW() - 0, 16,
                 Text.translatable("ottoextra.settings.search"));
         searchField.setMaxLength(64);
@@ -186,7 +165,6 @@ public final class OttoExtraSettingsScreen extends Screen {
         });
         addDrawableChild(searchField);
 
-        // Footer
         int fy = height - 26;
         addDrawableChild(ButtonWidget.builder(
                 Text.translatable("ottoextra.settings.discard"), b -> {
@@ -209,13 +187,10 @@ public final class OttoExtraSettingsScreen extends Screen {
         }
     }
 
-    /** Esc = Speichern &amp; Beenden (Änderungen wirken ohnehin schon live). */
     @Override
     public void close() {
         saveAndClose();
     }
-
-    // ---- Inhalt -----------------------------------------------------------------
 
     private void rebuildContent() {
         for (Row row : rows) {
@@ -254,7 +229,7 @@ public final class OttoExtraSettingsScreen extends Screen {
             if (selectedTab >= module.tabs().size()) {
                 selectedTab = 0;
             }
-            // Untertabs als Zeile aus Buttons (nur wenn >1)
+
             if (module.tabs().size() > 1) {
                 Row tabRow = new Row();
                 tabRow.baseY = y;
@@ -379,7 +354,7 @@ public final class OttoExtraSettingsScreen extends Screen {
                         o.set.accept(text);
                         f.setEditableColor(0xFFE0E0E0);
                     } catch (Exception invalid) {
-                        f.setEditableColor(0xFFFF5555); // ungültig: rot, Wert bleibt alt
+                        f.setEditableColor(0xFFFF5555);
                     }
                 });
                 return f;
@@ -387,7 +362,6 @@ public final class OttoExtraSettingsScreen extends Screen {
         }
     }
 
-    /** Ganzzahl-Slider (Balken) für eine {@link SettingsRegistry.Option} vom Typ SLIDER. */
     private static final class OptionSlider extends net.minecraft.client.gui.widget.SliderWidget {
         private final SettingsRegistry.Option opt;
 
@@ -429,8 +403,6 @@ public final class OttoExtraSettingsScreen extends Screen {
                 ? Text.translatable("ottoextra.settings.on").formatted(Formatting.GREEN)
                 : Text.translatable("ottoextra.settings.off").formatted(Formatting.RED);
     }
-
-    // ---- Backups ----------------------------------------------------------------
 
     private int buildBackupsPage(int y) {
         Row head = new Row();
@@ -497,8 +469,6 @@ public final class OttoExtraSettingsScreen extends Screen {
         statusWarn = warn;
     }
 
-    // ---- Scroll / Positionierung ---------------------------------------------------
-
     private void layoutRows() {
         int top = contentTop();
         int bottom = contentBottom();
@@ -532,8 +502,6 @@ public final class OttoExtraSettingsScreen extends Screen {
         }
         return super.keyPressed(input);
     }
-
-    // ---- Render -----------------------------------------------------------------
 
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
@@ -574,7 +542,6 @@ public final class OttoExtraSettingsScreen extends Screen {
         }
         ctx.disableScissor();
 
-        // Scrollbalken
         int visible = bottom - top;
         if (contentHeight > visible) {
             int x = contentX() + contentW() + 6;
@@ -585,7 +552,6 @@ public final class OttoExtraSettingsScreen extends Screen {
             ctx.fill(x, barY, x + 4, barY + barH, 0xCC808080);
         }
 
-        // Statuszeile (Backups) + Dirty-Hinweis
         if (!statusMessage.isEmpty()) {
             ctx.drawTextWithShadow(textRenderer, Text.literal(statusMessage),
                     contentX(), bottom + 2, statusWarn ? COL_WARN : COL_STATUS);
@@ -600,7 +566,6 @@ public final class OttoExtraSettingsScreen extends Screen {
                     contentX(), 56, COL_WARN);
         }
 
-        // Modul-Dropdown (kleine Monitore) ueber dem Inhalt
         if (tabCompact && tabMenuOpen) {
             int iy = tabMenuY + 18;
             int n = tabLabels.size();
@@ -617,8 +582,6 @@ public final class OttoExtraSettingsScreen extends Screen {
             }
         }
 
-        // Region-Toast-Vorschau ZULETZT zeichnen -> liegt ueber dem Menue
-        // (sonst verdeckt das Settings-Panel die Vorschau)
         de.ottoextra.regions.RegionNotificationOverlay.render(ctx, null);
     }
 
@@ -645,12 +608,12 @@ public final class OttoExtraSettingsScreen extends Screen {
                 selectModuleTab((int) ((my - iy) / 16));
                 return true;
             }
-            // Klick auf den Dropdown-Knopf normal behandeln (schließt via Toggle)
+
             if (mx >= tabMenuX && mx <= tabMenuX + tabMenuW
                     && my >= tabMenuY && my < tabMenuY + 16) {
                 return super.mouseClicked(click, doubled);
             }
-            // Klick daneben: zuklappen
+
             tabMenuOpen = false;
             return true;
         }

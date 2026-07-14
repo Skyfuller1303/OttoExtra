@@ -18,14 +18,6 @@ import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import org.lwjgl.glfw.GLFW;
 
-/**
- * Modul: Briefsystem (Quelle: OttoLetter, v2-Spec ottoletter-integration-md-v2).
- *
- * <p>Editor mit Seiten/Paste/Buchimport/Platzhaltern, Modusdialog
- * Brief vs. Verkündung, robuster Versand mit Recovery
- * ({@code .cache/letters/}). Hotkey öffnet den Editor (Standard unbelegt);
- * nach Join wird unfertiger Versand erkannt (Fortsetzen/Neu/Verwerfen).</p>
- */
 public final class LetterModule implements OttoExtraModule {
 
     private KeyBinding editorKey;
@@ -49,10 +41,6 @@ public final class LetterModule implements OttoExtraModule {
                 InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, KeyBinding.Category.MISC);
         KeyBindingHelper.registerKeyBinding(editorKey);
 
-        // Klick-Ziele des Chat-Aktionsprompts (lokale Client-Commands):
-        //   /ottoextra letter send     -> Empfängerliste
-        //   /ottoextra letter announce -> Verkündungs-Preflight (Bestätigung)
-        //   /ottoextra letter close    -> keine weitere Aktion
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, access) ->
                 dispatcher.register(ClientCommandManager.literal("ottoextra")
                         .then(ClientCommandManager.literal("letter")
@@ -69,9 +57,6 @@ public final class LetterModule implements OttoExtraModule {
                                     return 1;
                                 })))));
 
-        // „Bearbeiten"-Button an die Vanilla-Lese-GUI eines beschriebenen Briefs
-        // (BookScreen) hängen — nur wenn der lokale Spieler dessen Autor ist.
-        // Klick: Buchinhalt (mit Formatierung) -> Entwurf -> Editor öffnen.
         net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register(
                 (client, screen, scaledWidth, scaledHeight) -> {
                     if (!(screen instanceof net.minecraft.client.gui.screen.ingame.BookScreen)) {
@@ -83,8 +68,7 @@ public final class LetterModule implements OttoExtraModule {
                     }
                     var buttons = net.fabricmc.fabric.api.client.screen.v1.Screens
                             .getButtons(screen);
-                    // Unter den untersten vorhandenen Button (i. d. R. „Fertig")
-                    // setzen, gleiche Breite (200), mittig — keine Überlagerung.
+
                     int bottom = 0;
                     for (var w : buttons) {
                         if (w instanceof net.minecraft.client.gui.widget.ClickableWidget cw) {
@@ -99,8 +83,6 @@ public final class LetterModule implements OttoExtraModule {
                             .dimensions(scaledWidth / 2 - 100, y, 200, 20).build());
                 });
 
-        // Rechtsklick mit dem Trigger-Item (Custom-Name aus der Config,
-        // z. B. "Pergament und Feder") öffnet den Editor — nur clientseitig
         net.fabricmc.fabric.api.event.player.UseItemCallback.EVENT.register(
                 (player, world, hand) -> {
                     if (!world.isClient() || config.letter.triggerItemName == null
@@ -108,8 +90,7 @@ public final class LetterModule implements OttoExtraModule {
                         return net.minecraft.util.ActionResult.PASS;
                     }
                     var stack = player.getStackInHand(hand);
-                    // tolerant matchen: 1.21.5+ serialisiert custom_name teils
-                    // verschachtelt (Quotes/Escapes) — Quotes strippen + contains
+
                     String shown = stack.isEmpty() ? "" : stack.getName().getString()
                             .replace("\"", "").replace("'", "").trim();
                     String trigger = config.letter.triggerItemName.trim();
@@ -129,7 +110,7 @@ public final class LetterModule implements OttoExtraModule {
                     openComposeEditor(config);
                 }
             }
-            // Versand-Status in der Actionbar mit animierten Punkten anzeigen
+
             if (LetterServices.isSending() && client.player != null && client.world != null) {
                 int dots = (int) (client.world.getTime() / 5 % 4);
                 String key = LetterServices.isSendingAnnouncement()
@@ -140,7 +121,6 @@ public final class LetterModule implements OttoExtraModule {
                 client.player.sendMessage(msg, true);
             }
 
-            // Recovery einmalig nach Join prüfen (Spieler + Welt vorhanden)
             if (!recoveryChecked && client.player != null && client.currentScreen == null) {
                 recoveryChecked = true;
                 LetterSendProgress letter = LetterServices.letterStore().load();
@@ -158,30 +138,22 @@ public final class LetterModule implements OttoExtraModule {
             }
         });
 
-        // Server-Hinweise zum Briefablauf ausblenden — der Chat-Prompt + die
-        // [Bearbeiten]-GUI ersetzen sie, die Roh-Anleitung stört nur.
         net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents.ALLOW_GAME
                 .register((message, overlay) -> !isHiddenLetterHint(message.getString()));
 
         OttoExtra.LOGGER.info("[letter] initialisiert (Editor + Brief/Verkündung + Recovery).");
     }
 
-    /**
-     * Editor für einen NEUEN Brief öffnen (Trigger-Item / Hotkey): einen übrig
-     * gebliebenen Import-Bearbeiten-Zustand (gesperrte Seiten aus einem
-     * abgebrochenen [Bearbeiten]) verwerfen, damit ein leeres GUI erscheint.
-     * Normale, unfertige Entwürfe (ohne Sperre) bleiben erhalten.
-     */
     private static void openComposeEditor(OttoExtraConfig config) {
         LetterDraft cached = LetterDraftCache.load();
-        if (cached.meta != null && cached.meta.lockedPages > 0) {
+        if (cached.meta != null
+                && (cached.meta.lockedPages > 0 || cached.meta.lockedOffset > 0)) {
             LetterDraftCache.clear();
         }
         net.minecraft.client.MinecraftClient.getInstance().setScreen(
                 new LetterEditorScreen(null, config));
     }
 
-    /** Server-Briefhinweise, die der Client ausblendet (Chat-Prompt ersetzt sie). */
     private static final String[] HIDDEN_LETTER_HINTS = {
             "Beschreibe den Brief mit /letter",
             "Du hast den Brief bearbeitet",
@@ -202,8 +174,7 @@ public final class LetterModule implements OttoExtraModule {
     @Override
     public void onDisconnect(OttoExtraContext context) {
         recoveryChecked = false;
-        // Versand wurde von der Queue bei Verbindungsverlust gestoppt;
-        // Actionbar-Status nicht über den Reconnect hinweg hängen lassen
+
         LetterServices.clearSendingState();
     }
 }

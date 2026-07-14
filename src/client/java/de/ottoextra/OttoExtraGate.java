@@ -5,14 +5,6 @@ import net.minecraft.client.network.ServerInfo;
 
 import java.util.Locale;
 
-/**
- * Client-seitiges Server-Gate.
- *
- * <p>Erkennt anhand der Serveradresse, ob OttoExtra-Online-Features aktiv sein
- * sollen. Bewusst nur eine Komfort-Heuristik (Substring {@code "ottonien"}):
- * sie steuert ausschliesslich clientseitige Anzeige und API-Abrufe. Keine
- * Sicherheitsentscheidung hängt allein hieran (vgl. mod-family-map Warnung).</p>
- */
 public final class OttoExtraGate {
 
     private OttoExtraGate() {

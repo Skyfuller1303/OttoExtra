@@ -27,17 +27,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Persistenter Skin-Cache je UUID: merkt sich die signierte {@code textures}-
- * Property der Spieler, die online auf dem Server gesehen werden, und speichert
- * sie lokal ({@code config/ottoextra/cache/skins.json}). Damit lässt sich der
- * echte Skin überall (z. B. Chat-Köpfe) auch dann auflösen, wenn der Spieler
- * offline ist — der Skin-Provider lädt das PNG aus der gespeicherten URL und
- * cached es selbst.
- */
 public final class SkinCache {
 
-    /** GSON-direkt: name + signierte Textur-Property. */
     static final class Cached {
         String name;
         String value;
@@ -48,7 +39,6 @@ public final class SkinCache {
     private static final Map<UUID, Cached> MAP = new ConcurrentHashMap<>();
     private static volatile boolean dirty;
 
-    /** Laufende/erledigte PNG-Downloads je UUID (kein Doppel-Download). */
     private static final Set<UUID> PNG_DONE = ConcurrentHashMap.newKeySet();
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10)).build();
@@ -60,12 +50,10 @@ public final class SkinCache {
         return OttoExtraPaths.cacheDir().resolve("skins.json");
     }
 
-    /** Ordner mit den lokal gespeicherten Skin-PNGs ({@code <uuid>.png}). */
     public static Path pngDir() {
         return OttoExtraPaths.cacheDir().resolve("skins");
     }
 
-    /** Beim Client-Start einmal laden. */
     public static void load() {
         Path f = file();
         try {
@@ -83,14 +71,13 @@ public final class SkinCache {
                 });
             }
             OttoExtra.LOGGER.info("[skins] {} Skins aus Cache geladen.", MAP.size());
-            // Fehlende PNGs lokal nachladen (Gegentest / Offline-Persistenz).
+
             MAP.forEach((uuid, c) -> ensurePng(uuid, c.value, false));
         } catch (Exception e) {
             OttoExtra.LOGGER.warn("[skins] skins.json unlesbar: {}", e.toString());
         }
     }
 
-    /** Skin eines online gesehenen GameProfiles merken (nur bei Änderung). */
     public static void remember(GameProfile gp) {
         if (gp == null || gp.id() == null) {
             return;
@@ -113,7 +100,6 @@ public final class SkinCache {
         ensurePng(gp.id(), prop.value(), changed);
     }
 
-    /** Skin-PNG lokal speichern, wenn es fehlt oder sich der Skin geändert hat. */
     private static void ensurePng(UUID uuid, String base64Value, boolean changed) {
         if (uuid == null || base64Value == null) {
             return;
@@ -123,7 +109,7 @@ public final class SkinCache {
             return;
         }
         if (!PNG_DONE.add(uuid) && !changed) {
-            return; // Download läuft bereits
+            return;
         }
         CompletableFuture.runAsync(() -> {
             try {
@@ -141,16 +127,12 @@ public final class SkinCache {
                     Files.move(tmp, png, StandardCopyOption.REPLACE_EXISTING);
                 }
             } catch (Throwable t) {
-                PNG_DONE.remove(uuid); // erneuter Versuch später möglich
+                PNG_DONE.remove(uuid);
                 OttoExtra.LOGGER.debug("[skins] PNG-Download fehlgeschlagen ({}): {}", uuid, t.toString());
             }
         });
     }
 
-    /**
-     * GameProfile mit der gecachten Textur-Property (falls vorhanden), sonst nur
-     * UUID+Name. Damit löst der Skin-Provider den echten Skin auf.
-     */
     public static GameProfile profileFor(UUID uuid, String name) {
         Cached c = uuid != null ? MAP.get(uuid) : null;
         String n = c != null && c.name != null && !c.name.isBlank() ? c.name : name;
@@ -161,21 +143,13 @@ public final class SkinCache {
         return gp;
     }
 
-    /** Hat der Cache einen Skin für diese UUID? */
     public static boolean has(UUID uuid) {
         return uuid != null && MAP.containsKey(uuid);
     }
 
-    /** Bereits als Textur registrierte lokale Skins (UUID -> SkinTextures). */
     private static final Map<UUID, net.minecraft.entity.player.SkinTextures> LOADED =
             new ConcurrentHashMap<>();
 
-    /**
-     * SkinTextures aus dem lokal gespeicherten PNG ({@code cache/skins/<uuid>.png}),
-     * als Textur registriert — nutzt also den lokalen Cache statt Mojang. Null,
-     * wenn kein PNG vorhanden ist oder das Laden scheitert. Auf dem Render-Thread
-     * aufrufen (Textur-Registrierung).
-     */
     public static net.minecraft.entity.player.SkinTextures localSkin(UUID uuid) {
         if (uuid == null) {
             return null;
@@ -198,8 +172,7 @@ public final class SkinCache {
             net.minecraft.client.MinecraftClient.getInstance().getTextureManager().registerTexture(id,
                     new net.minecraft.client.texture.NativeImageBackedTexture(
                             () -> "ottoextra-skin-" + uuid, img));
-            // texturePath == die registrierte Runtime-ID (kein Resource-Pfad ableiten),
-            // sonst sucht der Renderer eine nicht existierende Ressource.
+
             net.minecraft.entity.player.SkinTextures st = new net.minecraft.entity.player.SkinTextures(
                     new net.minecraft.util.AssetInfo.TextureAssetInfo(id, id), null, null, modelFor(uuid), true);
             LOADED.put(uuid, st);
@@ -210,7 +183,6 @@ public final class SkinCache {
         }
     }
 
-    /** Modell (SLIM/WIDE) aus der gecachten Textur-Metadaten, Default WIDE. */
     private static net.minecraft.entity.player.PlayerSkinType modelFor(UUID uuid) {
         try {
             Cached c = MAP.get(uuid);
@@ -224,12 +196,11 @@ public final class SkinCache {
                 }
             }
         } catch (Throwable ignored) {
-            // Default unten
+
         }
         return net.minecraft.entity.player.PlayerSkinType.WIDE;
     }
 
-    /** Geänderten Cache auf die Platte schreiben (debounced über das dirty-Flag). */
     public static void flush() {
         if (!dirty) {
             return;

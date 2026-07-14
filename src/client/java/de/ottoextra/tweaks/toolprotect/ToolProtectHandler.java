@@ -26,34 +26,10 @@ import net.minecraft.util.Formatting;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
-/**
- * Werkzeugschutz: Fällt die Haltbarkeit eines Werkzeugs unter eine Schwelle
- * (verbleibende Nutzungen), werden Links- und Rechtsklick-Interaktionen
- * clientseitig abgebrochen und eine Actionbar-Nachricht angezeigt — das
- * Werkzeug geht nicht mehr versehentlich kaputt.
- *
- * <p>Ausnahmen von der Blockade:</p>
- * <ul>
- *   <li><b>UI-Blöcke</b> (Kiste, Werkbank, Amboss, Kartentisch, ...): der Klick
- *       öffnet nur ein Menü und verbraucht keine Haltbarkeit — bleibt erlaubt.
- *       Erkennung über Config-Liste + Heuristik (Screen-Factory/Container).</li>
- *   <li><b>Waffen</b> (Schwerter, Bögen, Armbrüste, Dreizack, Streitkolben,
- *       Schilde): funktionieren immer weiter, es gibt nur einen Actionbar-Hinweis,
- *       dass sie bald kaputtgehen.</li>
- * </ul>
- *
- * <p>Zusätzlich gibt es eine <b>einmalige</b> Actionbar-Warnung, wenn die
- * Haltbarkeit des gehaltenen Items <b>oder getragener Rüstung</b> unter einen
- * Prozentsatz (Default 10 %) fällt — einmal pro Unterschreitung, zurückgesetzt
- * beim Item-Wechsel oder wenn die Haltbarkeit wieder über der Schwelle liegt
- * (Reparatur).</p>
- */
 public final class ToolProtectHandler {
 
-    /** Actionbar-Throttle für die Blockier-Nachricht (Ticks). */
     private static final int MSG_COOLDOWN_TICKS = 20;
 
-    /** Überwachte Slots für die Prozent-Warnung (Hände + Rüstung). */
     private static final EquipmentSlot[] WATCHED_SLOTS = {
             EquipmentSlot.MAINHAND, EquipmentSlot.OFFHAND,
             EquipmentSlot.HEAD, EquipmentSlot.CHEST,
@@ -62,7 +38,6 @@ public final class ToolProtectHandler {
 
     private int msgCooldown = 0;
 
-    // Warn-einmalig-Zustand je überwachtem Slot (Item + war-bereits-unter-Schwelle)
     private final Item[] lastItem = new Item[WATCHED_SLOTS.length];
     private final boolean[] lastBelow = new boolean[WATCHED_SLOTS.length];
 
@@ -100,10 +75,6 @@ public final class ToolProtectHandler {
         return config.tweaks.toolProtect;
     }
 
-    /**
-     * Blockiert die Interaktion (FAIL), wenn das Item fast kaputt ist.
-     * Waffen werden nie blockiert — nur ein Actionbar-Hinweis.
-     */
     private ActionResult guard(PlayerEntity player, ItemStack stack) {
         OttoExtraConfig.Tweaks.ToolProtect tp = cfg();
         if (!tp.enabled || !isNearlyBroken(stack, tp.blockAtUses)) {
@@ -127,12 +98,6 @@ public final class ToolProtectHandler {
         return ActionResult.FAIL;
     }
 
-    /**
-     * Öffnet der angeklickte Block ein UI? Dann bleibt der Rechtsklick trotz
-     * fast kaputtem Werkzeug erlaubt — er verbraucht keine Haltbarkeit.
-     * Beim Schleichen greift die Ausnahme nicht: das Block-UI wird dann
-     * übersprungen und stattdessen das Item selbst benutzt/platziert.
-     */
     private boolean isUiBlock(PlayerEntity player, World world, BlockPos pos) {
         if (player.shouldCancelInteraction()) {
             return false;
@@ -147,7 +112,6 @@ public final class ToolProtectHandler {
                 || world.getBlockEntity(pos) instanceof NamedScreenHandlerFactory;
     }
 
-    /** Waffen (und Schilde) nie blockieren — sie müssen im Kampf funktionieren. */
     private static boolean isWeapon(ItemStack stack) {
         Item item = stack.getItem();
         return stack.isIn(ItemTags.SWORDS)
@@ -157,7 +121,6 @@ public final class ToolProtectHandler {
                 || item instanceof ShieldItem;
     }
 
-    /** Einmalige Warnung beim Unterschreiten der Prozent-Schwelle + Throttle-Tick. */
     private void tick(MinecraftClient client) {
         if (msgCooldown > 0) {
             msgCooldown--;
@@ -171,8 +134,7 @@ public final class ToolProtectHandler {
             boolean below = isBelowPercent(stack, tp.warnBelowPercent);
             Item item = stack.isEmpty() ? null : stack.getItem();
             if (item != lastItem[i]) {
-                // Item-Wechsel: Zustand neu aufsetzen; ist das Item bereits unter der
-                // Schwelle, sofort warnen (Throttle verhindert Hotbar-Scroll-Spam)
+
                 lastItem[i] = item;
                 lastBelow[i] = below;
                 if (below) {
@@ -187,7 +149,6 @@ public final class ToolProtectHandler {
         }
     }
 
-    /** Einmalige Haltbarkeits-Warnung (Actionbar, gethrottlet). */
     private void warn(MinecraftClient client, ItemStack stack, OttoExtraConfig.Tweaks.ToolProtect tp) {
         if (msgCooldown > 0 || client.player == null) {
             return;
@@ -199,7 +160,6 @@ public final class ToolProtectHandler {
                 .formatted(Formatting.GOLD), true);
     }
 
-    /** Verbleibende Nutzungen ≤ Schwelle? (nur beschädigbare Items) */
     private static boolean isNearlyBroken(ItemStack stack, int blockAtUses) {
         if (stack.isEmpty() || !stack.isDamageable()) {
             return false;
@@ -208,7 +168,6 @@ public final class ToolProtectHandler {
         return remaining <= Math.max(1, blockAtUses);
     }
 
-    /** Verbleibende Haltbarkeit unter dem Prozentsatz? (nur beschädigbare Items) */
     private static boolean isBelowPercent(ItemStack stack, int percent) {
         if (stack.isEmpty() || !stack.isDamageable() || stack.getMaxDamage() <= 0) {
             return false;

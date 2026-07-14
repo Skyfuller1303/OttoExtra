@@ -34,24 +34,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/**
- * {@link OttoExtraApiClient}-Implementierung auf Basis von {@link java.net.http.HttpClient}.
- *
- * <p>Alle Anfragen laufen asynchron auf einem eigenen Daemon-Threadpool — niemals
- * auf dem Render-/Tick-Thread. Antworten werden tolerant
- * geparst (unbekannte Felder ignoriert).</p>
- *
- * <p>Sicherheit: mit {@code api.useV2Auth} laufen
- * Datenabrufe über die authentifizierten {@code /v2}-Routen (Mojang-Handshake →
- * Bearer-Token, nur im RAM). Antwortsignaturen werden per Ed25519 geprüft
- * ({@link ResponseVerifier}); optionales SPKI-Pinning über {@link SpkiPinning}.
- * Ist /v2 nicht erreichbar, fällt der Client automatisch auf die alten
- * {@code public-*}-Routen zurück, bis die Server-Migration abgeschlossen ist.
- * In der Mod gibt es weiterhin keine Secrets — nur Public Keys.</p>
- */
 public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
 
-    /** Hartes Größenlimit für Binärdownloads (Banner/Heads) gegen Speicher-Missbrauch. */
     private static final long MAX_BINARY_BYTES = 5L * 1024 * 1024;
 
     private static final String USER_AGENT = "OttoExtra/" + "client";
@@ -105,8 +89,6 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
     public OttoExtraApiRoutes routes() {
         return routes;
     }
-
-    // ---- Öffentliche API ------------------------------------------------
 
     @Override
     public CompletableFuture<ApiEnvelope> bootstrap() {
@@ -200,12 +182,10 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
         try {
             http.close();
         } catch (Throwable ignored) {
-            // best effort
+
         }
         executor.shutdownNow();
     }
-
-    // ---- Intern ----------------------------------------------------------
 
     private HttpRequest.Builder baseRequest(URI uri) {
         return HttpRequest.newBuilder(uri)
@@ -215,11 +195,6 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
                 .GET();
     }
 
-    /**
-     * Datenabruf: bevorzugt authentifiziert über /v2, bei 401 genau EIN
-     * Re-Handshake; scheitert v2 (Backoff, nicht deployed, Auth kaputt),
-     * Fallback auf die alte public-*-Route.
-     */
     private CompletableFuture<String> getString(URI v2Uri, URI legacyUri) {
         if (!apiConfig.useV2Auth) {
             return fetch(legacyUri, null);
@@ -228,7 +203,7 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
                 .thenCompose(token -> fetch(v2Uri, token.token())
                         .exceptionallyCompose(t -> {
                             if (isHttpStatus(t, 401)) {
-                                // Token serverseitig ungültig: verwerfen, EIN Re-Auth, wiederholen
+
                                 auth.invalidate();
                                 return auth.tokenAsync()
                                         .thenCompose(fresh -> fetch(v2Uri, fresh.token()));
@@ -241,7 +216,6 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
                 });
     }
 
-    /** Roh-Abruf inkl. Signatur-Check über die exakt empfangenen Bytes. */
     private CompletableFuture<String> fetch(URI uri, String bearerToken) {
         HttpRequest.Builder builder = baseRequest(uri);
         if (bearerToken != null) {
@@ -299,13 +273,11 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
         }
     }
 
-    /** Trägt der Fehler genau diesen HTTP-Status? */
     private static boolean isHttpStatus(Throwable t, int status) {
         Throwable cause = (t instanceof CompletionException && t.getCause() != null) ? t.getCause() : t;
         return cause instanceof ApiProblem.ApiException api && api.problem().isHttpStatus(status);
     }
 
-    /** Kurzfassung für Debug-Logs — keine Bodies, keine Tokens. */
     private static String summarize(Throwable t) {
         Throwable cause = (t instanceof CompletionException && t.getCause() != null) ? t.getCause() : t;
         if (cause instanceof ApiProblem.ApiException api) {
@@ -314,7 +286,6 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
         return cause.getClass().getSimpleName();
     }
 
-    /** Normalisiert beliebige Fehler zu einer {@link ApiProblem.ApiException}. */
     private static Throwable mapError(URI uri, Throwable t) {
         Throwable cause = (t instanceof CompletionException && t.getCause() != null) ? t.getCause() : t;
         if (cause instanceof ApiProblem.ApiException) {

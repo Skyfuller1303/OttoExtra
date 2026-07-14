@@ -11,17 +11,8 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-/**
- * Generischer "Erweitert"-Editor: beschriftete Textfelder für tiefgehende
- * Modul-Einstellungen (Zahlen/Strings). Pergament-Look wie der Hauptscreen.
- *
- * <p>Zahlenfelder übernehmen nur gültige Werte; ungültige Eingaben werden
- * beim Speichern ignoriert (alter Wert bleibt). Änderungen wirken sofort
- * (Overlay liest die Config live).</p>
- */
 public final class OttoExtraAdvancedScreen extends Screen {
 
-    /** Ein editierbares Feld. */
     private record Field(String labelKey, Supplier<String> get, Consumer<String> set) {
     }
 
@@ -42,9 +33,6 @@ public final class OttoExtraAdvancedScreen extends Screen {
         this.withPreview = withPreview;
     }
 
-    // ---- Factories je Modul -------------------------------------------------
-
-    /** Regions: Toast-Layoutwerte (aus ottoregions.json portiert). */
     public static OttoExtraAdvancedScreen regions(Screen parent, OttoExtraConfig c) {
         List<Field> f = new ArrayList<>();
         f.add(intField("ottoextra.adv.maxTextWidth", () -> c.regions.maxTextWidth, v -> c.regions.maxTextWidth = v, 50, 800));
@@ -66,7 +54,6 @@ public final class OttoExtraAdvancedScreen extends Screen {
                 Text.translatable("ottoextra.config.advanced.regions"), f, true);
     }
 
-    /** Resourcepack: Quelle + Limits/Timeouts. */
     public static OttoExtraAdvancedScreen resourcepack(Screen parent, OttoExtraConfig c) {
         List<Field> f = new ArrayList<>();
         f.add(new Field("ottoextra.adv.manifestUrl",
@@ -84,7 +71,6 @@ public final class OttoExtraAdvancedScreen extends Screen {
                 Text.translatable("ottoextra.config.advanced.resourcepack"), f, false);
     }
 
-    /** Namensschilder: Schriftgrößen, Abstände, Account-Farbe. */
     public static OttoExtraAdvancedScreen nametags(Screen parent, OttoExtraConfig c) {
         List<Field> f = new ArrayList<>();
         f.add(floatField("ottoextra.adv.tagTitleScale",
@@ -101,7 +87,6 @@ public final class OttoExtraAdvancedScreen extends Screen {
                 Text.translatable("ottoextra.config.advanced.nametags"), f, false);
     }
 
-    /** Karte: LOD-Schwellen + Stil. */
     public static OttoExtraAdvancedScreen map(Screen parent, OttoExtraConfig c) {
         List<Field> f = new ArrayList<>();
         f.add(doubleField("ottoextra.adv.nameMinScale",
@@ -171,12 +156,11 @@ public final class OttoExtraAdvancedScreen extends Screen {
                     set.accept(v);
                 }
             } catch (NumberFormatException ignored) {
-                // ungültig -> alter Wert bleibt
+
             }
         });
     }
 
-    /** Schrift-Skalierung 0.3–3.0; Komma oder Punkt erlaubt. */
     private static Field floatField(String key, Supplier<Float> get, Consumer<Float> set) {
         return new Field(key, () -> String.format(java.util.Locale.ROOT, "%.2f", get.get()), raw -> {
             try {
@@ -185,7 +169,7 @@ public final class OttoExtraAdvancedScreen extends Screen {
                     set.accept(v);
                 }
             } catch (NumberFormatException ignored) {
-                // ungültig -> alter Wert bleibt
+
             }
         });
     }
@@ -198,12 +182,10 @@ public final class OttoExtraAdvancedScreen extends Screen {
                     set.accept(v);
                 }
             } catch (NumberFormatException ignored) {
-                // ungültig -> alter Wert bleibt
+
             }
         });
     }
-
-    // ---- Screen ---------------------------------------------------------------
 
     private int panelX() {
         return Math.max(8, (width - panelW()) / 2);
@@ -218,7 +200,7 @@ public final class OttoExtraAdvancedScreen extends Screen {
     }
 
     private int panelH() {
-        // dynamisch nach Feldzahl; bei kleinen Fenstern wird gescrollt
+
         int cols = fields.size() > 6 ? 2 : 1;
         int rows = (fields.size() + cols - 1) / cols;
         return Math.min(height - 16, 26 + rows * 22 + 34);
@@ -277,7 +259,7 @@ public final class OttoExtraAdvancedScreen extends Screen {
             int row = i / cols;
             int x = panelX() + 12 + col * colW;
             int y = startY + row * rowH;
-            boolean wide = cols == 1; // einspaltig (URLs) -> breites Feld
+            boolean wide = cols == 1;
             int fw = wide ? Math.min(220, colW - 4) : fieldW;
 
             TextFieldWidget input = new TextFieldWidget(textRenderer,
@@ -296,7 +278,7 @@ public final class OttoExtraAdvancedScreen extends Screen {
         addDrawableChild(ButtonWidget.builder(Text.translatable("gui.cancel"), b -> client.setScreen(parent))
                 .dimensions(panelX() + 8, panelY() + panelH() - 26, bw, 18).build());
         if (withPreview) {
-            // Vorschau: aktuelle Feldwerte sofort anwenden + Toast im Menü zeigen
+
             addDrawableChild(ButtonWidget.builder(Text.translatable("ottoextra.config.preview"), b -> {
                 applyFields();
                 OttoExtraConfigScreen.triggerPreview();
@@ -333,7 +315,6 @@ public final class OttoExtraAdvancedScreen extends Screen {
 
         ctx.drawText(textRenderer, title, px + 8, py + 9, OttoExtraConfigScreen.COL_TITLE, false);
 
-        // Labels links neben den Feldern (mit Scroll-Offset, geclippt)
         int cols = fields.size() > 6 ? 2 : 1;
         int colW = (pw - 24) / cols;
         int rowH = 22;
@@ -351,7 +332,6 @@ public final class OttoExtraAdvancedScreen extends Screen {
                     x, y, OttoExtraConfigScreen.COL_TEXT, false);
         }
 
-        // Scrollbar rechts, wenn Inhalt nicht passt
         int ms = maxScroll();
         if (ms > 0) {
             int trackX = px + pw - 5;
@@ -366,7 +346,7 @@ public final class OttoExtraAdvancedScreen extends Screen {
         super.render(ctx, mouseX, mouseY, delta);
 
         if (withPreview) {
-            // Toast-Vorschau live über dem Menü
+
             de.ottoextra.regions.RegionNotificationOverlay.render(ctx, null);
         }
     }

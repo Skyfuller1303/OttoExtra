@@ -28,14 +28,6 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/**
- * Zentrale Regionsdaten: Bootstrap beim Server-Join, periodischer Sync,
- * In-Memory-Indizes für Name-&rarr;Region/Fraktion-Auflösung, Disk-Snapshot.
- *
- * <p>Nutzt ausschliesslich den zentralen {@link OttoExtraApiClient} —
- * kein eigener HTTP-Code. Matching-Algorithmus und Intervalle folgen der
- * bewährten OttoRegions-Logik (Sync 30 min, Region-Detail-Cooldown 10 min).</p>
- */
 public final class RegionDataService {
 
     private static final long SYNC_INTERVAL_MINUTES = 30;
@@ -69,9 +61,6 @@ public final class RegionDataService {
         applyLocalOverrides();
     }
 
-    // ---- Lifecycle ---------------------------------------------------------
-
-    /** Beim Ottonien-Join: Bootstrap laden + Sync-Loop starten. */
     public void onServerJoin() {
         if (!bootstrapRunning.compareAndSet(false, true)) {
             return;
@@ -128,10 +117,6 @@ public final class RegionDataService {
         }
     }
 
-    /**
-     * Spieler-Versammlungen ({@code player_gathering}) sind volatiler als der
-     * Rest — eigener leichter Refresh über die Region-Liste alle 7 Minuten.
-     */
     private void startGatheringLoop() {
         gatheringTask = scheduler.scheduleAtFixedRate(() ->
                 api.regionList().whenComplete((regions, t) -> {
@@ -152,15 +137,11 @@ public final class RegionDataService {
                 }), 0, GATHERING_INTERVAL_MINUTES, TimeUnit.MINUTES);
     }
 
-    /** Versammelte Spieler in einer Region (0 = keine/unbekannt). */
     public int gatheringCount(String regionKey) {
         Integer g = gatheringByKey.get(RegionNameKeys.normalize(regionKey));
         return g != null ? g : 0;
     }
 
-    // ---- Abfragen ----------------------------------------------------------
-
-    /** Fraktion zu einem (Chat-)Regionsnamen. */
     public Optional<FactionRecord> factionForRegion(String regionName) {
         String key = RegionNameKeys.normalize(regionName);
         if (key.isEmpty()) {
@@ -187,10 +168,6 @@ public final class RegionDataService {
         return key.isEmpty() ? Optional.empty() : Optional.ofNullable(regionsByKey.get(key));
     }
 
-    /**
-     * Region-Detail nachladen (Beschreibung/mapped capabilities), gedrosselt
-     * pro Regionskey (10 min). Aktualisiert die Indizes bei Erfolg.
-     */
     public void requestRegionDetail(String regionName) {
         String key = RegionNameKeys.normalize(regionName);
         if (key.isEmpty()) {
@@ -226,12 +203,10 @@ public final class RegionDataService {
         return uuid == null ? Optional.empty() : Optional.ofNullable(factionsByUuid.get(uuid));
     }
 
-    /** Alle bekannten Fraktionen (Snapshot der Indizes, für Gruppen-Aufbau). */
     public List<FactionRecord> allFactions() {
         return new ArrayList<>(factionsByUuid.values());
     }
 
-    /** Vasallen einer Fraktion als (bekannte) FactionRecords. */
     public List<FactionRecord> vassalsOf(FactionRecord faction) {
         List<FactionRecord> result = new ArrayList<>();
         if (faction.vassal_uuids() != null) {
@@ -244,8 +219,6 @@ public final class RegionDataService {
         }
         return result;
     }
-
-    // ---- Intern ------------------------------------------------------------
 
     private void applyEnvelope(ApiEnvelope env, boolean fromBootstrap) {
         if (env == null) {
@@ -264,11 +237,6 @@ public final class RegionDataService {
         persistSnapshot();
     }
 
-    /**
-     * Lokale Daten-Overrides für Lehen, die die API (noch) nicht liefert
-     * (Legacy-Parität: OttoMap setzte Holdern als Herzogtum mit
-     * Ottonien-Banner). Greift nur, wenn die API keine Fraktion kennt.
-     */
     private void applyLocalOverrides() {
         applyFactionIfMissing("lehen_27", new FactionRecord(
                 "local-holdern", null, null, "Holdern", "Herzogtum",
@@ -335,9 +303,6 @@ public final class RegionDataService {
         }
     }
 
-    // ---- Disk-Snapshot -----------------------------------------------------
-
-    /** Persistenz-Form: nur Listen + Cursor (Indizes werden beim Laden neu gebaut). */
     private static final class Snapshot {
         long syncCursor = -1;
         List<FactionRecord> factions = List.of();
@@ -378,7 +343,7 @@ public final class RegionDataService {
                 Snapshot snap = new Snapshot();
                 snap.syncCursor = syncCursor;
                 snap.factions = new ArrayList<>(factionsByUuid.values());
-                // Regionen dedupliziert über Identität
+
                 List<RegionRecord> regions = new ArrayList<>();
                 regionsByKey.values().stream().distinct().forEach(regions::add);
                 snap.regions = regions;

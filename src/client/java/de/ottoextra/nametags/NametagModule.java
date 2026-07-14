@@ -11,14 +11,6 @@ import net.minecraft.client.util.InputUtil;
 import net.minecraft.text.Text;
 import org.lwjgl.glfw.GLFW;
 
-/**
- * Modul: Namensschilder (Quelle: OttoNames).
- *
- * <p>Titel-Zeile über dem Namen + RP-Name statt Accountname
- * ({@link NametagService}, gerendert über PlayerEntityRendererMixin),
- * Sichtbarkeitsmodi {@link NameTagMode} (REALISTIC = Sichtlinien-Raycast)
- * mit Toggle-Keybind (Standard N, zyklisch).</p>
- */
 public final class NametagModule implements OttoExtraModule {
 
     private KeyBinding toggleKey;
@@ -59,7 +51,6 @@ public final class NametagModule implements OttoExtraModule {
         OttoExtra.LOGGER.info("[nametags] initialisiert — Modus {}.", config.nametags.mode);
     }
 
-    /** "key.keyboard.n" -> GLFW-Code; unbekannt -> Default. */
     private static int keyCode(String name, int fallback) {
         try {
             return InputUtil.fromTranslationKey(name).getCode();

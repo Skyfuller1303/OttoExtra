@@ -11,17 +11,6 @@ import net.minecraft.client.render.Tessellator;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Spieler-Aktivität auf der Worldmap (Portierung aus OttoPlus):
- * pulsierender Glow + phasenversetzter Ring, wenn dort Spieler versammelt sind
- * ({@code player_gathering} aus der Regions-API, Refresh alle 7 min im
- * {@link RegionDataService}).
- *
- * <p>Zoomabhängig (Crossfade wie die Labels): rausgezoomt aggregiert pro
- * Gefolge am Lehnsherrn-Schwerpunkt, reingezoomt am einzelnen Lehen-Zentroid.
- * Formeln 1:1 aus Legacy: intensity = 1-0.7^count; Puls sin(t/900ms*PI);
- * Ring-Puls um 54 Grad versetzt.</p>
- */
 public final class ActivityRenderer {
 
     private static final int SEGMENTS = 48;
@@ -29,10 +18,6 @@ public final class ActivityRenderer {
     private ActivityRenderer() {
     }
 
-    /**
-     * @param perLehenAlpha Sichtbarkeit der Einzel-Lehen-Kreise (reingezoomt)
-     * @param groupAlpha    Sichtbarkeit der aggregierten Lehnsherr-Kreise (rausgezoomt)
-     */
     public static void render(XaeroMapBridge.View view, float overallAlpha,
                               float perLehenAlpha, float groupAlpha) {
         if (overallAlpha <= 0.02f) {
@@ -50,7 +35,6 @@ public final class ActivityRenderer {
 
         BufferBuilder buf = null;
 
-        // Reingezoomt: Kreis am einzelnen Lehen
         if (perA > 0.02f) {
             for (LehenPolygon poly : LehenPolygonStore.polygons()) {
                 if (!poly.labelOwner()) {
@@ -70,9 +54,8 @@ public final class ActivityRenderer {
             }
         }
 
-        // Rausgezoomt: pro Gefolge ein Kreis am Lehnsherrn-Schwerpunkt
         if (grpA > 0.02f) {
-            var labels = PoliticalOverlay.groupLabels(); // triggert Gruppen-Refresh
+            var labels = PoliticalOverlay.groupLabels();
             Map<String, Integer> countByGroup = new HashMap<>();
             for (LehenPolygon poly : LehenPolygonStore.polygons()) {
                 if (!poly.labelOwner()) {
@@ -84,7 +67,7 @@ public final class ActivityRenderer {
                 }
                 String group = PoliticalOverlay.groupDisplayName(poly.key());
                 if (group == null) {
-                    // Verbandslos: am eigenen Lehen zeigen (kein Lehnsherr)
+
                     float sx = view.screenX(poly.centroidX());
                     float sy = view.screenY(poly.centroidZ());
                     if (offscreen(sx, sy, view)) {
@@ -132,12 +115,11 @@ public final class ActivityRenderer {
                 VertexFormat.DrawMode.QUADS, RenderPipelines.GUI.getVertexFormat());
     }
 
-    /** Glow (Fan) + phasenversetzter Ring (Strip) als Quads um (sx, sy). */
     private static void emitActivity(BufferBuilder buf, float sx, float sy, int count,
                                      float pulse, float ringPulse, double effScale, float alpha) {
         float intensity = (float) (1.0 - Math.pow(0.7, count));
         float baseR = (float) Math.max(6.0, Math.min(16.0, 6 + count * 2 + effScale * 12.0));
-        // Glow: Fan als Quads (Mitte deckend, Rand transparent)
+
         float glowR = baseR * (0.78f + 0.22f * pulse);
         float centerA = intensity * (0.5f + 0.45f * pulse) * alpha;
         for (int i = 0; i < SEGMENTS; i++) {
@@ -150,7 +132,7 @@ public final class ActivityRenderer {
                     .color(1f, 1f, 1f, 0f);
             buf.vertex(sx, sy, 0).color(1f, 1f, 1f, centerA);
         }
-        // Ring: Strip als Quads
+
         float ringR = baseR * 1.4f * (0.72f + 0.28f * ringPulse);
         float ringThick = Math.max(1.5f, 2.5f * intensity);
         float ringA = intensity * (0.6f + 0.35f * ringPulse) * alpha;

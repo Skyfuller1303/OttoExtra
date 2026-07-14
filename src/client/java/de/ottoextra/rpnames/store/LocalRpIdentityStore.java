@@ -26,22 +26,11 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Lokales RP-Bekanntschaftssystem: known-players.json laden/speichern,
- * first-seen anlegen, Identitäten lernen, manuell bearbeiten
- *.
- *
- * <p>Merge-Prioritäten: {@code MANUAL_LOCKED/MANUAL > gelernt (Hover/Chat) >
- * API-Import > gesehen}. Leere eingehende Werte ändern nie etwas; Hover darf
- * API-Werte ersetzen, API füllt nur "Unbekannt". Speichern debounced (2 s),
- * defekte Dateien werden beiseitegelegt statt überschrieben.</p>
- */
 public final class LocalRpIdentityStore {
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
     private static final long SAVE_DEBOUNCE_MS = 2000;
 
-    /** Persistenz-Form. */
     private static final class FileModel {
         int schemaVersion = 1;
         long updatedAt = 0;
@@ -61,8 +50,6 @@ public final class LocalRpIdentityStore {
             return t;
         });
     }
-
-    // ---- Laden / Speichern --------------------------------------------------
 
     public synchronized void load() {
         Path file = OttoExtraPaths.rpnamesKnownPlayers();
@@ -86,7 +73,7 @@ public final class LocalRpIdentityStore {
             }
             OttoExtra.LOGGER.info("[rpnames] {} bekannte Personen geladen.", byNameLower.size());
         } catch (Exception e) {
-            // Defekt: NICHT überschreiben — beiseitelegen, mit leerem Store starten
+
             try {
                 Path broken = file.resolveSibling("known-players.broken-" + stamp() + ".json");
                 Files.move(file, broken, StandardCopyOption.REPLACE_EXISTING);
@@ -99,7 +86,6 @@ public final class LocalRpIdentityStore {
         }
     }
 
-    /** Debounced speichern (2 s) — für automatisches Lernen. */
     public void saveSoon() {
         dirty = true;
         ScheduledFuture<?> pending = pendingSave;
@@ -109,7 +95,6 @@ public final class LocalRpIdentityStore {
         pendingSave = scheduler.schedule(this::saveNow, SAVE_DEBOUNCE_MS, TimeUnit.MILLISECONDS);
     }
 
-    /** Sofort speichern — für manuelle Änderungen und Shutdown. */
     public synchronized void saveNow() {
         if (!dirty && Files.exists(OttoExtraPaths.rpnamesKnownPlayers())) {
             return;
@@ -135,7 +120,6 @@ public final class LocalRpIdentityStore {
         }
     }
 
-    /** Backup nach backups/known-players-<stamp>.json (vor Migration/Import). */
     public synchronized Optional<Path> backup() {
         try {
             Path src = OttoExtraPaths.rpnamesKnownPlayers();
@@ -158,15 +142,13 @@ public final class LocalRpIdentityStore {
         if (pending != null) {
             pending.cancel(false);
         }
-        saveNow(); // synchron, aber ohne Netzwerk — kein join()-Freeze wie im Bestand
+        saveNow();
         scheduler.shutdownNow();
     }
 
     private static String stamp() {
         return LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss"));
     }
-
-    // ---- Lookup ---------------------------------------------------------------
 
     public Optional<LocalRpProfile> find(String uuid, String accountName) {
         if (uuid != null && !uuid.isBlank()) {
@@ -193,12 +175,6 @@ public final class LocalRpIdentityStore {
         return byNameLower.size();
     }
 
-    // ---- First seen -----------------------------------------------------------
-
-    /**
-     * Spieler gesehen: Eintrag anlegen ("Unbekannt") oder UUID/Name upgraden
-     * und {@code lastSeenAt} pflegen. Nie Namen/Titel verändern.
-     */
     public synchronized LocalRpProfile ensureSeen(String accountName, String uuid, RpNameSource source) {
         long now = System.currentTimeMillis();
         LocalRpProfile profile = find(uuid, accountName).orElse(null);
@@ -213,13 +189,13 @@ public final class LocalRpIdentityStore {
             saveSoon();
         } else {
             boolean changed = false;
-            // UUID-Upgrade (Eintrag war nur per Name bekannt)
+
             if ((profile.uuid == null || profile.uuid.isBlank()) && uuid != null && !uuid.isBlank()) {
                 profile.uuid = uuid;
                 mergeDuplicateByUuid(profile);
                 changed = true;
             }
-            // Namenswechsel (gleiche UUID, neuer Accountname)
+
             if (accountName != null && !accountName.isBlank()
                     && profile.accountName != null
                     && !accountName.equalsIgnoreCase(profile.accountName)) {
@@ -236,13 +212,12 @@ public final class LocalRpIdentityStore {
         return profile;
     }
 
-    /** Beim UUID-Upgrade evtl. vorhandenes UUID-Duplikat in dieses Profil mergen. */
     private void mergeDuplicateByUuid(LocalRpProfile keep) {
         LocalRpProfile dupe = byUuid.get(keep.uuid.toLowerCase(Locale.ROOT));
         if (dupe == null || dupe == keep) {
             return;
         }
-        // lokal stärkerer Datensatz gewinnt feldweise
+
         if (!keep.hasRpName() && dupe.hasRpName()) {
             keep.rpName = dupe.rpName;
             keep.knowledgeState = dupe.knowledgeState;
@@ -264,13 +239,6 @@ public final class LocalRpIdentityStore {
         return v == 0 ? Long.MAX_VALUE : v;
     }
 
-    // ---- Lernen ----------------------------------------------------------------
-
-    /**
-     * RP-Name/Titel aus Chat/Hover gelernt. Regeln: blank ändert
-     * nichts; MANUAL/MANUAL_LOCKED unantastbar; Hover darf API-Werte ersetzen;
-     * Titel separat nachtragbar; gleicher Name erneut gehört -> KNOWN.
-     */
     public synchronized boolean learnIdentity(String accountName, String rpName, String title,
                                               String titleGroup, RpNameSource source) {
         if (accountName == null || accountName.isBlank()) {
@@ -287,7 +255,7 @@ public final class LocalRpIdentityStore {
         if (rpName != null && !rpName.isBlank() && !rpName.equalsIgnoreCase(accountName)) {
             if (!profile.hasRpName() || profile.knowledgeState == KnowledgeState.API_IMPORTED) {
                 if (profile.hasRpName() && !profile.rpName.equals(rpName)) {
-                    profile.apiConflict = profile.rpName; // API-Wert als Konflikt merken
+                    profile.apiConflict = profile.rpName;
                 }
                 profile.rpName = rpName;
                 profile.knowledgeState = KnowledgeState.HEARD_NAME;
@@ -296,7 +264,7 @@ public final class LocalRpIdentityStore {
                 changed = true;
             } else if (profile.rpName.equals(rpName)
                     && profile.knowledgeState == KnowledgeState.HEARD_NAME) {
-                profile.knowledgeState = KnowledgeState.KNOWN; // zweite Bestätigung
+                profile.knowledgeState = KnowledgeState.KNOWN;
                 changed = true;
             }
         }
@@ -315,17 +283,6 @@ public final class LocalRpIdentityStore {
         return changed;
     }
 
-    /**
-     * Titel eines vorhandenen Profils aus einer automatischen Quelle
-     * (Tabliste/Chat-Hover) aktualisieren, wenn er sich geändert hat. Geschützt
-     * sind {@code locked} (RP-Buch gesperrt) UND manuell bearbeitete Profile
-     * ({@code knowledgeState} == MANUAL/MANUAL_LOCKED) — sonst überschreibt die
-     * nächste Chat-Nachricht den im RP-Buch von Hand gesetzten Titel mit dem
-     * Server-Titel zurück. Konsistent zu {@link #importApi}. Leerer Titel wird
-     * ignoriert (kein versehentliches Löschen).
-     *
-     * @return true, wenn der Titel geändert wurde
-     */
     public synchronized boolean updateTitleIfChanged(String account, String uuid, String title) {
         if (account == null || account.isBlank() || title == null) {
             return false;
@@ -348,9 +305,6 @@ public final class LocalRpIdentityStore {
         return true;
     }
 
-    // ---- Manuell ----------------------------------------------------------------
-
-    /** Manuelle Bearbeitung; {@code lock} schützt zusätzlich gegen Automatik. */
     public synchronized LocalRpProfile updateManual(String accountName,
                                                     java.util.function.Consumer<LocalRpProfile> edit,
                                                     boolean lock) {
@@ -366,14 +320,12 @@ public final class LocalRpIdentityStore {
         return profile;
     }
 
-    /** API-Import eines Profils: füllt nur "Unbekannt" und leere Felder. */
     public synchronized boolean importApi(String accountName, String uuid, String rpName, String title) {
         LocalRpProfile profile = find(uuid, accountName).orElse(null);
         if (profile == null) {
-            return false; // Anlage übernimmt der Importer je nach Modus explizit
+            return false;
         }
-        // API-Original-RP-Namen IMMER merken (auch bei MANUAL/locked) — Quelle
-        // fürs Zurücksetzen, ohne den lokal gesetzten Namen anzutasten.
+
         boolean recorded = false;
         if (rpName != null && !rpName.isBlank() && !rpName.equals(profile.apiRpName)) {
             profile.apiRpName = rpName;
@@ -399,7 +351,7 @@ public final class LocalRpIdentityStore {
             changed = true;
         } else if (rpName != null && !rpName.isBlank() && profile.hasRpName()
                 && !profile.rpName.equals(rpName)) {
-            profile.apiConflict = rpName; // nur vermerken, nie übernehmen
+            profile.apiConflict = rpName;
             changed = true;
         }
         if (title != null && !title.isBlank() && !profile.hasTitle() && !profile.titleLocked) {
@@ -413,15 +365,6 @@ public final class LocalRpIdentityStore {
         return changed;
     }
 
-    /**
-     * OttoPlus-Import: überschreibt rpName/title/Titelfarbe eines vorhandenen
-     * Profils autoritativ. Gesperrte Profile ({@code locked}) bleiben unberührt.
-     * Leere/"Unbekannt"-Werte löschen nie vorhandene Daten (additiv). UUID wird
-     * nur nachgetragen, nie ersetzt. Speichern debounced; Aufrufer ruft am Ende
-     * {@link #saveNow()}.
-     *
-     * @return true, wenn ein Feld geändert wurde
-     */
     public synchronized boolean importOttoPlus(String account, String uuid, String rpName,
                                                String title, String titleColorHex) {
         LocalRpProfile profile = find(uuid, account).orElse(null);
@@ -459,7 +402,6 @@ public final class LocalRpIdentityStore {
         return changed;
     }
 
-    /** Neues Profil direkt einfügen (Importer/Migration). Respektiert vorhandene Einträge nicht — Aufrufer prüft. */
     public synchronized void insert(LocalRpProfile profile) {
         profile.repair();
         index(profile);

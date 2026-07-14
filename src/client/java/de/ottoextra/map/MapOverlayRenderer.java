@@ -13,23 +13,12 @@ import org.joml.Matrix3x2fStack;
 
 import java.util.Optional;
 
-/**
- * Zeichnet das Ottonien-Overlay auf der Xaero-Worldmap: Lehengrenzen,
- * Regionsnamen (LOD) und Wappen (LOD).
- *
- * <p>Schräge Grenzsegmente entstehen als rotierte Fill-Quads
- * (Matrix translate+rotate, dann achsenparalleles fill) — keine Shader,
- * keine Buffer-Abhängigkeiten. Daten kommen ausschliesslich aus
- * {@link LehenPolygonStore} + den zentralen Regions-Diensten; im Render-Pfad
- * gibt es keine Netz-/Disk-Zugriffe.</p>
- */
 public final class MapOverlayRenderer {
 
-    // Pergament-Stil
-    private static final int COL_BORDER = 0xCCB8893A;     // Gold, leicht transparent
-    private static final int COL_BORDER_INSIDE = 0xFFE6C8A9; // Lehen des Spielers
+    private static final int COL_BORDER = 0xCCB8893A;
+    private static final int COL_BORDER_INSIDE = 0xFFE6C8A9;
     private static final int COL_NAME = 0xFFF4E9C8;
-    private static final int COL_NAME_SECONDARY = 0xFFB9AC8C; // Lehensname unter dem Gefolge
+    private static final int COL_NAME_SECONDARY = 0xFFB9AC8C;
     private static final int COL_NAME_SHADOW = 0xFF1A1208;
 
     private static final double CULL_MARGIN = 256.0;
@@ -57,34 +46,26 @@ public final class MapOverlayRenderer {
         double playerX = client.player != null ? client.player.getX() : Double.NaN;
         double playerZ = client.player != null ? client.player.getZ() : Double.NaN;
 
-        // Sichtbarkeit weich: ab minScale einblenden, voll bei 1.6x minScale
         double eff = view.effScale();
         float indFade = fadeIn(eff, cfg.nameMinScale);
         float nameAlpha = cfg.showNames ? indFade : 0f;
         float bannerAlpha = cfg.showBanners ? fadeIn(eff, cfg.bannerMinScale) * indFade : 0f;
         boolean drawNames = nameAlpha > 0.02f;
         boolean drawBanners = bannerAlpha > 0.02f;
-        // Weit draussen: ein Label pro Gefolge (oberster Lehnsherr), Crossfade
-        // zu den Einzel-Lehen beim Reinzoomen — unabhängig vom politischen
-        // Layout (das steuert nur die Flächenfärbung)
+
         float groupAlpha = 1f - indFade;
 
-        // Politische Flächen + Klick-Highlight: immediate, liegt damit unter
-        // den (deferred) Grenzen/Labels dieses DrawContexts.
         PoliticalOverlay.renderFills(view, cfg.politicalFill, cfg.politicalMaxScale, mouseX, mouseY);
         if (cfg.showActivity) {
-            // Crossfade wie die Labels: rausgezoomt am Lehnsherrn (groupAlpha),
-            // reingezoomt am einzelnen Lehen (indFade).
+
             ActivityRenderer.render(view, 1.0f, indFade, groupAlpha);
         }
 
-        // Grenzen: deduplizierte Segmente (geteilte Lehnsgrenzen genau einmal).
-        // Beim Rauszoomen dezenter: Strich/Lücke skalieren mit dem Zoom.
         if (cfg.showBorders) {
             int width = Math.max(1, cfg.borderWidthPx);
             int borderCol = parseHexColor(cfg.borderColor, COL_BORDER);
             float styleScale = (float) Math.max(0.22, Math.min(1.0, eff / 0.35));
-            // beim Rauszoomen zusaetzlich "duenner": Linien-Alpha absenken
+
             borderCol = withAlpha(borderCol, 0.5f + 0.5f * styleScale * styleScale);
             for (BorderSegment seg : LehenPolygonStore.segments()) {
                 if (!seg.intersects(qMinX, qMinZ, qMaxX, qMaxZ)) {
@@ -98,7 +79,6 @@ public final class MapOverlayRenderer {
             }
         }
 
-        // NPC-Dörfer UNTER den Lehnsnamen/Wappen (diese sollen oben liegen)
         if (cfg.showNpcVillages) {
             drawNpcVillages(ctx, tr, view, cfg);
         }
@@ -118,7 +98,6 @@ public final class MapOverlayRenderer {
         }
     }
 
-    /** NPC-Dörfer als kleine Text-Labels mit Markierungspunkt (immer sichtbar). */
     private static void drawNpcVillages(DrawContext ctx, TextRenderer tr,
                                         XaeroMapBridge.View view, OttoExtraConfig.Map cfg) {
         if (cfg.npcVillages == null) {
@@ -140,7 +119,6 @@ public final class MapOverlayRenderer {
         }
     }
 
-    /** Polygon-Key des Lehens, in dem der Spieler steht (oder null). */
     public static String insidePolygonKey(double px, double pz) {
         if (Double.isNaN(px)) {
             return null;
@@ -154,16 +132,10 @@ public final class MapOverlayRenderer {
         return null;
     }
 
-    // ---- Grenzen -----------------------------------------------------------
-
-    /**
-     * Liniensegment: erst auf den Viewport geclippt (begrenzt Dash-Anzahl bei
-     * hohem Zoom), dann optional als Strichgrafik, als rotierte fill-Quads.
-     */
     private static void drawSegment(DrawContext ctx, float x1, float y1, float x2, float y2,
                                     int viewW, int viewH, int color, int widthPx,
                                     float styleScale, OttoExtraConfig.Map cfg) {
-        // Liang-Barsky auf [-8, view+8]
+
         double dx = x2 - x1;
         double dy = y2 - y1;
         double t0 = 0;
@@ -220,8 +192,6 @@ public final class MapOverlayRenderer {
         m.popMatrix();
     }
 
-    // ---- Labels (Name + Wappen) ---------------------------------------------
-
     private static void drawLabel(DrawContext ctx, TextRenderer tr, XaeroMapBridge.View view,
                                   LehenPolygon poly, float nameAlpha, float bannerAlpha,
                                   float groupAlpha, OttoExtraConfig.Map cfg) {
@@ -230,9 +200,7 @@ public final class MapOverlayRenderer {
         if (sx < -64 || sy < -64 || sx > view.width() + 64 || sy > view.height() + 64) {
             return;
         }
-        // Wappen-Verbandslehen (Mährstein-Fehde): einzeilig der eigene
-        // Lehensname — der Verbandsname steht am Sammel-Label, und die
-        // Fallback-Pseudofraktion (= Lehensname) wäre nur eine Dopplung.
+
         String verbandName = PoliticalOverlay.verbandDisplayName(poly.key());
         String primary;
         String secondary;
@@ -242,15 +210,11 @@ public final class MapOverlayRenderer {
         } else {
             String lehenName = displayName(poly);
             String factionName = factionName(poly);
-            // Hauptzeile = Gefolge (Fraktion), Lehensname kleiner darunter — beide
-            // Zeilen auch bei gleichem Namen. Ohne Fraktionsdaten nur Lehensname.
+
             primary = factionName != null ? factionName : lehenName;
             secondary = factionName != null ? lehenName : null;
         }
 
-        // Sammel-Label schon sichtbar und dieses Lehen trägt exakt den
-        // Gruppennamen (Wurzel-Lehen, z. B. Mährstein selbst)? Dann nicht
-        // doppelt beschriften — sonst steht beim Rauszoomen 2x derselbe Name.
         if (groupAlpha > 0.02f) {
             String groupName = PoliticalOverlay.groupDisplayName(poly.key());
             if (groupName != null
@@ -259,7 +223,6 @@ public final class MapOverlayRenderer {
             }
         }
 
-        // Größen smooth zwischen den Breakpoints A (weit draussen) und B (nah)
         float t = breakpointT(view.effScale(), cfg.labelZoomA, cfg.labelZoomB);
         float global = Math.max(0.3f, Math.min(3f, cfg.labelScale));
         float factionScale = lerp(cfg.factionScaleA, cfg.factionScaleB, t) * global;
@@ -288,15 +251,11 @@ public final class MapOverlayRenderer {
         }
     }
 
-    /**
-     * Gefolge-Sammel-Labels (rausgezoomte politische Ansicht): Wappen + Name
-     * des obersten Lehnsherrn am Flächen-Schwerpunkt der Vasallenschaft.
-     */
     private static void drawGroupLabels(DrawContext ctx, TextRenderer tr, XaeroMapBridge.View view,
                                         OttoExtraConfig.Map cfg, float alpha) {
         var banners = RegionsServices.banners();
         float global = Math.max(0.3f, Math.min(3f, cfg.labelScale));
-        // Sammel-Label dezent: Größen der "weit draussen"-Breakpoints (A)
+
         float scale = cfg.factionScaleA * global;
         int bannerSize = Math.max(8, cfg.bannerSizeA + 4);
         for (PoliticalOverlay.GroupLabel g : PoliticalOverlay.groupLabels()) {
@@ -328,7 +287,6 @@ public final class MapOverlayRenderer {
         }
     }
 
-    /** Smoothstep-Position zwischen zwei Zoom-Breakpoints (0..1). */
     private static float breakpointT(double eff, double zoomA, double zoomB) {
         if (zoomB <= zoomA) {
             return 1f;
@@ -338,7 +296,6 @@ public final class MapOverlayRenderer {
         return t * t * (3f - 2f * t);
     }
 
-    /** Weiche Einblendung: 0 bei minScale, 1 ab 1.6x minScale. */
     private static float fadeIn(double eff, double minScale) {
         if (minScale <= 0) {
             return 1f;
@@ -357,7 +314,6 @@ public final class MapOverlayRenderer {
         return (a << 24) | (argb & 0xFFFFFF);
     }
 
-    /** "#AARRGGBB" oder "#RRGGBB" (dann volldeckend); Fallback bei Murks. */
     private static int parseHexColor(String hex, int fallback) {
         if (hex == null) {
             return fallback;
@@ -371,12 +327,11 @@ public final class MapOverlayRenderer {
                 return (int) Long.parseLong(s, 16);
             }
         } catch (NumberFormatException ignored) {
-            // Fallback unten
+
         }
         return fallback;
     }
 
-    /** Zentrierter Text mit 4-Offset-Outline, skaliert + weich eingeblendet. */
     private static void drawOutlinedText(DrawContext ctx, TextRenderer tr, String text,
                                          int centerX, int y, float scale, int color, float alpha) {
         float tw = tr.getWidth(text) * scale;
@@ -393,18 +348,16 @@ public final class MapOverlayRenderer {
         m.popMatrix();
     }
 
-    /** Gefolge-(Fraktions-)Name für ein Lehen-Polygon, oder null. */
     private static String factionName(LehenPolygon poly) {
         var data = RegionsServices.data();
         if (data == null) {
             return null;
         }
-        // Nur echte Gefolge als Hauptzeile — Region-Verbände (Mährstein-Fehde)
-        // zeigen am Einzel-Lehen schlicht den Lehensnamen.
+
         return data.factionForRegion(poly.key())
                 .map(FactionRecord::name)
                 .filter(n -> n != null && !n.isBlank())
-                .map(PoliticalOverlay::displayNameFor) // Gefolge-Anzeigename-Override
+                .map(PoliticalOverlay::displayNameFor)
                 .orElse(null);
     }
 
@@ -429,14 +382,13 @@ public final class MapOverlayRenderer {
         return bannerForKey(poly.key());
     }
 
-    /** Banner-Lookup eines Lehens (Region-Banner vor Fraktions-Banner), oder null. */
     public static Identifier bannerForKey(String polyKey) {
         var data = RegionsServices.data();
         var banners = RegionsServices.banners();
         if (data == null || banners == null || polyKey == null) {
             return null;
         }
-        // Region-Banner zuerst (fraktionslose Verbände, z. B. Mährstein-Fehde)
+
         var region = data.regionByName(polyKey);
         String regionBanner = region.map(r -> r.effectiveRegionBannerPath()).orElse(null);
         if (regionBanner != null && !regionBanner.isBlank()) {
@@ -449,7 +401,6 @@ public final class MapOverlayRenderer {
         return faction.flatMap(banners::bannerFor).orElse(null);
     }
 
-    /** Punkt-in-Polygon (Ray-Casting) für die Spieler-Hervorhebung. */
     private static boolean contains(LehenPolygon poly, double px, double pz) {
         boolean inside = false;
         int n = poly.pointCount();

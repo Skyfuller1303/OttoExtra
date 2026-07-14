@@ -8,11 +8,6 @@ import net.minecraft.client.gui.tooltip.Tooltip;
 import net.minecraft.client.gui.widget.ClickableWidget;
 import net.minecraft.text.Text;
 
-/**
- * Pfeil-Button zum Kalibrieren der gemalten Karte (Worldmap): verschiebt
- * {@code paintedMapOffsetX/Z} um {@value #STEP} Blöcke pro Klick
- * (Shift = x5) und speichert sofort. Wirkung ist live sichtbar.
- */
 public final class MapNudgeButton extends ClickableWidget {
 
     private static final int STEP = 10;
@@ -31,7 +26,7 @@ public final class MapNudgeButton extends ClickableWidget {
 
     @Override
     public void onClick(Click click, boolean doubled) {
-        if (dirX == 0 && dirZ == 0) { // Mitte = Reset auf 0/0
+        if (dirX == 0 && dirZ == 0) {
             config.map.paintedMapOffsetX = 0;
             config.map.paintedMapOffsetZ = 0;
             config.save();
@@ -51,21 +46,21 @@ public final class MapNudgeButton extends ClickableWidget {
         int s = getWidth();
         int col = isHovered() ? 0xFFFFFFFF : 0xCCDDDDDD;
         ctx.fill(x, y, x + s, y + s, isHovered() ? 0x66000000 : 0x44000000);
-        if (dirX == 0 && dirZ == 0) { // Reset: kleines Quadrat in der Mitte
+        if (dirX == 0 && dirZ == 0) {
             int m = s / 2;
             ctx.fill(x + m - 2, y + m - 2, x + m + 2, y + m + 2, col);
             return;
         }
-        // Pfeil als gestapelte fill-Zeilen Richtung (dirX, dirZ)
+
         int cx = x + s / 2;
         int cy = y + s / 2;
         int len = s / 2 - 2;
         for (int i = 0; i < len; i++) {
             int half = Math.max(0, len - 1 - i);
-            if (dirZ != 0) { // hoch/runter
+            if (dirZ != 0) {
                 int yy = cy + dirZ * (i - len / 2);
                 ctx.fill(cx - half, yy, cx + half + 1, yy + 1, col);
-            } else { // links/rechts
+            } else {
                 int xx = cx + dirX * (i - len / 2);
                 ctx.fill(xx, cy - half, xx + 1, cy + half + 1, col);
             }

@@ -17,18 +17,11 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.stream.Stream;
 
-/**
- * Backup-Service fürs Settings-GUI-Rework:
- * Pflicht-Backup VOR Migration/Default-Änderungen, Manifest mit SHA-256,
- * Idempotenz über State-Datei, manuelle Backups + Liste fürs GUI.
- * Schlägt das Backup fehl, wird NICHT migriert (Datenschutz vor Fortschritt).
- */
 public final class OttoExtraBackupService {
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final String REWORK_REASON = "settings-gui-rework";
 
-    /** Manifest-Eintrag. GSON-direkt. */
     public static final class ManifestFile {
         public String source;
         public String target;
@@ -47,7 +40,6 @@ public final class OttoExtraBackupService {
         boolean completed;
     }
 
-    /** Backup-Eintrag fürs GUI. */
     public record BackupEntry(Path dir, String name, long files) {
     }
 
@@ -66,7 +58,6 @@ public final class OttoExtraBackupService {
                 .resolve(REWORK_REASON + ".json");
     }
 
-    /** Alle zu sichernden Pfade (fehlende sind kein Fehler). */
     private static List<Path> sources() {
         Path cfg = OttoExtraPaths.root();
         Path mcConfig = cfg.getParent();
@@ -88,7 +79,6 @@ public final class OttoExtraBackupService {
         return out;
     }
 
-    /** Pflicht-Backup vor Migration; true = Backup ok (oder bereits vorhanden). */
     public static synchronized boolean ensurePreMigrationBackup() {
         try {
             State state = loadState();
@@ -118,7 +108,6 @@ public final class OttoExtraBackupService {
         }
     }
 
-    /** Manuelles Backup (GUI-Button / vor Gefahr-Aktionen). */
     public static synchronized Path createBackup() throws Exception {
         String stamp = LocalDateTime.now()
                 .format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"));
@@ -197,13 +186,9 @@ public final class OttoExtraBackupService {
         return out;
     }
 
-    /**
-     * Stellt ein Backup wieder her (Dateien zurück an Originalpfade).
-     * Erstellt vorher automatisch ein frisches Sicherungs-Backup.
-     */
     public static synchronized boolean restoreBackup(Path backupDir) {
         try {
-            createBackup(); // Sicherung des Ist-Zustands vor Restore
+            createBackup();
             Path root = OttoExtraPaths.root().getParent();
             if (root == null) {
                 return false;

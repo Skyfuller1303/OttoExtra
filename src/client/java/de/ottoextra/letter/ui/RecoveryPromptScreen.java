@@ -11,11 +11,6 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
 
-/**
- * Recovery-Dialog nach Join: unfertiger Brief- oder
- * Verkündungsversand gefunden — Fortsetzen (ab letztem Command), Neu
- * beginnen (Editor mit Entwurf) oder Verwerfen.
- */
 public final class RecoveryPromptScreen extends Screen {
 
     private final OttoExtraConfig config;

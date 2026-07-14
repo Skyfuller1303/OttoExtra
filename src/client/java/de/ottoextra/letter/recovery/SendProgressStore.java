@@ -8,12 +8,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
-/**
- * Generischer Recovery-Store: speichert den
- * Sendefortschritt nach JEDEM abgesetzten Command atomar als JSON; nach
- * Join kann der Nutzer fortsetzen/verwerfen. Getrennte Dateien für Brief
- * und Verkündung (Aufrufer wählt den Pfad).
- */
 public final class SendProgressStore<T> {
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting()
@@ -34,7 +28,7 @@ public final class SendProgressStore<T> {
             Files.writeString(tmp, GSON.toJson(progress), StandardCharsets.UTF_8);
             Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING);
         } catch (Exception ignored) {
-            // Recovery ist best effort — Versand läuft weiter
+
         }
     }
 

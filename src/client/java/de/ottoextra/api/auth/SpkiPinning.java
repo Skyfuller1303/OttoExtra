@@ -15,34 +15,13 @@ import java.security.cert.X509Certificate;
 import java.util.Base64;
 import java.util.Set;
 
-/**
- * Optionales SPKI-Pinning für die v2-API.
- *
- * <p>Pinnt den SHA-256-Hash des SubjectPublicKeyInfo des Leaf-Zertifikats —
- * nicht das Zertifikat selbst, damit Renewals mit gleichem Key-Pair
- * (z. B. Let's Encrypt) weiterlaufen. Erst Standard-TLS-Validierung, dann
- * Pin-Check. Ohne einkompilierte Pins bleibt Pinning inaktiv und die
- * Ed25519-Antwortsignatur ist die Verteidigungslinie.</p>
- */
 public final class SpkiPinning {
 
-    /**
-     * SPKI-SHA-256-Pins ("sha256/&lt;base64&gt;").
-     * TODO Server-Rollout: IMMER zwei Pins einkompilieren
-     * (aktiver Key + offline gelagerter Backup-Key) — sonst sperrt
-     * ein Key-Wechsel alle Clients aus. Hinter Cloudflare/Proxy: Pinning
-     * weglassen und auf Antwortsignaturen stützen.
-     */
     private static final Set<String> SPKI_PINS = Set.of();
 
     private SpkiPinning() {
     }
 
-    /**
-     * SSLContext mit Pin-Prüfung, oder {@code null} wenn Pinning aus ist
-     * (Flag aus, keine Pins einkompiliert oder Initialisierung fehlgeschlagen)
-     * — dann nutzt der HttpClient den System-Truststore.
-     */
     public static SSLContext pinnedContextOrNull(boolean enabled) {
         if (!enabled || SPKI_PINS.isEmpty()) {
             return null;
@@ -71,7 +50,6 @@ public final class SpkiPinning {
         }
     }
 
-    /** Berechnet den Pin eines Zertifikats ("sha256/<base64(SHA-256(SPKI))>"). */
     static String pinOf(X509Certificate certificate) throws CertificateException {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
@@ -82,7 +60,6 @@ public final class SpkiPinning {
         }
     }
 
-    /** Erst Standard-Validierung, dann SPKI-Pin des Leaf gegen die Pin-Liste. */
     static final class PinnedTrustManager extends X509ExtendedTrustManager {
 
         private final X509ExtendedTrustManager delegate;
@@ -99,7 +76,7 @@ public final class SpkiPinning {
             }
             String pin = pinOf(chain[0]);
             if (!pins.contains(pin)) {
-                // Möglicher MITM — Verbindung abbrechen, Aufrufer geht in den Offline-Modus
+
                 throw new CertificateException("SPKI-Pin stimmt nicht überein");
             }
         }

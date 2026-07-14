@@ -8,7 +8,6 @@ import java.time.Instant;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Proaktive Token-Erneuerung: gilt ab expiresAt - 120 s als abgelaufen. */
 class ApiTokenTest {
 
     private static final Instant NOW = Instant.parse("2026-06-13T12:00:00Z");

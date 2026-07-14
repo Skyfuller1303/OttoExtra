@@ -10,17 +10,8 @@ import net.minecraft.text.Text;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * Erkennt Region-Betreten-Meldungen ("Du betrittst ...") und pflegt den
- * aktuellen Regionskontext. Wird von {@code ClientPlayNetworkHandlerMixin}
- * aufgerufen — die gesamte Logik liegt hier, der Mixin bleibt dünn.
- *
- * <p>Statischer Service, weil der Mixin keinen einfachen Zugriff auf den
- * {@code OttoExtraContext} hat (Muster wie im Legacy-OttoRegions).</p>
- */
 public final class RegionMessageService {
 
-    // Identisch zur OttoRegions-Vorlage (CASE_INSENSITIVE | UNICODE_CASE).
     private static final Pattern ENTER_PATTERN =
             Pattern.compile("du\\s+betrittst", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     private static final Pattern PARSE_PATTERN =
@@ -44,7 +35,6 @@ public final class RegionMessageService {
         config = cfg;
     }
 
-    /** Bei Disconnect: flüchtigen Zustand verwerfen. */
     public static void reset() {
         current = null;
         lastGlobalMs = 0;
@@ -56,8 +46,6 @@ public final class RegionMessageService {
         return current;
     }
 
-    // ---- Erkennung -------------------------------------------------------
-
     public static boolean isRegionEnter(Text text) {
         return text != null && isRegionEnter(text.getString());
     }
@@ -66,18 +54,10 @@ public final class RegionMessageService {
         return plain != null && !plain.isBlank() && ENTER_PATTERN.matcher(plain).find();
     }
 
-    /** Ob die Vanilla-Meldung unterdrückt werden soll (nur bei Config-Wunsch). */
     public static boolean shouldHide(Text text) {
         return config != null && config.regions.hideOriginalActionbar && isRegionEnter(text);
     }
 
-    // ---- Verarbeitung ----------------------------------------------------
-
-    /**
-     * Verarbeitet eine eingehende Meldung. Mehrere Pakete (GameMessage/Overlay/
-     * Title/Subtitle) feuern fast gleichzeitig für ein Betreten — der globale
-     * Cooldown dedupliziert diesen Burst.
-     */
     public static void handle(Text content, String sourceTag) {
         if (content == null) {
             return;
@@ -116,7 +96,6 @@ public final class RegionMessageService {
         }
     }
 
-    /** Region-Detail + Wappen im Hintergrund vorladen, damit HUD/Menü sofort liefern. */
     private static void prefetch(String name) {
         RegionDataService data = RegionsServices.data();
         BannerTextureService banners = RegionsServices.banners();
@@ -139,10 +118,6 @@ public final class RegionMessageService {
         return new RegionInfo(region, hierarchy);
     }
 
-    /**
-     * Region-Betreten-Klang (OttoRegions-Original): Noteblock-Hat (Pitch 0.55,
-     * Vol 1.1) + Amethyst-Chime (Pitch 0.35, Vol 1.0) gleichzeitig.
-     */
     public static void playEnterSound() {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client == null) {
@@ -155,7 +130,7 @@ public final class RegionMessageService {
                 client.getSoundManager().play(PositionedSoundInstance.ui(
                         SoundEvents.BLOCK_AMETHYST_BLOCK_CHIME, 0.35f, 1.0f), 0);
             } catch (Throwable ignored) {
-                // Sound ist optional; niemals den Client-Thread gefährden.
+
             }
         });
     }

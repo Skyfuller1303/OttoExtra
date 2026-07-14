@@ -17,44 +17,27 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-/**
- * Titelkatalog: konkrete Titel-Einträge mit Varianten, Kategorie,
- * Quelle und optionalem Farb-Override — getrennt von den Titelgruppen
- * (Farbschema/Oberkategorie). Persistiert in
- * {@code config/ottoextra/rpnames/title-catalog.json}; fehlt die Datei, wird
- * der gebündelte Wiki-Import (129 Titel, Stände-und-Titel-Seite) geschrieben.
- *
- * <p>Farbauflösung für einen Titel: Spieler-Override → Titel-{@code colorOverride}
- * → Kategorie-Farbe → Titelgruppen-Farbe (Legacy) → {@code defaultNameColor}.</p>
- */
 public final class TitleCatalogStore {
 
-    /** Kategorie (Farbschema). GSON-direkt. */
     public static final class Category {
         public String label = "";
         public String color = "#a17f5f";
     }
 
-    /** Ein Titel-Eintrag. GSON-direkt. */
     public static final class Entry {
         public String id = "";
         public String title = "";
         public List<String> variants = new ArrayList<>();
-        /** Match-Aliase = die tatsächlichen Server-Titelformen (z. B. Geschlechts-
-         *  formen), positionell zu {@link #variants} ausgerichtet. Dienen NUR dem
-         *  Treffer; so bricht das Umbenennen einer Anzeige-Variante den Match zur
-         *  Server-Form nicht. Leer/null -> beim Indizieren aus dem Wiki-Default
-         *  (sonst aus den Varianten) befüllt. */
+
         public List<String> aliases;
         public String category = "unclassified";
         public String colorOverride;
-        /** Optionale Namensfarbe für Personen mit diesem Titel (Spieler-/RP-Name).
-         *  Leer = keine; greift zwischen Personen-Override und globaler Farbe. */
+
         public String nameColor;
         public String source = "MANUAL";
         public String sourceCategory = "";
         public boolean enabled = true;
-        /** Beim Zuweisen dieses Titels die Personen-Titelfarbe überschreiben. */
+
         public boolean overridesColor = true;
         public String matchMode = "NORMALIZED_UMLAUTS";
     }
@@ -71,7 +54,7 @@ public final class TitleCatalogStore {
     private static final String BUNDLED = "/assets/ottoextra/rpnames/title-catalog-default.json";
 
     private FileModel model = new FileModel();
-    /** normalisierte Variante -> Eintrag (nur enabled). */
+
     private volatile Map<String, Entry> byVariant = Map.of();
 
     public void load() {
@@ -96,23 +79,16 @@ public final class TitleCatalogStore {
             }
         }
         if (migrateKnownFixes()) {
-            save(); // persistiert die Korrektur (save() reindiziert selbst)
+            save();
         } else {
             reindex();
         }
     }
 
-    /**
-     * Einmalige Korrekturen veralteter Default-Kategorien in bereits
-     * gespeicherten Katalogen. Greift nur, wenn der Eintrag noch exakt den alten
-     * (falschen) Default-Wert trägt — eine bewusste Nutzer-Kategorie bleibt.
-     *
-     * @return true, wenn etwas geändert wurde
-     */
     private boolean migrateKnownFixes() {
         boolean changed = false;
         for (Entry e : model.titles) {
-            // Laienbruder/Laienschwester ist ein allgemeiner, kein Klerus-Titel.
+
             if ("laienbruder".equals(e.id) && "klerus".equals(e.category)) {
                 e.category = "allgemein";
                 changed = true;
@@ -155,8 +131,7 @@ public final class TitleCatalogStore {
                 continue;
             }
             seedAliases(e);
-            // Match-Keys: aktuelle Anzeige-Varianten + Server-Aliase + Standard-Titel.
-            // So matchen die Server-Formen auch nach dem Umbenennen einer Variante.
+
             for (String v : matchKeys(e)) {
                 if (v != null && !v.isBlank()) {
                     index.putIfAbsent(TitleRegistry.normalize(v), e);
@@ -166,7 +141,6 @@ public final class TitleCatalogStore {
         byVariant = Map.copyOf(index);
     }
 
-    /** Alle Strings, die auf diesen Eintrag matchen sollen. */
     private static List<String> matchKeys(Entry e) {
         List<String> keys = new ArrayList<>();
         if (e.variants != null) {
@@ -181,11 +155,6 @@ public final class TitleCatalogStore {
         return keys;
     }
 
-    /**
-     * Aliase (Server-Formen) einmalig befüllen, falls leer: bevorzugt aus dem
-     * mitgelieferten Wiki-Default (Original-Geschlechtsformen), sonst aus den
-     * aktuellen Varianten. Positionell zu den Varianten ausgerichtet.
-     */
     private void seedAliases(Entry e) {
         if (e.aliases != null && !e.aliases.isEmpty()) {
             return;
@@ -204,14 +173,8 @@ public final class TitleCatalogStore {
         return model.titles;
     }
 
-    /** id -> gebündelter Default-Eintrag (Wiki-Auslieferung), lazy geladen. */
     private volatile Map<String, Entry> bundledById;
 
-    /**
-     * Original-(Wiki-)Eintrag aus der mitgelieferten {@code title-catalog-default.json}
-     * zu einer id — für „auf Werkseinstellung zurücksetzen" im Editor. Leer,
-     * wenn die id ein eigener (MANUAL) Titel ist oder das Bundle fehlt.
-     */
     public Optional<Entry> bundledDefault(String id) {
         if (id == null || id.isBlank()) {
             return Optional.empty();
@@ -246,19 +209,6 @@ public final class TitleCatalogStore {
                 ? "#c7a87f" : model.defaultNameColor;
     }
 
-    /**
-     * Anzeige-Form eines (Server-)Titels: Bei normalen Titeln ist {@code title}
-     * der fixe Standardwert, die <b>Varianten</b> sind die einstellbare
-     * Anzeige-Form. Regeln:
-     * <ul>
-     *   <li>kein Katalog-Treffer -&gt; Roh-Titel unverändert;</li>
-     *   <li>der Roh-Titel entspricht genau einer Variante -&gt; diese Variante
-     *       behalten (z.B. Geschlechtsform Rüstmann/Rüstfrau);</li>
-     *   <li>sonst (Treffer über den Standard-{@code title}) -&gt; die erste
-     *       (primäre) Variante als Anzeige-Form; ohne Varianten der {@code title}.</li>
-     * </ul>
-     * So macht „Variante 1 ändern" den angezeigten Titel aller Träger neu.
-     */
     public String displayForm(String raw) {
         if (raw == null || raw.isBlank()) {
             return raw;
@@ -268,7 +218,7 @@ public final class TitleCatalogStore {
             return raw;
         }
         String norm = TitleRegistry.normalize(raw);
-        // 1. Roh-Titel ist bereits genau eine Anzeige-Variante -> behalten.
+
         if (e.variants != null) {
             for (String v : e.variants) {
                 if (v != null && !v.isBlank() && TitleRegistry.normalize(v).equals(norm)) {
@@ -276,8 +226,7 @@ public final class TitleCatalogStore {
                 }
             }
         }
-        // 2. Roh-Titel ist eine Server-Form (Alias) -> die zugehörige Anzeige-
-        //    Variante gleicher Position (so wirkt das Umbenennen einer Variante).
+
         if (e.aliases != null) {
             for (int i = 0; i < e.aliases.size(); i++) {
                 String a = e.aliases.get(i);
@@ -290,7 +239,7 @@ public final class TitleCatalogStore {
                 }
             }
         }
-        // 3. Treffer über Standard-Titel -> primäre (erste) Variante.
+
         if (e.variants != null) {
             for (String v : e.variants) {
                 if (v != null && !v.isBlank()) {
@@ -301,7 +250,6 @@ public final class TitleCatalogStore {
         return e.title;
     }
 
-    /** Eintrag zu einem (Hover-)Titel, Varianten-/Umlaut-tolerant. */
     public Optional<Entry> find(String title) {
         if (title == null || title.isBlank()) {
             return Optional.empty();
@@ -309,24 +257,20 @@ public final class TitleCatalogStore {
         return Optional.ofNullable(byVariant.get(TitleRegistry.normalize(title)));
     }
 
-    /** Fallback-Titelfarbe: Kategorie "allgemein" (unbekannte/leere Titel). */
     public String fallbackTitleColor() {
         Category c = model.categories.get("allgemein");
         return c != null && c.color != null && !c.color.isBlank() ? c.color : "#a17f5f";
     }
 
-    /** Namensfarbe eines Titels (für Personen mit diesem Titel), oder leer. */
     public Optional<String> titleNameColor(String title) {
         return find(title).map(e -> e.nameColor)
                 .filter(c -> c != null && !c.isBlank());
     }
 
-    /** „Farbe überschreibt" des Titel-Eintrags (Katalog-Farbe schlägt Person-Override). */
     public boolean overridesColor(String title) {
         return find(title).map(e -> e.overridesColor).orElse(false);
     }
 
-    /** Titel-Farbe aus dem Katalog: Override des Eintrags oder Kategorie-Farbe. */
     public Optional<String> titleColor(String title) {
         return find(title).map(e -> {
             if (e.colorOverride != null && !e.colorOverride.isBlank()) {
@@ -337,7 +281,6 @@ public final class TitleCatalogStore {
         });
     }
 
-    /** Neue Kategorie anlegen/aktualisieren (Schlüssel normalisiert). */
     public synchronized String addCategory(String name, String color) {
         if (name == null || name.isBlank()) {
             return null;

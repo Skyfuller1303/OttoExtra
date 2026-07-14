@@ -11,12 +11,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
-/**
- * Persistenter lokaler Zustand des installierten Server-Packs.
- *
- * <p>Tolerant gelesen (fehlende Felder => erzwingt Neuabgleich), streng/atomar
- * geschrieben. Liegt in {@code config/ottoextra/resourcepack/state.json}.</p>
- */
 public final class PackState {
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
@@ -24,13 +18,13 @@ public final class PackState {
     public String version;
     public String sha256;
     public String etag;
-    /** Zeitpunkt der letzten erfolgreichen Installation (ISO-8601 UTC). */
+
     public String installedAt;
-    /** Zeitpunkt der letzten API-Prüfung (ISO-8601 UTC), unabhängig vom Ergebnis. */
+
     public String lastCheckedAt;
-    /** Zuletzt von der API gemeldete Version/Tag (auch wenn nicht installiert). */
+
     public String remoteVersion;
-    /** Ob der Pack zuletzt vom Nutzer aktiv gehalten wurde (für respectUserDisable). */
+
     public boolean enabled = true;
 
     public static PackState load() {

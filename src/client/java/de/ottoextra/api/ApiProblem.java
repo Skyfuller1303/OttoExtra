@@ -2,22 +2,16 @@ package de.ottoextra.api;
 
 import java.net.URI;
 
-/**
- * Einheitliche, spielerfreundliche Fehlerrepräsentation der API-Schicht.
- *
- * <p>Module bekommen ein {@code ApiProblem} statt roher Exceptions/Stacktraces.
- * Niemals einen Stacktrace im Spiel anzeigen.</p>
- */
 public record ApiProblem(Kind kind, String message, URI uri) {
 
     public enum Kind {
-        /** Netzwerk nicht erreichbar / Timeout. */
+
         OFFLINE,
-        /** HTTP-Statuscode != 2xx. */
+
         HTTP_STATUS,
-        /** Antwort konnte nicht geparst werden. */
+
         PARSE,
-        /** Ungültige Anfrage (z. B. fehlende UUID). */
+
         BAD_REQUEST
     }
 
@@ -37,17 +31,14 @@ public record ApiProblem(Kind kind, String message, URI uri) {
         return new ApiProblem(Kind.BAD_REQUEST, detail, null);
     }
 
-    /** Ist dieses Problem genau der gegebene HTTP-Status? */
     public boolean isHttpStatus(int status) {
         return kind == Kind.HTTP_STATUS && ("HTTP " + status).equals(message);
     }
 
-    /** Als Exception für CompletableFuture-Verkettung. */
     public ApiException toException() {
         return new ApiException(this);
     }
 
-    /** Trägt ein {@link ApiProblem} durch CompletableFuture-Fehlerpfade. */
     public static final class ApiException extends RuntimeException {
         private final transient ApiProblem problem;
 

@@ -15,11 +15,6 @@ import net.minecraft.text.Text;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Verwaltung gespeicherter Brief-Entwürfe: aktuellen Entwurf benennen +
- * speichern, gespeicherte laden (öffnet Editor) oder löschen. Liste über
- * {@link SavedDraftStore}, neueste zuerst.
- */
 public final class SavedDraftsScreen extends Screen {
 
     private static final int ROW_H = 12;
@@ -87,7 +82,7 @@ public final class SavedDraftsScreen extends Screen {
             return;
         }
         LetterDraft stored = SavedDraftStore.save(current, nameField.getText());
-        current.meta.name = stored.meta.name; // gleicher Entwurf -> künftig überschreiben
+        current.meta.name = stored.meta.name;
         status = Text.translatable("ottoextra.letter.drafts.saved").getString();
         reload();
     }
@@ -100,7 +95,7 @@ public final class SavedDraftsScreen extends Screen {
         if (draft == null) {
             return;
         }
-        LetterDraftCache.save(draft); // wird zum aktiven Arbeits-Entwurf
+        LetterDraftCache.save(draft);
         MinecraftClient.getInstance().setScreen(new LetterEditorScreen(null, config));
     }
 

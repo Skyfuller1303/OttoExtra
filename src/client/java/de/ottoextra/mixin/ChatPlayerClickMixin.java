@@ -15,13 +15,6 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-/**
- * Shift-Linksklick auf einen Spielernamen im Chat öffnet das RP-Personenbuch
- * beim Eintrag der Person (nur wenn aktiviert). Eigene Style-Auflösung mit
- * {@code insert(false)} — Vanilla würde bei Shift nur Styles MIT Insertion
- * liefern; Ottonien-Namen haben keine. Account aus Insertion oder Hover.
- * Chat darf nie brechen.
- */
 @Mixin(ChatScreen.class)
 public abstract class ChatPlayerClickMixin {
 
@@ -40,7 +33,7 @@ public abstract class ChatPlayerClickMixin {
             if (!shift) {
                 return;
             }
-            // Style unter dem Cursor auflösen (insert=false -> auch ohne Insertion)
+
             DrawnTextConsumer.ClickHandler handler = new DrawnTextConsumer.ClickHandler(
                     mc.textRenderer, (int) click.x(), (int) click.y()).insert(false);
             mc.inGameHud.getChatHud().render(handler, mc.getWindow().getScaledHeight(),
@@ -64,12 +57,12 @@ public abstract class ChatPlayerClickMixin {
                 }
             }
             if (account == null) {
-                return; // kein Spielername -> Vanilla
+                return;
             }
             RpNamesPeopleBookScreen.openFor(null, account, null);
             cir.setReturnValue(true);
         } catch (Throwable ignored) {
-            // niemals den Chat brechen
+
         }
     }
 }

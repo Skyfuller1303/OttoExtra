@@ -4,10 +4,6 @@ import de.ottoextra.config.OttoExtraConfig;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.sound.SoundEvents;
 
-/**
- * Spielt den Warden-Heartbeat lokal als wiederholten Einzel-Sound (kein Loop,
- * keine Überlagerung). Tempo, Lautstärke und Pitch skalieren mit der Intensität.
- */
 public final class LowHealthSoundController {
 
     private long nextBeatAtMs = 0L;
@@ -32,7 +28,6 @@ public final class LowHealthSoundController {
         float volume = LowHealthMath.lerp(cfg.heartbeatMinVolume, cfg.heartbeatMaxVolume, intensity);
         float pitch = LowHealthMath.lerp(cfg.heartbeatMinPitch, cfg.heartbeatMaxPitch, intensity);
 
-        // Lokal für den Client; Kategorie PLAYERS (persönliches Feedback).
         client.player.playSound(SoundEvents.ENTITY_WARDEN_HEARTBEAT, volume, pitch);
         nextBeatAtMs = now + Math.max(120L, interval);
     }

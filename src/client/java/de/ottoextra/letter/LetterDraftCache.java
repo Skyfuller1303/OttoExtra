@@ -9,7 +9,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
-/** Entwurfs-Cache: ein aktiver Entwurf, atomar als JSON. */
 public final class LetterDraftCache {
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting()
@@ -32,7 +31,7 @@ public final class LetterDraftCache {
             Files.writeString(tmp, GSON.toJson(draft), StandardCharsets.UTF_8);
             Files.move(tmp, f, StandardCopyOption.REPLACE_EXISTING);
         } catch (Exception ignored) {
-            // Entwurf-Persistenz ist best effort
+
         }
     }
 

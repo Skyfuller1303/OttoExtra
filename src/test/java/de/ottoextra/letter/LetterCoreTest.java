@@ -26,10 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Unit-Tests der MC-freien Letter-Kernlogik. */
 class LetterCoreTest {
-
-    // ---- TextNormalizer ------------------------------------------------------
 
     @Test
     void normalizerUnifiesLineEndingsAndStripsControl() {
@@ -39,8 +36,6 @@ class LetterCoreTest {
         assertEquals("rot", TextNormalizer.normalize("§4rot"));
         assertEquals("a b", TextNormalizer.normalize("a b"));
     }
-
-    // ---- PageSplitter --------------------------------------------------------
 
     @Test
     void splitterWrapsWordsAndPages() {
@@ -58,8 +53,6 @@ class LetterCoreTest {
         String joined = String.join("", splitter.split(word)).replace("\n", "");
         assertEquals(word, joined);
     }
-
-    // ---- Placeholder Parser ----------------------------------------------------
 
     @Test
     void parserFindsAllTypes() {
@@ -79,7 +72,7 @@ class LetterCoreTest {
         var second = LetterPlaceholderParser.parse(text).get(1);
         assertEquals(first, LetterPlaceholderParser.at(text, first.start() + 2));
         assertEquals(second, LetterPlaceholderParser.next(text, first.end()));
-        // wrap-around
+
         assertEquals(first, LetterPlaceholderParser.next(text, second.end()));
         assertEquals(first, LetterPlaceholderParser.previous(text, second.start()));
     }
@@ -90,8 +83,6 @@ class LetterCoreTest {
         assertEquals(1, LetterPlaceholderParser.countInvalidOpenings("kaputt {{name:A"));
         assertEquals(1, LetterPlaceholderParser.countInvalidOpenings("{{quatsch:A}}"));
     }
-
-    // ---- Resolver mit Fake-Cache -----------------------------------------------
 
     private static final RpIdentityResolver FAKE = new RpIdentityResolver() {
         private final Map<String, String> names = Map.of("Sky", "Burchard Geestner");
@@ -133,8 +124,6 @@ class LetterCoreTest {
         assertEquals("{{name:Unbekannt}}", service.apply("{{name:Unbekannt}}", r));
     }
 
-    // ---- Announcement Command Builder ------------------------------------------
-
     @Test
     void builderChunksWithinCommandLimit() {
         AnnouncementCommandBuilder b = new AnnouncementCommandBuilder(
@@ -147,7 +136,7 @@ class LetterCoreTest {
             assertTrue(c.length() <= AnnouncementCommandBuilder.COMMAND_CHAR_LIMIT,
                     "Command über Limit: " + c.length());
         }
-        // Payload-Rekonstruktion: alle Chunks von Seite 1 ergeben den Originaltext
+
         StringBuilder page1 = new StringBuilder();
         for (String c : commands) {
             if (c.startsWith("verk page d1 1 ")) {
@@ -157,8 +146,6 @@ class LetterCoreTest {
         }
         assertEquals(longPage, page1.toString());
     }
-
-    // ---- Preflight -----------------------------------------------------------------
 
     @Test
     void preflightFlagsProblems() {
@@ -172,13 +159,11 @@ class LetterCoreTest {
                 "y".repeat(2500)));
         assertFalse(result.ok());
         assertTrue(result.pages().get(0).ok());
-        assertFalse(result.pages().get(1).ok()); // leer
-        assertFalse(result.pages().get(2).ok()); // Platzhalter offen
-        assertFalse(result.pages().get(3).ok()); // über Discord-Limit
+        assertFalse(result.pages().get(1).ok());
+        assertFalse(result.pages().get(2).ok());
+        assertFalse(result.pages().get(3).ok());
         assertNotNull(result.totalChecksum());
     }
-
-    // ---- Recovery Store -----------------------------------------------------------
 
     @TempDir
     Path tempDir;

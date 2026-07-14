@@ -10,11 +10,6 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
 
-/**
- * Modusdialog: vor dem Versand MUSS der Nutzer zwischen
- * Brief (zeilenweise /letter + /post) und Verkündung (Seite = Bot-Nachricht)
- * wählen — danach jeweils eigener Preflight.
- */
 public final class OutputModeDialog extends Screen {
 
     private final Screen parent;

@@ -1,6 +1,5 @@
 package de.ottoextra.rpnames.model;
 
-/** Letzte Quelle eines Profil-Updates. */
 public enum RpNameSource {
     SEEN_ONLINE,
     SEEN_TABLIST,

@@ -18,7 +18,7 @@ Die Mod ist als clientseitige Community-Erweiterung für Ottonien gedacht und er
 | Fabric Loader | `>= 0.18.1` |
 | Fabric API | erforderlich |
 | Seite | clientseitig |
-| Version | `0.1.0` |
+| Version | `0.2.2` |
 | Server-Gate | Funktionen werden nur auf Ottonien aktiv |
 | Server-Interaktion | ausschließlich über normale Chat-Befehle und öffentliche APIs |
 
@@ -26,11 +26,13 @@ Die Mod ist als clientseitige Community-Erweiterung für Ottonien gedacht und er
 
 - Zentrales Einstellungs-GUI für alle Module
 - RP-Namen in Chat, Tabliste und Namensschildern
-- Lokales RP-Personenbuch mit Titel-, Farb- und Importverwaltung
+- Lokale Titel können den serverseitigen Titel in der Tabliste ersetzen, ohne das Lehenswappen zu entfernen
+- Lokales RP-Personenbuch mit Titel-, Farb-, Notiz- und Importverwaltung
 - Chat-Kanal-Umschaltung direkt am Chat-Eingabefeld
 - Regionen-Einblendung beim Betreten eines Lehens
-- Karten-Overlay für Xaero's World Map und Minimap
-- Brief- und Verkündungseditor mit Seitenverwaltung
+- Pergamentmodus, gemalte Übersichtskarte und anklickbare Lehen für Xaero's World Map und Minimap
+- Brief- und Verkündungseditor mit Seitenverwaltung, Formatierung und Vorschau
+- Nach dem Absenden startet der nächste neue Brief mit einer leeren Seite
 - Resourcepack-Downloader für das Ottonien-Resourcepack
 - Import bestehender Daten aus OttoPlus/OttoTalk
 - Backup- und Recovery-Funktionen für wichtige lokale Daten
@@ -159,6 +161,18 @@ Zusätzliche Optionen:
 - Warnmarker für Offtopic
 - eigene Farben pro Kanal
 - optionale Hotkeys pro Kanal
+
+## Karte und Reisehilfe
+
+Die Xaero-Weltkarte verwendet wieder ein kontinuierliches Zoomverhalten. Beim
+Herauszoomen werden einzelne Lehen schrittweise zugunsten der Gefolge-Übersicht
+reduziert; optional kann die gemalte Ottonien-Karte das Terrain vollständig
+überblenden.
+
+Ein Klick auf ein Lehen öffnet eine Infokarte mit Herrschaft, Lehnsherr,
+Stand, Gefolge, Entfernung, Himmelsrichtung und geschätzter Reisezeit. Der
+Pergamentmodus ergänzt Rahmen, Kompass und Maßstabsleiste. Alle Bestandteile
+lassen sich in den Karteneinstellungen einzeln anpassen.
 
 ## Regionen-Einblendung
 

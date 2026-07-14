@@ -7,11 +7,6 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/**
- * Kanal-State mit manuell getippten Befehlen synchron halten
- *: /s /f /r /o /h /leave h /leave o
- * aktualisieren den Button-Zustand — egal ob per Button oder Hand gesendet.
- */
 @Mixin(ClientPlayNetworkHandler.class)
 public abstract class ChatCommandSyncMixin {
 
@@ -20,7 +15,7 @@ public abstract class ChatCommandSyncMixin {
         try {
             ChatChannelState.handleOutgoingCommand(command);
         } catch (Throwable ignored) {
-            // Sync ist best effort
+
         }
     }
 }

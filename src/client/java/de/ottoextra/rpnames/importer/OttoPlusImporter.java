@@ -19,16 +19,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
-/**
- * Lokaler Import aus den OttoPlus/OttoTalk-Caches in den RP-Namen-Store.
- *
- * <p>Primärquelle {@code ottotalk_players.json} — importiert wird NUR der
- * RP-Name; Titel und Titelfarbe werden bewusst ignoriert (machten Probleme).
- * Optional {@code ottoletter-player-cache.json} (UUID je Account). Dateien
- * liegen in {@code config/ottoextra/import/}. Im Gegensatz zum Regions-API-Import
- * überschreibt OttoPlus vorhandene Werte autoritativ; gesperrte Profile bleiben
- * unberührt. Details: {@code docs/ottoplus-import-integration.md}.</p>
- */
 public final class OttoPlusImporter {
 
     public static final String PLAYERS_FILE = "ottotalk_players.json";
@@ -36,7 +26,6 @@ public final class OttoPlusImporter {
 
     private static final Gson GSON = new Gson();
 
-    /** Ergebnis-Statistik für die UI. */
     public record Result(int total, int updated, int created, int skippedLocked, String error) {
         public static Result failure(String error) {
             return new Result(0, 0, 0, 0, error);
@@ -47,7 +36,6 @@ public final class OttoPlusImporter {
         }
     }
 
-    /** OttoTalk-RP-Profil (ottotalk_players.json). */
     private static final class TalkPlayer {
         String accountName;
         String characterName;
@@ -55,7 +43,6 @@ public final class OttoPlusImporter {
         int characterTitleColor;
     }
 
-    /** OttoLetter-Spielereintrag (ottoletter-player-cache.json) — nur UUID genutzt. */
     private static final class LetterPlayer {
         String uuid;
         String name;
@@ -111,8 +98,7 @@ public final class OttoPlusImporter {
                     skippedLocked++;
                     continue;
                 }
-                // Nur RP-Name importieren — Titel/Farbe bewusst NICHT (null lassen);
-                // importOttoPlus fasst vorhandene Titel/Farben dann nicht an.
+
                 if (store.importOttoPlus(account, uuid, rpName, null, null)) {
                     updated++;
                 }
@@ -138,7 +124,6 @@ public final class OttoPlusImporter {
         return new Result(players.size(), updated, created, skippedLocked, null);
     }
 
-    /** Account → UUID aus der OttoLetter-Cache-Datei (optional). */
     private static Map<String, String> loadUuidMap() {
         Map<String, String> map = new HashMap<>();
         Path file = OttoExtraPaths.importDir().resolve(UUID_FILE);
@@ -165,7 +150,6 @@ public final class OttoPlusImporter {
         return map;
     }
 
-    /** RP-Name säubern; "Unbekannt"/leer → null (keine Daten). */
     private static String rpName(String raw) {
         String s = clean(raw);
         if (s == null || s.equalsIgnoreCase(LocalRpProfile.UNKNOWN_NAME)) {

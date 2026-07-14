@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Unit-Tests der MC-freien Formatcode-Logik. */
 class LetterFormattingCodesTest {
 
     @Test
@@ -66,9 +65,27 @@ class LetterFormattingCodesTest {
     }
 
     @Test
+    void resetAndRestoreAtRestoresOuterColor() {
+        String doc = "§eAlles gelb, auch danach";
+        int selectionEnd = doc.indexOf(",");
+        assertEquals("§r§e", LetterFormattingCodes.resetAndRestoreAt(doc, selectionEnd));
+    }
+
+    @Test
+    void resetAndRestoreAtRestoresColorAndStyle() {
+        String doc = "§e§oGelb und kursiv";
+        assertEquals("§r§e§o", LetterFormattingCodes.resetAndRestoreAt(doc, doc.length()));
+    }
+
+    @Test
+    void resetAndRestoreAtLeavesNormalTextNormal() {
+        assertEquals("§r", LetterFormattingCodes.resetAndRestoreAt("Normal", 3));
+    }
+
+    @Test
     void visibleLengthIgnoresCodes() {
         assertEquals(5, LetterFormattingCodes.visibleLength("§6Hallo"));
         assertEquals(5, LetterFormattingCodes.visibleLength("&6Hallo"));
-        assertEquals(7, LetterFormattingCodes.visibleLength("§zHallo")); // ungültig zählt mit
+        assertEquals(7, LetterFormattingCodes.visibleLength("§zHallo"));
     }
 }

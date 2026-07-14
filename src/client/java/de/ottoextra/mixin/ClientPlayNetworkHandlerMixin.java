@@ -12,13 +12,6 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/**
- * Dünner Adapter: fängt Chat-, ActionBar-, Title- und Subtitle-Pakete am HEAD ab
- * und delegiert an {@link RegionMessageService}. Keine Businesslogik hier.
- *
- * <p>Cancelt die Vanilla-Verarbeitung nur, wenn der Service es freigibt
- * (Config {@code regions.hideOriginalActionbar}). Ziel: {@link ClientPlayNetworkHandler}.</p>
- */
 @Mixin(ClientPlayNetworkHandler.class)
 public class ClientPlayNetworkHandlerMixin {
 

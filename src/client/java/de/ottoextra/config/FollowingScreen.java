@@ -24,13 +24,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 
-/**
- * Gefolge-Liste (Einstellungen → Karte → Basis), Vanilla-Dark-Stil. Drei-zeilige
- * Einträge: Wappen links, dann Gefolgename (groß), Titel/Rang, Lehensname.
- * Hierarchisch = Fraktions-Baum (Lehnsherren + alle Vasallen, eingerückt);
- * Flach = alle Lehen. Auswahl öffnet unten den Editor (Name + Gefolge-Farbe;
- * mit Lehen zusätzlich eigene Lehen-Farbe).
- */
 public final class FollowingScreen extends Screen {
 
     private static final int COL_PANEL = 0xC8141418;
@@ -48,11 +41,6 @@ public final class FollowingScreen extends Screen {
     private final Screen parent;
     private final OttoExtraConfig config;
 
-    /**
-     * Listenzeile. {@code nameKey} = umzubenennender Name (Fraktion bzw. Gefolge),
-     * {@code colorKey} = Gefolge-Farb-Schlüssel (Wurzel-Gefolge), {@code regionId}
-     * = Lehen-Key (Banner/Lehen-Farbe), {@code faction} = Wappen-Quelle (oder null).
-     */
     private record Row(int depth, String nameKey, String factionName, String rootName,
                        String regionId, FactionRecord faction, String gefolge, String rank,
                        String lehen) {
@@ -126,7 +114,7 @@ public final class FollowingScreen extends Screen {
         nameField = new TextFieldWidget(textRenderer, fx, editorTop() + 8, pw - 78 - 28, 16,
                 Text.empty());
         nameField.setMaxLength(48);
-        // Kein Live-Apply mehr: Änderungen werden erst mit „Speichern" übernommen.
+
         addDrawableChild(nameField);
         colorField = new TextFieldWidget(textRenderer, fx, editorTop() + 28, 70, 16, Text.empty());
         colorField.setMaxLength(7);
@@ -140,8 +128,6 @@ public final class FollowingScreen extends Screen {
                 .dimensions(px + pw - 160, editorTop() + 47, 154, 16).build();
         addDrawableChild(verbandButton);
 
-        // Editor-Aktionen: Speichern übernimmt Name + Farben, Verwerfen lädt den
-        // gespeicherten Stand neu. Nur bei ausgewähltem Gefolge sichtbar.
         saveButton = ButtonWidget.builder(Text.translatable("ottoextra.following.save"),
                         b -> saveEdits())
                 .dimensions(width / 2 - 154, height - 22, 100, 18).build();
@@ -162,8 +148,6 @@ public final class FollowingScreen extends Screen {
                 ? "ottoextra.following.hierarchy.on" : "ottoextra.following.hierarchy.off");
     }
 
-    // ---- Daten ---------------------------------------------------------------
-
     private void rebuildRows() {
         rows.clear();
         PoliticalOverlay.groupTintOverview();
@@ -176,7 +160,6 @@ public final class FollowingScreen extends Screen {
         scroll = Math.max(0, Math.min(scroll, maxScroll()));
     }
 
-    /** Hierarchie: Fraktions-Baum über lord_name; alle Vasallen eingerückt. */
     private void buildFactionTree(String q) {
         var data = RegionsServices.data();
         if (data == null) {
@@ -217,7 +200,7 @@ public final class FollowingScreen extends Screen {
                                Set<String> visited, String q) {
         String norm = normalize(f.name());
         if (!visited.add(norm)) {
-            return; // Zyklusschutz
+            return;
         }
         String gefolge = PoliticalOverlay.displayNameFor(f.name());
         String rank = f.rank_name() == null ? "" : f.rank_name();
@@ -232,7 +215,6 @@ public final class FollowingScreen extends Screen {
         }
     }
 
-    /** Flach: alle Lehen einzeln. */
     private void buildLehenList(String q) {
         Map<String, List<String>> byGroup = lehenByGroup();
         var data = RegionsServices.data();
@@ -315,8 +297,6 @@ public final class FollowingScreen extends Screen {
         return Math.max(0, rows.size() - visibleRows());
     }
 
-    // ---- Auswahl / Editor ----------------------------------------------------
-
     private void selectRow(Row row) {
         editing = row;
         suppress = true;
@@ -354,7 +334,6 @@ public final class FollowingScreen extends Screen {
         suppress = false;
     }
 
-    /** Speichern: Name + Gefolge-Farbe + Lehen-Farbe aus den Feldern übernehmen. */
     private void saveEdits() {
         if (editing == null) {
             return;
@@ -366,7 +345,6 @@ public final class FollowingScreen extends Screen {
         }
     }
 
-    /** Verwerfen: Felder aus dem gespeicherten Stand neu laden. */
     private void discardEdits() {
         selectRow(editing);
     }
@@ -419,7 +397,6 @@ public final class FollowingScreen extends Screen {
         config.save();
     }
 
-    /** Aktuelle Gefolge-Farbe auf das ganze Verband (Lehnsherr + alle Vasallen) anwenden. */
     private void applyToVerband() {
         if (editing == null) {
             return;
@@ -438,7 +415,6 @@ public final class FollowingScreen extends Screen {
         PoliticalOverlay.setUserFactionColors(config.map.factionColors);
     }
 
-    /** Alle Fraktionsnamen eines Verbands (Wurzel == rootName). */
     private List<String> factionsInVerband(String rootName) {
         List<String> out = new ArrayList<>();
         var data = RegionsServices.data();
@@ -485,8 +461,6 @@ public final class FollowingScreen extends Screen {
         return de.ottoextra.regions.RegionNameKeys.normalize(name);
     }
 
-    // ---- Maus ----------------------------------------------------------------
-
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
         if (mouseY >= listTop() && mouseY <= listBottom()) {
@@ -500,14 +474,14 @@ public final class FollowingScreen extends Screen {
     public boolean mouseClicked(net.minecraft.client.gui.Click click, boolean doubled) {
         double mx = click.x();
         double my = click.y();
-        // Reset-Icons neben den Editor-Feldern: Override löschen (= Default).
+
         if (editing != null && click.button() == 0) {
             if (nameField.visible && resetHit(nameField, mx, my)) {
                 nameField.setText("");
                 return true;
             }
             if (colorField.visible && resetHit(colorField, mx, my)) {
-                // Reset = ausgelieferte JSON-Standardfarbe (persistiert via Listener).
+
                 String def = PoliticalOverlay.jsonDefaultColor(editing.rootName());
                 colorField.setText(def != null ? def : "");
                 return true;
@@ -527,8 +501,6 @@ public final class FollowingScreen extends Screen {
         }
         return super.mouseClicked(click, doubled);
     }
-
-    // ---- Render --------------------------------------------------------------
 
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
@@ -596,7 +568,7 @@ public final class FollowingScreen extends Screen {
                 ctx.drawText(textRenderer, Text.translatable("ottoextra.following.lehenColor"),
                         px + 6, editorTop() + 52, COL_TEXT, false);
             }
-            // Reset-Icons + Live-Farbvorschau neben den Feldern
+
             if (nameField.visible) {
                 drawReset(ctx, nameField);
             }
@@ -630,7 +602,6 @@ public final class FollowingScreen extends Screen {
                 RESET_SIZE, RESET_SIZE, 16, 16, 16, 16);
     }
 
-    /** Live-Vorschau der aktuell getippten Farbe rechts neben dem Reset-Icon. */
     private void drawColorPreview(DrawContext ctx, TextFieldWidget f) {
         int x = resetX(f) + RESET_SIZE + 4;
         int y = f.getY() + (f.getHeight() - 14) / 2;

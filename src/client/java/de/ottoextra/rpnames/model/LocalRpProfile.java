@@ -1,37 +1,30 @@
 package de.ottoextra.rpnames.model;
 
-/**
- * Lokal bekannter Spieler.
- *
- * <p>UUID ist Primärschlüssel, Accountname Pflicht-Fallback — Einträge können
- * ohne UUID entstehen (Chat-Hover) und werden beim ersten GameProfile-Kontakt
- * "geupgradet". Zeitstempel als epochMillis (0 = unbekannt). GSON-direkt.</p>
- */
+import java.util.regex.Pattern;
+
 public final class LocalRpProfile {
 
     public static final String UNKNOWN_NAME = "Unbekannt";
 
-    public String uuid;             // optional
-    public String accountName;      // Pflicht-Fallback (Original-Schreibweise)
+    private static final Pattern OBJECT_TEXT_TOKEN = Pattern.compile(
+            "\\[[a-z0-9_.-]+:[^\\]\\r\\n]+@[^\\]\\r\\n]+\\]\\s*",
+            Pattern.CASE_INSENSITIVE);
+
+    public String uuid;
+    public String accountName;
     public String rpName = UNKNOWN_NAME;
     public String title = "";
     public String titleGroup = "";
     public KnowledgeState knowledgeState = KnowledgeState.SEEN;
     public RpNameSource source = RpNameSource.SEEN_ONLINE;
     public boolean locked = false;
-    /**
-     * Titel-Level-Sperre: schützt NUR den Titel vor automatischer Änderung
-     * (Server-Hover/Chat, Katalog-Umbenennung) — der Spieler selbst bleibt
-     * aktiv (rpName etc. werden weiter gelernt). Wird beim manuellen Setzen
-     * eines Titels im RP-Buch aktiviert. Unabhängig von {@link #locked}.
-     */
+
     public boolean titleLocked = false;
     public boolean favorite = false;
     public String notes = "";
-    /** API-Wert, der von einem lokalen Wert abweicht (nur Anzeige, nie auto-übernommen). */
+
     public String apiConflict;
-    /** Letzter vom API gemeldeter RP-Name (Original) — Quelle fürs Zurücksetzen,
-     *  auch wenn lokal ein eigener Name gesetzt wurde. */
+
     public String apiRpName;
 
     public LocalRpColors colors = new LocalRpColors();
@@ -53,18 +46,19 @@ public final class LocalRpProfile {
         return title != null && !title.isBlank();
     }
 
-    /** Anzeige-Name: RP-Name oder "Unbekannt". */
     public String displayRpName() {
         return hasRpName() ? rpName : UNKNOWN_NAME;
     }
 
-    /** Defensive Defaults nach GSON-Load (alte/fremde Dateien). */
     public void repair() {
         if (rpName == null || rpName.isBlank()) {
             rpName = UNKNOWN_NAME;
         }
         if (title == null) {
             title = "";
+        } else {
+
+            title = cleanLegacyObjectTokens(title);
         }
         if (titleGroup == null) {
             titleGroup = "";
@@ -81,5 +75,15 @@ public final class LocalRpProfile {
         if (notes == null) {
             notes = "";
         }
+    }
+
+    private static String cleanLegacyObjectTokens(String value) {
+        if (value == null || value.isBlank()) {
+            return "";
+        }
+        return OBJECT_TEXT_TOKEN.matcher(value)
+                .replaceAll("")
+                .replaceAll("\\s{2,}", " ")
+                .trim();
     }
 }

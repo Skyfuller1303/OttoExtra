@@ -9,17 +9,6 @@ import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
 
-/**
- * Kennenlern-GUI (proaktives Kennenlernen). Zwei Ansichten:
- * <ul>
- *   <li><b>Bestätigen</b>: "Kennst du &lt;RP-Name&gt;?", 3D-Charakter mit dem vom
- *       Server vorgeschlagenen Titel + RP-Namen als Beispiel-Schild, darunter
- *       "Ja, speichern" / "Nein" / Stift-Icon zum Bearbeiten.</li>
- *   <li><b>Bearbeiten</b>: vorausgefüllte Felder für RP-Name + Titel, Speichern.</li>
- * </ul>
- * Speichert manuell in den lokalen Store (überschreibt den Server-Vorschlag nie
- * automatisch).
- */
 public final class MeetPersonScreen extends Screen {
 
     private static final net.minecraft.util.Identifier EDIT_ICON =
@@ -28,6 +17,9 @@ public final class MeetPersonScreen extends Screen {
     private final Screen parent;
     private final String account;
     private final String uuid;
+    private final boolean hasApiPrefill;
+    private final String apiPrefillName;
+    private final String apiPrefillTitle;
 
     private boolean editing;
     private String prefillName = "";
@@ -39,24 +31,40 @@ public final class MeetPersonScreen extends Screen {
     private net.minecraft.client.network.AbstractClientPlayerEntity entity;
 
     public MeetPersonScreen(Screen parent, String account, String uuid) {
+        this(parent, account, uuid, false, null, null);
+    }
+
+    /**
+     * Öffnet das Kennenlernfenster mit den gerade gezielt von der API
+     * abgefragten Daten. Auch leere Werte sind dabei absichtlich verbindlich,
+     * damit kein älterer lokaler Vorschlag eingeblendet wird.
+     */
+    public MeetPersonScreen(Screen parent, String account, String uuid,
+                            String apiRpName, String apiTitle) {
+        this(parent, account, uuid, true, apiRpName, apiTitle);
+    }
+
+    private MeetPersonScreen(Screen parent, String account, String uuid,
+                             boolean hasApiPrefill, String apiRpName, String apiTitle) {
         super(Text.translatable("ottoextra.meet.title"));
         this.parent = parent;
         this.account = account;
         this.uuid = uuid;
+        this.hasApiPrefill = hasApiPrefill;
+        this.apiPrefillName = apiRpName;
+        this.apiPrefillTitle = apiTitle;
     }
 
     private int boxH() {
         return Math.min(150, height / 3);
     }
 
-    /** Gesamthöhe des Inhaltsblocks (Frage + Box + Buttons/Felder). */
     private int contentHeight() {
         int header = 22;
         int below = editing ? (8 + 18 + 24 + 18 + 26 + 20) : (16 + 22);
         return header + boxH() + below;
     }
 
-    /** Oberkante des vertikal zentrierten Blocks. */
     private int top() {
         return Math.max(16, (height - contentHeight()) / 2);
     }
@@ -94,7 +102,7 @@ public final class MeetPersonScreen extends Screen {
             addDrawableChild(ButtonWidget.builder(Text.translatable("gui.back"),
                     b -> toggleEditing()).dimensions(cx + 2, y, 88, 20).build());
         } else {
-            // Bestätigen: großes Ja / Nein / Stift
+
             addDrawableChild(ButtonWidget.builder(Text.translatable("ottoextra.meet.yes"),
                     b -> save(prefillName, prefillTitle)).dimensions(cx - 110, y, 130, 22).build());
             addDrawableChild(ButtonWidget.builder(Text.translatable("ottoextra.meet.no"),
@@ -115,25 +123,34 @@ public final class MeetPersonScreen extends Screen {
     }
 
     private void loadPrefill() {
+        if (hasApiPrefill) {
+            String name = apiPrefillName == null ? "" : apiPrefillName.trim();
+            String title = apiPrefillTitle == null ? "" : apiPrefillTitle.trim();
+            if (name.isBlank()) {
+                title = "";
+            }
+            prefillName = name;
+            prefillTitle = RpNamesServices.canonicalTitle(title);
+            return;
+        }
+
         RpNamesServices.MeetSuggestion s = RpNamesServices.meetSuggestion(account);
         var p = RpNamesServices.store() != null
                 ? RpNamesServices.store().findByName(account).orElse(null) : null;
         String name = s != null && s.rpName() != null && !s.rpName().isBlank() ? s.rpName()
                 : (p != null && p.hasRpName() ? p.rpName : "");
-        // Kein Tablist-Fallback: Titel nur vorausfüllen, wenn die Person geredet hat
-        // (Chat-Vorschlag) bzw. bereits lokal bekannt ist.
+
         String title = s != null && s.title() != null && !s.title().isBlank() ? s.title()
                 : (p != null && p.title != null ? p.title : "");
-        // Kein Name bekannt (noch nicht geredet) -> auch keinen Titel vorausfüllen
+
         if (name.isBlank()) {
             title = "";
         }
         prefillName = name;
-        // Anzeige-Form (Varianten-Override) statt Roh-Server-Titel zeigen/speichern.
+
         prefillTitle = RpNamesServices.canonicalTitle(title);
     }
 
-    /** Live aus dem Eingabefeld (im Bearbeiten-Modus), sonst Prefill. */
     private String liveName() {
         if (editing && nameField != null) {
             return nameField.getText();
@@ -162,13 +179,14 @@ public final class MeetPersonScreen extends Screen {
         final String rpName = rp == null ? "" : rp.trim();
         final String t = title == null ? "" : title.trim();
         store.ensureSeen(account, uuid, de.ottoextra.rpnames.model.RpNameSource.MANUAL_EDIT);
-        // Manuell erfasst -> gesperrt, damit Auto-Sync (Titel) es nicht überschreibt
+
         store.updateManual(account, p -> {
             if (!rpName.isEmpty()) {
                 p.rpName = rpName;
             }
             p.title = t;
         }, true);
+
         close();
     }
 
@@ -208,7 +226,6 @@ public final class MeetPersonScreen extends Screen {
         }
     }
 
-    /** Text zentriert, bei Überbreite auf {@code maxW} herunterskaliert. */
     private void drawScaledCentered(DrawContext ctx, String s, int cx, int y, int color, int maxW) {
         if (s == null || s.isEmpty()) {
             return;
@@ -233,7 +250,6 @@ public final class MeetPersonScreen extends Screen {
         return a != null && !a.isBlank() ? a : b;
     }
 
-    /** Namensschild-Titelfarbe für den Titel (Override -> Katalog -> Gruppe -> Fallback). */
     private int titleColorArgb(String title) {
         var catalog = RpNamesServices.catalog();
         var p = RpNamesServices.store() != null
@@ -244,7 +260,7 @@ public final class MeetPersonScreen extends Screen {
                 ? RpNamesServices.titles().find(title).map(r -> r.group().titleColor).orElse(null)
                 : null;
         String fallback = catalog != null ? catalog.fallbackTitleColor() : "#a17f5f";
-        // „Farbe überschreibt": Katalogfarbe schlägt den Personen-Override.
+
         String pers = p != null ? p.colors.nametagTitleColor : null;
         String hex = RpNamesServices.titleOverridesColor(title)
                 ? firstNonBlank(catalogColor, firstNonBlank(pers, firstNonBlank(groupColor, fallback)))
@@ -252,8 +268,6 @@ public final class MeetPersonScreen extends Screen {
         return argb(hex, 0xFFD2BF6A);
     }
 
-    /** RP-Namensfarbe: Personen-Override -> Titel-Namensfarbe -> global ->
-     *  Standard. Bei „Farbe überschreibt" schlägt die Titel-Farbe den Override. */
     private int nameColorArgb() {
         var p = RpNamesServices.store() != null
                 ? RpNamesServices.store().findByName(account).orElse(null) : null;
@@ -265,7 +279,7 @@ public final class MeetPersonScreen extends Screen {
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
         super.render(ctx, mouseX, mouseY, delta);
-        // Frage oben: "Kennst du <RP-Name>?"
+
         ctx.drawCenteredTextWithShadow(textRenderer,
                 Text.translatable("ottoextra.meet.know", headerName()), width / 2, top() + 5,
                 0xFFFFFFFF);
@@ -274,14 +288,13 @@ public final class MeetPersonScreen extends Screen {
         int top = boxTop();
         int bottom = boxBottom();
         ctx.fill(cx - 50, top, cx + 50, bottom, 0x50000000);
-        // Beispiel-Schild über dem Modell: Titel + RP-Name (statt "?"),
-        // in den Namensschild-Farben, Breite auf die Box begrenzt.
-        int maxW = 96; // Boxbreite (100) minus Rand
+
+        int maxW = 96;
         int labelY = top + 3;
         String exTitle = liveTitle();
         String exName = liveName();
         boolean nameKnown = exName != null && !exName.isBlank();
-        // Unbekannt -> nur Spielername über dem Char, kein Titel
+
         if (nameKnown && exTitle != null && !exTitle.isBlank()) {
             drawScaledCentered(ctx, exTitle, cx, labelY, titleColorArgb(exTitle), maxW);
             labelY += 10;
@@ -295,7 +308,7 @@ public final class MeetPersonScreen extends Screen {
                         ctx, cx - 50, top + 22, cx + 50, bottom - 4, size, 0.0f,
                         mouseX - sway, mouseY, entity);
             } catch (Throwable ignored) {
-                // Render darf das GUI nie brechen
+
             }
         }
         if (editing) {
@@ -304,7 +317,7 @@ public final class MeetPersonScreen extends Screen {
             ctx.drawTextWithShadow(textRenderer, Text.translatable("ottoextra.rpbook.rpname"),
                     cx - 90, boxBottom() + 38, 0xFFB0B0B0);
         } else if (editButton != null) {
-            // Stift-Icon mittig auf dem Bearbeiten-Button
+
             int ix = editButton.getX() + (editButton.getWidth() - 16) / 2;
             int iy = editButton.getY() + (editButton.getHeight() - 16) / 2;
             ctx.drawTexture(net.minecraft.client.gl.RenderPipelines.GUI_TEXTURED, EDIT_ICON,

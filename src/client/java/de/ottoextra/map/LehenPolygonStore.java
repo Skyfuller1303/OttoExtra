@@ -13,13 +13,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/**
- * Lädt die gebündelten Lehen-Polygone ({@code assets/ottoextra/map/lehen_polygons.json}).
- *
- * <p>Lazy + off-thread; Ergebnis immutable. Tolerantes Parsing: defekte Polygone
- * (&lt; 3 Punkte, NaN) werden übersprungen. Fehlt die Datei, bleibt die Liste
- * leer (Overlay rendert dann nichts) — kein Crash.</p>
- */
 public final class LehenPolygonStore {
 
     private static final String RESOURCE = "/assets/ottoextra/map/lehen_polygons.json";
@@ -30,8 +23,6 @@ public final class LehenPolygonStore {
     private static volatile java.util.Map<String, Integer> groupColors = java.util.Map.of();
     private static volatile boolean loaded = false;
 
-    /** Fixe Gruppen-Farben aus dem optionalen "group_colors"-Block:
-     *  normalisierter Gruppenname -> RGB (ohne Alpha). */
     public static java.util.Map<String, Integer> groupColors() {
         return groupColors;
     }
@@ -43,7 +34,6 @@ public final class LehenPolygonStore {
         return polygons;
     }
 
-    /** Deduplizierte Grenzsegmente (geteilte Lehnsgrenzen genau einmal). */
     public static List<BorderSegment> segments() {
         return segments;
     }
@@ -52,7 +42,6 @@ public final class LehenPolygonStore {
         return loaded;
     }
 
-    /** Startet das Laden einmalig (idempotent), off-thread. */
     public static void ensureLoaded() {
         if (loaded || !loading.compareAndSet(false, true)) {
             return;
@@ -73,8 +62,7 @@ public final class LehenPolygonStore {
                     .parseReader(new InputStreamReader(in, StandardCharsets.UTF_8))
                     .getAsJsonObject();
             JsonObject polys = root.getAsJsonObject("polygons");
-            // Optional: "labels": { "lehen_X": [x, z] } — eigener Anker für
-            // Wappen + Namenstext statt des berechneten Zentroids.
+
             JsonObject labels = root.has("labels") && root.get("labels").isJsonObject()
                     ? root.getAsJsonObject("labels") : null;
             List<LehenPolygon> result = new ArrayList<>();
@@ -88,7 +76,7 @@ public final class LehenPolygonStore {
             result = snapSharedBorders(result);
             polygons = List.copyOf(result);
             segments = buildSegments(result);
-            // Optional: "group_colors": { "Name": "#RRGGBB" } — fixe Farben
+
             if (root.has("group_colors") && root.get("group_colors").isJsonObject()) {
                 java.util.Map<String, Integer> colors = new java.util.HashMap<>();
                 JsonObject gc = root.getAsJsonObject("group_colors");
@@ -115,16 +103,8 @@ public final class LehenPolygonStore {
     private static final double SNAP_VERTEX_TOL = 16.0;
     private static final double SNAP_EDGE_TOL = 12.0;
 
-    /**
-     * Schnappt fast-deckungsgleiche Grenzen benachbarter Polygone aufeinander,
-     * damit der Segment-Dedup greift (sonst Doppellinien):
-     * 1) Vertices im Umkreis von {@value #SNAP_VERTEX_TOL} Blöcken vereinheitlichen,
-     * 2) Fremd-Vertices nahe einer Kante ({@value #SNAP_EDGE_TOL}) in die Kante
-     *    einfügen — beide Seiten haben danach identische Punktfolgen.
-     * Zentroid (inkl. Label-Override) bleibt erhalten; BBox wird neu berechnet.
-     */
     private static List<LehenPolygon> snapSharedBorders(List<LehenPolygon> polys) {
-        // Mutable Punktlisten
+
         List<List<double[]>> pts = new ArrayList<>();
         for (LehenPolygon p : polys) {
             List<double[]> l = new ArrayList<>(p.pointCount());
@@ -133,7 +113,7 @@ public final class LehenPolygonStore {
             }
             pts.add(l);
         }
-        // 1) Vertex-Snap: erster Punkt im Toleranzradius wird Repraesentant
+
         List<double[]> reps = new ArrayList<>();
         for (List<double[]> poly : pts) {
             for (double[] q : poly) {
@@ -154,7 +134,7 @@ public final class LehenPolygonStore {
                 }
             }
         }
-        // 2) Fremd-Vertices in nahe Kanten einfügen
+
         for (int bi = 0; bi < pts.size(); bi++) {
             List<double[]> b = pts.get(bi);
             for (int i = 0; i < b.size(); i++) {
@@ -192,9 +172,7 @@ public final class LehenPolygonStore {
                 }
             }
         }
-        // 3) Aufeinanderfolgende Duplikate entfernen + Records neu bauen.
-        //    Sicherheitsnetz: hat das Snapping ein Polygon selbstschneidend
-        //    gemacht (z. B. schmale Korridore), Original-Punkte behalten.
+
         List<LehenPolygon> out = new ArrayList<>(polys.size());
         for (int pi = 0; pi < polys.size(); pi++) {
             LehenPolygon orig = polys.get(pi);
@@ -244,11 +222,9 @@ public final class LehenPolygonStore {
         return out;
     }
 
-    /** Paarweiser Segment-Kreuzungstest (O(n^2), Polygone sind klein). */
     private static boolean isSelfIntersecting(List<double[]> pts) {
         int n = pts.size();
-        // Self-Touch: Vertex-Snap kann nicht-benachbarte Punkte verschmelzen
-        // (Schleife/Degeneration) — der ccw-Kreuzungstest sieht das nicht
+
         for (int i = 0; i < n; i++) {
             for (int j = i + 2; j < n; j++) {
                 if (i == 0 && j == n - 1) {
@@ -264,7 +240,7 @@ public final class LehenPolygonStore {
             double[] b = pts.get((i + 1) % n);
             for (int j = i + 1; j < n; j++) {
                 if (j == i || (j + 1) % n == i || (i + 1) % n == j) {
-                    continue; // benachbarte Kanten teilen einen Punkt
+                    continue;
                 }
                 double[] c = pts.get(j);
                 double[] d = pts.get((j + 1) % n);
@@ -284,10 +260,6 @@ public final class LehenPolygonStore {
         return (r[1] - p[1]) * (q[0] - p[0]) > (q[1] - p[1]) * (r[0] - p[0]);
     }
 
-    /**
-     * Dedupliziert alle Polygonkanten: gleiche Endpunkt-Paare (gerundet, ordnungs-
-     * unabhängig) werden zu EINEM Segment mit allen Owner-Keys zusammengefasst.
-     */
     private static List<BorderSegment> buildSegments(List<LehenPolygon> polys) {
         record Key(long ax, long az, long bx, long bz) {
         }
@@ -304,7 +276,7 @@ public final class LehenPolygonStore {
                 if (x1 == x2 && z1 == z2) {
                     continue;
                 }
-                // ordnungsunabhängiger Schlüssel
+
                 Key key = (x1 < x2 || (x1 == x2 && z1 <= z2))
                         ? new Key(x1, z1, x2, z2)
                         : new Key(x2, z2, x1, z1);
@@ -323,8 +295,7 @@ public final class LehenPolygonStore {
 
     private static LehenPolygon parsePolygon(String rawKey, JsonElement el, JsonElement labelEl) {
         try {
-            // Mehrteilige Lehen: "lehen_65#2" -> logischer Key "lehen_65",
-            // Label/Wappen nur am Hauptteil (ohne Suffix)
+
             int hash = rawKey.indexOf('#');
             String key = hash >= 0 ? rawKey.substring(0, hash) : rawKey;
             boolean labelOwner = hash < 0;
@@ -356,8 +327,7 @@ public final class LehenPolygonStore {
                 maxX = Math.max(maxX, x);
                 maxZ = Math.max(maxZ, z);
             }
-            // Flächen-Zentroid (Shoelace) statt Punktmittel — Label sitzt
-            // mittig in der Fläche, unabhängig von Punktdichte am Rand
+
             double area2 = 0;
             double cxA = 0;
             double czA = 0;
@@ -378,7 +348,7 @@ public final class LehenPolygonStore {
                 anchorX = sumX / n;
                 anchorZ = sumZ / n;
             }
-            // Eigener Label-Anker (Wappen + Text) überschreibt den Zentroid
+
             if (labelEl != null && labelEl.isJsonArray() && labelEl.getAsJsonArray().size() >= 2) {
                 JsonArray a = labelEl.getAsJsonArray();
                 double lx = a.get(0).getAsDouble();

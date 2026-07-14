@@ -19,20 +19,11 @@ import net.minecraft.text.Text;
 
 import java.util.Locale;
 
-/**
- * Modul „Tweaks": optionale clientseitige Effekte. Aktuell der
- * Low-Health-Adrenalin-Effekt (roter Rand + Herzschlag).
- *
- * <p>Das Modul ist immer aktiv (Tab + Commands verfügbar); der Effekt selbst
- * wird über {@code config.tweaks.lowHealth.enabled} gesteuert. Test-Commands
- * erzwingen den Effekt unabhängig davon — gut für Single-/Multiplayer-Dev.</p>
- */
 public final class TweaksModule implements OttoExtraModule {
 
     private final LowHealthState lowHealth = new LowHealthState();
     private final LowHealthSoundController heartbeat = new LowHealthSoundController();
 
-    /** Für den Welt-Blur-Mixin (GameRendererBlurMixin) — gesetzt bei Init. */
     private static LowHealthState activeState;
     private static OttoExtraConfig.Tweaks.LowHealth activeConfig;
 
@@ -62,11 +53,6 @@ public final class TweaksModule implements OttoExtraModule {
         OttoExtra.LOGGER.info("[tweaks] initialisiert (Low-Health-Effekt + Werkzeugschutz + Test-Commands).");
     }
 
-    /**
-     * {@code /ottoextra tweaks lowhealth test [0..1] | stop | on | off}
-     *  — test erzwingt eine Intensität (Default 0.6), stop hebt das auf,
-     *  on/off schalten den automatischen Effekt (Health-basiert).
-     */
     private void registerCommands(OttoExtraConfig config) {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, access) ->
                 dispatcher.register(ClientCommandManager.literal("ottoextra")
@@ -106,12 +92,6 @@ public final class TweaksModule implements OttoExtraModule {
                                                 }))))));
     }
 
-    /**
-     * Anzahl der Edge-Blur-Pässe für diesen Frame (0 = kein Blur). Der
-     * {@code GameRendererBlurMixin} wendet den eigenen Edge-Blur-Posteffekt
-     * entsprechend oft an (mehr Pässe = stärker). Konfigurierbar über die
-     * Herz-Schwelle und die Stärke; im Test-Modus zählt die erzwungene Intensität.
-     */
     public static int lowHealthBlurPasses() {
         LowHealthState state = activeState;
         OttoExtraConfig.Tweaks.LowHealth cfg = activeConfig;
@@ -141,11 +121,6 @@ public final class TweaksModule implements OttoExtraModule {
         return Math.max(0, Math.min(8, passes));
     }
 
-    /**
-     * Zusätzliche FOV-Grad für den Low-Health-Effekt (Adrenalin-Gefühl) — vom
-     * {@code GameRendererBlurMixin} additiv auf das Sicht-FOV gelegt. Skaliert
-     * mit der (geglätteten) Intensität, gilt auch im Test-Modus.
-     */
     public static float lowHealthFovBoost() {
         LowHealthState state = activeState;
         OttoExtraConfig.Tweaks.LowHealth cfg = activeConfig;

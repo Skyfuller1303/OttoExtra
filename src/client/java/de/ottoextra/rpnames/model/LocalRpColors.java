@@ -1,9 +1,5 @@
 package de.ottoextra.rpnames.model;
 
-/**
- * Optionale Farb-Overrides eines Spielers (Hex-Strings "#RRGGBB", null = von
- * der Titelgruppe erben). GSON-direkt, daher mutable Felder.
- */
 public final class LocalRpColors {
     public String chatTitleColor;
     public String chatNameColor;

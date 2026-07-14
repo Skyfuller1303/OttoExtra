@@ -10,28 +10,21 @@ import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-/**
- * Deklarative Options-Registry fürs Settings-GUI:
- * jede Option ist ein Deskriptor (Modul → Tab → Card → Option) mit Typ,
- * Getter/Setter, Grenzen und Hilfetext-Key. Das GUI rendert generisch,
- * die globale Suche filtert über Label, Key, Beschreibung und Tags.
- */
 public final class SettingsRegistry {
 
     public enum Type { BOOL, INT, FLOAT, COLOR, STRING, COMMAND, ACTION, CYCLE, SLIDER }
 
-    /** Eine Option (typisiert, validierbar). */
     public static final class Option {
         public final String labelKey;
-        public final String tooltipKey;     // null = kein ?-Tooltip
+        public final String tooltipKey;
         public final Type type;
-        public final String configKey;      // z. B. "map.paintedMap" (Suche)
+        public final String configKey;
         public final Supplier<String> get;
-        public final Consumer<String> set;  // validierter Wert als String
+        public final Consumer<String> set;
         public final double min;
         public final double max;
-        public final Runnable action;       // nur ACTION
-        public final String[] cycleValues;  // nur CYCLE
+        public final Runnable action;
+        public final String[] cycleValues;
         public final boolean dangerous;
 
         private Option(String labelKey, String tooltipKey, Type type, String configKey,
@@ -77,7 +70,6 @@ public final class SettingsRegistry {
             }, min, max, null, null, false);
         }
 
-        /** Ganzzahl-Slider (Balken zum Ziehen) mit min/max. */
         public static Option slider(String labelKey, String configKey,
                                     Supplier<Integer> get, Consumer<Integer> set,
                                     int min, int max) {
@@ -128,7 +120,6 @@ public final class SettingsRegistry {
                     v -> set.accept(v.trim()), 0, 0, null, null, false);
         }
 
-        /** Command: ohne Slash gespeichert, GUI zeigt mit Slash an. */
         public static Option command(String labelKey, String configKey,
                                      Supplier<String> get, Consumer<String> set) {
             return new Option(labelKey, null, Type.COMMAND, configKey, get, v -> {
@@ -150,15 +141,12 @@ public final class SettingsRegistry {
         }
     }
 
-    /** Card = Sektion mit Titel + Erklärung + Optionen. */
     public record Card(String titleKey, String descKey, List<Option> options) {
     }
 
-    /** Tab innerhalb eines Moduls (Basis/Darstellung/Erweitert...). */
     public record Tab(String titleKey, List<Card> cards) {
     }
 
-    /** Modul = Sidebar-Eintrag mit Kopf-Erklärung. */
     public record ModulePage(String id, String titleKey, String descKey, List<Tab> tabs) {
     }
 
@@ -186,7 +174,6 @@ public final class SettingsRegistry {
         return c;
     }
 
-    /** Suchtreffer: Modul + Tab-Index + Card + Option. */
     public record SearchHit(ModulePage module, int tabIndex, Card card, Option option) {
     }
 
@@ -213,15 +200,12 @@ public final class SettingsRegistry {
         return hits;
     }
 
-    // ---- Komplettaufbau aus der Config --------------------------------
-
     public static SettingsRegistry build(OttoExtraConfig c, Runnable openPeopleBook,
                                          Runnable openGroupColors, Runnable openBannerEdit,
                                          Runnable openLetterEditor, Runnable openRegionThemes,
                                          Runnable openFollowing) {
         SettingsRegistry r = new SettingsRegistry();
 
-        // Resourcepack
         var rp = r.module("resourcepack", "ottoextra.module.resourcepack", "ottoextra.set.rp.desc");
         var rpBase = tab(rp, "ottoextra.set.tab.base");
         card(rpBase, "ottoextra.set.rp.card", "ottoextra.set.rp.card.desc",
@@ -247,7 +231,6 @@ public final class SettingsRegistry {
                         () -> c.resourcepack.requestTimeoutMs, v -> c.resourcepack.requestTimeoutMs = v,
                         1000, 300000));
 
-        // Chat
         var chat = r.module("chat", "ottoextra.module.chat", "ottoextra.set.chat.desc");
         var chatBase = tab(chat, "ottoextra.set.tab.base");
         card(chatBase, "ottoextra.set.chat.channel", "ottoextra.set.chat.channel.desc",
@@ -280,7 +263,6 @@ public final class SettingsRegistry {
                         () -> c.chat.longChatDelayMs, v -> c.chat.longChatDelayMs = v, 500, 1500)
                         .tooltip("ottoextra.set.chat.longchatDelayMs.tip"));
 
-        // Regionen
         var reg = r.module("regions", "ottoextra.module.regions", "ottoextra.set.regions.desc");
         var regBase = tab(reg, "ottoextra.set.tab.base");
         card(regBase, "ottoextra.set.regions.toast", "ottoextra.set.regions.toast.desc",
@@ -292,6 +274,12 @@ public final class SettingsRegistry {
                         () -> c.regions.playEnterSound, v -> c.regions.playEnterSound = v),
                 Option.bool("ottoextra.config.regions.banner", "regions.showBanner",
                         () -> c.regions.showBanner, v -> c.regions.showBanner = v),
+                Option.bool("ottoextra.config.regions.showFaction", "regions.showFaction",
+                        () -> c.regions.showFaction, v -> c.regions.showFaction = v),
+                Option.bool("ottoextra.config.regions.showLeader", "regions.showLeader",
+                        () -> c.regions.showLeader, v -> c.regions.showLeader = v),
+                Option.bool("ottoextra.config.regions.showCoordinates", "regions.showCoordinates",
+                        () -> c.regions.showCoordinates, v -> c.regions.showCoordinates = v),
                 Option.cycle("ottoextra.config.regions.position", "regions.overlayPosition",
                         () -> c.regions.overlayPosition, v -> c.regions.overlayPosition = v,
                         "TOP_CENTER", "TOP_RIGHT", "TOP_LEFT", "CENTER"),
@@ -322,6 +310,9 @@ public final class SettingsRegistry {
                         () -> c.regions.paddingTop, v -> c.regions.paddingTop = v, 0, 40),
                 Option.intVal("ottoextra.adv.paddingBottom", "regions.paddingBottom",
                         () -> c.regions.paddingBottom, v -> c.regions.paddingBottom = v, 0, 40),
+                Option.intVal("ottoextra.adv.regionDuration", "regions.displayDurationMs",
+                        () -> c.regions.displayDurationMs, v -> c.regions.displayDurationMs = v,
+                        1500, 15000),
                 Option.action("ottoextra.config.preview", "regions.preview",
                         de.ottoextra.config.OttoExtraConfigScreen::triggerPreview));
         card(regAdv, "ottoextra.set.regions.badgeText", "ottoextra.set.regions.badgeText.desc",
@@ -336,7 +327,6 @@ public final class SettingsRegistry {
                 Option.floatVal("ottoextra.adv.hintScale", "regions.hintScale",
                         () -> c.regions.hintScale, v -> c.regions.hintScale = v, 0.1, 3.0));
 
-        // Namensschilder
         var tags = r.module("nametags", "ottoextra.module.nametags", "ottoextra.set.tags.desc");
         var tagsBase = tab(tags, "ottoextra.set.tab.base");
         card(tagsBase, "ottoextra.set.tags.visibility", "ottoextra.set.tags.visibility.desc",
@@ -366,7 +356,6 @@ public final class SettingsRegistry {
                 Option.color("ottoextra.adv.tagAccountColor", "nametags.accountColor",
                         () -> c.nametags.accountColor, v -> c.nametags.accountColor = v));
 
-        // Karte
         var map = r.module("map", "ottoextra.module.map", "ottoextra.set.map.desc");
         var mapBase = tab(map, "ottoextra.set.tab.base");
         card(mapBase, "ottoextra.set.map.visibility", "ottoextra.set.map.visibility.desc",
@@ -385,6 +374,10 @@ public final class SettingsRegistry {
                 Option.bool("ottoextra.config.map.paintedFullCover", "map.paintedFullCoverZoomOut",
                         () -> c.map.paintedFullCoverZoomOut, v -> c.map.paintedFullCoverZoomOut = v)
                         .tooltip("ottoextra.set.map.paintedFullCover.tip"),
+                Option.bool("ottoextra.config.map.parchment", "map.parchmentMode",
+                        () -> c.map.parchmentMode, v -> c.map.parchmentMode = v),
+                Option.bool("ottoextra.config.map.clickInfo", "map.clickInfoPanel",
+                        () -> c.map.clickInfoPanel, v -> c.map.clickInfoPanel = v),
                 Option.bool("ottoextra.config.map.activity", "map.showActivity",
                         () -> c.map.showActivity, v -> c.map.showActivity = v),
                 Option.bool("ottoextra.config.map.npcVillages", "map.showNpcVillages",
@@ -428,6 +421,12 @@ public final class SettingsRegistry {
                         () -> c.map.bannerMinScale, v -> c.map.bannerMinScale = v, 0.005, 8),
                 Option.doubleVal("ottoextra.adv.politicalMaxScale", "map.politicalMaxScale",
                         () -> c.map.politicalMaxScale, v -> c.map.politicalMaxScale = v, 0.01, 8),
+                Option.intVal("ottoextra.adv.parchmentMargin", "map.parchmentMarginPx",
+                        () -> c.map.parchmentMarginPx, v -> c.map.parchmentMarginPx = v, 2, 30),
+                Option.doubleVal("ottoextra.adv.walkSpeed", "map.walkBlocksPerSecond",
+                        () -> c.map.walkBlocksPerSecond, v -> c.map.walkBlocksPerSecond = v, 0.5, 20.0),
+                Option.doubleVal("ottoextra.adv.horseSpeed", "map.horseBlocksPerSecond",
+                        () -> c.map.horseBlocksPerSecond, v -> c.map.horseBlocksPerSecond = v, 0.5, 30.0),
                 Option.slider("ottoextra.config.map.politicalOpacity", "map.politicalOpacity",
                         () -> c.map.politicalOpacity, v -> c.map.politicalOpacity = v, 0, 100)
                         .tooltip("ottoextra.set.map.politicalOpacity.tip"),
@@ -460,7 +459,6 @@ public final class SettingsRegistry {
                 Option.color("ottoextra.adv.factionHudColor", "map.factionHudColor",
                         () -> c.map.factionHudColor, v -> c.map.factionHudColor = v));
 
-        // RP-Namen
         var rpn = r.module("rpnames", "ottoextra.module.rpnames", "ottoextra.set.rpn.desc");
         var rpnBase = tab(rpn, "ottoextra.set.tab.base");
         card(rpnBase, "ottoextra.set.rpn.people", "ottoextra.set.rpn.people.desc",
@@ -516,7 +514,6 @@ public final class SettingsRegistry {
                         () -> c.rpnames.tablistTitlesAlways, v -> c.rpnames.tablistTitlesAlways = v)
                         .tooltip("ottoextra.set.rpn.tablistTitles.tip"));
 
-        // Brief
         var letter = r.module("letter", "ottoextra.module.letter", "ottoextra.set.letter.desc");
         var letterBase = tab(letter, "ottoextra.set.tab.base");
         card(letterBase, "ottoextra.set.letter.editor", "ottoextra.set.letter.editor.desc",
@@ -539,7 +536,9 @@ public final class SettingsRegistry {
                 Option.bool("ottoextra.config.letter.formattingPaste", "letter.formattingConvertAmpersandOnPaste",
                         () -> c.letter.formattingConvertAmpersandOnPaste,
                         v -> c.letter.formattingConvertAmpersandOnPaste = v)
-                        .tooltip("ottoextra.set.letter.formattingPaste.tip"));
+                        .tooltip("ottoextra.set.letter.formattingPaste.tip"),
+                Option.bool("ottoextra.config.letter.preview", "letter.previewEnabled",
+                        () -> c.letter.previewEnabled, v -> c.letter.previewEnabled = v));
         var letterAdv = tab(letter, "ottoextra.set.tab.advanced");
         card(letterAdv, "ottoextra.set.letter.commands", "ottoextra.set.letter.commands.desc",
                 Option.command("ottoextra.set.letter.letterCommand", "letter.letterCommand",
@@ -568,7 +567,6 @@ public final class SettingsRegistry {
                         v -> c.letter.pageModeSendDelayMs = v, 200, 5000)
                         .tooltip("ottoextra.set.letter.pageModeDelay.tip"));
 
-        // Tweaks (optionale clientseitige Effekte)
         var tweaks = r.module("tweaks", "ottoextra.module.tweaks", "ottoextra.set.tweaks.desc");
         var tweaksBase = tab(tweaks, "ottoextra.set.tab.base");
         card(tweaksBase, "ottoextra.set.tweaks.toolprotect", "ottoextra.set.tweaks.toolprotect.desc",

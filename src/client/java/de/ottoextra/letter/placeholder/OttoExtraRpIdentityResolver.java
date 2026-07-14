@@ -5,11 +5,6 @@ import de.ottoextra.rpnames.model.LocalRpProfile;
 
 import java.util.Optional;
 
-/**
- * Resolver-Kette: OttoExtra-RP-Store (lokal gelernt +
- * API-Import) → Tablist-Accountnamen. Keine harte Dependency auf Fremdmods —
- * der RP-Store enthält bereits die importierten OttoChat-Daten.
- */
 public final class OttoExtraRpIdentityResolver implements RpIdentityResolver {
 
     @Override

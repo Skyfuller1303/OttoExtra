@@ -20,13 +20,6 @@ import java.util.concurrent.Executor;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
-/**
- * Lädt das ZIP streaming in eine Temp-Datei und verifiziert es.
- *
- * <p>Reihenfolge: HTTPS-Status &rarr; Live-Größenguard &rarr; SHA-256 (falls
- * erwartet) &rarr; ZIP öffenbar und enthält {@code pack.mcmeta}. Erst danach gilt
- * der Download als gültig. Schreibt nie direkt in den resourcepacks-Ordner.</p>
- */
 public final class PackDownloadService {
 
     private static final int BUFFER = 64 * 1024;
@@ -43,10 +36,6 @@ public final class PackDownloadService {
         this.worker = worker;
     }
 
-    /**
-     * @param expectedSha Hex-SHA-256 aus dem Manifest, oder {@code null} (Modus B ohne Checksumme)
-     * @return Pfad der verifizierten Temp-Datei
-     */
     public CompletableFuture<Path> download(URI zipUri, String expectedSha) {
         HttpRequest request = HttpRequest.newBuilder(zipUri)
                 .timeout(requestTimeout)
@@ -100,7 +89,6 @@ public final class PackDownloadService {
         }
     }
 
-    /** Stellt sicher, dass die Datei ein gültiges Pack-ZIP mit {@code pack.mcmeta} ist. */
     private static void verifyZip(URI uri, Path file) {
         try (ZipFile zip = new ZipFile(file.toFile())) {
             ZipEntry mcmeta = zip.getEntry("pack.mcmeta");
@@ -118,7 +106,7 @@ public final class PackDownloadService {
         try {
             Files.deleteIfExists(p);
         } catch (Exception ignored) {
-            // best effort
+
         }
     }
 }

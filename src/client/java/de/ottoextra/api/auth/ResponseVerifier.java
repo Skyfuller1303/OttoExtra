@@ -12,25 +12,11 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BooleanSupplier;
 
-/**
- * Prüft Ed25519-Antwortsignaturen der v2-API.
- *
- * <p>Schützt gegen gefälschte API-Server (DNS-Spoofing, kaputte Proxys):
- * Antworten ohne gültige Signatur werden verworfen, sobald
- * {@code api.requireSignatures} aktiv ist. Eingebettet werden ausschliesslich
- * <b>Public</b> Keys — die dürfen öffentlich sein.</p>
- */
 public final class ResponseVerifier {
 
     public static final String SIGNATURE_HEADER = "X-OE-Signature";
     public static final String KEY_ID_HEADER = "X-OE-Key-Id";
 
-    /**
-     * Public Keys des Servers (base64 X.509 SubjectPublicKeyInfo), Key-Id → Key.
-     * Nur Public Keys — dürfen öffentlich sein. Immer zwei Keys ausliefern
-     * (aktiv + Rotations-Reserve), sonst sperrt eine Key-Rotation alle
-     * Clients ohne Mod-Update aus.
-     */
     private static final Map<String, String> PUBLIC_KEYS = Map.of(
             "k1", "MCowBQYDK2VwAyEA7+zdLKmnLJSdUCDUlOTHH9YN7ns5z/fKSwpedEqmJ1E=",
             "k2", "MCowBQYDK2VwAyEAGyXZMtbMa108e2CWWOTizr8p4MnWipQBjOlzfWuKr/I=");
@@ -40,27 +26,24 @@ public final class ResponseVerifier {
     private final Map<String, PublicKey> keyCache = new ConcurrentHashMap<>();
     private volatile boolean warnedNoKeys;
 
-    /** Produktiv: einkompilierte Keys, Pflicht-Flag live aus der Config. */
     public ResponseVerifier(BooleanSupplier requireSignatures) {
         this(PUBLIC_KEYS, requireSignatures);
     }
 
-    /** Für Tests: eigene Keys injizierbar. */
     public ResponseVerifier(Map<String, String> keysById, BooleanSupplier requireSignatures) {
         this.keysById = Map.copyOf(keysById);
         this.requireSignatures = requireSignatures;
     }
 
     public enum Result {
-        /** Signatur vorhanden und gültig. */
+
         VALID,
-        /** Kein Signatur-Header (Übergangsphase, Server noch nicht umgestellt). */
+
         MISSING,
-        /** Signatur falsch, Body manipuliert oder Key-Id unbekannt. */
+
         INVALID
     }
 
-    /** Prüft die Signatur über die exakt empfangenen Body-Bytes — VOR jedem Parsen. */
     public Result check(HttpHeaders headers, byte[] rawBody) {
         String sig = headers.firstValue(SIGNATURE_HEADER).orElse(null);
         String keyId = headers.firstValue(KEY_ID_HEADER).orElse(null);
@@ -83,7 +66,6 @@ public final class ResponseVerifier {
         }
     }
 
-    /** Akzeptanz-Entscheidung inkl. Übergangsregel. */
     public boolean accept(HttpHeaders headers, byte[] rawBody) {
         Result result = check(headers, rawBody);
         return switch (result) {

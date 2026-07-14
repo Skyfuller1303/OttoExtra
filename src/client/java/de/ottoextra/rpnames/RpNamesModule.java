@@ -10,24 +10,22 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.PlayerListEntry;
 
-/**
- * Modul: lokales RP-Bekanntschaftssystem.
- *
- * <p>First seen = lokal "Unbekannt"; RP-Name wird aus Chat-Hover gelernt;
- * lokale/manuelle Daten schlagen API. Chat-Ersetzung via ChatHudMixin,
- * Tabliste via PlayerListEntryMixin — beide laufen über
- * {@link RpNamesServices} und nur auf Ottonien (Server-Gate).</p>
- */
+import java.nio.charset.StandardCharsets;
+import java.util.Locale;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
 public final class RpNamesModule implements OttoExtraModule {
 
-    /** Tablist-Sync: alle 100 Ticks (5 s) Online-Spieler als gesehen anlegen. */
     private static final int SEEN_SYNC_INTERVAL_TICKS = 100;
-    /** Titel-Abgleich aus der Tabliste: alle 600 Ticks (~30 s). */
+
     private static final int TITLE_SYNC_INTERVAL_TICKS = 600;
 
     private int tickCounter = 0;
     private int titleTickCounter = 0;
     private net.minecraft.client.option.KeyBinding peopleKey;
+    private final java.util.Set<String> pendingMeetApiRequests =
+            ConcurrentHashMap.newKeySet();
 
     @Override
     public String id() {
@@ -43,12 +41,8 @@ public final class RpNamesModule implements OttoExtraModule {
     public void onInitializeClient(OttoExtraContext context) {
         RpNamesServices.init(context.config().rpnames);
 
-        // Debug: /ottoextra rpnames hoverdebug on|off — dumpt Chat-Hover roh
-        // ins Log (Format-Änderungen des Servers sichtbar machen). Vor dem
-        // Legacy-Gate registriert, damit es auch dann nutzbar bleibt.
         registerHoverDebugCommand();
 
-        // Alt-Mods parallel? Dann eigene Ersetzung stilllegen
         boolean legacyPresent = FabricLoader.getInstance().isModLoaded("ottochat_rpnames")
                 || FabricLoader.getInstance().isModLoaded("ottotalk")
                 || FabricLoader.getInstance().isModLoaded("ottonames");
@@ -56,10 +50,9 @@ public final class RpNamesModule implements OttoExtraModule {
             OttoExtra.LOGGER.warn(
                     "[rpnames] Legacy-Mod (ottochat_rpnames/ottotalk/ottonames) erkannt - "
                             + "OttoExtra-RP-Namen bleiben deaktiviert (Mixin-Konflikte).");
-            return; // setActive bleibt false -> alle Hooks sind No-ops
+            return;
         }
 
-        // First seen: Tabliste periodisch in den Store synchronisieren
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (peopleKey != null && peopleKey.wasPressed()) {
                 if (client.currentScreen == null && RpNamesServices.store() != null) {
@@ -81,7 +74,6 @@ public final class RpNamesModule implements OttoExtraModule {
             syncSeenPlayers(client);
         });
 
-        // Hotkey: Personen-Verwaltung (Standard unbelegt — in Steuerung setzen)
         peopleKey = new net.minecraft.client.option.KeyBinding(
                 "key.ottoextra.rpnames_people",
                 net.minecraft.client.util.InputUtil.Type.KEYSYM,
@@ -89,8 +81,6 @@ public final class RpNamesModule implements OttoExtraModule {
                 net.minecraft.client.option.KeyBinding.Category.MISC);
         net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper.registerKeyBinding(peopleKey);
 
-        // Shift-Rechtsklick auf einen Spieler öffnet das RP-Personenbuch
-        // (nur wenn aktiviert). Nur Haupthand, um Doppel-Trigger zu vermeiden.
         net.fabricmc.fabric.api.event.player.UseEntityCallback.EVENT.register(
                 (player, world, hand, entity, hitResult) -> {
                     boolean meet = RpNamesServices.proactiveMeetEnabled();
@@ -104,27 +94,177 @@ public final class RpNamesModule implements OttoExtraModule {
                     String uuid = target.getUuid() != null ? target.getUuid().toString() : null;
                     var p = RpNamesServices.store() != null
                             ? RpNamesServices.store().findByName(account).orElse(null) : null;
-                    boolean unknown = p == null || !p.hasRpName();
-                    net.minecraft.client.MinecraftClient.getInstance().execute(() -> {
-                        if (meet && unknown) {
-                            // Unbekannt + proaktiv: Kennenlern-GUI
-                            net.minecraft.client.MinecraftClient.getInstance().setScreen(
-                                    new de.ottoextra.rpnames.ui.MeetPersonScreen(null, account, uuid));
-                        } else if (book) {
-                            de.ottoextra.rpnames.ui.RpNamesPeopleBookScreen.openFor(null, account, uuid);
-                        }
-                    });
+                    boolean unknown = p == null || !RpNamesServices.isKnownForDisplay(p);
+                    if (meet && unknown) {
+                        requestCurrentIdentityAndOpenMeetScreen(context, account, uuid);
+                    } else if (book) {
+                        net.minecraft.client.MinecraftClient.getInstance().execute(() ->
+                                de.ottoextra.rpnames.ui.RpNamesPeopleBookScreen
+                                        .openFor(null, account, uuid));
+                    }
                     return net.minecraft.util.ActionResult.SUCCESS;
                 });
 
-        // 3D-Ausrufezeichen über unbekannten RP-Sprechern (proaktives Kennenlernen)
         MeetMarkerRenderer.register();
 
         OttoExtra.LOGGER.info("[rpnames] initialisiert (lokales Bekanntschaftssystem, {} Personen).",
                 RpNamesServices.store().size());
     }
 
-    /** {@code /ottoextra rpnames hoverdebug on|off} — Hover-Dump ins Log. */
+    /**
+     * Lädt beim Shift-Rechtsklick zuerst den aktuellen Spielerstand über
+     * public-player (beziehungsweise v2 mit Public-Fallback). Erst nachdem die
+     * Antwort vorliegt, wird das Kennenlernfenster geöffnet.
+     */
+    private void requestCurrentIdentityAndOpenMeetScreen(
+            OttoExtraContext context, String account, String uuidText) {
+        if (account == null || account.isBlank() || uuidText == null || uuidText.isBlank()) {
+            showMeetLookupError("Spieler-UUID fehlt");
+            return;
+        }
+
+        final UUID uuid;
+        try {
+            uuid = UUID.fromString(uuidText);
+        } catch (IllegalArgumentException e) {
+            showMeetLookupError("Ungültige Spieler-UUID");
+            return;
+        }
+
+        String requestKey = uuid.toString().toLowerCase(Locale.ROOT);
+        if (!pendingMeetApiRequests.add(requestKey)) {
+            return;
+        }
+
+        OttoExtra.LOGGER.info(
+                "[rpnames] Lade aktuellen API-Stand für {} ({}) vor dem Kennenlernen.",
+                account, uuid);
+
+        context.api().player(uuid).whenComplete((profile, error) -> {
+            MinecraftClient client = MinecraftClient.getInstance();
+            client.execute(() -> {
+                pendingMeetApiRequests.remove(requestKey);
+
+                if (client.world == null || client.player == null
+                        || !RpNamesServices.isActive()) {
+                    return;
+                }
+
+                if (error != null) {
+                    OttoExtra.LOGGER.warn(
+                            "[rpnames] Spielerprofil für {} konnte nicht geladen werden: {}",
+                            account, summarizeError(error));
+                    showMeetLookupError("API-Anfrage fehlgeschlagen");
+                    return;
+                }
+                if (profile == null) {
+                    OttoExtra.LOGGER.warn(
+                            "[rpnames] Spielerprofil für {} ist in der API-Antwort leer.", account);
+                    showMeetLookupError("Kein Spielerprofil erhalten");
+                    return;
+                }
+
+                String apiUuid = cleanApiText(profile.uuid());
+                if (apiUuid != null && !apiUuid.equalsIgnoreCase(uuid.toString())) {
+                    OttoExtra.LOGGER.warn(
+                            "[rpnames] API-Antwort für {} enthält eine fremde UUID: {}",
+                            account, apiUuid);
+                    showMeetLookupError("API-Antwort gehört nicht zum angeklickten Spieler");
+                    return;
+                }
+
+                String apiAccount = cleanApiText(profile.minecraft_name());
+                if (apiAccount != null && !apiAccount.equalsIgnoreCase(account)) {
+                    OttoExtra.LOGGER.warn(
+                            "[rpnames] API-Antwort für {} enthält einen fremden Account: {}",
+                            account, apiAccount);
+                    showMeetLookupError("API-Antwort gehört nicht zum angeklickten Spieler");
+                    return;
+                }
+
+                String responseUuid = firstNonBlank(apiUuid, uuid.toString());
+                String rpName = firstNonBlank(
+                        cleanApiText(profile.rp_name()),
+                        fallbackProfileName(profile, account));
+                String title = cleanApiText(profile.title());
+
+                var store = RpNamesServices.store();
+                if (store != null) {
+                    store.ensureSeen(account, responseUuid, RpNameSource.SEEN_ONLINE);
+                    store.importApi(account, responseUuid, rpName, title);
+                }
+
+                // Direkte API-Werte werden an das Fenster übergeben. Dadurch
+                // kann kein älterer lokaler Chat-Vorschlag die Anzeige ersetzen.
+                client.setScreen(new de.ottoextra.rpnames.ui.MeetPersonScreen(
+                        null, account, responseUuid, rpName, title));
+
+                OttoExtra.LOGGER.info(
+                        "[rpnames] API-Spielerprofil geladen: account={}, rpName={}, title={}",
+                        account, rpName == null ? "<leer>" : rpName,
+                        title == null ? "<leer>" : title);
+            });
+        });
+    }
+
+    private static String fallbackProfileName(
+            de.ottoextra.api.model.PlayerRecord profile, String targetAccount) {
+        String value = cleanApiText(profile.name());
+        if (value == null || value.equalsIgnoreCase(targetAccount)) {
+            return null;
+        }
+        String apiAccount = cleanApiText(profile.minecraft_name());
+        return apiAccount != null && value.equalsIgnoreCase(apiAccount) ? null : value;
+    }
+
+    private static String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private static String cleanApiText(String value) {
+        if (value == null) {
+            return null;
+        }
+        String fixed = value;
+        for (int i = 0; i < 2
+                && (fixed.indexOf('Ã') >= 0 || fixed.indexOf('Â') >= 0); i++) {
+            String decoded = new String(
+                    fixed.getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.UTF_8);
+            if (decoded.indexOf('�') >= 0) {
+                break;
+            }
+            fixed = decoded;
+        }
+        fixed = fixed.trim();
+        return fixed.isEmpty() ? null : fixed;
+    }
+
+    private static String summarizeError(Throwable error) {
+        Throwable current = error;
+        while ((current instanceof java.util.concurrent.CompletionException
+                || current instanceof java.util.concurrent.ExecutionException)
+                && current.getCause() != null) {
+            current = current.getCause();
+        }
+        String message = current.getMessage();
+        return current.getClass().getSimpleName()
+                + (message == null || message.isBlank() ? "" : ": " + message);
+    }
+
+    private static void showMeetLookupError(String detail) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player != null) {
+            client.player.sendMessage(net.minecraft.text.Text.literal(
+                    "§c[RP-Namen] §7Aktuelle Personendaten konnten nicht geladen werden"
+                            + (detail == null || detail.isBlank() ? "." : ": " + detail)), true);
+        }
+    }
+
     private void registerHoverDebugCommand() {
         net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback.EVENT
                 .register((dispatcher, access) -> dispatcher.register(
@@ -165,13 +305,12 @@ public final class RpNamesModule implements OttoExtraModule {
                 if (profile == null || profile.name() == null || profile.name().isBlank()) {
                     continue;
                 }
-                // Skin (signierte Textur-Property) jedes online gesehenen Spielers
-                // persistent cachen — auch den eigenen.
+
                 de.ottoextra.chat.SkinCache.remember(profile);
                 if (client.player != null
                         && profile.id() != null
                         && profile.id().equals(client.player.getUuid())) {
-                    continue; // sich selbst nicht anlegen
+                    continue;
                 }
                 RpNamesServices.store().ensureSeen(profile.name(),
                         profile.id() != null ? profile.id().toString() : null,
@@ -183,7 +322,6 @@ public final class RpNamesModule implements OttoExtraModule {
         }
     }
 
-    /** Titel der Online-Spieler aus der Tabliste abgleichen (außer lokal gesperrt). */
     private void syncTitlesFromTablist(MinecraftClient client) {
         try {
             for (PlayerListEntry entry : client.getNetworkHandler().getPlayerList()) {
@@ -191,23 +329,18 @@ public final class RpNamesModule implements OttoExtraModule {
                 if (profile == null || profile.name() == null || profile.name().isBlank()) {
                     continue;
                 }
-                // ORIGINAL-Displayname vom Server lesen (nicht unseren angepassten)
+
                 net.minecraft.text.Text display =
                         ((de.ottoextra.mixin.PlayerListEntryAccessor) (Object) entry)
                                 .ottoextra$rawDisplayName();
                 if (display == null) {
                     continue;
                 }
-                String flat = display.getString();
-                int idx = flat.indexOf(profile.name());
-                if (idx <= 0) {
-                    continue; // kein Titel-Prefix vor dem Account
-                }
-                String title = flat.substring(0, idx).trim();
+
+                String title = de.ottoextra.rpnames.tablist.TablistNameFormatter
+                        .extractServerTitle(display, profile.name());
                 if (!title.isEmpty()) {
-                    // ROH-Titel speichern; die Anzeige-Form (Varianten-Override)
-                    // wird live beim Rendern via canonicalTitle aufgelöst, damit
-                    // eine spätere Varianten-Änderung sofort überall greift.
+
                     RpNamesServices.store().updateTitleIfChanged(profile.name(),
                             profile.id() != null ? profile.id().toString() : null, title);
                 }
@@ -220,9 +353,8 @@ public final class RpNamesModule implements OttoExtraModule {
     @Override
     public void onServerJoin(OttoExtraContext context) {
         RpNamesServices.setActive(true);
-        // Beim Join einmal automatisch via API abgleichen: cached den API-RP-Namen
-        // (Quelle fürs Zurücksetzen) und ergänzt leere Felder — legt keine neuen
-        // Spieler an, schreibt keine Backup-Datei. Läuft asynchron, nie blockierend.
+        de.ottoextra.rpnames.upload.RpNameUploadService.resetObservedSession();
+
         var store = RpNamesServices.store();
         if (store != null && RpNamesServices.isActive()) {
             de.ottoextra.rpnames.importer.RegionsApiRpNameImporter.runAuto(store)
@@ -241,6 +373,7 @@ public final class RpNamesModule implements OttoExtraModule {
     @Override
     public void onDisconnect(OttoExtraContext context) {
         RpNamesServices.setActive(false);
+        de.ottoextra.rpnames.upload.RpNameUploadService.resetObservedSession();
         de.ottoextra.chat.SkinCache.flush();
         if (RpNamesServices.store() != null) {
             RpNamesServices.store().saveNow();
@@ -250,5 +383,6 @@ public final class RpNamesModule implements OttoExtraModule {
     @Override
     public void onClientStop(OttoExtraContext context) {
         RpNamesServices.shutdown();
+        de.ottoextra.rpnames.upload.RpNameUploadService.shutdown();
     }
 }

@@ -163,20 +163,59 @@ public final class NametagService {
         }
         var catalog = RpNamesServices.catalog();
         LocalRpProfile profile = RpNamesServices.store().findByName(accountName).orElse(null);
-        if (profile == null || !profile.showInNametag) {
-            // Ausgeblendet -> Vanilla. Unbekannt (kein Profil) aber Name-Anzeige an:
-            // Accountname trotzdem in Spieler-Farbkette (nie ungefärbt), ohne Titel/RP.
-            if (profile == null && cfg.showPlayerName) {
-                debugOnce(accountName, "kein Profil -> Account in Standardfarbe");
-                return new Lines(null, colored(accountName,
-                        accountColor(cfg, RpNamesServices.playerNameColor(null, null))), null);
-            }
-            debugOnce(accountName, profile == null ? "kein Profil" : "showInNametag=false");
+
+        // Das persönliche Ausblenden bleibt bindend. NametagLabelRenderer ruft
+        // shouldRender(...) zusätzlich auf und unterdrückt dadurch auch Vanilla.
+        if (profile != null && !profile.showInNametag) {
+            debugOnce(accountName, "showInNametag=false");
             return null;
         }
+
+        boolean knownForDisplay = profile != null
+                && RpNamesServices.isKnownForDisplay(profile);
+
+        /*
+         * Proaktives Kennenlernen:
+         *
+         * Ein fehlendes Profil, ein vergessenes Profil oder ein lediglich von
+         * der API importierter Name ist noch NICHT bekannt. In diesem Fall muss
+         * OttoExtra selbst "Unbekannt" zeichnen. Ein null-Rückgabewert würde
+         * Vanilla weiterzeichnen lassen und dadurch den Minecraft-Namen zeigen.
+         */
+        if (!knownForDisplay) {
+            Text name;
+            boolean nameIsAccount = false;
+
+            if (cfg.showRpName) {
+                String shown = RpNamesServices.unknownNametagDisplay(accountName);
+                nameIsAccount = RpNamesServices.unknownShowsAccount();
+                name = colored(shown, nameIsAccount
+                        ? RpNamesServices.playerNameColor(null, null)
+                        : "#8A8A8A");
+            } else if (cfg.showPlayerName) {
+                nameIsAccount = true;
+                name = colored(accountName,
+                        accountColor(cfg, RpNamesServices.playerNameColor(null, null)));
+            } else {
+                name = Text.empty();
+            }
+
+            Text account = null;
+            if (cfg.showPlayerName && !nameIsAccount
+                    && RpNamesServices.unknownAccountLineEnabled()) {
+                account = colored(accountName,
+                        accountColor(cfg, RpNamesServices.playerNameColor(null, null)));
+            }
+
+            // Auch bei vollständig deaktivierten Zeilen einen leeren eigenen
+            // Renderdatensatz zurückgeben, damit Vanilla den Accountnamen nicht
+            // als Fallback einblendet.
+            debugOnce(accountName, "unbekannt -> Platzhalter");
+            return new Lines(null, name, account);
+        }
+
         boolean hasRp = profile.hasRpName() && cfg.showRpName;
-        // Unbekannte (ohne RP-Namen) bekommen keinen Titel im Namensschild
-        boolean hasTitle = profile.hasTitle() && cfg.showTitle && profile.hasRpName();
+        boolean hasTitle = profile.hasTitle() && cfg.showTitle;
         // Unsere Farbe gewinnt immer — Server-/Team-Farbe (z. B. Kampf-Rot) wird
         // bewusst NICHT mehr übernommen, damit der RP-Look konsistent bleibt.
         Text title = null;

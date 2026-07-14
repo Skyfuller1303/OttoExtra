@@ -31,10 +31,6 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/**
- * Auth-Zustandsmaschine gegen einen lokalen Stub-Server:
- * Handshake, 410-Retry, joinServer-Fehler, Backoff, Singleton-Future.
- */
 class ApiAuthServiceTest {
 
     private static final SessionSnapshot SESSION = new SessionSnapshot(
@@ -46,7 +42,7 @@ class ApiAuthServiceTest {
 
     private final AtomicInteger challengeCalls = new AtomicInteger();
     private final AtomicInteger verifyCalls = new AtomicInteger();
-    /** Antwort-Skript: Statuscode + Body pro Route, je Test konfiguriert. */
+
     private volatile int challengeStatus = 200;
     private volatile int verifyStatus = 200;
     private volatile int verify410Count;
@@ -118,7 +114,6 @@ class ApiAuthServiceTest {
         assertEquals(1, challengeCalls.get());
         assertEquals(1, verifyCalls.get());
 
-        // Zweiter Aufruf: Token aus dem RAM, kein neuer Handshake
         assertSame(token, auth.tokenAsync().join());
         assertEquals(1, challengeCalls.get());
     }
@@ -132,7 +127,7 @@ class ApiAuthServiceTest {
         assertThrows(CompletionException.class, () -> auth.tokenAsync().join());
         assertEquals(0, verifyCalls.get(), "verify darf nach joinServer-Fehler nicht aufgerufen werden");
         assertTrue(auth.backedOff());
-        // Im Backoff: sofortiger Fehler, kein weiterer Challenge-Call
+
         int before = challengeCalls.get();
         assertThrows(CompletionException.class, () -> auth.tokenAsync().join());
         assertEquals(before, challengeCalls.get());
@@ -140,7 +135,7 @@ class ApiAuthServiceTest {
 
     @Test
     void expiredChallengeRetriesExactlyOnce() {
-        verify410Count = 1; // erste Verify-Antwort 410, zweite ok
+        verify410Count = 1;
         ApiAuthService auth = service((uuid, token, serverId) -> {
         }, () -> SESSION);
 

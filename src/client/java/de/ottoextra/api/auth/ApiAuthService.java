@@ -18,20 +18,10 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
-/**
- * Auth-Zustandsmaschine der v2-API:
- * {@code ANON → PENDING → VERIFIED}, Fehler ⇒ Backoff.
- *
- * <p>Handshake: challenge → Mojang {@code joinServer} → verify → Bearer-Token.
- * Das Token lebt nur im RAM; der Access-Token des Spielers geht ausschliesslich
- * an Mojang, nie an die Regions-API. Genau ein Handshake gleichzeitig —
- * parallele Aufrufer hängen sich an dasselbe Future.</p>
- */
 public final class ApiAuthService {
 
-    /** Fehler-Cache nach fehlgeschlagenem Handshake. */
     static final Duration FAILURE_BACKOFF = Duration.ofMinutes(5);
-    /** Längerer Backoff, wenn /v2 noch gar nicht deployed ist (404). */
+
     static final Duration NOT_DEPLOYED_BACKOFF = Duration.ofMinutes(30);
 
     private final HttpClient http;
@@ -44,9 +34,8 @@ public final class ApiAuthService {
     private final ResponseVerifier verifier;
     private final Clock clock;
 
-    /** Aktuelles Token — nur im RAM, nie auf Disk. */
     private volatile ApiToken token;
-    /** Laufender Handshake (Singleton-Future). */
+
     private final AtomicReference<CompletableFuture<ApiToken>> pending = new AtomicReference<>();
     private volatile Instant backoffUntil = Instant.EPOCH;
 
@@ -70,11 +59,6 @@ public final class ApiAuthService {
         this.clock = clock;
     }
 
-    /**
-     * Liefert ein nutzbares Token oder startet (genau einen) Handshake.
-     * Im Backoff schlägt das Future sofort fehl — Aufrufer fallen auf die
-     * public-*-Routen bzw. den Cache zurück.
-     */
     public CompletableFuture<ApiToken> tokenAsync() {
         ApiToken current = token;
         if (current != null && current.usable(clock.instant())) {
@@ -110,23 +94,19 @@ public final class ApiAuthService {
         return attempt;
     }
 
-    /** Token verwerfen (z. B. nach 401) — nächster Aufruf macht EINEN Re-Handshake. */
     public void invalidate() {
         token = null;
     }
 
-    /** Aktuell im Fehler-Backoff (Offline-Modus für v2)? */
     public boolean backedOff() {
         return clock.instant().isBefore(backoffUntil);
     }
-
-    // ---- Handshake (läuft auf dem API-Executor, blockierend erlaubt) -----
 
     private ApiToken handshakeWithRetry() {
         try {
             return handshakeOnce();
         } catch (ChallengeExpiredException first) {
-            // 410: abgelaufene/verbrauchte Challenge ⇒ genau EIN neuer Versuch
+
             try {
                 return handshakeOnce();
             } catch (ChallengeExpiredException second) {
@@ -138,7 +118,7 @@ public final class ApiAuthService {
     private ApiToken handshakeOnce() {
         SessionSnapshot session = sessionSupplier.get();
         if (session == null || !session.valid()) {
-            // devauth im Dev-Client nutzen — ohne gültige Session kein Handshake
+
             OttoExtra.LOGGER.info("[api/auth] keine gültige Session — Offline-Modus");
             throw ApiProblem.badRequest("Keine gültige Minecraft-Session").toException();
         }
@@ -153,7 +133,7 @@ public final class ApiAuthService {
         }
 
         try {
-            // Blockierender Mojang-Call — bewusst auf dem Executor.
+
             joiner.joinServer(session.uuid(), session.accessToken(), serverId);
         } catch (Exception e) {
             OttoExtra.LOGGER.info("[api/auth] keine gültige Session — Offline-Modus");
@@ -212,12 +192,11 @@ public final class ApiAuthService {
         if (cause instanceof ApiProblem.ApiException api
                 && api.problem().kind() == ApiProblem.Kind.HTTP_STATUS
                 && "HTTP 404".equals(api.problem().message())) {
-            return NOT_DEPLOYED_BACKOFF; // /v2 existiert noch nicht — selten neu probieren
+            return NOT_DEPLOYED_BACKOFF;
         }
         return FAILURE_BACKOFF;
     }
 
-    /** Kurzfassung für Logs — niemals serverId/Token-Inhalte. */
     private static String summarize(Throwable error) {
         Throwable cause = error.getCause() != null ? error.getCause() : error;
         if (cause instanceof ApiProblem.ApiException api) {
@@ -226,7 +205,6 @@ public final class ApiAuthService {
         return cause.getClass().getSimpleName();
     }
 
-    /** Internes Signal: Server meldete 410 (Challenge abgelaufen/verbraucht). */
     private static final class ChallengeExpiredException extends RuntimeException {
     }
 }

@@ -2,10 +2,6 @@ package de.ottoextra.rpnames.chat;
 
 import de.ottoextra.config.OttoExtraConfig;
 
-/**
- * Ottonien-Chatkanäle anhand des Zeilenpräfixes. Unbekannte
- * Formate bleiben OTHER und werden nie verändert.
- */
 public enum OttoChatChannel {
     SPRECHEN,
     REDEN,
@@ -56,7 +52,6 @@ public enum OttoChatChannel {
         return OTHER;
     }
 
-    /** Anzeige-Gate je Config. */
     public boolean shouldReplace(OttoExtraConfig.RpNames cfg) {
         if (cfg.showInAllChannels) {
             return this != OTHER && this != SYSTEM;
@@ -75,18 +70,15 @@ public enum OttoChatChannel {
         };
     }
 
-    /** OOC-Kanäle: dort wird kein RP-Name ersetzt, aber der Titel vorangestellt. */
     public boolean isOoc() {
         return this == OFFTOPIC || this == OOC;
     }
 
-    /** RP-Sprechkanäle (reden/flüstern/rufen) — für proaktives Kennenlernen. */
     public boolean isRpSpeak() {
         return this == SPRECHEN || this == REDEN || this == RUFEN
                 || this == BRUELLEN || this == FLUESTERN || this == MURMELN;
     }
 
-    /** Lern-Gate: Hover gilt als server-bestätigt — RP-Kanäle + Hilfe. */
     public boolean shouldLearn() {
         return switch (this) {
             case SPRECHEN, REDEN, RUFEN, BRUELLEN, FLUESTERN, MURMELN, HILFE -> true;

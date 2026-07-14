@@ -2,7 +2,6 @@ package de.ottoextra.letter.ui;
 
 import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.letter.LetterDraft;
-import de.ottoextra.letter.LetterDraftCache;
 import de.ottoextra.letter.LetterServices;
 import de.ottoextra.letter.announcement.AnnouncementLetterPreflightService;
 import net.minecraft.client.MinecraftClient;
@@ -13,12 +12,6 @@ import net.minecraft.text.Text;
 
 import java.util.ArrayList;
 
-/**
- * Verkündungs-Preflight-UI: pro Seite Zeilen-/Längenstatus
- * (grün = sicher, gelb = dicht, rot = blockiert). "Automatisch optimieren"
- * verteilt nur Layout (Inhalt unverändert) und prüft erneut. Senden nur ohne
- * Blocker — die Verkündung wird dann über {@code /letter}-Zeilen geschrieben.
- */
 public final class AnnouncementPreflightScreen extends Screen {
 
     private final Screen parent;
@@ -51,8 +44,7 @@ public final class AnnouncementPreflightScreen extends Screen {
         int cx = width / 2;
         ButtonWidget send = ButtonWidget.builder(
                 Text.translatable("ottoextra.letter.preflight.send"), b -> {
-                    // Verkündungstext ist beim „Schreiben" bereits geschrieben —
-                    // hier nur noch der Abschluss (Submit-Command, z. B. /verkünden).
+
                     LetterServices.sendAnnounceSubmit(config);
                     LetterServices.consumePending();
                     MinecraftClient.getInstance().setScreen(null);
@@ -62,7 +54,7 @@ public final class AnnouncementPreflightScreen extends Screen {
         addDrawableChild(ButtonWidget.builder(
                 Text.translatable("ottoextra.letter.preflight.optimize"), b -> {
                     draft.pages = new ArrayList<>(service().optimize(draft.pages));
-                    LetterDraftCache.save(draft);
+
                     recheck();
                     clearAndInit();
                 }).dimensions(cx - 52, height - 30, 104, 20).build());

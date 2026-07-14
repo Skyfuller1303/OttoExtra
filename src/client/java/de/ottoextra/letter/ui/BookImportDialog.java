@@ -14,11 +14,6 @@ import net.minecraft.text.Text;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Buchimport-Dialog: liest das gehaltene Buch und bietet
- * "Seiten 1:1 übernehmen" (für Verkündungen empfohlen) oder "Als Fließtext
- * neu umbrechen". Ersetzt den aktuellen Entwurf erst nach Klick.
- */
 public final class BookImportDialog extends Screen {
 
     private final Screen parent;

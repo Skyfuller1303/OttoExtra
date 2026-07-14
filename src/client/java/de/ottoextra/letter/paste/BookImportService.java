@@ -11,17 +11,11 @@ import net.minecraft.util.Hand;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Buchimport: liest das in Haupt-/Nebenhand gehaltene
- * Buch (beschreibbar oder signiert) und liefert die Seiten als Rohtexte.
- * Übernahme 1:1 oder als Fließtext entscheidet der Dialog.
- */
 public final class BookImportService {
 
     private BookImportService() {
     }
 
-    /** Seiten des gehaltenen Buchs (normalisiert); leer = kein Buch in der Hand. */
     public static List<String> readHeldBook() {
         List<String> pages = new ArrayList<>();
         MinecraftClient client = MinecraftClient.getInstance();

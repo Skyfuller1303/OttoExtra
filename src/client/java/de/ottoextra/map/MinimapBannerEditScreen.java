@@ -14,15 +14,6 @@ import xaero.lib.client.gui.widget.dropdown.DropDownWidget;
 
 import java.util.List;
 
-/**
- * Drag&Drop-Platzierung der drei HUD-Elemente (Wappen / Gefolgename / Stand)
- * wie Xaeros GuiEditMode: jedes aktive Element einzeln anfassen und ziehen,
- * Loslassen speichert mit Kanten-Anker (resize-stabil).
- *
- * <p>Implementiert {@link IScreenBase}: Xaeros MinimapRenderer zeichnet die
- * Minimap unter solchen Screens weiter — die Karte bleibt beim Positionieren
- * sichtbar.</p>
- */
 public final class MinimapBannerEditScreen extends Screen implements IScreenBase {
 
     private final Screen parent;
@@ -65,7 +56,7 @@ public final class MinimapBannerEditScreen extends Screen implements IScreenBase
         List<MinimapBannerOverlay.Element> list =
                 MinimapBannerOverlay.computeElements(client, config.map, session);
         if (dragging != null) {
-            // gezogenes Element an der Mausposition zeigen
+
             list = list.stream().map(e -> e.kind() == dragging
                     ? new MinimapBannerOverlay.Element(e.kind(), curX, curY, e.width(), e.height(),
                             e.banner(), e.iconSize(), e.text(), e.scale())
@@ -74,7 +65,6 @@ public final class MinimapBannerEditScreen extends Screen implements IScreenBase
         return list;
     }
 
-    /** Resize-Griff (45°-Doppelpfeil) unten rechts am Element: [x, y, größe]. */
     private int[] resizeHandle(MinimapBannerOverlay.Element e) {
         int s = 8;
         return new int[]{e.x() + e.width() + 1, e.y() + e.height() + 1, s};
@@ -90,11 +80,10 @@ public final class MinimapBannerEditScreen extends Screen implements IScreenBase
         return null;
     }
 
-
     @Override
     public boolean mouseClicked(Click click, boolean doubled) {
         if (click.button() == 0) {
-            // Resize-Griff zuerst (Drag auf der Ecke skaliert)
+
             for (var e : elements()) {
                 int[] hnd = resizeHandle(e);
                 if (click.x() >= hnd[0] && click.x() <= hnd[0] + hnd[2]
@@ -134,8 +123,7 @@ public final class MinimapBannerEditScreen extends Screen implements IScreenBase
     @Override
     public boolean mouseDragged(Click click, double deltaX, double deltaY) {
         if (resizing != null) {
-            // Texte: horizontal = Boxbreite, vertikal = Skalierung;
-            // Wappen: diagonal = Größe
+
             double dx = click.x() - resizeStartX;
             double dy = click.y() - resizeStartY;
             switch (resizing) {
@@ -219,7 +207,7 @@ public final class MinimapBannerEditScreen extends Screen implements IScreenBase
             ctx.fill(e.x() + e.width() + 1, e.y() - 1, e.x() + e.width() + 2,
                     e.y() + e.height() + 1, col);
             MinimapBannerOverlay.draw(ctx, client, e, config.map);
-            // Resize-Griff: 45°-Doppelpfeil unten rechts, immer sichtbar
+
             int[] hnd = resizeHandle(e);
             boolean hov = (mouseX >= hnd[0] && mouseX <= hnd[0] + hnd[2]
                     && mouseY >= hnd[1] && mouseY <= hnd[1] + hnd[2])
@@ -227,7 +215,7 @@ public final class MinimapBannerEditScreen extends Screen implements IScreenBase
             int hcol = hov ? 0xFFFFD479 : 0xFFB08D57;
             ctx.fill(hnd[0], hnd[1], hnd[0] + hnd[2], hnd[1] + hnd[2],
                     hov ? 0xCC7A5A3A : 0x99000000);
-            // Diagonale mit Pfeilspitzen (↖ … ↘)
+
             for (int i = 1; i < hnd[2] - 1; i++) {
                 ctx.fill(hnd[0] + i, hnd[1] + i, hnd[0] + i + 1, hnd[1] + i + 1, hcol);
             }
@@ -242,7 +230,7 @@ public final class MinimapBannerEditScreen extends Screen implements IScreenBase
 
     @Override
     public void renderBackground(DrawContext ctx, int mouseX, int mouseY, float delta) {
-        // kein Dim/Blur — Welt + Minimap sollen sichtbar bleiben
+
     }
 
     @Override
@@ -254,8 +242,6 @@ public final class MinimapBannerEditScreen extends Screen implements IScreenBase
     public void close() {
         MinecraftClient.getInstance().setScreen(parent);
     }
-
-    // ---- IScreenBase (Xaero zeigt die Minimap unter diesem Screen weiter) ------
 
     @Override
     public boolean shouldSkipWorldRender() {
