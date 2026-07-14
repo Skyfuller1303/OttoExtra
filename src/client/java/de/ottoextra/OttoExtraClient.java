@@ -10,6 +10,8 @@ import de.ottoextra.nametags.NametagModule;
 import de.ottoextra.regions.RegionsModule;
 import de.ottoextra.resourcepack.ResourcePackModule;
 import de.ottoextra.rpnames.RpNamesModule;
+import de.ottoextra.update.UpdateChecker;
+import de.ottoextra.welcome.WelcomeScreenManager;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
@@ -53,6 +55,8 @@ public final class OttoExtraClient implements ClientModInitializer {
 
         registerLifecycle(api);
         registerMenuButton();
+        WelcomeScreenManager.initialize();
+        UpdateChecker.initialize();
 
         OttoExtra.LOGGER.info("{} bereit — {} Modul(e) aktiv.",
                 OttoExtra.MOD_NAME, context.activeModules().size());

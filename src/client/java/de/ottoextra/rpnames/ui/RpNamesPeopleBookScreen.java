@@ -753,8 +753,9 @@ public final class RpNamesPeopleBookScreen extends Screen {
         }, lock);
         selected = updated;
         refilter();
-        statusLine = Text.translatable("ottoextra.rpbook.saved").getString();
         setPeopleEditEnabled(true);
+
+        statusLine = Text.translatable("ottoextra.rpbook.saved").getString();
     }
 
     private void forget() {

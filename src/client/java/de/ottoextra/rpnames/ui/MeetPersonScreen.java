@@ -17,6 +17,9 @@ public final class MeetPersonScreen extends Screen {
     private final Screen parent;
     private final String account;
     private final String uuid;
+    private final boolean hasApiPrefill;
+    private final String apiPrefillName;
+    private final String apiPrefillTitle;
 
     private boolean editing;
     private String prefillName = "";
@@ -28,10 +31,28 @@ public final class MeetPersonScreen extends Screen {
     private net.minecraft.client.network.AbstractClientPlayerEntity entity;
 
     public MeetPersonScreen(Screen parent, String account, String uuid) {
+        this(parent, account, uuid, false, null, null);
+    }
+
+    /**
+     * Öffnet das Kennenlernfenster mit den gerade gezielt von der API
+     * abgefragten Daten. Auch leere Werte sind dabei absichtlich verbindlich,
+     * damit kein älterer lokaler Vorschlag eingeblendet wird.
+     */
+    public MeetPersonScreen(Screen parent, String account, String uuid,
+                            String apiRpName, String apiTitle) {
+        this(parent, account, uuid, true, apiRpName, apiTitle);
+    }
+
+    private MeetPersonScreen(Screen parent, String account, String uuid,
+                             boolean hasApiPrefill, String apiRpName, String apiTitle) {
         super(Text.translatable("ottoextra.meet.title"));
         this.parent = parent;
         this.account = account;
         this.uuid = uuid;
+        this.hasApiPrefill = hasApiPrefill;
+        this.apiPrefillName = apiRpName;
+        this.apiPrefillTitle = apiTitle;
     }
 
     private int boxH() {
@@ -102,6 +123,17 @@ public final class MeetPersonScreen extends Screen {
     }
 
     private void loadPrefill() {
+        if (hasApiPrefill) {
+            String name = apiPrefillName == null ? "" : apiPrefillName.trim();
+            String title = apiPrefillTitle == null ? "" : apiPrefillTitle.trim();
+            if (name.isBlank()) {
+                title = "";
+            }
+            prefillName = name;
+            prefillTitle = RpNamesServices.canonicalTitle(title);
+            return;
+        }
+
         RpNamesServices.MeetSuggestion s = RpNamesServices.meetSuggestion(account);
         var p = RpNamesServices.store() != null
                 ? RpNamesServices.store().findByName(account).orElse(null) : null;
@@ -154,6 +186,7 @@ public final class MeetPersonScreen extends Screen {
             }
             p.title = t;
         }, true);
+
         close();
     }
 

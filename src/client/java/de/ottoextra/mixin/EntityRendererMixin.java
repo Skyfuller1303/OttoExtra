@@ -11,6 +11,12 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+/**
+ * Basis-Label-Pfad: EntityCulling u. a. rendern Labels gecullter
+ * Spieler direkt über {@code EntityRenderer.renderLabelIfPresent} — ohne
+ * diesen Hook erscheint hinter Wänden wieder das Vanilla-Schild statt
+ * unseres RP-Labels bzw. trotz REALISTIC-Sichtlinienregel.
+ */
 @Mixin(EntityRenderer.class)
 public abstract class EntityRendererMixin {
 
@@ -22,7 +28,8 @@ public abstract class EntityRendererMixin {
     private void ottoextra$rpLabelBase(EntityRenderState state, MatrixStack matrices,
                                        OrderedRenderCommandQueue queue, CameraRenderState camera,
                                        CallbackInfo ci) {
-
+        // Auch rohe EntityRenderStates: EntityCulling extrahiert gecullte
+        // Spieler ohne PlayerEntityRenderState (renderNametagsThroughWalls)
         if (NametagLabelRenderer.submit(state, matrices, queue, camera, "ER")) {
             ci.cancel();
         }

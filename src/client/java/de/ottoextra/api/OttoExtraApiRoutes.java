@@ -75,6 +75,10 @@ public final class OttoExtraApiRoutes {
         return action("public-player-head", "uuid", uuid);
     }
 
+    public URI communityParticipantRpName() {
+        return action("community-participant-rp-name");
+    }
+
     private URI v2(String path) {
         return URI.create(base + "/v2/" + path);
     }

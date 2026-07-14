@@ -17,6 +17,10 @@ public final class OttoExtraPaths {
         return root().resolve("ottoextra.json");
     }
 
+    public static Path welcomeState() {
+        return root().resolve("welcome.json");
+    }
+
     public static Path cacheDir() {
         return root().resolve("cache");
     }

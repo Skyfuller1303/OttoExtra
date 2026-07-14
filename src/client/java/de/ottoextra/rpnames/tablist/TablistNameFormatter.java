@@ -29,11 +29,9 @@ public final class TablistNameFormatter {
         if (!RpNamesServices.isActive() || gameProfile == null) {
             return null;
         }
-        OttoExtraConfig.RpNames cfg = RpNamesServices.config();
-        if (!cfg.tablistEnabled && !cfg.tablistTitlesAlways) {
-            return null;
-        }
 
+        OttoExtraConfig.RpNames cfg = RpNamesServices.config();
+        boolean showTitles = cfg.tablistTitlesAlways;
         String account = gameProfile.name();
         Text base = original != null ? original : Text.literal(account);
         LocalRpProfile profile = RpNamesServices.store()
@@ -45,20 +43,28 @@ public final class TablistNameFormatter {
         }
 
         if (profile == null) {
-            String replacement = cfg.tablistEnabled && RpNamesServices.proactiveMeetEnabled()
-                    ? RpNamesServices.unknownDisplay(account) : account;
-            String color = cfg.tablistEnabled && RpNamesServices.proactiveMeetEnabled()
-                    && !RpNamesServices.unknownShowsAccount()
+            boolean unknown = cfg.tablistEnabled && RpNamesServices.proactiveMeetEnabled();
+            String replacement = unknown ? RpNamesServices.unknownDisplay(account) : account;
+            String color = unknown && !RpNamesServices.unknownShowsAccount()
                     ? UNKNOWN_COLOR : RpNamesServices.playerNameColor(null, null);
 
-            if (cfg.tablistEnabled && RpNamesServices.proactiveMeetEnabled()) {
-                LocalRpProfile unknown = new LocalRpProfile();
-                unknown.accountName = account;
+            // Unbekannte dürfen keinen Titel verraten. Ist die globale Titelanzeige
+            // deaktiviert, wird ebenfalls nur der Titel entfernt; Wappen und sonstige
+            // Rich-Text-Komponenten des Servers bleiben erhalten.
+            if (unknown || !showTitles) {
+                LocalRpProfile placeholder = new LocalRpProfile();
+                placeholder.accountName = account;
                 Text stripped = replaceServerTitleAndName(base, account, null,
-                        replacement, color, unknown, false);
+                        replacement, color, placeholder, false);
                 if (stripped != null) {
                     return stripped;
                 }
+            }
+
+            // Wenn weder RP-Name noch Farbe geändert werden müssen, die originale
+            // Server-Komponente unverändert lassen. So bleiben Titel/Wappen exakt erhalten.
+            if (!cfg.tablistEnabled && showTitles) {
+                return null;
             }
 
             NameRewriteState state = new NameRewriteState(account, replacement, color);
@@ -82,15 +88,23 @@ public final class TablistNameFormatter {
             color = RpNamesServices.playerNameColor(profile.colors.tabNameColor, profile.title);
         }
 
-        if (!knownForDisplay || (cfg.tablistShowTitle && profile.hasTitle())) {
+        boolean hasRenderableLocalTitle = hasRenderableTitle(profile);
+
+        // Bei unbekannten Personen wird der Titel immer entfernt. Bei ausgeschalteter
+        // Titeloption ebenso. Ein lokaler, gültiger Titel ersetzt den Servertitel nur,
+        // wenn die Titeloption eingeschaltet ist.
+        if (!knownForDisplay || !showTitles || hasRenderableLocalTitle) {
+            boolean includeLocalTitle = knownForDisplay && showTitles && hasRenderableLocalTitle;
             Text titled = replaceServerTitleAndName(base, account, profile.rpName,
-                    replacement, color, profile, knownForDisplay && cfg.tablistShowTitle
-                            && profile.hasTitle());
+                    replacement, color, profile, includeLocalTitle);
             if (titled != null) {
                 return titled;
             }
         }
 
+        // Kein lokaler Titel vorhanden: den aktuellen Servertitel unverändert behalten
+        // und ausschließlich den Namen ersetzen. Das ist der entscheidende Fallback,
+        // damit „Titel in Tabliste“ AN nicht versehentlich alle Titel entfernt.
         NameRewriteState accountState = new NameRewriteState(account, replacement, color);
         MutableText rewritten = rewriteNameOnly(base, accountState);
         if (accountState.replaced) {
@@ -106,6 +120,15 @@ public final class TablistNameFormatter {
         }
 
         return null;
+    }
+
+    private static boolean hasRenderableTitle(LocalRpProfile profile) {
+        if (profile == null || !profile.hasTitle()) {
+            return false;
+        }
+        String clean = cleanObjectDebugTokens(profile.title);
+        String shown = cleanObjectDebugTokens(RpNamesServices.canonicalTitle(clean));
+        return !shown.isBlank();
     }
 
     private static final class TabRewriteState {

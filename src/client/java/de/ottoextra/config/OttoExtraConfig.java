@@ -118,7 +118,7 @@ public final class OttoExtraConfig {
         public int syncIntervalSeconds = 1_800;
         public int playerDirectoryIntervalSeconds = 300;
 
-        public boolean useV2Auth = true;
+        public boolean useV2Auth = false;
 
         public boolean requireSignatures = false;
 
@@ -404,7 +404,7 @@ public final class OttoExtraConfig {
 
         public boolean openBookOnClick = false;
 
-        public boolean proactiveMeet = false;
+        public boolean proactiveMeet = true;
 
         public double meetMarkerHeight = 0.55;
         public double meetMarkerSize = 1.0;
@@ -413,7 +413,6 @@ public final class OttoExtraConfig {
 
         public boolean syncFromPublicApi = true;
 
-        public boolean uploadLearnedNames = false;
     }
 
     public static final class Nametags {
@@ -600,6 +599,8 @@ public final class OttoExtraConfig {
         if (map.dashLengthPx < 2 || map.dashLengthPx > 64) map.dashLengthPx = md.dashLengthPx;
         if (map.dashGapPx < 0 || map.dashGapPx > 64) map.dashGapPx = md.dashGapPx;
         if (nametags.mode == null) nametags.mode = NameTagMode.REALISTIC;
+
+
         if (api.baseUrl == null || api.baseUrl.isBlank()) api.baseUrl = new Api().baseUrl;
 
         if (api.baseUrl.startsWith("http://")) {
