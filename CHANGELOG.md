@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.1.13.2-l] – 2026-07-15
+
+### Hinzugefügt
+
+- Bereits vorhandene Chatzeilen werden nach Änderungen im RP-Namensbuch neu aufgebaut.
+- Titelanzeige und automatische Titelaktualisierung der Tabliste sind getrennt schaltbar.
+- Gemeinsame Chat-Eingabefläche für Addons; TranslateUtils kann seinen Sprachschalter anzeigen, ohne den eingegebenen Text zu überdecken.
+
+### Geändert
+
+- RP-Name und Titel werden im Ottonien-Rich-Text-Chat ersetzt, ohne Wappen, Spielerkopf, Hover-Informationen oder Nachrichtenfarben zu verlieren.
+- Die eindeutige Accountzuordnung der Spieler-Kopfkomponente hat Vorrang vor gleichnamigen RP-Profilen.
+- Persönliche Farben aus dem RP-Namensbuch haben in Chat, Tabliste und Nametag Vorrang vor Katalog- und Standardfarben.
+- Bei aktiver Titelanzeige behalten unbekannte Spieler ihren originalen Servertitel in der Tabliste; bekannte Spieler erhalten den lokal angepassten Titel.
+- OttoExtra-Version auf `0.1.13.2-l` aktualisiert; kompatibel mit TranslateUtils `0.1.1`.
+
+### Behoben
+
+- Manuelle Änderungen im RP-Namensbuch werden beim Personenwechsel, Tabwechsel und Schließen automatisch übernommen und zuverlässig auf Platte gespeichert.
+- Angepasste RP-Namen, Titel und Farben erschienen teilweise nur in Nametags oder der Tabliste, nicht aber im Chat.
+- Gleichnamige Profile konnten fälschlich als `Unbekannt` angezeigt werden und den Titel verlieren.
+- Beim Chat-Umschreiben entstanden sichtbare Ressourcenpfade, falsche Farben oder große Leerbereiche.
+- Die Einstellung „Titel in Tabliste“ wurde zuvor mit der automatischen Titelaktualisierung vermischt.
+- Der Platzhalter `Unbekannt` wird nur auf echte Spieler angewendet, nicht auf NPCs, Tiere oder andere Entitäten.
+
 ## [0.1.12] – 2026-07-12
 
 ### Hinzugefügt
