@@ -510,9 +510,12 @@ public final class SettingsRegistry {
         card(rpnBase, "ottoextra.set.rpn.tablist", "ottoextra.set.rpn.tablist.desc",
                 Option.bool("ottoextra.config.rpnames.tablist", "rpnames.tablistEnabled",
                         () -> c.rpnames.tablistEnabled, v -> c.rpnames.tablistEnabled = v),
-                Option.bool("ottoextra.config.rpnames.tablistTitles", "rpnames.tablistTitlesAlways",
+                Option.bool("ottoextra.config.rpnames.tablistTitles", "rpnames.tablistShowTitle",
+                        () -> c.rpnames.tablistShowTitle, v -> c.rpnames.tablistShowTitle = v)
+                        .tooltip("ottoextra.set.rpn.tablistTitles.tip"),
+                Option.bool("ottoextra.config.rpnames.tablistTitlesAlways", "rpnames.tablistTitlesAlways",
                         () -> c.rpnames.tablistTitlesAlways, v -> c.rpnames.tablistTitlesAlways = v)
-                        .tooltip("ottoextra.set.rpn.tablistTitles.tip"));
+                        .tooltip("ottoextra.set.rpn.tablistTitlesAlways.tip"));
 
         var letter = r.module("letter", "ottoextra.module.letter", "ottoextra.set.letter.desc");
         var letterBase = tab(letter, "ottoextra.set.tab.base");

@@ -316,7 +316,9 @@ public final class LocalRpIdentityStore {
         profile.source = RpNameSource.MANUAL_EDIT;
         profile.lastUpdatedAt = System.currentTimeMillis();
         index(profile);
+        dirty = true;
         saveNow();
+        de.ottoextra.rpnames.chat.ChatHistoryRefresh.request();
         return profile;
     }
 
@@ -325,6 +327,9 @@ public final class LocalRpIdentityStore {
         if (profile == null) {
             return false;
         }
+
+        boolean apiManaged = profile.knowledgeState == KnowledgeState.API_IMPORTED
+                && profile.source == RpNameSource.API_IMPORTED;
 
         boolean recorded = false;
         if (rpName != null && !rpName.isBlank() && !rpName.equals(profile.apiRpName)) {
@@ -344,23 +349,54 @@ public final class LocalRpIdentityStore {
             index(profile);
             changed = true;
         }
-        if (rpName != null && !rpName.isBlank() && !profile.hasRpName()) {
-            profile.rpName = rpName;
+        if (rpName != null && !rpName.isBlank()
+                && (!profile.hasRpName() || apiManaged)) {
+            if (!rpName.equals(profile.rpName)) {
+                profile.rpName = rpName;
+                changed = true;
+            }
+            if (profile.apiConflict != null) {
+                profile.apiConflict = null;
+                changed = true;
+            }
             profile.knowledgeState = KnowledgeState.API_IMPORTED;
             profile.source = RpNameSource.API_IMPORTED;
-            changed = true;
         } else if (rpName != null && !rpName.isBlank() && profile.hasRpName()
                 && !profile.rpName.equals(rpName)) {
             profile.apiConflict = rpName;
             changed = true;
         }
-        if (title != null && !title.isBlank() && !profile.hasTitle() && !profile.titleLocked) {
-            profile.title = title;
-            changed = true;
+        if (title != null && !title.isBlank() && !profile.titleLocked
+                && (!profile.hasTitle() || apiManaged)) {
+            if (!title.equals(profile.title)) {
+                profile.title = title;
+                changed = true;
+            }
         }
         if (changed) {
             profile.lastUpdatedAt = System.currentTimeMillis();
             saveSoon();
+        }
+        return changed;
+    }
+
+    /**
+     * Übernimmt eine aktuell auf dem Server beobachtete Identität nur dann
+     * automatisch, wenn das Profil weiterhin vollständig von der API verwaltet
+     * wird. Manuelle, gesperrte und im Spiel kennengelernte Profile bleiben
+     * unverändert.
+     */
+    public synchronized boolean updateImportedIdentityIfChanged(
+            String accountName, String uuid, String rpName, String title) {
+        LocalRpProfile profile = find(uuid, accountName).orElse(null);
+        if (profile == null
+                || profile.knowledgeState != KnowledgeState.API_IMPORTED
+                || profile.source != RpNameSource.API_IMPORTED) {
+            return false;
+        }
+        boolean changed = importApi(accountName, uuid, rpName, title);
+        if (changed) {
+            de.ottoextra.rpnames.chat.ChatHistoryRefresh.request();
         }
         return changed;
     }

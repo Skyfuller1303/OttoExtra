@@ -248,9 +248,8 @@ public final class NametagService {
             // greifen so auch am Namensschild).
             String pers = profile.colors.nametagTitleColor;
             // „Farbe überschreibt": Katalogfarbe schlägt den Personen-Override.
-            String titleColor = RpNamesServices.titleOverridesColor(profile.title)
-                    ? firstNonBlank(catalogColor, firstNonBlank(pers, firstNonBlank(groupColor, fallback)))
-                    : firstNonBlank(pers, firstNonBlank(catalogColor, firstNonBlank(groupColor, fallback)));
+            String titleColor = firstNonBlank(pers,
+                    firstNonBlank(catalogColor, firstNonBlank(groupColor, fallback)));
             title = colored(RpNamesServices.canonicalTitle(profile.title), titleColor);
         }
         // Proaktives Kennenlernen: Marker ist jetzt ein 3D-Ausrufezeichen über dem

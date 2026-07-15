@@ -170,8 +170,8 @@ public final class RpNamesServices {
 
         if (titleOverridesColor(title)) {
             return firstNonBlank(
-                    titleNameColor(title),
                     personOverride,
+                    titleNameColor(title),
                     global,
                     catalogDefaultNameColor()
             );
@@ -195,8 +195,8 @@ public final class RpNamesServices {
 
         if (titleOverridesColor(title)) {
             return firstNonBlank(
-                    titleNameColor(title),
                     personOverride,
+                    titleNameColor(title),
                     global,
                     catalogDefaultNameColor()
             );
@@ -851,6 +851,45 @@ public final class RpNamesServices {
         return new VisibleChatSpeaker(account, uuid, rpName);
     }
 
+    /**
+     * Schreibt eine bereits empfangene Nachricht ausschließlich für die Anzeige
+     * neu. Anders als {@link #processChatMessage(Text)} werden dabei weder
+     * Profile gelernt noch API-Uploads ausgelöst.
+     */
+    public static Text rewriteChatDisplay(Text message) {
+        if (!isActive() || message == null) {
+            return message;
+        }
+
+        try {
+            String plain = message.getString();
+            OttoChatChannel channel = OttoChatChannel.fromMessage(plain);
+            java.util.List<HoverIdentityParser.ParsedIdentity> identities =
+                    hoverParser.parseMessage(message, channel.isRpSpeak());
+            HoverIdentityParser.ParsedIdentity speaker = speakerIdentity(identities, plain);
+
+            String forcedAccount = speaker != null ? speaker.accountName() : speakerAccount(plain);
+            if (forcedAccount == null) {
+                VisibleChatSpeaker visible = speakerFromVisibleChat(plain);
+                forcedAccount = visible != null ? visible.accountName() : null;
+            }
+
+            return rewriteChatDisplay(message, channel, forcedAccount);
+        } catch (Throwable ignored) {
+            return message;
+        }
+    }
+
+    private static Text rewriteChatDisplay(Text message, OttoChatChannel channel,
+                                           String forcedAccount) {
+        if (!channel.shouldReplace(config)) {
+            return channel.isOoc()
+                    ? rewriter.rewriteTitleOnly(message, config)
+                    : message;
+        }
+        return rewriter.rewrite(message, config, forcedAccount);
+    }
+
     public static Text processChatMessage(Text message) {
         de.ottoextra.rpnames.chat.HoverDebug.dump(message);
 
@@ -884,6 +923,13 @@ public final class RpNamesServices {
 
             for (HoverIdentityParser.ParsedIdentity identity
                     : identities) {
+
+                store.updateImportedIdentityIfChanged(
+                        identity.accountName(),
+                        onlineUuidForAccount(identity.accountName()),
+                        identity.rpName(),
+                        identity.title()
+                );
 
                 if (learn) {
                     store.learnIdentity(
@@ -982,6 +1028,13 @@ public final class RpNamesServices {
                     if (visibleSpeaker != null) {
                         forcedSpeakerAccount = visibleSpeaker.accountName();
 
+                        store.updateImportedIdentityIfChanged(
+                                visibleSpeaker.accountName(),
+                                visibleSpeaker.uuid(),
+                                visibleSpeaker.rpName(),
+                                serverTitleFor(visibleSpeaker.accountName())
+                        );
+
                         de.ottoextra.OttoExtra.LOGGER.info(
                                 "[rpnames] Chatsprecher für API erkannt: "
                                         + "account={}, uuid={}, rpName={}",
@@ -1000,20 +1053,7 @@ public final class RpNamesServices {
                 }
             }
 
-            if (!channel.shouldReplace(config)) {
-                return channel.isOoc()
-                        ? rewriter.rewriteTitleOnly(
-                        message,
-                        config
-                )
-                        : message;
-            }
-
-            return rewriter.rewrite(
-                    message,
-                    config,
-                    forcedSpeakerAccount
-            );
+            return rewriteChatDisplay(message, channel, forcedSpeakerAccount);
 
         } catch (Throwable ignored) {
             return message;

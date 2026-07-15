@@ -294,6 +294,8 @@ public final class OttoExtraConfigScreen extends Screen {
                 y = toggle(x, y, w, "ottoextra.config.rpnames.tablist",
                         () -> config.rpnames.tablistEnabled, v -> config.rpnames.tablistEnabled = v);
                 y = toggle(x, y, w, "ottoextra.config.rpnames.tablistTitles",
+                        () -> config.rpnames.tablistShowTitle, v -> config.rpnames.tablistShowTitle = v);
+                y = toggle(x, y, w, "ottoextra.config.rpnames.tablistTitlesAlways",
                         () -> config.rpnames.tablistTitlesAlways, v -> config.rpnames.tablistTitlesAlways = v);
                 action(x, y, w, "ottoextra.config.rpnames.people", () -> {
                     var client = net.minecraft.client.MinecraftClient.getInstance();

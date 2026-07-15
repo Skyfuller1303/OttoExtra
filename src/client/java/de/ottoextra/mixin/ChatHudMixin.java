@@ -14,6 +14,7 @@ public abstract class ChatHudMixin {
             method = "addMessage(Lnet/minecraft/text/Text;Lnet/minecraft/network/message/MessageSignatureData;Lnet/minecraft/client/gui/hud/MessageIndicator;)V",
             at = @At("HEAD"), argsOnly = true, ordinal = 0)
     private Text ottoextra$rewriteRpNames(Text message) {
-        return RpNamesServices.processChatMessage(message);
+        Text displayed = RpNamesServices.processChatMessage(message);
+        return de.ottoextra.rpnames.chat.ChatHistoryRefresh.remember(message, displayed);
     }
 }
