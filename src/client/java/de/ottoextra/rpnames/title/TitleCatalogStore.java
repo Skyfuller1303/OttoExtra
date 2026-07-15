@@ -219,6 +219,14 @@ public final class TitleCatalogStore {
         }
         String norm = TitleRegistry.normalize(raw);
 
+        // Der eigentliche Katalogtitel ist bereits die kanonische Anzeigeform.
+        // Ohne diese Prüfung würde z. B. "Vogt" über den gleichnamigen Alias
+        // fälschlich auf die erste benutzerdefinierte Variante "Vogt Test"
+        // umgeschrieben.
+        if (e.title != null && TitleRegistry.normalize(e.title).equals(norm)) {
+            return e.title;
+        }
+
         if (e.variants != null) {
             for (String v : e.variants) {
                 if (v != null && !v.isBlank() && TitleRegistry.normalize(v).equals(norm)) {

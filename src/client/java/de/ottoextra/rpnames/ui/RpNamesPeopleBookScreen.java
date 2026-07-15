@@ -7,7 +7,6 @@ import de.ottoextra.rpnames.importer.RegionsApiRpNameImporter;
 import de.ottoextra.rpnames.model.KnowledgeState;
 import de.ottoextra.rpnames.model.LocalRpProfile;
 import de.ottoextra.rpnames.store.LocalRpIdentityStore;
-import de.ottoextra.rpnames.tablist.TablistNameFormatter;
 import de.ottoextra.rpnames.title.TitleRegistry;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
@@ -88,6 +87,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
     private ButtonWidget tabFlagButton;
     private ButtonWidget tagFlagButton;
     private final TextFieldWidget[] colorFields = new TextFieldWidget[6];
+    private final boolean[] forceBaseColorOverride = new boolean[6];
     private ButtonWidget copyChatColorsButton;
     private ButtonWidget saveButton;
     private ButtonWidget forgetButton;
@@ -154,6 +154,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
     private int listScroll = 0;
     private volatile String statusLine = "";
     private boolean personDirty = false;
+    private boolean forceRawTitleDisplay = false;
 
     private String titleAutofill;
 
@@ -353,6 +354,9 @@ public final class RpNamesPeopleBookScreen extends Screen {
 
             autoLockTitle();
             markPersonDirty();
+            if (!suppressLockAuto) {
+                forceRawTitleDisplay = false;
+            }
             titleAutofill = null;
             titleField.setSuggestion("");
             String typed = s.trim();
@@ -653,6 +657,34 @@ public final class RpNamesPeopleBookScreen extends Screen {
         return new String[]{titleColor, nameColor, titleColor, nameColor, titleColor, nameColor};
     }
 
+    /**
+     * Unveränderte Basisfarben für einen Titel. Anders als {@link #defaultColorsFor(String)}
+     * werden titelbezogene Farb-Overrides hier bewusst ignoriert. Ein Reset soll sichtbar
+     * zur Kategorie-/Grundfarbe zurückkehren und nicht wieder den gerade angepassten
+     * Titel-Override einsetzen.
+     */
+    private String[] baseColorsFor(String title) {
+        var catalog = RpNamesServices.catalog();
+        String titleColor = null;
+        if (catalog != null) {
+            var entry = catalog.find(title == null ? "" : title).orElse(null);
+            if (entry != null) {
+                var category = catalog.categories().get(entry.category);
+                titleColor = category != null ? category.color : null;
+            }
+        }
+        if (titleColor == null || titleColor.isBlank()) {
+            titleColor = titles.find(title == null ? "" : title)
+                    .map(r -> r.group().titleColor).orElse("");
+        }
+
+        String globalNameColor = OttoExtraConfig.active().rpnames.globalRpNameColor;
+        String nameColor = globalNameColor != null && !globalNameColor.isBlank()
+                ? globalNameColor
+                : catalog != null ? catalog.defaultNameColor() : "#c7a87f";
+        return new String[]{titleColor, nameColor, titleColor, nameColor, titleColor, nameColor};
+    }
+
     private String groupForTitle(String title) {
         var catalog = RpNamesServices.catalog();
         if (catalog != null) {
@@ -679,6 +711,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         suppressLockAuto = true;
         rpNameField.setText(profile.hasRpName() ? profile.rpName : "");
         titleField.setText(profile.title == null ? "" : profile.title);
+        forceRawTitleDisplay = profile.rawTitleDisplay;
         notesField.setText(profile.notes == null ? "" : profile.notes);
         if (lockCheckbox.isChecked() != profile.locked) {
             lockCheckbox.onPress(null);
@@ -694,6 +727,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         for (int i = 0; i < 6; i++) {
             colorFields[i].setText(overrides[i] != null && !overrides[i].isBlank()
                     ? overrides[i] : defaults[i]);
+            forceBaseColorOverride[i] = false;
         }
         chatFlagButton.setMessage(flagLabel("ottoextra.rpbook.flag.chat", profile.showInChat));
         tabFlagButton.setMessage(flagLabel("ottoextra.rpbook.flag.tab", profile.showInTablist));
@@ -755,11 +789,18 @@ public final class RpNamesPeopleBookScreen extends Screen {
         String group = groupForTitle(title);
 
         String[] defaults = defaultColorsFor(title);
+        String[] baseColors = baseColorsFor(title);
         String[] hex = new String[6];
         for (int i = 0; i < 6; i++) {
             String v = normalizeHex(colorFields[i].getText());
-            hex[i] = v != null && v.equalsIgnoreCase(normalizeHex(defaults[i]) == null
-                    ? "" : normalizeHex(defaults[i])) ? null : v;
+            if (forceBaseColorOverride[i]) {
+                // Die Basisfarbe muss als persönlicher Wert erhalten bleiben, solange der
+                // Titelkatalog selbst eine abweichende Farbe vorgibt.
+                hex[i] = normalizeHex(baseColors[i]);
+            } else {
+                hex[i] = v != null && v.equalsIgnoreCase(normalizeHex(defaults[i]) == null
+                        ? "" : normalizeHex(defaults[i])) ? null : v;
+            }
         }
 
         boolean showChat = selected.showInChat;
@@ -769,6 +810,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         LocalRpProfile updated = store.updateManual(selected.accountName, p -> {
             p.rpName = rpName.isEmpty() ? LocalRpProfile.UNKNOWN_NAME : rpName;
             p.title = title;
+            p.rawTitleDisplay = forceRawTitleDisplay;
 
             p.titleLocked = titleLockCheckbox.isChecked() && !title.isEmpty();
             p.titleGroup = group;
@@ -784,6 +826,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
             p.showInNametag = showTag;
         }, lock);
         selected = updated;
+        java.util.Arrays.fill(forceBaseColorOverride, false);
         personDirty = false;
         refilter();
         setPeopleEditEnabled(true);
@@ -1357,23 +1400,39 @@ public final class RpNamesPeopleBookScreen extends Screen {
         if (tab == Tab.PEOPLE && selected != null && click.button() == 0) {
             for (int i = 0; i < colorFields.length; i++) {
                 if (resetIconHit(colorFields[i], mx, my)) {
-                    colorFields[i].setText(defaultColorsFor(selected.title)[i]);
+                    if (!backupBeforeReset()) {
+                        return true;
+                    }
+                    String liveTitle = titleField != null ? titleField.getText().trim() : selected.title;
+                    colorFields[i].setText(baseColorsFor(liveTitle)[i]);
+                    forceBaseColorOverride[i] = true;
+                    savePerson();
                     return true;
                 }
             }
 
             if (resetIconHit(rpNameField, mx, my)) {
+                if (!backupBeforeReset()) {
+                    return true;
+                }
                 String original = firstNonBlank(selected.apiRpName,
                         firstNonBlank(selected.apiConflict,
                                 selected.hasRpName() ? selected.rpName : null));
                 rpNameField.setText(original == null ? "" : original);
+                savePerson();
                 return true;
             }
             if (resetIconHit(titleField, mx, my)) {
+                if (!backupBeforeReset()) {
+                    return true;
+                }
 
                 String serverTitle = RpNamesServices.serverTitleFor(selected.accountName);
-                titleField.setText(serverTitle != null ? serverTitle : "");
+                titleField.setText(serverTitle != null && !serverTitle.isBlank()
+                        ? serverTitle : selected.title);
+                forceRawTitleDisplay = true;
                 applyTitleColorFromCatalog();
+                savePerson();
                 return true;
             }
         }
@@ -1381,26 +1440,51 @@ public final class RpNamesPeopleBookScreen extends Screen {
         if (tab == Tab.TITLES && selectedTitle != null && click.button() == 0) {
             var def = RpNamesServices.catalog().bundledDefault(selectedTitle.id).orElse(null);
             if (resetIconHit(catTitleField, mx, my)) {
+                if (!backupBeforeReset()) {
+                    return true;
+                }
                 catTitleField.setText(def != null && def.title != null ? def.title
                         : (selectedTitle.title == null ? "" : selectedTitle.title));
+                saveTitle();
                 return true;
             }
             if (resetIconHit(catVariant1Field, mx, my)) {
+                if (!backupBeforeReset()) {
+                    return true;
+                }
                 catVariant1Field.setText(def != null && def.variants.size() > 0
                         ? def.variants.get(0) : "");
+                saveTitle();
                 return true;
             }
             if (resetIconHit(catVariant2Field, mx, my)) {
+                if (!backupBeforeReset()) {
+                    return true;
+                }
                 catVariant2Field.setText(def != null && def.variants.size() > 1
                         ? def.variants.get(1) : "");
+                saveTitle();
                 return true;
             }
             if (resetIconHit(catColorField, mx, my)) {
-                catColorField.setText(categoryColor(catCategoryValue));
+                if (!backupBeforeReset()) {
+                    return true;
+                }
+                String bundledColor = def != null && def.colorOverride != null
+                        && !def.colorOverride.isBlank()
+                        ? def.colorOverride
+                        : categoryColor(def != null ? def.category : catCategoryValue);
+                catColorField.setText(bundledColor);
+                saveTitle();
                 return true;
             }
             if (resetIconHit(catNameColorField, mx, my)) {
-                catNameColorField.setText("");
+                if (!backupBeforeReset()) {
+                    return true;
+                }
+                catNameColorField.setText(def != null && def.nameColor != null
+                        ? def.nameColor : "");
+                saveTitle();
                 return true;
             }
         }
@@ -1418,6 +1502,17 @@ public final class RpNamesPeopleBookScreen extends Screen {
             return true;
         }
         return super.mouseClicked(click, doubled);
+    }
+
+    private boolean backupBeforeReset() {
+        var backup = store.backup();
+        if (backup.isEmpty()) {
+            statusLine = Text.translatable("ottoextra.rpbook.import.backupFailed").getString();
+            return false;
+        }
+        statusLine = Text.translatable("ottoextra.rpbook.import.backupDone",
+                backup.get().getFileName().toString()).getString();
+        return true;
     }
 
     @Override
@@ -1782,30 +1877,12 @@ public final class RpNamesPeopleBookScreen extends Screen {
         return c != null ? (0xFF000000 | c.getRgb()) : def;
     }
 
-    private static String previewFirst(String a, String b) {
-        return a != null && !a.isBlank() ? a : b;
-    }
-
     private int previewTitleColor() {
-        var catalog = RpNamesServices.catalog();
-        String catalogColor = catalog != null
-                ? catalog.titleColor(selected.title).orElse(null) : null;
-        String groupColor = RpNamesServices.titles() != null
-                ? RpNamesServices.titles().find(selected.title)
-                        .map(r -> r.group().titleColor).orElse(null)
-                : null;
-        String fallback = catalog != null ? catalog.fallbackTitleColor() : "#a17f5f";
-
-        String pers = selected.colors.nametagTitleColor;
-        String hex = RpNamesServices.titleOverridesColor(selected.title)
-                ? previewFirst(catalogColor, previewFirst(pers, previewFirst(groupColor, fallback)))
-                : previewFirst(pers, previewFirst(catalogColor, previewFirst(groupColor, fallback)));
-        return previewArgb(hex, COL_TITLE);
+        return previewArgb(liveColor(4), COL_TITLE);
     }
 
     private int previewNameColor() {
-        String hex = RpNamesServices.rpNameColor(selected.colors.nametagNameColor, selected.title);
-        return previewArgb(hex, COL_TITLE);
+        return previewArgb(liveColor(5), COL_TITLE);
     }
 
     private void ensurePreviewEntity(MinecraftClient client) {
@@ -1899,34 +1976,21 @@ public final class RpNamesPeopleBookScreen extends Screen {
         ctx.drawText(textRenderer, "Chat:", x + 2, y, COL_MUTED, false);
         y += 10;
         Text chatLine = Text.literal("[Reden] ")
-                .append(Text.literal(selected.accountName))
+                .append(liveStyled(0, 1))
                 .append(Text.literal(": Seid gegrüßt."));
-        Text rewritten = RpNamesServices.processChatMessage(chatLine);
-        ctx.drawText(textRenderer, trimText(rewritten == null ? chatLine : rewritten, w - 6),
+        ctx.drawText(textRenderer, trimText(chatLine, w - 6),
                 x + 2, y, 0xFFFFFFFF, false);
         y += 16;
 
         ctx.drawText(textRenderer, "Tab:", x + 2, y, COL_MUTED, false);
         y += 10;
-        Text tabText = null;
-        try {
-            if (selected.uuid != null && !selected.uuid.isBlank()) {
-                com.mojang.authlib.GameProfile gp = new com.mojang.authlib.GameProfile(
-                        java.util.UUID.fromString(selected.uuid), selected.accountName);
-                tabText = TablistNameFormatter.format(gp, Text.literal(selected.accountName));
-            }
-        } catch (Exception ignored) {
-
-        }
-        if (tabText == null) {
-            tabText = fallbackStyled();
-        }
+        Text tabText = liveStyled(2, 3);
         ctx.drawText(textRenderer, trimText(tabText, w - 6), x + 2, y, 0xFFFFFFFF, false);
         y += 16;
 
         ctx.drawText(textRenderer, "Schild:", x + 2, y, COL_MUTED, false);
         y += 10;
-        MutableText line1 = fallbackStyled();
+        MutableText line1 = liveStyled(4, 5);
         ctx.drawText(textRenderer, trimText(line1, w - 6), x + 2, y, 0xFFFFFFFF, false);
         y += 10;
         ctx.drawText(textRenderer, selected.accountName, x + 2, y, 0xFF9A9A9A, false);
@@ -1942,16 +2006,29 @@ public final class RpNamesPeopleBookScreen extends Screen {
         }
     }
 
-    private MutableText fallbackStyled() {
-        String[] defaults = defaultColorsFor(selected.title);
-        MutableText out = Text.empty();
-        if (selected.hasTitle()) {
-            out.append(colored(selected.title + " ",
-                    firstNonBlank(selected.colors.chatTitleColor, defaults[0])));
+    private MutableText liveStyled(int titleColorIndex, int nameColorIndex) {
+        String title = titleField != null ? titleField.getText().trim() : selected.title;
+        String rpName = rpNameField != null ? rpNameField.getText().trim() : selected.displayRpName();
+        if (rpName.isEmpty()) {
+            rpName = selected.accountName;
         }
-        out.append(colored(selected.displayRpName(),
-                firstNonBlank(selected.colors.chatNameColor, defaults[1])));
+        MutableText out = Text.empty();
+        if (title != null && !title.isBlank()) {
+            out.append(colored(title + " ", liveColor(titleColorIndex)));
+        }
+        out.append(colored(rpName, liveColor(nameColorIndex)));
         return out;
+    }
+
+    private String liveColor(int index) {
+        if (index >= 0 && index < colorFields.length && colorFields[index] != null) {
+            String value = normalizeHex(colorFields[index].getText());
+            if (value != null) {
+                return value;
+            }
+        }
+        String title = titleField != null ? titleField.getText().trim() : selected.title;
+        return defaultColorsFor(title)[index];
     }
 
     private static MutableText colored(String s, String hex) {

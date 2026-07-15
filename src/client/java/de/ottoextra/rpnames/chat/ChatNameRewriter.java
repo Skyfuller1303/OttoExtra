@@ -471,7 +471,7 @@ public final class ChatNameRewriter {
         String titleColor = firstNonBlank(pers,
                 firstNonBlank(catalogColor, firstNonBlank(groupTitleColor, fallback)));
         return colored(de.ottoextra.rpnames.RpNamesServices
-                .canonicalTitle(profile.title) + " ", titleColor);
+                .displayTitle(profile) + " ", titleColor);
     }
 
     private MutableText displayName(LocalRpProfile profile, Style baseStyle,

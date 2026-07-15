@@ -127,7 +127,7 @@ public final class TablistNameFormatter {
             return false;
         }
         String clean = cleanObjectDebugTokens(profile.title);
-        String shown = cleanObjectDebugTokens(RpNamesServices.canonicalTitle(clean));
+        String shown = cleanObjectDebugTokens(RpNamesServices.displayTitle(profile));
         return !shown.isBlank();
     }
 
@@ -426,7 +426,7 @@ public final class TablistNameFormatter {
         String groupColor = RpNamesServices.titles().find(cleanTitle)
                 .map(r -> r.group().titleColor).orElse(null);
         String fallback = catalog != null ? catalog.fallbackTitleColor() : "#a17f5f";
-        String shown = cleanObjectDebugTokens(RpNamesServices.canonicalTitle(cleanTitle));
+        String shown = cleanObjectDebugTokens(RpNamesServices.displayTitle(profile));
         String personal = profile.colors.tabTitleColor;
         String titleColor = firstNonBlank(personal,
                 firstNonBlank(catalogColor, firstNonBlank(groupColor, fallback)));

@@ -852,6 +852,22 @@ public final class RpNamesServices {
     }
 
     /**
+     * Liefert den sichtbaren Titel mit einem sicheren Fallback auf den gespeicherten
+     * Rohwert. Nach einem Personen-Reset darf eine angepasste Katalogvariante den
+     * wiederhergestellten Servertitel nicht erneut ersetzen.
+     */
+    public static String displayTitle(LocalRpProfile profile) {
+        if (profile == null || profile.title == null || profile.title.isBlank()) {
+            return "";
+        }
+        if (profile.rawTitleDisplay) {
+            return profile.title;
+        }
+        String mapped = canonicalTitle(profile.title);
+        return mapped == null || mapped.isBlank() ? profile.title : mapped;
+    }
+
+    /**
      * Schreibt eine bereits empfangene Nachricht ausschließlich für die Anzeige
      * neu. Anders als {@link #processChatMessage(Text)} werden dabei weder
      * Profile gelernt noch API-Uploads ausgelöst.

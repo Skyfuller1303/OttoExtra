@@ -20,6 +20,8 @@ public final class LocalRpProfile {
     public boolean locked = false;
 
     public boolean titleLocked = false;
+    /** Zeigt nach einem Server-Reset den rohen Servertitel statt einer Katalogvariante. */
+    public boolean rawTitleDisplay = false;
     public boolean favorite = false;
     public String notes = "";
 

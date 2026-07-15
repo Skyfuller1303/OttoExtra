@@ -122,15 +122,28 @@ public final class LocalRpIdentityStore {
 
     public synchronized Optional<Path> backup() {
         try {
-            Path src = OttoExtraPaths.rpnamesKnownPlayers();
-            if (!Files.exists(src)) {
+            saveNow();
+            Path[] sources = {
+                    OttoExtraPaths.rpnamesKnownPlayers(),
+                    OttoExtraPaths.rpnamesDir().resolve("title-catalog.json"),
+                    OttoExtraPaths.rpnamesTitleGroups()
+            };
+            boolean any = false;
+            for (Path source : sources) {
+                any |= Files.exists(source);
+            }
+            if (!any) {
                 return Optional.empty();
             }
-            Path dir = OttoExtraPaths.rpnamesBackups();
-            Files.createDirectories(dir);
-            Path target = dir.resolve("known-players-" + stamp() + ".json");
-            Files.copy(src, target, StandardCopyOption.REPLACE_EXISTING);
-            return Optional.of(target);
+            Path targetDir = OttoExtraPaths.rpnamesBackups().resolve(stamp());
+            Files.createDirectories(targetDir);
+            for (Path source : sources) {
+                if (Files.exists(source)) {
+                    Files.copy(source, targetDir.resolve(source.getFileName()),
+                            StandardCopyOption.REPLACE_EXISTING);
+                }
+            }
+            return Optional.of(targetDir);
         } catch (Exception e) {
             OttoExtra.LOGGER.warn("[rpnames] Backup fehlgeschlagen: {}", e.toString());
             return Optional.empty();
@@ -147,7 +160,7 @@ public final class LocalRpIdentityStore {
     }
 
     private static String stamp() {
-        return LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss"));
+        return LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss-SSS"));
     }
 
     public Optional<LocalRpProfile> find(String uuid, String accountName) {
