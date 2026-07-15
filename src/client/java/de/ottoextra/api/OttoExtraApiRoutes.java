@@ -6,11 +6,14 @@ import java.nio.charset.StandardCharsets;
 
 public final class OttoExtraApiRoutes {
 
+    private static final String DEFAULT_BASE_URL = "https://api.ottoextra.dev";
+    private static final String LEGACY_BASE_URL = "https://regions.skyfuller.de";
+
     private final String base;
 
     public OttoExtraApiRoutes(String baseUrl) {
         String b = (baseUrl == null || baseUrl.isBlank())
-                ? "https://regions.skyfuller.de/"
+                ? DEFAULT_BASE_URL
                 : baseUrl.trim();
 
         if (b.startsWith("http://")) {
@@ -19,7 +22,7 @@ public final class OttoExtraApiRoutes {
         while (b.endsWith("/")) {
             b = b.substring(0, b.length() - 1);
         }
-        this.base = b;
+        this.base = migrateLegacyUrl(b);
     }
 
     private URI action(String action) {
@@ -128,7 +131,7 @@ public final class OttoExtraApiRoutes {
             return null;
         }
         if (relativePath.startsWith("http://") || relativePath.startsWith("https://")) {
-            return URI.create(relativePath);
+            return URI.create(migrateLegacyUrl(relativePath));
         }
         String p = relativePath.startsWith("/") ? relativePath : "/" + relativePath;
         return URI.create(base + p);
@@ -136,5 +139,15 @@ public final class OttoExtraApiRoutes {
 
     public String baseUrl() {
         return base;
+    }
+
+    private static String migrateLegacyUrl(String url) {
+        if (url.equalsIgnoreCase(LEGACY_BASE_URL)) {
+            return DEFAULT_BASE_URL;
+        }
+        if (url.regionMatches(true, 0, LEGACY_BASE_URL + "/", 0, LEGACY_BASE_URL.length() + 1)) {
+            return DEFAULT_BASE_URL + url.substring(LEGACY_BASE_URL.length());
+        }
+        return url;
     }
 }

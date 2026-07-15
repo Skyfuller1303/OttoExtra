@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.13.2-m] – 2026-07-15
+
+### Hinzugefügt
+
+- Beim Öffnen der Xaero-Weltkarte wird sofort ein inkrementeller Regions-Sync ausgelöst.
+
+### Geändert
+
+- Die Regions-API wurde von `regions.skyfuller.de` auf `api.ottoextra.dev` umgestellt.
+- Bereits gespeicherte Konfigurationen mit der alten Regions-Domain werden automatisch migriert.
+- Parallele Regions-Syncs während eines laufenden Bootstraps oder Syncs werden vermieden.
+
 ## [0.1.13.2-l] – 2026-07-15
 
 ### Hinzugefügt

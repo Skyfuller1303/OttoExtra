@@ -112,7 +112,7 @@ public final class OttoExtraConfig {
 
     public static final class Api {
         public boolean enabled = true;
-        public String baseUrl = "https://regions.skyfuller.de/";
+        public String baseUrl = "https://api.ottoextra.dev/";
         public int connectTimeoutMs = 10_000;
         public int requestTimeoutMs = 20_000;
         public int syncIntervalSeconds = 1_800;
@@ -605,6 +605,10 @@ public final class OttoExtraConfig {
 
         if (api.baseUrl.startsWith("http://")) {
             api.baseUrl = "https://" + api.baseUrl.substring("http://".length());
+        }
+        if (api.baseUrl.equalsIgnoreCase("https://regions.skyfuller.de")
+                || api.baseUrl.equalsIgnoreCase("https://regions.skyfuller.de/")) {
+            api.baseUrl = new Api().baseUrl;
         }
     }
 

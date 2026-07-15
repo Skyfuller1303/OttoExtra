@@ -20,7 +20,7 @@ import java.util.concurrent.CompletableFuture;
 public final class RegionsApiRpNameImporter {
 
     private static final String URL =
-            "https://regions.skyfuller.de/api/index.php?action=public-player-compact";
+            "https://api.ottoextra.dev/api/index.php?action=public-player-compact";
     private static final Gson GSON = new Gson();
 
     public record Result(int total, int updated, int created, int conflicts, String error) {

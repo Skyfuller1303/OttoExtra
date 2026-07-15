@@ -89,11 +89,11 @@ final class RpNameUploadServiceTest {
         json.addProperty("rp_name", "Roman von Marienburg");
 
         String log = RpNameUploadService.formatRequestForLog(
-                URI.create("https://regions.skyfuller.de/api/index.php?action=community-participant-rp-name"),
+                URI.create("https://api.ottoextra.dev/api/index.php?action=community-participant-rp-name"),
                 "OttoExtra/0.1.23",
                 json);
 
-        assertTrue(log.startsWith("POST https://regions.skyfuller.de/api/index.php?action=community-participant-rp-name\n"));
+        assertTrue(log.startsWith("POST https://api.ottoextra.dev/api/index.php?action=community-participant-rp-name\n"));
         assertTrue(log.contains("Content-Type: application/json; charset=UTF-8"));
         assertTrue(log.contains("Accept: application/json"));
         assertTrue(log.contains("User-Agent: OttoExtra/0.1.23"));
