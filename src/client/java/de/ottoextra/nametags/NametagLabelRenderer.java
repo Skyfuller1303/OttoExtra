@@ -42,12 +42,24 @@ public final class NametagLabelRenderer {
                 return false; // Vanilla überspringt dann ebenfalls
             }
             // Accountname aus der State-Map (updateRenderState-Capture);
-            // Fallback playerName/displayName (EntityCulling-Roh-States)
+            // Fallback playerName/displayName (EntityCulling-Roh-States).
             String account = NametagService.accountFor(state);
+
+            /*
+             * Der Hook in EntityRenderer sieht auch Tiere, Ruestungsstaender,
+             * Villager und serverseitige NPCs. Ein displayName allein beweist
+             * daher nicht, dass dieser State zu einem echten Spieler gehoert.
+             * Nur eine PlayerEntity mit aktivem PlayerListEntry darf durch die
+             * RP-Namenslogik laufen; alle anderen Labels bleiben bei Vanilla.
+             */
+            PlayerEntity entity = findOnlinePlayer(account);
+            if (entity == null) {
+                return false;
+            }
+
             // Sichtbarkeit auch auf diesem Pfad durchsetzen (EntityCulling
             // umgeht hasLabel teilweise)
-            PlayerEntity entity = findPlayer(account);
-            if (entity != null && !NametagService.shouldRender(entity)) {
+            if (!NametagService.shouldRender(entity)) {
                 return true; // unterdrücken
             }
             NametagService.Lines lines = NametagService.linesFor(account, state.displayName);
@@ -84,13 +96,14 @@ public final class NametagLabelRenderer {
         }
     }
 
-    private static PlayerEntity findPlayer(String account) {
+    private static PlayerEntity findOnlinePlayer(String account) {
         MinecraftClient client = MinecraftClient.getInstance();
-        if (client.world == null || account == null) {
+        if (client.world == null || client.getNetworkHandler() == null || account == null) {
             return null;
         }
         for (PlayerEntity p : client.world.getPlayers()) {
-            if (account.equals(p.getName().getString())) {
+            if (account.equalsIgnoreCase(p.getName().getString())
+                    && NametagService.isOnlinePlayer(p)) {
                 return p;
             }
         }

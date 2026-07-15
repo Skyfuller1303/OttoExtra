@@ -12,10 +12,11 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Basis-Label-Pfad: EntityCulling u. a. rendern Labels gecullter
- * Spieler direkt über {@code EntityRenderer.renderLabelIfPresent} — ohne
- * diesen Hook erscheint hinter Wänden wieder das Vanilla-Schild statt
- * unseres RP-Labels bzw. trotz REALISTIC-Sichtlinienregel.
+ * Basis-Label-Pfad: EntityCulling u. a. rendert Labels gecullter Spieler
+ * direkt über {@code EntityRenderer.renderLabelIfPresent}. Der gemeinsame
+ * Renderer prüft deshalb ausdrücklich, ob der State zu einem echten Spieler
+ * mit PlayerListEntry gehört; Tiere, andere benannte Entities und NPCs werden
+ * hier nicht übernommen.
  */
 @Mixin(EntityRenderer.class)
 public abstract class EntityRendererMixin {
@@ -29,7 +30,8 @@ public abstract class EntityRendererMixin {
                                        OrderedRenderCommandQueue queue, CameraRenderState camera,
                                        CallbackInfo ci) {
         // Auch rohe EntityRenderStates: EntityCulling extrahiert gecullte
-        // Spieler ohne PlayerEntityRenderState (renderNametagsThroughWalls)
+        // Spieler ohne PlayerEntityRenderState (renderNametagsThroughWalls).
+        // NametagLabelRenderer lässt Nicht-Spieler unverändert durch.
         if (NametagLabelRenderer.submit(state, matrices, queue, camera, "ER")) {
             ci.cancel();
         }
