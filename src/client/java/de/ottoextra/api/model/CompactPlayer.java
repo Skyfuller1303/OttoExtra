@@ -1,5 +1,4 @@
 package de.ottoextra.api.model;
-
 public record CompactPlayer(
         String entityKey,
         String uuid,

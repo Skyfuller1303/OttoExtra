@@ -1,26 +1,19 @@
 package de.ottoextra.letter;
-
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import de.ottoextra.config.OttoExtraPaths;
-
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-
 public final class LetterDraftCache {
-
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting()
             .disableHtmlEscaping().create();
-
     private LetterDraftCache() {
     }
-
     public static Path file() {
         return OttoExtraPaths.root().resolve("letters").resolve("draft.json");
     }
-
     public static synchronized void save(LetterDraft draft) {
         try {
             draft.repair();
@@ -31,10 +24,8 @@ public final class LetterDraftCache {
             Files.writeString(tmp, GSON.toJson(draft), StandardCharsets.UTF_8);
             Files.move(tmp, f, StandardCopyOption.REPLACE_EXISTING);
         } catch (Exception ignored) {
-
         }
     }
-
     public static synchronized LetterDraft load() {
         try {
             Path f = file();
@@ -52,7 +43,6 @@ public final class LetterDraftCache {
             return LetterDraft.empty();
         }
     }
-
     public static synchronized void clear() {
         try {
             Files.deleteIfExists(file());

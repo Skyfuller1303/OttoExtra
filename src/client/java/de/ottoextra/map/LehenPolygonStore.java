@@ -1,47 +1,36 @@
 package de.ottoextra.map;
-
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import de.ottoextra.OttoExtra;
-
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
-
 public final class LehenPolygonStore {
-
     private static final String RESOURCE = "/assets/ottoextra/map/lehen_polygons.json";
-
     private static final AtomicBoolean loading = new AtomicBoolean(false);
     private static volatile List<LehenPolygon> polygons = List.of();
     private static volatile List<BorderSegment> segments = List.of();
     private static volatile java.util.Map<String, Integer> groupColors = java.util.Map.of();
     private static volatile boolean loaded = false;
-
     public static java.util.Map<String, Integer> groupColors() {
         return groupColors;
     }
-
     private LehenPolygonStore() {
     }
-
     public static List<LehenPolygon> polygons() {
         return polygons;
     }
-
     public static List<BorderSegment> segments() {
         return segments;
     }
-
     public static boolean isLoaded() {
         return loaded;
     }
-
     public static void ensureLoaded() {
         if (loaded || !loading.compareAndSet(false, true)) {
             return;
@@ -50,7 +39,6 @@ public final class LehenPolygonStore {
         t.setDaemon(true);
         t.start();
     }
-
     private static void loadNow() {
         try (InputStream in = LehenPolygonStore.class.getResourceAsStream(RESOURCE)) {
             if (in == null) {
@@ -62,7 +50,6 @@ public final class LehenPolygonStore {
                     .parseReader(new InputStreamReader(in, StandardCharsets.UTF_8))
                     .getAsJsonObject();
             JsonObject polys = root.getAsJsonObject("polygons");
-
             JsonObject labels = root.has("labels") && root.get("labels").isJsonObject()
                     ? root.getAsJsonObject("labels") : null;
             List<LehenPolygon> result = new ArrayList<>();
@@ -76,7 +63,6 @@ public final class LehenPolygonStore {
             result = snapSharedBorders(result);
             polygons = List.copyOf(result);
             segments = buildSegments(result);
-
             if (root.has("group_colors") && root.get("group_colors").isJsonObject()) {
                 java.util.Map<String, Integer> colors = new java.util.HashMap<>();
                 JsonObject gc = root.getAsJsonObject("group_colors");
@@ -99,12 +85,9 @@ public final class LehenPolygonStore {
             loaded = true;
         }
     }
-
     private static final double SNAP_VERTEX_TOL = 16.0;
     private static final double SNAP_EDGE_TOL = 12.0;
-
     private static List<LehenPolygon> snapSharedBorders(List<LehenPolygon> polys) {
-
         List<List<double[]>> pts = new ArrayList<>();
         for (LehenPolygon p : polys) {
             List<double[]> l = new ArrayList<>(p.pointCount());
@@ -113,7 +96,6 @@ public final class LehenPolygonStore {
             }
             pts.add(l);
         }
-
         List<double[]> reps = new ArrayList<>();
         for (List<double[]> poly : pts) {
             for (double[] q : poly) {
@@ -134,7 +116,6 @@ public final class LehenPolygonStore {
                 }
             }
         }
-
         for (int bi = 0; bi < pts.size(); bi++) {
             List<double[]> b = pts.get(bi);
             for (int i = 0; i < b.size(); i++) {
@@ -172,7 +153,6 @@ public final class LehenPolygonStore {
                 }
             }
         }
-
         List<LehenPolygon> out = new ArrayList<>(polys.size());
         for (int pi = 0; pi < polys.size(); pi++) {
             LehenPolygon orig = polys.get(pi);
@@ -221,10 +201,8 @@ public final class LehenPolygonStore {
         }
         return out;
     }
-
     private static boolean isSelfIntersecting(List<double[]> pts) {
         int n = pts.size();
-
         for (int i = 0; i < n; i++) {
             for (int j = i + 2; j < n; j++) {
                 if (i == 0 && j == n - 1) {
@@ -251,15 +229,12 @@ public final class LehenPolygonStore {
         }
         return false;
     }
-
     private static boolean segmentsCross(double[] a, double[] b, double[] c, double[] d) {
         return ccw(a, c, d) != ccw(b, c, d) && ccw(a, b, c) != ccw(a, b, d);
     }
-
     private static boolean ccw(double[] p, double[] q, double[] r) {
         return (r[1] - p[1]) * (q[0] - p[0]) > (q[1] - p[1]) * (r[0] - p[0]);
     }
-
     private static List<BorderSegment> buildSegments(List<LehenPolygon> polys) {
         record Key(long ax, long az, long bx, long bz) {
         }
@@ -276,7 +251,6 @@ public final class LehenPolygonStore {
                 if (x1 == x2 && z1 == z2) {
                     continue;
                 }
-
                 Key key = (x1 < x2 || (x1 == x2 && z1 <= z2))
                         ? new Key(x1, z1, x2, z2)
                         : new Key(x2, z2, x1, z1);
@@ -292,10 +266,8 @@ public final class LehenPolygonStore {
         }
         return List.copyOf(out);
     }
-
     private static LehenPolygon parsePolygon(String rawKey, JsonElement el, JsonElement labelEl) {
         try {
-
             int hash = rawKey.indexOf('#');
             String key = hash >= 0 ? rawKey.substring(0, hash) : rawKey;
             boolean labelOwner = hash < 0;
@@ -327,7 +299,6 @@ public final class LehenPolygonStore {
                 maxX = Math.max(maxX, x);
                 maxZ = Math.max(maxZ, z);
             }
-
             double area2 = 0;
             double cxA = 0;
             double czA = 0;
@@ -348,7 +319,6 @@ public final class LehenPolygonStore {
                 anchorX = sumX / n;
                 anchorZ = sumZ / n;
             }
-
             if (labelEl != null && labelEl.isJsonArray() && labelEl.getAsJsonArray().size() >= 2) {
                 JsonArray a = labelEl.getAsJsonArray();
                 double lx = a.get(0).getAsDouble();

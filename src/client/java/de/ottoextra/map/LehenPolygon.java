@@ -1,5 +1,4 @@
 package de.ottoextra.map;
-
 public record LehenPolygon(
         String key,
         double[] xs,
@@ -15,7 +14,6 @@ public record LehenPolygon(
     public int pointCount() {
         return xs.length;
     }
-
     public boolean intersects(double qMinX, double qMinZ, double qMaxX, double qMaxZ) {
         return maxX >= qMinX && minX <= qMaxX && maxZ >= qMinZ && minZ <= qMaxZ;
     }

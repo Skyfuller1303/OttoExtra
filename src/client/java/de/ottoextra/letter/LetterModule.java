@@ -1,5 +1,4 @@
 package de.ottoextra.letter;
-
 import de.ottoextra.OttoExtra;
 import de.ottoextra.OttoExtraContext;
 import de.ottoextra.OttoExtraModule;
@@ -17,30 +16,23 @@ import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import org.lwjgl.glfw.GLFW;
-
 public final class LetterModule implements OttoExtraModule {
-
     private KeyBinding editorKey;
     private boolean recoveryChecked = false;
-
     @Override
     public String id() {
         return "letter";
     }
-
     @Override
     public boolean enabled(OttoExtraConfig config) {
         return config.letter.enabled;
     }
-
     @Override
     public void onInitializeClient(OttoExtraContext context) {
         OttoExtraConfig config = context.config();
-
         editorKey = new KeyBinding("key.ottoextra.letter_editor",
                 InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_UNKNOWN, KeyBinding.Category.MISC);
         KeyBindingHelper.registerKeyBinding(editorKey);
-
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, access) ->
                 dispatcher.register(ClientCommandManager.literal("ottoextra")
                         .then(ClientCommandManager.literal("letter")
@@ -56,7 +48,6 @@ public final class LetterModule implements OttoExtraModule {
                                     LetterActionPrompt.onClose();
                                     return 1;
                                 })))));
-
         net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register(
                 (client, screen, scaledWidth, scaledHeight) -> {
                     if (!(screen instanceof net.minecraft.client.gui.screen.ingame.BookScreen)) {
@@ -68,7 +59,6 @@ public final class LetterModule implements OttoExtraModule {
                     }
                     var buttons = net.fabricmc.fabric.api.client.screen.v1.Screens
                             .getButtons(screen);
-
                     int bottom = 0;
                     for (var w : buttons) {
                         if (w instanceof net.minecraft.client.gui.widget.ClickableWidget cw) {
@@ -82,7 +72,6 @@ public final class LetterModule implements OttoExtraModule {
                                     b -> WrittenLetterImport.editInEditor(config, stack))
                             .dimensions(scaledWidth / 2 - 100, y, 200, 20).build());
                 });
-
         net.fabricmc.fabric.api.event.player.UseItemCallback.EVENT.register(
                 (player, world, hand) -> {
                     if (!world.isClient() || config.letter.triggerItemName == null
@@ -90,7 +79,6 @@ public final class LetterModule implements OttoExtraModule {
                         return net.minecraft.util.ActionResult.PASS;
                     }
                     var stack = player.getStackInHand(hand);
-
                     String shown = stack.isEmpty() ? "" : stack.getName().getString()
                             .replace("\"", "").replace("'", "").trim();
                     String trigger = config.letter.triggerItemName.trim();
@@ -103,14 +91,12 @@ public final class LetterModule implements OttoExtraModule {
                     }
                     return net.minecraft.util.ActionResult.PASS;
                 });
-
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (editorKey.wasPressed()) {
                 if (client.currentScreen == null) {
                     openComposeEditor(config);
                 }
             }
-
             if (LetterServices.isSending() && client.player != null && client.world != null) {
                 int dots = (int) (client.world.getTime() / 5 % 4);
                 String key = LetterServices.isSendingAnnouncement()
@@ -120,7 +106,6 @@ public final class LetterModule implements OttoExtraModule {
                         .copy().append(".".repeat(dots));
                 client.player.sendMessage(msg, true);
             }
-
             if (!recoveryChecked && client.player != null && client.currentScreen == null) {
                 recoveryChecked = true;
                 LetterSendProgress letter = LetterServices.letterStore().load();
@@ -137,13 +122,10 @@ public final class LetterModule implements OttoExtraModule {
                 }
             }
         });
-
         net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents.ALLOW_GAME
                 .register((message, overlay) -> !isHiddenLetterHint(message.getString()));
-
         OttoExtra.LOGGER.info("[letter] initialisiert (Editor + Brief/Verkündung + Recovery).");
     }
-
     private static void openComposeEditor(OttoExtraConfig config) {
         LetterDraft cached = LetterDraftCache.load();
         if (cached.meta != null
@@ -153,12 +135,10 @@ public final class LetterModule implements OttoExtraModule {
         net.minecraft.client.MinecraftClient.getInstance().setScreen(
                 new LetterEditorScreen(null, config));
     }
-
     private static final String[] HIDDEN_LETTER_HINTS = {
             "Beschreibe den Brief mit /letter",
             "Du hast den Brief bearbeitet",
     };
-
     private static boolean isHiddenLetterHint(String text) {
         if (text == null || text.isEmpty()) {
             return false;
@@ -170,11 +150,9 @@ public final class LetterModule implements OttoExtraModule {
         }
         return false;
     }
-
     @Override
     public void onDisconnect(OttoExtraContext context) {
         recoveryChecked = false;
-
         LetterServices.clearSendingState();
     }
 }

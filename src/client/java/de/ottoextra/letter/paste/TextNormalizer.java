@@ -1,10 +1,7 @@
 package de.ottoextra.letter.paste;
-
 public final class TextNormalizer {
-
     private TextNormalizer() {
     }
-
     public static String normalize(String raw) {
         if (raw == null || raw.isEmpty()) {
             return "";
@@ -14,7 +11,6 @@ public final class TextNormalizer {
             char c = raw.charAt(i);
             switch (c) {
                 case '\r' -> {
-
                     if (i + 1 >= raw.length() || raw.charAt(i + 1) != '\n') {
                         out.append('\n');
                     }
@@ -26,7 +22,6 @@ public final class TextNormalizer {
                     if (c == '\n' || c >= ' ') {
                         out.append(c);
                     }
-
                 }
             }
         }

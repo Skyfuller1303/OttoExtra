@@ -1,5 +1,4 @@
 package de.ottoextra.letter.ui;
-
 import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.letter.LetterDraft;
 import de.ottoextra.letter.LetterDraftCache;
@@ -10,17 +9,13 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
-
 import java.util.ArrayList;
 import java.util.List;
-
 public final class BookImportDialog extends Screen {
-
     private final Screen parent;
     private final OttoExtraConfig config;
     private final LetterDraft draft;
     private final List<String> bookPages;
-
     public BookImportDialog(Screen parent, OttoExtraConfig config, LetterDraft draft) {
         super(Text.translatable("ottoextra.letter.bookImport.title"));
         this.parent = parent;
@@ -28,7 +23,6 @@ public final class BookImportDialog extends Screen {
         this.draft = draft;
         this.bookPages = BookImportService.readHeldBook();
     }
-
     @Override
     protected void init() {
         int cx = width / 2;
@@ -59,7 +53,6 @@ public final class BookImportDialog extends Screen {
         addDrawableChild(ButtonWidget.builder(Text.translatable("gui.back"), b -> close())
                 .dimensions(cx - 50, y + 26, 100, 20).build());
     }
-
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
         super.render(ctx, mouseX, mouseY, delta);
@@ -71,7 +64,6 @@ public final class BookImportDialog extends Screen {
         ctx.drawCenteredTextWithShadow(textRenderer, info, width / 2,
                 height / 2 - 32, bookPages.isEmpty() ? 0xFFCC8888 : 0xFFB8A88F);
     }
-
     @Override
     public void close() {
         MinecraftClient.getInstance().setScreen(parent);

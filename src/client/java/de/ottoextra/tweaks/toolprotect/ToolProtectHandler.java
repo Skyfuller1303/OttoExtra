@@ -1,5 +1,4 @@
 package de.ottoextra.tweaks.toolprotect;
-
 import de.ottoextra.config.OttoExtraConfig;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
@@ -25,31 +24,22 @@ import net.minecraft.util.ActionResult;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
-
 public final class ToolProtectHandler {
-
     private static final int MSG_COOLDOWN_TICKS = 20;
-
     private static final EquipmentSlot[] WATCHED_SLOTS = {
             EquipmentSlot.MAINHAND, EquipmentSlot.OFFHAND,
             EquipmentSlot.HEAD, EquipmentSlot.CHEST,
             EquipmentSlot.LEGS, EquipmentSlot.FEET
     };
-
     private int msgCooldown = 0;
-
     private final Item[] lastItem = new Item[WATCHED_SLOTS.length];
     private final boolean[] lastBelow = new boolean[WATCHED_SLOTS.length];
-
     private final OttoExtraConfig config;
-
     private ToolProtectHandler(OttoExtraConfig config) {
         this.config = config;
     }
-
     public static void register(OttoExtraConfig config) {
         ToolProtectHandler h = new ToolProtectHandler(config);
-
         AttackBlockCallback.EVENT.register((player, world, hand, pos, direction) ->
                 world.isClient() ? h.guard(player, player.getMainHandStack()) : ActionResult.PASS);
         AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) ->
@@ -67,14 +57,11 @@ public final class ToolProtectHandler {
                 world.isClient() ? h.guard(player, player.getStackInHand(hand)) : ActionResult.PASS);
         UseEntityCallback.EVENT.register((player, world, hand, entity, hitResult) ->
                 world.isClient() ? h.guard(player, player.getStackInHand(hand)) : ActionResult.PASS);
-
         ClientTickEvents.END_CLIENT_TICK.register(h::tick);
     }
-
     private OttoExtraConfig.Tweaks.ToolProtect cfg() {
         return config.tweaks.toolProtect;
     }
-
     private ActionResult guard(PlayerEntity player, ItemStack stack) {
         OttoExtraConfig.Tweaks.ToolProtect tp = cfg();
         if (!tp.enabled || !isNearlyBroken(stack, tp.blockAtUses)) {
@@ -97,7 +84,6 @@ public final class ToolProtectHandler {
         }
         return ActionResult.FAIL;
     }
-
     private boolean isUiBlock(PlayerEntity player, World world, BlockPos pos) {
         if (player.shouldCancelInteraction()) {
             return false;
@@ -111,7 +97,6 @@ public final class ToolProtectHandler {
         return state.createScreenHandlerFactory(world, pos) != null
                 || world.getBlockEntity(pos) instanceof NamedScreenHandlerFactory;
     }
-
     private static boolean isWeapon(ItemStack stack) {
         Item item = stack.getItem();
         return stack.isIn(ItemTags.SWORDS)
@@ -120,7 +105,6 @@ public final class ToolProtectHandler {
                 || item instanceof MaceItem
                 || item instanceof ShieldItem;
     }
-
     private void tick(MinecraftClient client) {
         if (msgCooldown > 0) {
             msgCooldown--;
@@ -134,7 +118,6 @@ public final class ToolProtectHandler {
             boolean below = isBelowPercent(stack, tp.warnBelowPercent);
             Item item = stack.isEmpty() ? null : stack.getItem();
             if (item != lastItem[i]) {
-
                 lastItem[i] = item;
                 lastBelow[i] = below;
                 if (below) {
@@ -148,7 +131,6 @@ public final class ToolProtectHandler {
             lastBelow[i] = below;
         }
     }
-
     private void warn(MinecraftClient client, ItemStack stack, OttoExtraConfig.Tweaks.ToolProtect tp) {
         if (msgCooldown > 0 || client.player == null) {
             return;
@@ -159,7 +141,6 @@ public final class ToolProtectHandler {
                         tp.warnBelowPercent)
                 .formatted(Formatting.GOLD), true);
     }
-
     private static boolean isNearlyBroken(ItemStack stack, int blockAtUses) {
         if (stack.isEmpty() || !stack.isDamageable()) {
             return false;
@@ -167,7 +148,6 @@ public final class ToolProtectHandler {
         int remaining = stack.getMaxDamage() - stack.getDamage();
         return remaining <= Math.max(1, blockAtUses);
     }
-
     private static boolean isBelowPercent(ItemStack stack, int percent) {
         if (stack.isEmpty() || !stack.isDamageable() || stack.getMaxDamage() <= 0) {
             return false;

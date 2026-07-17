@@ -1,5 +1,4 @@
 package de.ottoextra.api;
-
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -16,7 +15,6 @@ import de.ottoextra.api.model.FactionRecord;
 import de.ottoextra.api.model.PlayerRecord;
 import de.ottoextra.api.model.RegionRecord;
 import de.ottoextra.config.OttoExtraConfig;
-
 import javax.net.ssl.SSLContext;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -33,13 +31,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
-
 public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
-
     private static final long MAX_BINARY_BYTES = 5L * 1024 * 1024;
-
     private static final String USER_AGENT = "OttoExtra/" + "client";
-
     private final Gson gson = new Gson();
     private final OttoExtraConfig.Api apiConfig;
     private final OttoExtraApiRoutes routes;
@@ -48,7 +42,6 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
     private final HttpClient http;
     private final ResponseVerifier verifier;
     private final ApiAuthService auth;
-
     public HttpOttoExtraApiClient(OttoExtraConfig config) {
         this.apiConfig = config.api;
         this.routes = new OttoExtraApiRoutes(apiConfig.baseUrl);
@@ -75,7 +68,6 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
                 verifier,
                 Clock.systemUTC());
     }
-
     private static ThreadFactory daemonThreads() {
         AtomicInteger n = new AtomicInteger();
         return r -> {
@@ -84,28 +76,23 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
             return t;
         };
     }
-
     @Override
     public OttoExtraApiRoutes routes() {
         return routes;
     }
-
     @Override
     public CompletableFuture<ApiEnvelope> bootstrap() {
         return getJson(routes.v2Bootstrap(), routes.bootstrap(), ApiEnvelope.class);
     }
-
     @Override
     public CompletableFuture<ApiEnvelope> sync(long cursor) {
         return getJson(routes.v2Sync(cursor), routes.sync(cursor), ApiEnvelope.class);
     }
-
     @Override
     public CompletableFuture<List<RegionRecord>> regionList() {
         return getJson(routes.v2RegionList(), routes.regionList(), ApiEnvelope.class)
                 .thenApply(env -> env.regions() == null ? List.of() : env.regions());
     }
-
     @Override
     public CompletableFuture<RegionRecord> regionByName(String name) {
         if (name == null || name.isBlank()) {
@@ -114,7 +101,6 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
         return getJson(routes.v2RegionByName(name), routes.regionByName(name), ApiEnvelope.class)
                 .thenApply(ApiEnvelope::region);
     }
-
     @Override
     public CompletableFuture<FactionRecord> faction(UUID uuid) {
         if (uuid == null) {
@@ -123,7 +109,6 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
         return getJson(routes.v2Faction(uuid.toString()), routes.faction(uuid.toString()), ApiEnvelope.class)
                 .thenApply(ApiEnvelope::faction);
     }
-
     @Override
     public CompletableFuture<List<PlayerRecord>> factionPlayers(UUID factionUuid) {
         if (factionUuid == null) {
@@ -137,7 +122,6 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
                     return List.of();
                 });
     }
-
     @Override
     public CompletableFuture<PlayerRecord> player(UUID uuid) {
         if (uuid == null) {
@@ -146,14 +130,12 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
         return getJson(routes.v2Player(uuid.toString()), routes.player(uuid.toString()), ApiEnvelope.class)
                 .thenApply(ApiEnvelope::profile);
     }
-
     @Override
     public CompletableFuture<List<CompactPlayer>> compactPlayers() {
         URI legacy = routes.compactPlayers();
         return getString(routes.v2CompactPlayers(), legacy)
                 .thenApply(body -> parseCompactPlayers(legacy, body));
     }
-
     @Override
     public CompletableFuture<byte[]> downloadBinary(URI uri) {
         if (uri == null) {
@@ -176,17 +158,14 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
                 })
                 .exceptionallyCompose(t -> CompletableFuture.failedFuture(mapError(uri, t)));
     }
-
     @Override
     public void close() {
         try {
             http.close();
         } catch (Throwable ignored) {
-
         }
         executor.shutdownNow();
     }
-
     private HttpRequest.Builder baseRequest(URI uri) {
         return HttpRequest.newBuilder(uri)
                 .timeout(requestTimeout)
@@ -194,7 +173,6 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
                 .header("User-Agent", USER_AGENT)
                 .GET();
     }
-
     private CompletableFuture<String> getString(URI v2Uri, URI legacyUri) {
         if (!apiConfig.useV2Auth) {
             return fetch(legacyUri, null);
@@ -203,7 +181,6 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
                 .thenCompose(token -> fetch(v2Uri, token.token())
                         .exceptionallyCompose(t -> {
                             if (isHttpStatus(t, 401)) {
-
                                 auth.invalidate();
                                 return auth.tokenAsync()
                                         .thenCompose(fresh -> fetch(v2Uri, fresh.token()));
@@ -215,7 +192,6 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
                     return fetch(legacyUri, null);
                 });
     }
-
     private CompletableFuture<String> fetch(URI uri, String bearerToken) {
         HttpRequest.Builder builder = baseRequest(uri);
         if (bearerToken != null) {
@@ -235,7 +211,6 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
                 })
                 .exceptionallyCompose(t -> CompletableFuture.failedFuture(mapError(uri, t)));
     }
-
     private <T> CompletableFuture<T> getJson(URI v2Uri, URI legacyUri, Class<T> type) {
         return getString(v2Uri, legacyUri).thenApply(body -> {
             try {
@@ -251,7 +226,6 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
             }
         });
     }
-
     private List<CompactPlayer> parseCompactPlayers(URI uri, String body) {
         try {
             JsonElement root = com.google.gson.JsonParser.parseString(body);
@@ -272,12 +246,10 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
             throw ApiProblem.parse(uri, e.getMessage()).toException();
         }
     }
-
     private static boolean isHttpStatus(Throwable t, int status) {
         Throwable cause = (t instanceof CompletionException && t.getCause() != null) ? t.getCause() : t;
         return cause instanceof ApiProblem.ApiException api && api.problem().isHttpStatus(status);
     }
-
     private static String summarize(Throwable t) {
         Throwable cause = (t instanceof CompletionException && t.getCause() != null) ? t.getCause() : t;
         if (cause instanceof ApiProblem.ApiException api) {
@@ -285,7 +257,6 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
         }
         return cause.getClass().getSimpleName();
     }
-
     private static Throwable mapError(URI uri, Throwable t) {
         Throwable cause = (t instanceof CompletionException && t.getCause() != null) ? t.getCause() : t;
         if (cause instanceof ApiProblem.ApiException) {

@@ -1,5 +1,4 @@
 package de.ottoextra.letter;
-
 import de.ottoextra.letter.announcement.AnnouncementCommandBuilder;
 import de.ottoextra.letter.announcement.AnnouncementPreflightService;
 import de.ottoextra.letter.model.AnnouncementPreflightResult;
@@ -14,20 +13,16 @@ import de.ottoextra.letter.placeholder.RpIdentityResolver;
 import de.ottoextra.letter.recovery.SendProgressStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-
 class LetterCoreTest {
-
     @Test
     void normalizerUnifiesLineEndingsAndStripsControl() {
         assertEquals("a\nb\nc", TextNormalizer.normalize("a\r\nb\rc"));
@@ -36,7 +31,6 @@ class LetterCoreTest {
         assertEquals("rot", TextNormalizer.normalize("§4rot"));
         assertEquals("a b", TextNormalizer.normalize("a b"));
     }
-
     @Test
     void splitterWrapsWordsAndPages() {
         PageSplitter splitter = new PageSplitter(10, 2);
@@ -45,7 +39,6 @@ class LetterCoreTest {
         String all = String.join(" ", pages).replace("\n", " ");
         assertTrue(all.contains("eins") && all.contains("fuenf"));
     }
-
     @Test
     void splitterNeverLosesLongWords() {
         PageSplitter splitter = new PageSplitter(5, 3);
@@ -53,7 +46,6 @@ class LetterCoreTest {
         String joined = String.join("", splitter.split(word)).replace("\n", "");
         assertEquals(word, joined);
     }
-
     @Test
     void parserFindsAllTypes() {
         String text = "Hallo {{name:Sky}} und {{ title : Burchard }} sowie {{full:X}} {{mc:Y}}";
@@ -64,7 +56,6 @@ class LetterCoreTest {
         assertEquals("title", found.get(1).type());
         assertEquals("Burchard", found.get(1).playerName());
     }
-
     @Test
     void parserNavigation() {
         String text = "a {{name:A}} b {{name:B}} c";
@@ -72,38 +63,31 @@ class LetterCoreTest {
         var second = LetterPlaceholderParser.parse(text).get(1);
         assertEquals(first, LetterPlaceholderParser.at(text, first.start() + 2));
         assertEquals(second, LetterPlaceholderParser.next(text, first.end()));
-
         assertEquals(first, LetterPlaceholderParser.next(text, second.end()));
         assertEquals(first, LetterPlaceholderParser.previous(text, second.start()));
     }
-
     @Test
     void parserCountsInvalidOpenings() {
         assertEquals(0, LetterPlaceholderParser.countInvalidOpenings("ok {{name:A}}"));
         assertEquals(1, LetterPlaceholderParser.countInvalidOpenings("kaputt {{name:A"));
         assertEquals(1, LetterPlaceholderParser.countInvalidOpenings("{{quatsch:A}}"));
     }
-
     private static final RpIdentityResolver FAKE = new RpIdentityResolver() {
         private final Map<String, String> names = Map.of("Sky", "Burchard Geestner");
         private final Map<String, String> titles = Map.of("Sky", "Abt");
-
         @Override
         public Optional<String> rpName(String playerName) {
             return Optional.ofNullable(names.get(playerName));
         }
-
         @Override
         public Optional<String> title(String playerName) {
             return Optional.ofNullable(titles.get(playerName));
         }
-
         @Override
         public boolean accountKnown(String playerName) {
             return names.containsKey(playerName);
         }
     };
-
     @Test
     void resolverResolvesAndApplies() {
         PlaceholderResolveService service = new PlaceholderResolveService(FAKE);
@@ -114,7 +98,6 @@ class LetterCoreTest {
         assertEquals("Abt Burchard Geestner", r.resolved());
         assertEquals("Gruss von Abt Burchard Geestner!", service.apply(text, r));
     }
-
     @Test
     void resolverFailsUnknownPlayer() {
         PlaceholderResolveService service = new PlaceholderResolveService(FAKE);
@@ -123,7 +106,6 @@ class LetterCoreTest {
         assertFalse(r.ok());
         assertEquals("{{name:Unbekannt}}", service.apply("{{name:Unbekannt}}", r));
     }
-
     @Test
     void builderChunksWithinCommandLimit() {
         AnnouncementCommandBuilder b = new AnnouncementCommandBuilder(
@@ -136,7 +118,6 @@ class LetterCoreTest {
             assertTrue(c.length() <= AnnouncementCommandBuilder.COMMAND_CHAR_LIMIT,
                     "Command über Limit: " + c.length());
         }
-
         StringBuilder page1 = new StringBuilder();
         for (String c : commands) {
             if (c.startsWith("verk page d1 1 ")) {
@@ -146,7 +127,6 @@ class LetterCoreTest {
         }
         assertEquals(longPage, page1.toString());
     }
-
     @Test
     void preflightFlagsProblems() {
         AnnouncementCommandBuilder b = new AnnouncementCommandBuilder(
@@ -164,10 +144,8 @@ class LetterCoreTest {
         assertFalse(result.pages().get(3).ok());
         assertNotNull(result.totalChecksum());
     }
-
     @TempDir
     Path tempDir;
-
     @Test
     void storeRoundtripAndClear() {
         SendProgressStore<AnnouncementSendProgress> store = new SendProgressStore<>(

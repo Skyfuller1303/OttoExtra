@@ -1,5 +1,4 @@
 package de.ottoextra.chat;
-
 import de.ottoextra.OttoExtra;
 import de.ottoextra.OttoExtraContext;
 import de.ottoextra.OttoExtraModule;
@@ -12,51 +11,40 @@ import net.minecraft.client.gui.screen.ChatScreen;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import org.lwjgl.glfw.GLFW;
-
 public final class ChatModule implements OttoExtraModule {
-
     private static final int AUTO_SPRECHEN_DELAY_TICKS = 60;
-
     private int joinCountdown = -1;
-
     private KeyBinding keySprechen;
     private KeyBinding keyFluestern;
     private KeyBinding keyRufen;
     private KeyBinding keyOfftopic;
     private KeyBinding keyHilfe;
-
     private KeyBinding channelKey(String id) {
         KeyBinding key = new KeyBinding(id, InputUtil.Type.KEYSYM,
                 GLFW.GLFW_KEY_UNKNOWN, KeyBinding.Category.MISC);
         KeyBindingHelper.registerKeyBinding(key);
         return key;
     }
-
     @Override
     public String id() {
         return "chat";
     }
-
     @Override
     public boolean enabled(OttoExtraConfig config) {
         return config.chat.enabled;
     }
-
     @Override
     public void onInitializeClient(OttoExtraContext context) {
         ChatChannelState.init(context.config().chat, context::isOnOttonien);
-
         keySprechen = channelKey("key.ottoextra.channel_sprechen");
         keyFluestern = channelKey("key.ottoextra.channel_fluestern");
         keyRufen = channelKey("key.ottoextra.channel_rufen");
         keyOfftopic = channelKey("key.ottoextra.channel_offtopic");
         keyHilfe = channelKey("key.ottoextra.channel_hilfe");
-
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
             if (!(screen instanceof ChatScreen)) {
                 return;
             }
-
             ScreenMouseEvents.allowMouseClick(screen).register((s, click) -> {
                 if (click.button() != GLFW.GLFW_MOUSE_BUTTON_LEFT || !ChatChannelState.buttonActive()) {
                     return true;
@@ -77,7 +65,6 @@ public final class ChatModule implements OttoExtraModule {
                 }
             });
         });
-
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK
                 .register(client -> {
                     handleChannelHotkeys();
@@ -90,10 +77,8 @@ public final class ChatModule implements OttoExtraModule {
                         }
                     }
                 });
-
         OttoExtra.LOGGER.info("[chat] initialisiert (Kanal-Button: Sprechen/Flüstern/Rufen + OOC).");
     }
-
     private void handleChannelHotkeys() {
         boolean active = ChatChannelState.buttonActive();
         pollChannelKey(keySprechen, ChatChannelState.ChatChannel.SPRECHEN, active);
@@ -102,7 +87,6 @@ public final class ChatModule implements OttoExtraModule {
         pollChannelKey(keyOfftopic, ChatChannelState.ChatChannel.OFFTOPIC, active);
         pollChannelKey(keyHilfe, ChatChannelState.ChatChannel.HILFE, active);
     }
-
     private void pollChannelKey(KeyBinding key, ChatChannelState.ChatChannel channel,
                                 boolean active) {
         if (key == null) {
@@ -114,13 +98,10 @@ public final class ChatModule implements OttoExtraModule {
             }
         }
     }
-
     @Override
     public void onServerJoin(de.ottoextra.OttoExtraContext context) {
-
         joinCountdown = AUTO_SPRECHEN_DELAY_TICKS;
     }
-
     @Override
     public void onDisconnect(de.ottoextra.OttoExtraContext context) {
         joinCountdown = -1;

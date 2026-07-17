@@ -1,40 +1,24 @@
 package de.ottoextra.chat;
-
-/**
- * Gemeinsame Zustandsmaschine fuer die RP-Chat-Syntax.
- *
- * <p>Ein einzelner Stern oeffnet/schliesst einen Emote-Bereich. Runde
- * Klammern markieren OOC-Kommentare und haben innerhalb eines Emotes
- * Vorrang. Verschachtelte OOC-Klammern werden mitgezaehlt.</p>
- */
 public final class RpChatSyntax {
-
     public enum Kind {
         NORMAL,
         EMOTE,
         OOC
     }
-
     public record State(boolean emote, int oocDepth) {
         public State {
             oocDepth = Math.max(0, oocDepth);
         }
-
         public static State normal() {
             return new State(false, 0);
         }
     }
-
     public record Step(Kind kind, State after) {
     }
-
     private RpChatSyntax() {
     }
-
-    /** Bestimmt Stil und Folgezustand fuer genau ein sichtbares Zeichen. */
     public static Step step(State before, char c) {
         State state = before == null ? State.normal() : before;
-
         if (state.oocDepth() > 0) {
             int depth = state.oocDepth();
             if (c == '(') {
@@ -44,22 +28,17 @@ public final class RpChatSyntax {
             }
             return new Step(Kind.OOC, new State(state.emote(), depth));
         }
-
         if (c == '(') {
             return new Step(Kind.OOC, new State(state.emote(), 1));
         }
-
         if (c == '*') {
             if (state.emote()) {
                 return new Step(Kind.EMOTE, new State(false, 0));
             }
             return new Step(Kind.EMOTE, new State(true, 0));
         }
-
         return new Step(state.emote() ? Kind.EMOTE : Kind.NORMAL, state);
     }
-
-    /** Liest einen Text ab dem angegebenen Zustand vollstaendig ein. */
     public static State scan(String text, State initial) {
         State state = initial == null ? State.normal() : initial;
         if (text == null || text.isEmpty()) {
@@ -70,16 +49,9 @@ public final class RpChatSyntax {
         }
         return state;
     }
-
     public static State scan(String text) {
         return scan(text, State.normal());
     }
-
-    /**
-     * Fuegt am Ende einer Teilnachricht nur die noetigen Abschlusszeichen an,
-     * damit der Server jede Nachricht als eigenstaendig abgeschlossenen Text
-     * empfaengt.
-     */
     public static String closers(State state) {
         State safe = state == null ? State.normal() : state;
         StringBuilder out = new StringBuilder(safe.oocDepth() + (safe.emote() ? 1 : 0));
@@ -89,8 +61,6 @@ public final class RpChatSyntax {
         }
         return out.toString();
     }
-
-    /** Stellt den offenen Zustand am Anfang der Folgemeldung wieder her. */
     public static String openers(State state) {
         State safe = state == null ? State.normal() : state;
         StringBuilder out = new StringBuilder(safe.oocDepth() + (safe.emote() ? 1 : 0));

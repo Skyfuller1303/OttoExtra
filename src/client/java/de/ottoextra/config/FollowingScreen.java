@@ -1,5 +1,4 @@
 package de.ottoextra.config;
-
 import de.ottoextra.api.model.FactionRecord;
 import de.ottoextra.map.LehenPolygon;
 import de.ottoextra.map.LehenPolygonStore;
@@ -14,7 +13,6 @@ import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -23,9 +21,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-
 public final class FollowingScreen extends Screen {
-
     private static final int COL_PANEL = 0xC8141418;
     private static final int COL_BORDER = 0xFF000000;
     private static final int COL_TITLE = 0xFFFFFFFF;
@@ -33,25 +29,20 @@ public final class FollowingScreen extends Screen {
     private static final int COL_MUTED = 0xFF9A9A9A;
     private static final int COL_SELECTED = 0x40FFFFFF;
     private static final int ROW_H = 28;
-
     private static final Identifier EDIT_ICON = de.ottoextra.OttoExtra.id("textures/gui/edit.png");
     private static final Identifier RESET_ICON = de.ottoextra.OttoExtra.id("textures/gui/reset.png");
     private static final int RESET_SIZE = 13;
-
     private final Screen parent;
     private final OttoExtraConfig config;
-
     private record Row(int depth, String nameKey, String factionName, String rootName,
                        String regionId, FactionRecord faction, String gefolge, String rank,
                        String lehen) {
     }
-
     private final List<Row> rows = new ArrayList<>();
     private TextFieldWidget searchField;
     private ButtonWidget hierarchyButton;
     private boolean hierarchy = true;
     private int scroll = 0;
-
     private Row editing;
     private TextFieldWidget nameField;
     private TextFieldWidget colorField;
@@ -60,33 +51,26 @@ public final class FollowingScreen extends Screen {
     private ButtonWidget saveButton;
     private ButtonWidget discardButton;
     private boolean suppress;
-
     public FollowingScreen(Screen parent, OttoExtraConfig config) {
         super(Text.translatable("ottoextra.following.title"));
         this.parent = parent;
         this.config = config;
     }
-
     private int panelW() {
         return Math.min(width - 16, 460);
     }
-
     private int panelX() {
         return (width - panelW()) / 2;
     }
-
     private int listTop() {
         return 56;
     }
-
     private int editorTop() {
         return height - 86;
     }
-
     private int listBottom() {
         return editorTop() - 4;
     }
-
     @Override
     protected void init() {
         int px = panelX();
@@ -101,7 +85,6 @@ public final class FollowingScreen extends Screen {
             rebuildRows();
         });
         addDrawableChild(searchField);
-
         hierarchyButton = ButtonWidget.builder(hierarchyLabel(), b -> {
             hierarchy = !hierarchy;
             b.setMessage(hierarchyLabel());
@@ -109,12 +92,10 @@ public final class FollowingScreen extends Screen {
             rebuildRows();
         }).dimensions(px + pw - 80, 30, 74, 16).build();
         addDrawableChild(hierarchyButton);
-
         int fx = px + 78;
         nameField = new TextFieldWidget(textRenderer, fx, editorTop() + 8, pw - 78 - 28, 16,
                 Text.empty());
         nameField.setMaxLength(48);
-
         addDrawableChild(nameField);
         colorField = new TextFieldWidget(textRenderer, fx, editorTop() + 28, 70, 16, Text.empty());
         colorField.setMaxLength(7);
@@ -122,12 +103,10 @@ public final class FollowingScreen extends Screen {
         lehenColorField = new TextFieldWidget(textRenderer, fx, editorTop() + 48, 70, 16, Text.empty());
         lehenColorField.setMaxLength(7);
         addDrawableChild(lehenColorField);
-
         verbandButton = ButtonWidget.builder(
                         Text.translatable("ottoextra.following.applyVerband"), b -> applyToVerband())
                 .dimensions(px + pw - 160, editorTop() + 47, 154, 16).build();
         addDrawableChild(verbandButton);
-
         saveButton = ButtonWidget.builder(Text.translatable("ottoextra.following.save"),
                         b -> saveEdits())
                 .dimensions(width / 2 - 154, height - 22, 100, 18).build();
@@ -138,16 +117,13 @@ public final class FollowingScreen extends Screen {
         addDrawableChild(discardButton);
         addDrawableChild(ButtonWidget.builder(Text.translatable("gui.done"), b -> close())
                 .dimensions(width / 2 + 54, height - 22, 100, 18).build());
-
         selectRow(null);
         rebuildRows();
     }
-
     private Text hierarchyLabel() {
         return Text.translatable(hierarchy
                 ? "ottoextra.following.hierarchy.on" : "ottoextra.following.hierarchy.off");
     }
-
     private void rebuildRows() {
         rows.clear();
         PoliticalOverlay.groupTintOverview();
@@ -159,7 +135,6 @@ public final class FollowingScreen extends Screen {
         }
         scroll = Math.max(0, Math.min(scroll, maxScroll()));
     }
-
     private void buildFactionTree(String q) {
         var data = RegionsServices.data();
         if (data == null) {
@@ -194,7 +169,6 @@ public final class FollowingScreen extends Screen {
             addFactionRow(root, 0, root.name(), kids, visited, q);
         }
     }
-
     private void addFactionRow(FactionRecord f, int depth, String rootName,
                                Map<String, List<FactionRecord>> kids,
                                Set<String> visited, String q) {
@@ -214,7 +188,6 @@ public final class FollowingScreen extends Screen {
             addFactionRow(child, depth + 1, rootName, kids, visited, q);
         }
     }
-
     private void buildLehenList(String q) {
         Map<String, List<String>> byGroup = lehenByGroup();
         var data = RegionsServices.data();
@@ -232,7 +205,6 @@ public final class FollowingScreen extends Screen {
             }
         }
     }
-
     private Map<String, List<String>> lehenByGroup() {
         Map<String, List<String>> map = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
         Set<String> seen = new HashSet<>();
@@ -250,11 +222,9 @@ public final class FollowingScreen extends Screen {
                 lehenName(a).compareToIgnoreCase(lehenName(b))));
         return map;
     }
-
     private static String nameOf(FactionRecord f) {
         return f.name() == null ? "" : f.name();
     }
-
     private String lehenName(String key) {
         var d = RegionsServices.data();
         if (d != null && key != null) {
@@ -265,7 +235,6 @@ public final class FollowingScreen extends Screen {
         }
         return key == null ? "" : key;
     }
-
     private String rankFor(String key) {
         var d = RegionsServices.data();
         if (d != null) {
@@ -276,7 +245,6 @@ public final class FollowingScreen extends Screen {
         }
         return "";
     }
-
     private boolean matches(String q, String... fields) {
         if (q.isEmpty()) {
             return true;
@@ -288,15 +256,12 @@ public final class FollowingScreen extends Screen {
         }
         return false;
     }
-
     private int visibleRows() {
         return Math.max(1, (listBottom() - listTop()) / ROW_H);
     }
-
     private int maxScroll() {
         return Math.max(0, rows.size() - visibleRows());
     }
-
     private void selectRow(Row row) {
         editing = row;
         suppress = true;
@@ -333,7 +298,6 @@ public final class FollowingScreen extends Screen {
         }
         suppress = false;
     }
-
     private void saveEdits() {
         if (editing == null) {
             return;
@@ -344,11 +308,9 @@ public final class FollowingScreen extends Screen {
             applyColor(lehenColorField.getText(), true);
         }
     }
-
     private void discardEdits() {
         selectRow(editing);
     }
-
     private void applyName(String raw) {
         if (editing == null) {
             return;
@@ -363,7 +325,6 @@ public final class FollowingScreen extends Screen {
         config.save();
         PoliticalOverlay.setGroupNameOverrides(config.map.groupNameOverrides);
     }
-
     private void applyColor(String raw, boolean lehenColor) {
         if (editing == null) {
             return;
@@ -396,7 +357,6 @@ public final class FollowingScreen extends Screen {
         }
         config.save();
     }
-
     private void applyToVerband() {
         if (editing == null) {
             return;
@@ -414,7 +374,6 @@ public final class FollowingScreen extends Screen {
         config.save();
         PoliticalOverlay.setUserFactionColors(config.map.factionColors);
     }
-
     private List<String> factionsInVerband(String rootName) {
         List<String> out = new ArrayList<>();
         var data = RegionsServices.data();
@@ -456,11 +415,9 @@ public final class FollowingScreen extends Screen {
         }
         return out;
     }
-
     private static String normalize(String name) {
         return de.ottoextra.regions.RegionNameKeys.normalize(name);
     }
-
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
         if (mouseY >= listTop() && mouseY <= listBottom()) {
@@ -469,19 +426,16 @@ public final class FollowingScreen extends Screen {
         }
         return super.mouseScrolled(mouseX, mouseY, horizontal, vertical);
     }
-
     @Override
     public boolean mouseClicked(net.minecraft.client.gui.Click click, boolean doubled) {
         double mx = click.x();
         double my = click.y();
-
         if (editing != null && click.button() == 0) {
             if (nameField.visible && resetHit(nameField, mx, my)) {
                 nameField.setText("");
                 return true;
             }
             if (colorField.visible && resetHit(colorField, mx, my)) {
-
                 String def = PoliticalOverlay.jsonDefaultColor(editing.rootName());
                 colorField.setText(def != null ? def : "");
                 return true;
@@ -501,7 +455,6 @@ public final class FollowingScreen extends Screen {
         }
         return super.mouseClicked(click, doubled);
     }
-
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
         super.render(ctx, mouseX, mouseY, delta);
@@ -509,7 +462,6 @@ public final class FollowingScreen extends Screen {
         int pw = panelW();
         ctx.drawCenteredTextWithShadow(textRenderer, getTitle(), width / 2, 12, COL_TITLE);
         ctx.fill(px - 2, listTop() - 2, px + pw + 2, listBottom() + 2, COL_PANEL);
-
         int rowsVisible = visibleRows();
         for (int r = 0; r < rowsVisible; r++) {
             int idx = scroll + r;
@@ -543,14 +495,12 @@ public final class FollowingScreen extends Screen {
             ctx.drawTexture(RenderPipelines.GUI_TEXTURED, EDIT_ICON, px + pw - 20, y + 7, 0f, 0f,
                     14, 14, 16, 16, 16, 16);
         }
-
         if (maxScroll() > 0) {
             int trackH = listBottom() - listTop();
             int barH = Math.max(12, trackH * rowsVisible / Math.max(rowsVisible, rows.size()));
             int barY = listTop() + (trackH - barH) * scroll / Math.max(1, maxScroll());
             ctx.fill(px + pw - 3, barY, px + pw - 1, barY + barH, 0xCC808080);
         }
-
         ctx.fill(px - 2, editorTop() - 3, px + pw + 2, editorTop() - 2, COL_BORDER);
         if (editing == null) {
             ctx.drawText(textRenderer, Text.translatable("ottoextra.following.editHint"),
@@ -568,7 +518,6 @@ public final class FollowingScreen extends Screen {
                 ctx.drawText(textRenderer, Text.translatable("ottoextra.following.lehenColor"),
                         px + 6, editorTop() + 52, COL_TEXT, false);
             }
-
             if (nameField.visible) {
                 drawReset(ctx, nameField);
             }
@@ -582,26 +531,21 @@ public final class FollowingScreen extends Screen {
             }
         }
     }
-
     private int resetX(TextFieldWidget f) {
         return f.getX() + f.getWidth() + 3;
     }
-
     private int resetY(TextFieldWidget f) {
         return f.getY() + (f.getHeight() - RESET_SIZE) / 2;
     }
-
     private boolean resetHit(TextFieldWidget f, double mx, double my) {
         int ix = resetX(f);
         int iy = resetY(f);
         return mx >= ix && mx <= ix + RESET_SIZE && my >= iy && my <= iy + RESET_SIZE;
     }
-
     private void drawReset(DrawContext ctx, TextFieldWidget f) {
         ctx.drawTexture(RenderPipelines.GUI_TEXTURED, RESET_ICON, resetX(f), resetY(f), 0f, 0f,
                 RESET_SIZE, RESET_SIZE, 16, 16, 16, 16);
     }
-
     private void drawColorPreview(DrawContext ctx, TextFieldWidget f) {
         int x = resetX(f) + RESET_SIZE + 4;
         int y = f.getY() + (f.getHeight() - 14) / 2;
@@ -609,7 +553,6 @@ public final class FollowingScreen extends Screen {
         ctx.fill(x - 1, y - 1, x + 15, y + 15, COL_BORDER);
         ctx.fill(x, y, x + 14, y + 14, rgb != null ? 0xFF000000 | rgb : 0xFF555555);
     }
-
     private static Integer parseLive(String raw) {
         if (raw == null) {
             return null;
@@ -620,7 +563,6 @@ public final class FollowingScreen extends Screen {
         }
         return null;
     }
-
     private void drawSmall(DrawContext ctx, String text, int x, int y, int color, int maxW) {
         var m = ctx.getMatrices();
         m.pushMatrix();
@@ -630,7 +572,6 @@ public final class FollowingScreen extends Screen {
                 0, 0, color, false);
         m.popMatrix();
     }
-
     private Identifier bannerFor(Row row) {
         try {
             if (row.faction() != null) {
@@ -644,7 +585,6 @@ public final class FollowingScreen extends Screen {
             return null;
         }
     }
-
     private int swatchFor(Row row) {
         if (row.regionId() != null && !row.regionId().isBlank()) {
             return PoliticalOverlay.fillTintFor(row.regionId());
@@ -652,7 +592,6 @@ public final class FollowingScreen extends Screen {
         Integer t = PoliticalOverlay.groupTintOverview().get(row.rootName());
         return t == null ? 0xFF888888 : t;
     }
-
     @Override
     public void close() {
         MinecraftClient.getInstance().setScreen(parent);

@@ -1,42 +1,31 @@
 package de.ottoextra.map;
-
 import de.ottoextra.OttoExtra;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.gui.screen.Screen;
-
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-
 public final class XaeroMapBridge {
-
     public record View(double cameraX, double cameraZ, double effScale, int width, int height) {
         public double worldMinX() {
             return cameraX - width / effScale / 2.0;
         }
-
         public double worldMaxX() {
             return cameraX + width / effScale / 2.0;
         }
-
         public double worldMinZ() {
             return cameraZ - height / effScale / 2.0;
         }
-
         public double worldMaxZ() {
             return cameraZ + height / effScale / 2.0;
         }
-
         public float screenX(double worldX) {
             return (float) ((worldX - cameraX) * effScale + width / 2.0);
         }
-
         public float screenY(double worldZ) {
             return (float) ((worldZ - cameraZ) * effScale + height / 2.0);
         }
     }
-
     private static final String GUI_MAP = "xaero.map.gui.GuiMap";
-
     private static volatile boolean failed = false;
     private static volatile boolean resolved = false;
     private static Class<?> guiMapClass;
@@ -45,22 +34,17 @@ public final class XaeroMapBridge {
     private static Field scaleField;
     private static Field screenScaleField;
     private static Method coordScaleMethod;
-
     private XaeroMapBridge() {
     }
-
     public static boolean isWorldmapInstalled() {
         return FabricLoader.getInstance().isModLoaded("xaeroworldmap");
     }
-
     public static boolean isDisabled() {
         return false;
     }
-
     public static boolean isWorldmapScreen(Screen screen) {
         return screen != null && GUI_MAP.equals(screen.getClass().getName());
     }
-
     public static View view(Screen screen) {
         if (screen == null) {
             return null;
@@ -81,7 +65,6 @@ public final class XaeroMapBridge {
                         coordScale = n.doubleValue();
                     }
                 } catch (Throwable ignored) {
-
                 }
             }
             double effScale = scale * coordScale / screenScale;
@@ -98,7 +81,6 @@ public final class XaeroMapBridge {
             return null;
         }
     }
-
     public static void setCamera(Screen screen, double worldX, double worldZ) {
         if (!resolved || screen == null || guiMapClass != screen.getClass()) {
             return;
@@ -110,7 +92,6 @@ public final class XaeroMapBridge {
             invalidate(t);
         }
     }
-
     private static synchronized void resolve(Screen screen) throws ReflectiveOperationException {
         Class<?> cls = screen.getClass();
         if (resolved && cls == guiMapClass) {
@@ -134,7 +115,6 @@ public final class XaeroMapBridge {
         resolved = true;
         OttoExtra.LOGGER.info("[map] Xaero-Bridge aktiv (GuiMap-Felder aufgeloest).");
     }
-
     private static void invalidate(Throwable t) {
         resolved = false;
         guiMapClass = null;

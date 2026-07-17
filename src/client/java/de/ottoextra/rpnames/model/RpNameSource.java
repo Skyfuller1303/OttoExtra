@@ -1,5 +1,4 @@
 package de.ottoextra.rpnames.model;
-
 public enum RpNameSource {
     SEEN_ONLINE,
     SEEN_TABLIST,

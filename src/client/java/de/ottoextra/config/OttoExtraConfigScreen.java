@@ -1,5 +1,4 @@
 package de.ottoextra.config;
-
 import de.ottoextra.nametags.NameTagMode;
 import de.ottoextra.regions.RegionMessageService;
 import de.ottoextra.regions.RegionNotificationOverlay;
@@ -7,15 +6,12 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
-
 public final class OttoExtraConfigScreen extends Screen {
-
     static final int COL_BG = 0xFFC8AC8E;
     static final int COL_PANEL = 0xFFBFA083;
     static final int COL_SIDEBAR = 0xFFB6967A;
@@ -26,7 +22,6 @@ public final class OttoExtraConfigScreen extends Screen {
     static final int COL_TEXT = 0xFF5A4631;
     static final int COL_MUTED = 0xFF6A4D33;
     static final int COL_SELECTED = 0xFF7A5A3A;
-
     private enum Module {
         RESOURCEPACK("ottoextra.module.resourcepack"),
         REGIONS("ottoextra.module.regions"),
@@ -35,61 +30,47 @@ public final class OttoExtraConfigScreen extends Screen {
         RPNAMES("ottoextra.module.rpnames"),
         LETTER("ottoextra.module.letter"),
         CHAT("ottoextra.module.chat");
-
         final String key;
-
         Module(String key) {
             this.key = key;
         }
     }
-
     private final Screen parent;
     private final OttoExtraConfig config;
     private Module selected = Module.RESOURCEPACK;
     private final List<ButtonWidget> moduleButtons = new ArrayList<>();
     private final List<ButtonWidget> detailWidgets = new ArrayList<>();
-
     private final List<Integer> detailBaseY = new ArrayList<>();
     private int detailScroll = 0;
-
     public OttoExtraConfigScreen(Screen parent, OttoExtraConfig config) {
         super(Text.translatable("ottoextra.config.title"));
         this.parent = parent;
         this.config = config;
     }
-
     private int panelX() {
         return Math.max(8, (width - panelW()) / 2);
     }
-
     private int panelY() {
         return Math.max(8, (height - panelH()) / 2);
     }
-
     private int panelW() {
         return Math.min(width - 16, 400);
     }
-
     private int panelH() {
         return Math.min(height - 16, 260);
     }
-
     private int sidebarW() {
         return 130;
     }
-
     private int detailX() {
         return panelX() + sidebarW() + 10;
     }
-
     private int detailY() {
         return panelY() + 26;
     }
-
     private int detailW() {
         return panelX() + panelW() - 8 - detailX();
     }
-
     @Override
     protected void init() {
         moduleButtons.clear();
@@ -106,15 +87,12 @@ public final class OttoExtraConfigScreen extends Screen {
             addDrawableChild(btn);
             by += 21;
         }
-
         addDrawableChild(ButtonWidget.builder(Text.translatable("gui.done"), b -> close())
                 .dimensions(bx, panelY() + panelH() - 26, bw, 18).build());
-
         buildDetail();
         captureAndApplyScroll();
         updateSidebarState();
     }
-
     private void rebuild() {
         detailWidgets.forEach(this::remove);
         detailWidgets.clear();
@@ -123,11 +101,9 @@ public final class OttoExtraConfigScreen extends Screen {
         captureAndApplyScroll();
         updateSidebarState();
     }
-
     private int detailViewBottom() {
         return panelY() + panelH() - 8;
     }
-
     private int detailMaxScroll() {
         int contentBottom = 0;
         for (int i = 0; i < detailWidgets.size(); i++) {
@@ -135,7 +111,6 @@ public final class OttoExtraConfigScreen extends Screen {
         }
         return Math.max(0, contentBottom - detailViewBottom());
     }
-
     private void captureAndApplyScroll() {
         detailBaseY.clear();
         for (ButtonWidget w : detailWidgets) {
@@ -143,7 +118,6 @@ public final class OttoExtraConfigScreen extends Screen {
         }
         applyDetailScroll();
     }
-
     private void applyDetailScroll() {
         detailScroll = Math.max(0, Math.min(detailScroll, detailMaxScroll()));
         for (int i = 0; i < detailWidgets.size(); i++) {
@@ -153,7 +127,6 @@ public final class OttoExtraConfigScreen extends Screen {
             w.visible = y >= detailY() - 2 && y + 18 <= detailViewBottom() + 2;
         }
     }
-
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
         if (mouseX >= detailX() && mouseX <= panelX() + panelW()
@@ -165,14 +138,12 @@ public final class OttoExtraConfigScreen extends Screen {
         }
         return super.mouseScrolled(mouseX, mouseY, horizontal, vertical);
     }
-
     private void updateSidebarState() {
         Module[] values = Module.values();
         for (int i = 0; i < values.length; i++) {
             moduleButtons.get(i).active = values[i] != selected;
         }
     }
-
     private void buildDetail() {
         int x = detailX();
         int w = detailW();
@@ -326,7 +297,6 @@ public final class OttoExtraConfigScreen extends Screen {
             }
         }
     }
-
     private int toggle(int x, int y, int w, String key, BooleanSupplier get, Consumer<Boolean> set) {
         ButtonWidget btn = ButtonWidget.builder(toggleLabel(key, get.getAsBoolean()), b -> {
             boolean next = !get.getAsBoolean();
@@ -338,7 +308,6 @@ public final class OttoExtraConfigScreen extends Screen {
         addDrawableChild(btn);
         return y + 21;
     }
-
     private int cycle(int x, int y, int w, String key, Supplier<String> current, Supplier<String> next) {
         ButtonWidget btn = ButtonWidget.builder(cycleLabel(key, current.get()), b -> {
             String value = next.get();
@@ -349,12 +318,10 @@ public final class OttoExtraConfigScreen extends Screen {
         addDrawableChild(btn);
         return y + 21;
     }
-
     public static void triggerPreview() {
         RegionNotificationOverlay.show("Sankt Aegidius", "Abtei in Grafschaft Holdstewik");
         RegionMessageService.playEnterSound();
     }
-
     private int action(int x, int y, int w, String key, Runnable run) {
         ButtonWidget btn = ButtonWidget.builder(Text.translatable(key), b -> run.run())
                 .dimensions(x, y, w, 18).build();
@@ -362,7 +329,6 @@ public final class OttoExtraConfigScreen extends Screen {
         addDrawableChild(btn);
         return y + 21;
     }
-
     private void advanced(int x, int y, int w, Screen target) {
         ButtonWidget btn = ButtonWidget.builder(Text.translatable("ottoextra.config.advanced"),
                         b -> client.setScreen(target))
@@ -370,39 +336,31 @@ public final class OttoExtraConfigScreen extends Screen {
         detailWidgets.add(btn);
         addDrawableChild(btn);
     }
-
     private Text toggleLabel(String key, boolean on) {
         return Text.translatable(key).copy().append(": ")
                 .append(Text.translatable(on ? "ottoextra.config.on" : "ottoextra.config.off"));
     }
-
     private Text cycleLabel(String key, String value) {
         return Text.translatable(key).copy().append(": " + value);
     }
-
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
         int px = panelX();
         int py = panelY();
         int pw = panelW();
         int ph = panelH();
-
         ctx.fill(px - 2, py - 2, px + pw + 2, py + ph + 2, COL_BORDER);
         ctx.fill(px, py, px + pw, py + ph, COL_PANEL);
         ctx.fill(px, py, px + pw, py + 1, COL_INNER_TL);
         ctx.fill(px, py, px + 1, py + ph, COL_INNER_TL);
         ctx.fill(px, py + ph - 1, px + pw, py + ph, COL_INNER_BR);
         ctx.fill(px + pw - 1, py, px + pw, py + ph, COL_INNER_BR);
-
         ctx.fill(px + 1, py + 1, px + sidebarW(), py + ph - 1, COL_SIDEBAR);
         ctx.fill(px + sidebarW(), py + 1, px + sidebarW() + 1, py + ph - 1, COL_BORDER);
-
         ctx.drawText(textRenderer, title, px + 8, py + 9, COL_TITLE, false);
         ctx.drawText(textRenderer, Text.translatable(selected.key),
                 detailX(), py + 9, COL_TITLE, false);
-
         super.render(ctx, mouseX, mouseY, delta);
-
         int maxScroll = detailMaxScroll();
         if (maxScroll > 0) {
             int trackX = panelX() + panelW() - 6;
@@ -413,14 +371,11 @@ public final class OttoExtraConfigScreen extends Screen {
             int thumbY = trackTop + (trackH - thumbH) * detailScroll / maxScroll;
             ctx.fill(trackX, thumbY, trackX + 3, thumbY + thumbH, COL_BORDER);
         }
-
         ctx.drawCenteredTextWithShadow(textRenderer,
                 Text.translatable("ottoextra.config.restart_hint"),
                 width / 2, py + ph + 6, 0xFF9A8C6A);
-
         RegionNotificationOverlay.render(ctx, null);
     }
-
     @Override
     public void close() {
         config.save();

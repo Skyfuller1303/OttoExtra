@@ -1,5 +1,4 @@
 package de.ottoextra.regions;
-
 import de.ottoextra.api.model.CapabilityEntry;
 import de.ottoextra.api.model.FactionRecord;
 import de.ottoextra.api.model.PlayerRecord;
@@ -13,15 +12,11 @@ import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.OrderedText;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-
 public final class RegionInfoScreen extends Screen {
-
     private enum Tab { OVERVIEW, PLAYERS, VASSALS }
-
     private static final int COL_PANEL = 0xE0182230;
     private static final int COL_SIDEBAR = 0xE61B2735;
     private static final int COL_BORDER = 0xFF344459;
@@ -30,80 +25,62 @@ public final class RegionInfoScreen extends Screen {
     private static final int COL_MUTED = 0xFF8C9BAA;
     private static final int COL_RANK = 0xFF9BC7DC;
     private static final int COL_CARD = 0x66101820;
-
     private final Screen parent;
     private final String regionName;
-
     private Tab tab = Tab.OVERVIEW;
     private double scroll = 0;
     private int contentHeight = 0;
-
     private RegionRecord region;
     private FactionRecord faction;
     private volatile List<PlayerRecord> players;
     private volatile boolean playersLoading = false;
     private List<FactionRecord> vassals = List.of();
-
     private ButtonWidget tabOverview;
     private ButtonWidget tabPlayers;
     private ButtonWidget tabVassals;
     private final List<ButtonWidget> rowButtons = new ArrayList<>();
-
     public RegionInfoScreen(String regionName, Screen parent) {
         super(Text.translatable("ottoextra.regions.screen.title"));
         this.regionName = regionName == null ? "" : regionName;
         this.parent = parent;
     }
-
     public static RegionInfoScreen current(Screen parent) {
         RegionState state = RegionMessageService.current();
         return new RegionInfoScreen(state != null ? state.regionName() : "", parent);
     }
-
     private int panelX() {
         return Math.max(8, (width - panelW()) / 2);
     }
-
     private int panelY() {
         return Math.max(8, (height - panelH()) / 2);
     }
-
     private int panelW() {
         return Math.min(width - 16, 360);
     }
-
     private int panelH() {
         return Math.min(height - 16, 220);
     }
-
     private int sidebarW() {
         return 104;
     }
-
     private int contentX() {
         return panelX() + sidebarW() + 8;
     }
-
     private int contentY() {
         return panelY() + 8;
     }
-
     private int contentW() {
         return panelX() + panelW() - 8 - contentX();
     }
-
     private int contentH() {
         return panelH() - 16;
     }
-
     @Override
     protected void init() {
         loadData();
-
         int bx = panelX() + 6;
         int bw = sidebarW() - 12;
         int by = panelY() + 78;
-
         tabOverview = addDrawableChild(ButtonWidget.builder(
                         Text.translatable("ottoextra.regions.tab.overview"), b -> switchTab(Tab.OVERVIEW))
                 .dimensions(bx, by, bw, 18).build());
@@ -115,13 +92,10 @@ public final class RegionInfoScreen extends Screen {
         tabVassals = addDrawableChild(ButtonWidget.builder(
                         Text.translatable("ottoextra.regions.tab.vassals", vassals.size()), b -> switchTab(Tab.VASSALS))
                 .dimensions(bx, by, bw, 18).build());
-
         addDrawableChild(ButtonWidget.builder(Text.translatable("gui.back"), b -> close())
                 .dimensions(bx, panelY() + panelH() - 26, bw, 18).build());
-
         updateTabState();
     }
-
     private void loadData() {
         RegionDataService data = RegionsServices.data();
         if (data == null || regionName.isBlank()) {
@@ -132,7 +106,6 @@ public final class RegionInfoScreen extends Screen {
         vassals = faction != null ? data.vassalsOf(faction) : List.of();
         data.requestRegionDetail(regionName);
     }
-
     private void switchTab(Tab newTab) {
         tab = newTab;
         scroll = 0;
@@ -146,13 +119,11 @@ public final class RegionInfoScreen extends Screen {
         }
         rebuildRowButtons();
     }
-
     private void updateTabState() {
         tabOverview.active = tab != Tab.OVERVIEW;
         tabPlayers.active = tab != Tab.PLAYERS;
         tabVassals.active = tab != Tab.VASSALS;
     }
-
     private void rebuildRowButtons() {
         rowButtons.forEach(this::remove);
         rowButtons.clear();
@@ -176,28 +147,23 @@ public final class RegionInfoScreen extends Screen {
             y += rowH;
         }
     }
-
     private String playerCountLabel() {
         if (players != null) {
             return Integer.toString(players.size());
         }
         return faction != null ? Integer.toString(faction.player_count()) : "?";
     }
-
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
         int px = panelX();
         int py = panelY();
         int pw = panelW();
         int ph = panelH();
-
         ctx.fill(px - 1, py - 1, px + pw + 1, py + ph + 1, COL_BORDER);
         ctx.fill(px, py, px + pw, py + ph, COL_PANEL);
         ctx.fill(px, py, px + sidebarW(), py + ph, COL_SIDEBAR);
         ctx.fill(px + sidebarW(), py, px + sidebarW() + 1, py + ph, COL_BORDER);
-
         renderSidebarHeader(ctx);
-
         ctx.enableScissor(contentX(), contentY(), contentX() + contentW(), contentY() + contentH());
         switch (tab) {
             case OVERVIEW -> renderOverview(ctx);
@@ -205,7 +171,6 @@ public final class RegionInfoScreen extends Screen {
             case VASSALS -> renderVassals(ctx);
         }
         ctx.disableScissor();
-
         if (contentHeight > contentH()) {
             int track = contentH();
             int thumb = Math.max(12, track * track / contentHeight);
@@ -215,15 +180,12 @@ public final class RegionInfoScreen extends Screen {
             ctx.fill(sx, contentY(), sx + 2, contentY() + track, 0x33FFFFFF);
             ctx.fill(sx, thumbY, sx + 2, thumbY + thumb, 0xAA9BC7DC);
         }
-
         super.render(ctx, mouseX, mouseY, delta);
     }
-
     private void renderSidebarHeader(DrawContext ctx) {
         int px = panelX();
         int py = panelY();
         int cx = px + sidebarW() / 2;
-
         Identifier banner = faction != null && RegionsServices.banners() != null
                 ? RegionsServices.banners().bannerFor(faction).orElse(null) : null;
         int bSize = 48;
@@ -237,7 +199,6 @@ public final class RegionInfoScreen extends Screen {
             ctx.fill(bx, byy, bx + bSize, byy + bSize, 0xFF101820);
             ctx.drawCenteredTextWithShadow(textRenderer, "?", cx, byy + bSize / 2 - 4, COL_MUTED);
         }
-
         String rank = faction != null && faction.rank_name() != null && !faction.rank_name().isBlank()
                 ? faction.rank_name()
                 : Text.translatable("ottoextra.regions.rank.fallback").getString();
@@ -247,21 +208,18 @@ public final class RegionInfoScreen extends Screen {
         ctx.drawCenteredTextWithShadow(textRenderer,
                 textRenderer.trimToWidth(name, sidebarW() - 8), cx, py + 70, COL_TITLE);
     }
-
     private void renderOverview(DrawContext ctx) {
         int x = contentX();
         int y = contentY() - (int) scroll;
         int w = contentW() - 6;
         int line = textRenderer.fontHeight + 2;
         int startY = y;
-
         if (faction == null && region == null) {
             ctx.drawText(textRenderer, Text.translatable("ottoextra.regions.no_details"),
                     x, y, COL_MUTED, true);
             contentHeight = line;
             return;
         }
-
         String description = resolveDescription();
         if (!description.isBlank()) {
             for (OrderedText l : textRenderer.wrapLines(Text.literal(description), w)) {
@@ -270,14 +228,12 @@ public final class RegionInfoScreen extends Screen {
             }
             y += 4;
         }
-
         String lead = leadSentence();
         for (OrderedText l : textRenderer.wrapLines(Text.literal(lead), w)) {
             ctx.drawText(textRenderer, l, x, y, COL_BODY, true);
             y += line;
         }
         y += 6;
-
         RegionCapabilities caps = capabilities();
         if (caps != null) {
             ctx.drawText(textRenderer, Text.translatable("ottoextra.regions.properties"),
@@ -290,11 +246,9 @@ public final class RegionInfoScreen extends Screen {
             y = renderPropertyCard(ctx, x, y, w, caps.bonus(),
                     firstMappedDescription(caps, "bonus"));
         }
-
         contentHeight = y + (int) scroll - startY - (contentY() - startY) + 4;
         contentHeight = Math.max(contentHeight, y - (contentY() - (int) scroll)) ;
     }
-
     private int renderPropertyCard(DrawContext ctx, int x, int y, int w, String title, String body) {
         if (title == null || title.isBlank()) {
             return y;
@@ -313,13 +267,11 @@ public final class RegionInfoScreen extends Screen {
         }
         return y + cardH + 4;
     }
-
     private void renderPlayers(DrawContext ctx) {
         int x = contentX();
         int y = contentY() - (int) scroll;
         int w = contentW() - 6;
         int line = textRenderer.fontHeight + 2;
-
         if (playersLoading) {
             ctx.drawText(textRenderer, Text.translatable("ottoextra.regions.loading"), x, y, COL_MUTED, true);
             contentHeight = line;
@@ -331,14 +283,12 @@ public final class RegionInfoScreen extends Screen {
             contentHeight = line;
             return;
         }
-
         int rowH = 20;
         for (PlayerRecord p : list) {
             String display = (p.title() != null && !p.title().isBlank() ? p.title() + " " : "")
                     + (p.name() != null ? p.name() : "?");
             String rank = p.rank() != null && !p.rank().isBlank() ? p.rank() : "-";
             String money = Text.translatable("ottoextra.regions.money", p.money()).getString();
-
             ctx.drawText(textRenderer, textRenderer.trimToWidth(display, w - 110), x, y + 2, COL_BODY, true);
             ctx.drawText(textRenderer, textRenderer.trimToWidth(rank, 56), x + w - 108, y + 2, COL_MUTED, true);
             ctx.drawText(textRenderer, money, x + w - 50, y + 2, COL_RANK, true);
@@ -347,13 +297,11 @@ public final class RegionInfoScreen extends Screen {
         }
         contentHeight = list.size() * rowH;
     }
-
     private void renderVassals(DrawContext ctx) {
         int x = contentX();
         int y = contentY() - (int) scroll;
         int w = contentW() - 6;
         int line = textRenderer.fontHeight + 2;
-
         if (vassals.isEmpty()) {
             ctx.drawText(textRenderer, Text.translatable("ottoextra.regions.no_vassals"), x, y, COL_MUTED, true);
             contentHeight = line;
@@ -362,7 +310,6 @@ public final class RegionInfoScreen extends Screen {
         ctx.drawText(textRenderer, Text.translatable("ottoextra.regions.tab.vassals", vassals.size()),
                 x, y, COL_TITLE, true);
         y += 14;
-
         int rowH = 22;
         for (FactionRecord vassal : vassals) {
             Identifier banner = RegionsServices.banners() != null
@@ -383,14 +330,12 @@ public final class RegionInfoScreen extends Screen {
         }
         contentHeight = 14 + vassals.size() * rowH;
     }
-
     private RegionCapabilities capabilities() {
         if (region != null && region.region_capabilities() != null) {
             return region.region_capabilities();
         }
         return faction != null ? faction.region_capabilities() : null;
     }
-
     private String resolveDescription() {
         RegionCapabilities caps = capabilities();
         if (caps != null && caps.region_info() != null) {
@@ -408,7 +353,6 @@ public final class RegionInfoScreen extends Screen {
         }
         return "";
     }
-
     private String leadSentence() {
         String rank = faction != null && faction.rank_name() != null && !faction.rank_name().isBlank()
                 ? faction.rank_name()
@@ -420,7 +364,6 @@ public final class RegionInfoScreen extends Screen {
         }
         return Text.translatable("ottoextra.regions.lead.short", rank, count).getString();
     }
-
     private String firstMappedDescription(RegionCapabilities caps, String which) {
         if (caps.mapped() == null) {
             return "";
@@ -437,7 +380,6 @@ public final class RegionInfoScreen extends Screen {
         CapabilityEntry first = list.get(0);
         return first.description() != null ? first.description() : "";
     }
-
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
         if (contentHeight > contentH()) {
@@ -449,7 +391,6 @@ public final class RegionInfoScreen extends Screen {
         }
         return super.mouseScrolled(mouseX, mouseY, horizontal, vertical);
     }
-
     @Override
     public void close() {
         client.setScreen(parent);

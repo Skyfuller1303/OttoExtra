@@ -1,5 +1,4 @@
 package de.ottoextra.regions;
-
 import de.ottoextra.api.model.FactionRecord;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
@@ -8,17 +7,13 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.render.RenderTickCounter;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-
 public final class RegionNotificationOverlay {
-
     private static final long DEFAULT_DISPLAY_MS = 4_200L;
     private static final long FADE_IN_MS = 260L;
     private static final long FADE_OUT_MS = 360L;
-
     private static final int MIN_WIDTH = 170;
     private static final int MAX_WIDTH = 330;
     private static final int MAX_TEXT_WIDTH = 210;
@@ -28,61 +23,48 @@ public final class RegionNotificationOverlay {
     private static final int PAD_V = 4;
     private static final int ICON_GAP = 6;
     private static final int MARGIN = 6;
-
     private record Palette(int bg, int borderOut, int borderTl, int borderBr,
                            int title, int region, int hierarchy, int hint) {
     }
-
     private static final Palette LIGHT = new Palette(
             0xFFC8AC8E, 0xFF513E2A, 0xFFE6C8A9, 0xFFB8926E,
             0xFF503D29, 0xFF503D29, 0xFF7A5A3A, 0xFF6A4D33);
     private static final Palette DARK = new Palette(
             0xFF212D3B, 0xFF0A0A0A, 0xFF344459, 0xFF191F22,
             0xFFFFFFFF, 0xFFFFFFFF, 0xFF9BC7DC, 0xFF9D9D9D);
-
     public enum Position { TOP_CENTER, TOP_RIGHT, TOP_LEFT, CENTER }
-
     private static volatile String regionName = "";
     private static volatile String hierarchy = "";
     private static volatile long shownAt = 0;
-
     private static volatile boolean sticky = false;
     private static volatile String menuKeyName = "L";
-
     private static volatile de.ottoextra.config.OttoExtraConfig.Regions cfg;
-
     private RegionNotificationOverlay() {
     }
-
     public static void show(String name, String hierarchyLine) {
         regionName = name == null ? "" : name;
         hierarchy = hierarchyLine == null ? "" : hierarchyLine;
         shownAt = System.currentTimeMillis();
         sticky = false;
     }
-
     public static void holdPreview(String name, String hierarchyLine) {
         regionName = name == null ? "" : name;
         hierarchy = hierarchyLine == null ? "" : hierarchyLine;
         shownAt = System.currentTimeMillis();
         sticky = true;
     }
-
     public static void clear() {
         shownAt = 0;
         sticky = false;
     }
-
     public static void setMenuKeyName(String name) {
         if (name != null && !name.isBlank()) {
             menuKeyName = name;
         }
     }
-
     public static void configure(de.ottoextra.config.OttoExtraConfig.Regions regionsConfig) {
         cfg = regionsConfig;
     }
-
     private static Palette activePalette() {
         de.ottoextra.config.OttoExtraConfig.Regions c = cfg;
         if (c == null || c.theme == null || "light".equalsIgnoreCase(c.theme)) {
@@ -100,7 +82,6 @@ public final class RegionNotificationOverlay {
         }
         return LIGHT;
     }
-
     private static Palette paletteOf(de.ottoextra.config.OttoExtraConfig.RegionTheme t) {
         return new Palette(
                 hex(t.bg, 0xFFC8AC8E), hex(t.borderOut, 0xFF513E2A),
@@ -108,7 +89,6 @@ public final class RegionNotificationOverlay {
                 hex(t.title, 0xFF503D29), hex(t.region, 0xFF503D29),
                 hex(t.hierarchy, 0xFF7A5A3A), hex(t.hint, 0xFF6A4D33));
     }
-
     private static int hex(String s, int fallback) {
         if (s == null) {
             return fallback;
@@ -119,13 +99,11 @@ public final class RegionNotificationOverlay {
         }
         return 0xFF000000 | Integer.parseInt(h, 16);
     }
-
     private static boolean needsShadow(Palette pal) {
         int bg = pal.bg();
         int r = (bg >> 16) & 0xFF, g = (bg >> 8) & 0xFF, b = bg & 0xFF;
         return (0.2126 * r + 0.7152 * g + 0.0722 * b) < 128.0;
     }
-
     private record Style(Palette pal,
                          float baseTextScale, float titleScale, float regionScale,
                          float hierarchyScale, float hintScale,
@@ -135,7 +113,6 @@ public final class RegionNotificationOverlay {
                          int iconSize, int iconGap,
                          int padLeft, int padRight, int padTop, int padBottom) {
     }
-
     private static Style activeStyle() {
         de.ottoextra.config.OttoExtraConfig.Regions c = cfg;
         if (c != null && c.theme != null && c.customThemes != null
@@ -162,12 +139,10 @@ public final class RegionNotificationOverlay {
                 c.maxTextWidth, c.minToastWidth, c.maxToastWidth, Math.max(4, c.screenTopMargin),
                 c.iconSize, c.iconGap, c.paddingLeft, c.paddingRight, c.paddingTop, c.paddingBottom);
     }
-
     private static long activeDisplayMs() {
         de.ottoextra.config.OttoExtraConfig.Regions c = cfg;
         return c == null ? DEFAULT_DISPLAY_MS : Math.max(1_500L, c.displayDurationMs);
     }
-
     private static Position activePosition() {
         de.ottoextra.config.OttoExtraConfig.Regions c = cfg;
         if (c == null || c.overlayPosition == null) {
@@ -179,7 +154,6 @@ public final class RegionNotificationOverlay {
             return Position.TOP_CENTER;
         }
     }
-
     public static void render(DrawContext ctx, RenderTickCounter tickCounter) {
         long start = shownAt;
         if (start == 0) {
@@ -196,7 +170,6 @@ public final class RegionNotificationOverlay {
         if (client == null || client.textRenderer == null) {
             return;
         }
-
         float progress;
         if (hold) {
             progress = 1f;
@@ -209,7 +182,6 @@ public final class RegionNotificationOverlay {
         }
         progress = Math.max(0f, Math.min(1f, progress));
         float ease = 1f - (1f - progress) * (1f - progress);
-
         Style st = activeStyle();
         Palette pal = st.pal();
         int maxTextWidth = st.maxTextWidth();
@@ -222,13 +194,11 @@ public final class RegionNotificationOverlay {
         int padTop = st.padTop();
         int padBottom = st.padBottom();
         int margin = st.topMargin();
-
         float base = st.baseTextScale();
         float titleScale = base * st.titleScale();
         float regionScale = base * st.regionScale();
         float hierarchyScale = base * st.hierarchyScale();
         float hintScale = base * st.hintScale();
-
         TextRenderer tr = client.textRenderer;
         String title = Text.translatable("ottoextra.regions.entered").getString();
         boolean hasHierarchy = st.showHierarchy() && !hierarchy.isBlank();
@@ -247,19 +217,16 @@ public final class RegionNotificationOverlay {
         MinecraftClient mc = MinecraftClient.getInstance();
         String coordinateLine = mc.player != null
                 ? Math.round(mc.player.getX()) + " / " + Math.round(mc.player.getZ()) : "";
-
         Identifier banner = null;
         if (st.showBanner()) {
             banner = resolveBanner();
         }
         int iconArea = banner != null ? bannerSize + iconGap : 0;
-
         List<ScaledLine> lines = new ArrayList<>();
         if (st.showEnteredTitle()) {
             lines.add(new ScaledLine(Text.literal(title).asOrderedText(), titleScale, pal.title()));
         }
         int regionWrap = Math.max(20, (int) (maxTextWidth / Math.max(0.3f, regionScale)));
-
         String regionShown = de.ottoextra.map.PoliticalOverlay.displayNameFor(regionName);
         for (net.minecraft.text.OrderedText regionLine
                 : tr.wrapLines(Text.literal(regionShown), regionWrap)) {
@@ -284,7 +251,6 @@ public final class RegionNotificationOverlay {
         if (renderHint) {
             lines.add(new ScaledLine(Text.literal(hint).asOrderedText(), hintScale, pal.hint()));
         }
-
         int textW = 0;
         int contentH = 0;
         int gap = 2;
@@ -294,13 +260,10 @@ public final class RegionNotificationOverlay {
         }
         contentH += gap * (lines.size() - 1);
         textW = Math.min(textW, maxTextWidth);
-
         int w = Math.max(minWidth, Math.min(maxWidth, padLeft + iconArea + textW + padRight));
         int h = Math.max(32, padTop + padBottom + contentH);
-
         int screenW = client.getWindow().getScaledWidth();
         int screenH = client.getWindow().getScaledHeight();
-
         int x;
         int y;
         switch (activePosition()) {
@@ -323,14 +286,12 @@ public final class RegionNotificationOverlay {
             }
         }
         float alpha = progress;
-
         ctx.fill(x - 1, y - 1, x + w + 1, y + h + 1, withAlpha(pal.borderOut(), alpha));
         ctx.fill(x, y, x + w, y + h, withAlpha(pal.bg(), alpha));
         ctx.fill(x, y, x + w, y + 1, withAlpha(pal.borderTl(), alpha));
         ctx.fill(x, y, x + 1, y + h, withAlpha(pal.borderTl(), alpha));
         ctx.fill(x, y + h - 1, x + w, y + h, withAlpha(pal.borderBr(), alpha));
         ctx.fill(x + w - 1, y, x + w, y + h, withAlpha(pal.borderBr(), alpha));
-
         int tx = x + padLeft;
         if (banner != null) {
             int by = y + (h - bannerSize) / 2;
@@ -338,9 +299,7 @@ public final class RegionNotificationOverlay {
                     0f, 0f, bannerSize, bannerSize, bannerSize, bannerSize);
             tx += bannerSize + iconGap;
         }
-
         boolean shadow = needsShadow(pal);
-
         float ty = y + (h - contentH) / 2f;
         var matrices = ctx.getMatrices();
         for (ScaledLine sl : lines) {
@@ -353,10 +312,8 @@ public final class RegionNotificationOverlay {
             ty += Math.round(tr.fontHeight * s) + gap;
         }
     }
-
     private record ScaledLine(net.minecraft.text.OrderedText text, float scale, int color) {
     }
-
     private static Identifier resolveBanner() {
         RegionDataService data = RegionsServices.data();
         BannerTextureService banners = RegionsServices.banners();
@@ -366,14 +323,12 @@ public final class RegionNotificationOverlay {
         Optional<FactionRecord> faction = data.factionForRegion(regionName);
         return faction.flatMap(banners::bannerFor).orElse(null);
     }
-
     private static String firstNonBlank(String a, String b) {
         if (a != null && !a.isBlank()) {
             return a;
         }
         return b == null ? "" : b;
     }
-
     private static int withAlpha(int argb, float a) {
         int baseAlpha = (argb >>> 24) & 0xFF;
         int newAlpha = Math.round(baseAlpha * Math.max(0f, Math.min(1f, a)));

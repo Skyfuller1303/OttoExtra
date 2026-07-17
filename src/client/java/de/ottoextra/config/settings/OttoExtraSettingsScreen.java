@@ -1,5 +1,4 @@
 package de.ottoextra.config.settings;
-
 import de.ottoextra.config.OttoExtraBackupService;
 import de.ottoextra.config.OttoExtraConfig;
 import net.minecraft.client.gui.DrawContext;
@@ -13,14 +12,11 @@ import net.minecraft.text.OrderedText;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import org.lwjgl.glfw.GLFW;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 public final class OttoExtraSettingsScreen extends Screen {
-
     private static final int ROW_H = 22;
     private static final int VALUE_W = 100;
     private static final int RESET_W = 80;
@@ -29,28 +25,22 @@ public final class OttoExtraSettingsScreen extends Screen {
     private static final int COL_DESC = 0xFFA0A0A0;
     private static final int COL_STATUS = 0xFF55FF55;
     private static final int COL_WARN = 0xFFFF5555;
-
     private final Screen parent;
     private final OttoExtraConfig config;
     private final SettingsRegistry registry;
     private final String snapshot;
-
     private final Map<String, String> defaults = new HashMap<>();
-
     private int selectedModule;
     private int selectedTab;
     private int scroll;
     private int contentHeight;
-
     private TextFieldWidget searchField;
-
     private boolean tabCompact;
     private boolean tabMenuOpen;
     private final List<Text> tabLabels = new ArrayList<>();
     private int tabMenuX;
     private int tabMenuY;
     private int tabMenuW;
-
     private static final class Row {
         int baseY;
         int height = ROW_H;
@@ -60,12 +50,10 @@ public final class OttoExtraSettingsScreen extends Screen {
         List<OrderedText> descLines = List.of();
         final List<ClickableWidget> widgets = new ArrayList<>();
     }
-
     private final List<Row> rows = new ArrayList<>();
     private java.nio.file.Path pendingRestore;
     private String statusMessage = "";
     private boolean statusWarn;
-
     public OttoExtraSettingsScreen(Screen parent) {
         super(Text.translatable("ottoextra.settings.title"));
         this.parent = parent;
@@ -92,32 +80,25 @@ public final class OttoExtraSettingsScreen extends Screen {
             }
         }
     }
-
     private void open(Screen s) {
         if (client != null) {
             client.setScreen(s);
         }
     }
-
     private int contentW() {
         return Math.min(640, width - 40);
     }
-
     private int contentX() {
         return (width - contentW()) / 2;
     }
-
     private int contentTop() {
         return 64;
     }
-
     private int contentBottom() {
         return height - 36;
     }
-
     @Override
     protected void init() {
-
         tabLabels.clear();
         for (SettingsRegistry.ModulePage m : registry.modules()) {
             tabLabels.add(Text.translatable(m.titleKey()));
@@ -152,7 +133,6 @@ public final class OttoExtraSettingsScreen extends Screen {
                     b -> tabMenuOpen = !tabMenuOpen)
                     .dimensions(tabMenuX, tabMenuY, tabMenuW, 16).build());
         }
-
         searchField = new TextFieldWidget(textRenderer, contentX(), 42, contentW() - 0, 16,
                 Text.translatable("ottoextra.settings.search"));
         searchField.setMaxLength(64);
@@ -164,7 +144,6 @@ public final class OttoExtraSettingsScreen extends Screen {
             rebuildContent();
         });
         addDrawableChild(searchField);
-
         int fy = height - 26;
         addDrawableChild(ButtonWidget.builder(
                 Text.translatable("ottoextra.settings.discard"), b -> {
@@ -176,22 +155,18 @@ public final class OttoExtraSettingsScreen extends Screen {
         addDrawableChild(ButtonWidget.builder(
                 Text.translatable("ottoextra.settings.saveQuit"), b -> saveAndClose())
                 .dimensions(width / 2 + 4, fy, 150, 20).build());
-
         rebuildContent();
     }
-
     private void saveAndClose() {
         config.save();
         if (client != null) {
             client.setScreen(parent);
         }
     }
-
     @Override
     public void close() {
         saveAndClose();
     }
-
     private void rebuildContent() {
         for (Row row : rows) {
             for (ClickableWidget w : row.widgets) {
@@ -200,7 +175,6 @@ public final class OttoExtraSettingsScreen extends Screen {
         }
         rows.clear();
         statusMessage = "";
-
         String query = searchField != null ? searchField.getText() : "";
         int y = 0;
         if (!query.isBlank()) {
@@ -229,7 +203,6 @@ public final class OttoExtraSettingsScreen extends Screen {
             if (selectedTab >= module.tabs().size()) {
                 selectedTab = 0;
             }
-
             if (module.tabs().size() > 1) {
                 Row tabRow = new Row();
                 tabRow.baseY = y;
@@ -272,7 +245,6 @@ public final class OttoExtraSettingsScreen extends Screen {
                 Math.max(0, contentHeight - (contentBottom() - contentTop()))));
         layoutRows();
     }
-
     private int addOptionRow(int y, SettingsRegistry.Option option, Text label) {
         Row row = new Row();
         row.baseY = y;
@@ -282,14 +254,12 @@ public final class OttoExtraSettingsScreen extends Screen {
         }
         int resetX = contentX() + contentW() - RESET_W;
         int valueX = resetX - 4 - VALUE_W;
-
         ClickableWidget value = createValueWidget(option, valueX, VALUE_W);
         if (option.tooltipKey != null) {
             value.setTooltip(Tooltip.of(Text.translatable(option.tooltipKey)));
         }
         row.widgets.add(value);
         addDrawableChild(value);
-
         if (option.type != SettingsRegistry.Type.ACTION) {
             String def = defaults.get(option.configKey);
             ButtonWidget reset = ButtonWidget.builder(
@@ -308,7 +278,6 @@ public final class OttoExtraSettingsScreen extends Screen {
         rows.add(row);
         return y + ROW_H;
     }
-
     private ClickableWidget createValueWidget(SettingsRegistry.Option o, int x, int w) {
         switch (o.type) {
             case BOOL -> {
@@ -361,16 +330,13 @@ public final class OttoExtraSettingsScreen extends Screen {
             }
         }
     }
-
     private static final class OptionSlider extends net.minecraft.client.gui.widget.SliderWidget {
         private final SettingsRegistry.Option opt;
-
         OptionSlider(int x, int w, SettingsRegistry.Option o) {
             super(x, 0, w, 18, Text.empty(), normalized(o));
             this.opt = o;
             updateMessage();
         }
-
         private static double normalized(SettingsRegistry.Option o) {
             double v;
             try {
@@ -381,29 +347,24 @@ public final class OttoExtraSettingsScreen extends Screen {
             double span = o.max - o.min;
             return span <= 0 ? 0 : Math.max(0, Math.min(1, (v - o.min) / span));
         }
-
         private int current() {
             return (int) Math.round(opt.min + value * (opt.max - opt.min));
         }
-
         @Override
         protected void updateMessage() {
             setMessage(Text.literal(current() + "%"));
         }
-
         @Override
         protected void applyValue() {
             opt.set.accept(String.valueOf(current()));
         }
     }
-
     private static Text boolLabel(SettingsRegistry.Option o) {
         boolean on = Boolean.parseBoolean(o.get.get());
         return on
                 ? Text.translatable("ottoextra.settings.on").formatted(Formatting.GREEN)
                 : Text.translatable("ottoextra.settings.off").formatted(Formatting.RED);
     }
-
     private int buildBackupsPage(int y) {
         Row head = new Row();
         head.baseY = y;
@@ -415,7 +376,6 @@ public final class OttoExtraSettingsScreen extends Screen {
         head.height = 14 + head.descLines.size() * 10 + 4;
         rows.add(head);
         y += head.height;
-
         Row createRow = new Row();
         createRow.baseY = y;
         ButtonWidget create = ButtonWidget.builder(
@@ -432,7 +392,6 @@ public final class OttoExtraSettingsScreen extends Screen {
         addDrawableChild(create);
         rows.add(createRow);
         y += ROW_H + 4;
-
         for (OttoExtraBackupService.BackupEntry entry : OttoExtraBackupService.listBackups()) {
             Row row = new Row();
             row.baseY = y;
@@ -463,12 +422,10 @@ public final class OttoExtraSettingsScreen extends Screen {
         }
         return y;
     }
-
     private void status(String key, boolean warn) {
         statusMessage = Text.translatable(key).getString();
         statusWarn = warn;
     }
-
     private void layoutRows() {
         int top = contentTop();
         int bottom = contentBottom();
@@ -481,7 +438,6 @@ public final class OttoExtraSettingsScreen extends Screen {
             }
         }
     }
-
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontal,
                                  double vertical) {
@@ -493,7 +449,6 @@ public final class OttoExtraSettingsScreen extends Screen {
         }
         return super.mouseScrolled(mouseX, mouseY, horizontal, vertical);
     }
-
     @Override
     public boolean keyPressed(KeyInput input) {
         if (input.key() == GLFW.GLFW_KEY_S && input.hasCtrlOrCmd()) {
@@ -502,12 +457,10 @@ public final class OttoExtraSettingsScreen extends Screen {
         }
         return super.keyPressed(input);
     }
-
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
         super.render(ctx, mouseX, mouseY, delta);
         ctx.drawCenteredTextWithShadow(textRenderer, getTitle(), width / 2, 8, 0xFFFFFFFF);
-
         int top = contentTop();
         int bottom = contentBottom();
         ctx.enableScissor(0, top, width, bottom);
@@ -541,7 +494,6 @@ public final class OttoExtraSettingsScreen extends Screen {
             }
         }
         ctx.disableScissor();
-
         int visible = bottom - top;
         if (contentHeight > visible) {
             int x = contentX() + contentW() + 6;
@@ -551,7 +503,6 @@ public final class OttoExtraSettingsScreen extends Screen {
             ctx.fill(x, top, x + 4, bottom, 0x66000000);
             ctx.fill(x, barY, x + 4, barY + barH, 0xCC808080);
         }
-
         if (!statusMessage.isEmpty()) {
             ctx.drawTextWithShadow(textRenderer, Text.literal(statusMessage),
                     contentX(), bottom + 2, statusWarn ? COL_WARN : COL_STATUS);
@@ -565,7 +516,6 @@ public final class OttoExtraSettingsScreen extends Screen {
                     Text.translatable("ottoextra.settings.backup.missing"),
                     contentX(), 56, COL_WARN);
         }
-
         if (tabCompact && tabMenuOpen) {
             int iy = tabMenuY + 18;
             int n = tabLabels.size();
@@ -581,10 +531,8 @@ public final class OttoExtraSettingsScreen extends Screen {
                         cur ? COL_LABEL : 0xFFCCCCCC);
             }
         }
-
         de.ottoextra.regions.RegionNotificationOverlay.render(ctx, null);
     }
-
     private void selectModuleTab(int idx) {
         selectedModule = idx;
         selectedTab = 0;
@@ -595,7 +543,6 @@ public final class OttoExtraSettingsScreen extends Screen {
         }
         clearAndInit();
     }
-
     @Override
     public boolean mouseClicked(net.minecraft.client.gui.Click click, boolean doubled) {
         if (tabCompact && tabMenuOpen) {
@@ -608,18 +555,15 @@ public final class OttoExtraSettingsScreen extends Screen {
                 selectModuleTab((int) ((my - iy) / 16));
                 return true;
             }
-
             if (mx >= tabMenuX && mx <= tabMenuX + tabMenuW
                     && my >= tabMenuY && my < tabMenuY + 16) {
                 return super.mouseClicked(click, doubled);
             }
-
             tabMenuOpen = false;
             return true;
         }
         return super.mouseClicked(click, doubled);
     }
-
     @Override
     public boolean shouldPause() {
         return false;

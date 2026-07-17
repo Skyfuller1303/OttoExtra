@@ -1,33 +1,24 @@
 package de.ottoextra.letter.paste;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.ToIntFunction;
-
 public final class PageSplitter {
-
     private final int maxCharsPerLine;
     private final int maxLinesPerPage;
-
     private final ToIntFunction<String> widthFn;
     private final int maxWidthPx;
-
     private final int maxEffectiveChars;
-
     public PageSplitter(int maxCharsPerLine, int maxLinesPerPage) {
         this(Math.max(4, maxCharsPerLine), maxLinesPerPage, null, 0, 0);
     }
-
     public PageSplitter(ToIntFunction<String> widthFn, int maxWidthPx, int maxLinesPerPage) {
         this(widthFn, maxWidthPx, maxLinesPerPage, 0);
     }
-
     public PageSplitter(ToIntFunction<String> widthFn, int maxWidthPx, int maxLinesPerPage,
                         int maxEffectiveChars) {
         this(Integer.MAX_VALUE, maxLinesPerPage, widthFn, Math.max(8, maxWidthPx),
                 maxEffectiveChars);
     }
-
     private PageSplitter(int maxCharsPerLine, int maxLinesPerPage,
                          ToIntFunction<String> widthFn, int maxWidthPx, int maxEffectiveChars) {
         this.maxCharsPerLine = maxCharsPerLine;
@@ -36,15 +27,12 @@ public final class PageSplitter {
         this.maxWidthPx = maxWidthPx;
         this.maxEffectiveChars = maxEffectiveChars;
     }
-
     private boolean fits(String s) {
         return widthFn != null ? widthFn.applyAsInt(s) <= maxWidthPx : s.length() <= maxCharsPerLine;
     }
-
     private boolean wordTooLong(String w) {
         return widthFn != null ? widthFn.applyAsInt(w) > maxWidthPx : w.length() > maxCharsPerLine;
     }
-
     private int hardCut(String word) {
         if (widthFn == null) {
             return Math.min(maxCharsPerLine, word.length());
@@ -55,7 +43,6 @@ public final class PageSplitter {
         }
         return Math.max(1, i);
     }
-
     public List<String> split(String text) {
         List<String> lines = wrapLines(text);
         List<String> pages = new ArrayList<>();
@@ -86,7 +73,6 @@ public final class PageSplitter {
         }
         return pages;
     }
-
     public List<String> wrapLines(String text) {
         List<String> out = new ArrayList<>();
         for (String raw : text.split("\n", -1)) {
@@ -97,7 +83,6 @@ public final class PageSplitter {
             StringBuilder line = new StringBuilder();
             for (String word : raw.split(" ", -1)) {
                 while (wordTooLong(word)) {
-
                     if (line.length() > 0) {
                         out.add(line.toString());
                         line.setLength(0);

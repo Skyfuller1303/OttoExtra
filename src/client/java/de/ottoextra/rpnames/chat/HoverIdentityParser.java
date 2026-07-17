@@ -1,43 +1,32 @@
 package de.ottoextra.rpnames.chat;
-
 import de.ottoextra.rpnames.title.TitleRegistry;
 import net.minecraft.text.HoverEvent;
 import net.minecraft.text.Style;
 import net.minecraft.text.Text;
 import net.minecraft.text.TextColor;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-
 public final class HoverIdentityParser {
-
     public record ParsedIdentity(String accountName, String rpName, String title, String titleGroup) {
     }
-
     private static final java.util.regex.Pattern MC_NAME =
             java.util.regex.Pattern.compile("[A-Za-z0-9_]{3,16}");
-
     private final TitleRegistry titles;
-
     public HoverIdentityParser(TitleRegistry titles) {
         this.titles = titles;
     }
-
     public List<ParsedIdentity> parseMessage(Text message, boolean hoverHasAccount) {
         List<ParsedIdentity> out = new ArrayList<>(2);
         try {
             walk(message, out, hoverHasAccount);
         } catch (Throwable ignored) {
-
         }
         return out;
     }
-
     public List<ParsedIdentity> parseMessage(Text message) {
         return parseMessage(message, false);
     }
-
     private void walk(Text node, List<ParsedIdentity> out, boolean hoverHasAccount) {
         Style style = node.getStyle();
         if (style != null && style.getHoverEvent() instanceof HoverEvent.ShowText shown) {
@@ -53,7 +42,6 @@ public final class HoverIdentityParser {
             walk(sibling, out, hoverHasAccount);
         }
     }
-
     Optional<ParsedIdentity> parseHoverWithAccount(String visibleName, Text hover) {
         List<Segment> segments = firstLineSegments(hover);
         if (segments.isEmpty()) {
@@ -63,7 +51,6 @@ public final class HoverIdentityParser {
         if (firstLine.isEmpty()) {
             return Optional.empty();
         }
-
         int lastSpace = firstLine.lastIndexOf(' ');
         String account = lastSpace >= 0 ? firstLine.substring(lastSpace + 1).trim() : firstLine;
         String rawTitle = lastSpace >= 0 ? firstLine.substring(0, lastSpace).trim() : "";
@@ -81,7 +68,6 @@ public final class HoverIdentityParser {
                 title = rawTitle;
             }
         }
-
         String rpName = visibleName;
         Optional<TitleRegistry.ResolvedTitle> visTitle = titles.findPrefix(rpName);
         if (visTitle.isPresent()) {
@@ -95,13 +81,11 @@ public final class HoverIdentityParser {
         }
         return Optional.of(new ParsedIdentity(account, rpName, title, group));
     }
-
     private static boolean startsWithWord(String text, String prefix) {
         return text.length() > prefix.length()
                 && text.regionMatches(true, 0, prefix, 0, prefix.length())
                 && text.charAt(prefix.length()) == ' ';
     }
-
     private static String plainOwnText(Text node) {
         StringBuilder sb = new StringBuilder();
         node.getContent().visit(s -> {
@@ -110,7 +94,6 @@ public final class HoverIdentityParser {
         });
         return sb.toString();
     }
-
     Optional<ParsedIdentity> parseHover(String accountName, Text hover) {
         List<Segment> segments = firstLineSegments(hover);
         if (segments.isEmpty()) {
@@ -123,14 +106,12 @@ public final class HoverIdentityParser {
         String title = null;
         String group = null;
         String rpName;
-
         Optional<TitleRegistry.ResolvedTitle> known = titles.findPrefix(firstLine);
         if (known.isPresent()) {
             title = known.get().title();
             group = known.get().groupKey();
             rpName = stripPrefixWords(firstLine, title);
         } else if (segments.size() >= 2 && differentColors(segments.get(0), segments.get(1))) {
-
             String candidate = segments.get(0).text.trim();
             String rest = join(segments.subList(1, segments.size())).trim();
             if (!candidate.isEmpty() && !rest.isEmpty() && candidate.split(" ").length <= 2) {
@@ -142,16 +123,13 @@ public final class HoverIdentityParser {
         } else {
             rpName = firstLine;
         }
-
         rpName = rpName == null ? "" : rpName.trim();
         if (rpName.isEmpty() || rpName.equalsIgnoreCase(accountName)) {
             return Optional.empty();
         }
         return Optional.of(new ParsedIdentity(accountName, rpName, title, group));
     }
-
     private static String stripPrefixWords(String line, String title) {
-
         int words = title.split(" ").length;
         String[] parts = line.split(" ");
         if (parts.length <= words) {
@@ -159,17 +137,14 @@ public final class HoverIdentityParser {
         }
         return String.join(" ", java.util.Arrays.copyOfRange(parts, words, parts.length));
     }
-
     private record Segment(String text, TextColor color) {
     }
-
     private static boolean differentColors(Segment a, Segment b) {
         if (a.color == null && b.color == null) {
             return false;
         }
         return a.color == null || !a.color.equals(b.color);
     }
-
     private static String join(List<Segment> segments) {
         StringBuilder sb = new StringBuilder();
         for (Segment s : segments) {
@@ -177,7 +152,6 @@ public final class HoverIdentityParser {
         }
         return sb.toString();
     }
-
     private static List<Segment> firstLineSegments(Text hover) {
         List<Segment> out = new ArrayList<>(4);
         boolean[] stop = {false};

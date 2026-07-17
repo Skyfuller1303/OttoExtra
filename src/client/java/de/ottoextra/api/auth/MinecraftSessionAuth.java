@@ -1,15 +1,10 @@
 package de.ottoextra.api.auth;
-
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.session.Session;
-
 import java.util.function.Supplier;
-
 public final class MinecraftSessionAuth {
-
     private MinecraftSessionAuth() {
     }
-
     public static Supplier<SessionSnapshot> sessionSupplier() {
         return () -> {
             MinecraftClient client = MinecraftClient.getInstance();
@@ -26,7 +21,6 @@ public final class MinecraftSessionAuth {
                     session.getAccessToken());
         };
     }
-
     public static MojangSessionJoiner joiner() {
         return (uuid, accessToken, serverId) -> MinecraftClient.getInstance()
                 .getApiServices()

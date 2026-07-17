@@ -1,5 +1,4 @@
 package de.ottoextra.chat;
-
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
@@ -8,7 +7,6 @@ import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
 import de.ottoextra.OttoExtra;
 import de.ottoextra.config.OttoExtraPaths;
-
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -26,34 +24,26 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-
 public final class SkinCache {
-
     static final class Cached {
         String name;
         String value;
         String signature;
     }
-
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
     private static final Map<UUID, Cached> MAP = new ConcurrentHashMap<>();
     private static volatile boolean dirty;
-
     private static final Set<UUID> PNG_DONE = ConcurrentHashMap.newKeySet();
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10)).build();
-
     private SkinCache() {
     }
-
     private static Path file() {
         return OttoExtraPaths.cacheDir().resolve("skins.json");
     }
-
     public static Path pngDir() {
         return OttoExtraPaths.cacheDir().resolve("skins");
     }
-
     public static void load() {
         Path f = file();
         try {
@@ -71,13 +61,11 @@ public final class SkinCache {
                 });
             }
             OttoExtra.LOGGER.info("[skins] {} Skins aus Cache geladen.", MAP.size());
-
             MAP.forEach((uuid, c) -> ensurePng(uuid, c.value, false));
         } catch (Exception e) {
             OttoExtra.LOGGER.warn("[skins] skins.json unlesbar: {}", e.toString());
         }
     }
-
     public static void remember(GameProfile gp) {
         if (gp == null || gp.id() == null) {
             return;
@@ -99,7 +87,6 @@ public final class SkinCache {
         }
         ensurePng(gp.id(), prop.value(), changed);
     }
-
     private static void ensurePng(UUID uuid, String base64Value, boolean changed) {
         if (uuid == null || base64Value == null) {
             return;
@@ -132,7 +119,6 @@ public final class SkinCache {
             }
         });
     }
-
     public static GameProfile profileFor(UUID uuid, String name) {
         Cached c = uuid != null ? MAP.get(uuid) : null;
         String n = c != null && c.name != null && !c.name.isBlank() ? c.name : name;
@@ -142,14 +128,11 @@ public final class SkinCache {
         }
         return gp;
     }
-
     public static boolean has(UUID uuid) {
         return uuid != null && MAP.containsKey(uuid);
     }
-
     private static final Map<UUID, net.minecraft.entity.player.SkinTextures> LOADED =
             new ConcurrentHashMap<>();
-
     public static net.minecraft.entity.player.SkinTextures localSkin(UUID uuid) {
         if (uuid == null) {
             return null;
@@ -172,7 +155,6 @@ public final class SkinCache {
             net.minecraft.client.MinecraftClient.getInstance().getTextureManager().registerTexture(id,
                     new net.minecraft.client.texture.NativeImageBackedTexture(
                             () -> "ottoextra-skin-" + uuid, img));
-
             net.minecraft.entity.player.SkinTextures st = new net.minecraft.entity.player.SkinTextures(
                     new net.minecraft.util.AssetInfo.TextureAssetInfo(id, id), null, null, modelFor(uuid), true);
             LOADED.put(uuid, st);
@@ -182,7 +164,6 @@ public final class SkinCache {
             return null;
         }
     }
-
     private static net.minecraft.entity.player.PlayerSkinType modelFor(UUID uuid) {
         try {
             Cached c = MAP.get(uuid);
@@ -196,11 +177,9 @@ public final class SkinCache {
                 }
             }
         } catch (Throwable ignored) {
-
         }
         return net.minecraft.entity.player.PlayerSkinType.WIDE;
     }
-
     public static void flush() {
         if (!dirty) {
             return;
@@ -218,7 +197,6 @@ public final class SkinCache {
             OttoExtra.LOGGER.warn("[skins] skins.json speichern fehlgeschlagen: {}", e.toString());
         }
     }
-
     private static UUID parse(String s) {
         try {
             return UUID.fromString(s);

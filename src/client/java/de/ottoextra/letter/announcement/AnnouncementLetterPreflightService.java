@@ -1,36 +1,28 @@
 package de.ottoextra.letter.announcement;
-
 import de.ottoextra.letter.paste.PageSplitter;
 import de.ottoextra.letter.placeholder.LetterPlaceholderParser;
-
 import java.util.ArrayList;
 import java.util.List;
-
 public final class AnnouncementLetterPreflightService {
-
     public record PageCheck(int pageIndex, List<String> lines, int usedLines,
                             int maxLineLength, List<String> warnings, List<String> blockers) {
         public boolean ok() {
             return blockers.isEmpty();
         }
-
         public boolean clean() {
             return blockers.isEmpty() && warnings.isEmpty();
         }
     }
-
     public record Result(String draftId, int pageCount, int totalLines, int totalCharacters,
                          List<PageCheck> pages, List<String> blockers, List<String> warnings) {
         public boolean canSend() {
             return blockers.isEmpty();
         }
     }
-
     private final int safeLines;
     private final int safeChars;
     private final int hardLines;
     private final int hardChars;
-
     public AnnouncementLetterPreflightService(int safeLines, int safeChars,
                                               int hardLines, int hardChars) {
         this.safeLines = Math.max(1, safeLines);
@@ -38,7 +30,6 @@ public final class AnnouncementLetterPreflightService {
         this.hardLines = Math.max(this.safeLines, hardLines);
         this.hardChars = Math.max(this.safeChars, hardChars);
     }
-
     public Result check(String draftId, List<String> pageTexts) {
         PageSplitter wrapper = new PageSplitter(hardChars, Integer.MAX_VALUE);
         List<PageCheck> checks = new ArrayList<>();
@@ -94,7 +85,6 @@ public final class AnnouncementLetterPreflightService {
         return new Result(draftId, pageTexts.size(), totalLines, totalChars,
                 checks, blockers, warnings);
     }
-
     public List<String> optimize(List<String> pageTexts) {
         PageSplitter safe = new PageSplitter(safeChars, safeLines);
         List<String> out = new ArrayList<>();

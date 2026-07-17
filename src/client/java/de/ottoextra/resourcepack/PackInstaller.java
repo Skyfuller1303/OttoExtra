@@ -1,30 +1,22 @@
 package de.ottoextra.resourcepack;
-
 import de.ottoextra.OttoExtra;
 import de.ottoextra.config.OttoExtraPaths;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.resource.ResourcePackManager;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.LinkedHashSet;
-
 public final class PackInstaller {
-
     public static final String PACK_ID_PREFIX = "file/";
-
     private static volatile boolean pendingActivation = false;
     private static volatile boolean pendingPriorityTop = true;
-
     private PackInstaller() {
     }
-
     public static String packId() {
         return PACK_ID_PREFIX + OttoExtraPaths.serverPackFileName();
     }
-
     public static void install(Path temp) throws IOException {
         Path target = OttoExtraPaths.serverPackFile();
         Files.createDirectories(target.getParent());
@@ -34,21 +26,17 @@ public final class PackInstaller {
             Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
         }
     }
-
     public static void requestActivation(boolean priorityTop) {
         pendingPriorityTop = priorityTop;
         pendingActivation = true;
     }
-
     public static void clearPending() {
         pendingActivation = false;
     }
-
     public static void tick(MinecraftClient client) {
         if (!pendingActivation || client == null) {
             return;
         }
-
         if (client.currentScreen == null) {
             return;
         }
@@ -57,10 +45,8 @@ public final class PackInstaller {
                 return;
             }
         } catch (Throwable ignored) {
-
         }
         pendingActivation = false;
-
         String id = packId();
         try {
             if (!Files.exists(OttoExtraPaths.serverPackFile())) {
@@ -68,14 +54,12 @@ public final class PackInstaller {
             }
             ResourcePackManager rpm = client.getResourcePackManager();
             rpm.scanPacks();
-
             boolean inManager = rpm.getEnabledIds().contains(id);
             boolean inOptions = client.options.resourcePacks.contains(id);
             if (inManager && inOptions) {
                 OttoExtra.LOGGER.info("[resourcepack] Bereits aktiv: {} (kein Reload).", id);
                 return;
             }
-
             applyEnabled(client, id, pendingPriorityTop);
             client.reloadResources().whenComplete((v, t) -> {
                 if (t != null) {
@@ -90,7 +74,6 @@ public final class PackInstaller {
             rollback(client, id);
         }
     }
-
     private static void applyEnabled(MinecraftClient client, String id, boolean priorityTop) {
         ResourcePackManager rpm = client.getResourcePackManager();
         LinkedHashSet<String> enabled = new LinkedHashSet<>(rpm.getEnabledIds());
@@ -109,7 +92,6 @@ public final class PackInstaller {
         }
         client.options.write();
     }
-
     private static void rollback(MinecraftClient client, String id) {
         try {
             ResourcePackManager rpm = client.getResourcePackManager();

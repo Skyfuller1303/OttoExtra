@@ -1,5 +1,4 @@
 package de.ottoextra.map;
-
 import de.ottoextra.OttoExtra;
 import de.ottoextra.OttoExtraContext;
 import de.ottoextra.OttoExtraModule;
@@ -11,37 +10,28 @@ import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import org.lwjgl.glfw.GLFW;
-
 public final class MapModule implements OttoExtraModule {
-
     private static volatile boolean overlayVisible = true;
     private boolean minimapHooked = false;
-
     private KeyBinding toggleKey;
-
     @Override
     public String id() {
         return "map";
     }
-
     @Override
     public boolean enabled(OttoExtraConfig config) {
         return config.map.enabled;
     }
-
     @Override
     public void onInitializeClient(OttoExtraContext context) {
         OttoExtraConfig.Map cfg = context.config().map;
-
         if (!XaeroMapBridge.isWorldmapInstalled()) {
             OttoExtra.LOGGER.info("[map] Xaero World Map nicht installiert — Overlay inaktiv.");
         }
-
         PoliticalOverlay.setUserGroupColors(cfg.groupColors);
         PoliticalOverlay.setUserLehenColors(cfg.lehenColors);
         PoliticalOverlay.setUserFactionColors(cfg.factionColors);
         PoliticalOverlay.setGroupNameOverrides(cfg.groupNameOverrides);
-
         net.fabricmc.fabric.api.resource.ResourceManagerHelper
                 .get(net.minecraft.resource.ResourceType.CLIENT_RESOURCES)
                 .registerReloadListener(
@@ -50,16 +40,13 @@ public final class MapModule implements OttoExtraModule {
                             public net.minecraft.util.Identifier getFabricId() {
                                 return OttoExtra.id("painted_map_reload");
                             }
-
                             @Override
                             public void reload(net.minecraft.resource.ResourceManager manager) {
                                 PaintedMapRenderer.onResourceReload();
                             }
                         });
-
         PaintedWorldMapHook.install(cfg,
                 () -> overlayVisible && (!cfg.onlyOnOttonien || context.isOnOttonien()));
-
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
             if (!XaeroMapBridge.isWorldmapScreen(screen)) {
                 return;
@@ -69,10 +56,8 @@ public final class MapModule implements OttoExtraModule {
             }
             LehenPolygonStore.ensureLoaded();
             PoliticalOverlay.clearSelection();
-
             try {
                 var buttons = net.fabricmc.fabric.api.client.screen.v1.Screens.getButtons(screen);
-
                 int size = 20;
                 int bx = screen.width - 42;
                 int by = screen.height - 22;
@@ -87,7 +72,6 @@ public final class MapModule implements OttoExtraModule {
                     }
                 }
                 buttons.add(new PoliticalToggleButton(bx, by, size, context.config()));
-
                 if (context.config().map.showCalibrationArrows) {
                     int ns = 12;
                     int px0 = bx - 3 * ns - 6;
@@ -98,7 +82,6 @@ public final class MapModule implements OttoExtraModule {
                     buttons.add(new MapNudgeButton(px0 + 2 * ns, py0, ns, 1, 0, context.config()));
                     buttons.add(new MapNudgeButton(px0 + ns, py0 + ns, ns, 0, 1, context.config()));
                 }
-
                 buttons.removeIf(w -> {
                     String msg = w.getMessage() != null ? w.getMessage().getString() : "";
                     return msg.matches("(?i).*switch to (the )?(nether|overworld|end).*");
@@ -106,7 +89,6 @@ public final class MapModule implements OttoExtraModule {
             } catch (Throwable t) {
                 OttoExtra.LOGGER.debug("[map] Politik-Button nicht einfuegbar: {}", t.toString());
             }
-
             double[] press = {Double.NaN, Double.NaN};
             net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents.afterMouseClick(screen)
                     .register((s, click, handled) -> {
@@ -155,18 +137,15 @@ public final class MapModule implements OttoExtraModule {
                 try {
                     XaeroMapBridge.View view = XaeroMapBridge.view(s);
                     if (view != null) {
-
                         MapOverlayRenderer.render(drawContext, view, cfg, mouseX, mouseY);
                         ParchmentMapOverlay.render(drawContext, view, cfg);
                         MapSelectionPanel.render(drawContext, view, cfg);
                     }
                 } catch (Throwable t) {
-
                     OttoExtra.LOGGER.warn("[map] Overlay-Fehler: {}", t.toString());
                 }
             });
         });
-
         if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("xaerominimap")) {
             ClientTickEvents.END_CLIENT_TICK.register(client -> {
                 if (!minimapHooked) {
@@ -174,7 +153,6 @@ public final class MapModule implements OttoExtraModule {
                             cfg, () -> overlayVisible && (!cfg.onlyOnOttonien || context.isOnOttonien()));
                 }
             });
-
             net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback.EVENT.register(
                     (drawContext, tickCounter) -> {
                         if (!overlayVisible
@@ -186,7 +164,6 @@ public final class MapModule implements OttoExtraModule {
         } else {
             OttoExtra.LOGGER.info("[map] Xaero Minimap nicht installiert — Minimap-Grenzen inaktiv.");
         }
-
         toggleKey = new KeyBinding(
                 "key.ottoextra.map_toggle",
                 InputUtil.Type.KEYSYM,
@@ -195,7 +172,6 @@ public final class MapModule implements OttoExtraModule {
         KeyBindingHelper.registerKeyBinding(toggleKey);
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (toggleKey.wasPressed()) {
-
                 if (!XaeroMapBridge.isWorldmapScreen(client.currentScreen)) {
                     continue;
                 }
@@ -207,10 +183,8 @@ public final class MapModule implements OttoExtraModule {
                 }
             }
         });
-
         OttoExtra.LOGGER.info("[map] initialisiert (Xaero-Overlay: Grenzen/Namen/Wappen).");
     }
-
     private static boolean isOverButton(net.minecraft.client.gui.screen.Screen screen,
                                         double mouseX, double mouseY) {
         try {
@@ -220,16 +194,13 @@ public final class MapModule implements OttoExtraModule {
                 }
             }
         } catch (Throwable ignored) {
-
         }
         return false;
     }
-
     @Override
     public void onServerJoin(OttoExtraContext context) {
         LehenPolygonStore.ensureLoaded();
     }
-
     private static int keyCode(String translationKey, int fallback) {
         if (translationKey == null || translationKey.isBlank()) {
             return fallback;

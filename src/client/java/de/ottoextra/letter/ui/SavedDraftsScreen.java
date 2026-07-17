@@ -1,5 +1,4 @@
 package de.ottoextra.letter.ui;
-
 import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.letter.LetterDraft;
 import de.ottoextra.letter.LetterDraftCache;
@@ -11,14 +10,10 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
-
 import java.util.ArrayList;
 import java.util.List;
-
 public final class SavedDraftsScreen extends Screen {
-
     private static final int ROW_H = 12;
-
     private final Screen parent;
     private final OttoExtraConfig config;
     private final LetterDraft current;
@@ -27,26 +22,21 @@ public final class SavedDraftsScreen extends Screen {
     private String selectedId;
     private int scroll;
     private String status = "";
-
     public SavedDraftsScreen(Screen parent, OttoExtraConfig config, LetterDraft current) {
         super(Text.translatable("ottoextra.letter.drafts.title"));
         this.parent = parent;
         this.config = config;
         this.current = current;
     }
-
     private int listX() {
         return width / 2 - 100;
     }
-
     private int listTop() {
         return 70;
     }
-
     private int listBottom() {
         return height - 40;
     }
-
     @Override
     protected void init() {
         nameField = new TextFieldWidget(textRenderer, listX(), 36, 132, 18,
@@ -59,7 +49,6 @@ public final class SavedDraftsScreen extends Screen {
         addDrawableChild(ButtonWidget.builder(
                 Text.translatable("ottoextra.letter.drafts.save"), b -> saveCurrent())
                 .dimensions(listX() + 136, 36, 64, 18).build());
-
         addDrawableChild(ButtonWidget.builder(
                 Text.translatable("ottoextra.letter.drafts.load"), b -> loadSelected())
                 .dimensions(width / 2 - 154, height - 30, 100, 20).build());
@@ -70,13 +59,11 @@ public final class SavedDraftsScreen extends Screen {
                 .dimensions(width / 2 + 54, height - 30, 100, 20).build());
         reload();
     }
-
     private void reload() {
         saved.clear();
         saved.addAll(SavedDraftStore.list());
         scroll = 0;
     }
-
     private void saveCurrent() {
         if (current == null) {
             return;
@@ -86,7 +73,6 @@ public final class SavedDraftsScreen extends Screen {
         status = Text.translatable("ottoextra.letter.drafts.saved").getString();
         reload();
     }
-
     private void loadSelected() {
         if (selectedId == null) {
             return;
@@ -98,7 +84,6 @@ public final class SavedDraftsScreen extends Screen {
         LetterDraftCache.save(draft);
         MinecraftClient.getInstance().setScreen(new LetterEditorScreen(null, config));
     }
-
     private void deleteSelected() {
         if (selectedId == null) {
             return;
@@ -107,18 +92,15 @@ public final class SavedDraftsScreen extends Screen {
         selectedId = null;
         reload();
     }
-
     private int visibleRows() {
         return Math.max(1, (listBottom() - listTop()) / ROW_H);
     }
-
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
         scroll = Math.max(0, Math.min(scroll - (int) Math.signum(vertical) * 3,
                 Math.max(0, saved.size() - visibleRows())));
         return true;
     }
-
     @Override
     public boolean mouseClicked(Click click, boolean doubled) {
         if (click.button() == 0 && click.x() >= listX() && click.x() <= listX() + 200
@@ -134,14 +116,12 @@ public final class SavedDraftsScreen extends Screen {
         }
         return super.mouseClicked(click, doubled);
     }
-
     private static String rowLabel(LetterDraft d) {
         String name = d.meta.name == null || d.meta.name.isBlank()
                 ? Text.translatable("ottoextra.letter.drafts.unnamed").getString()
                 : d.meta.name;
         return Text.translatable("ottoextra.letter.drafts.row", name, d.pages.size()).getString();
     }
-
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
         super.render(ctx, mouseX, mouseY, delta);
@@ -171,7 +151,6 @@ public final class SavedDraftsScreen extends Screen {
                     listBottom() + 6, 0xFFB8A88F);
         }
     }
-
     @Override
     public void close() {
         MinecraftClient.getInstance().setScreen(parent);

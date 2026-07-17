@@ -1,8 +1,6 @@
 package de.ottoextra.api.model;
-
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-
 public record RegionInfo(
         String region_id,
         String name,
@@ -13,7 +11,6 @@ public record RegionInfo(
         String suggested_banner_path,
         Integer player_gathering
 ) {
-
     public String npcVillageLabel() {
         if (npc_village == null || npc_village.isJsonNull()) {
             return "";

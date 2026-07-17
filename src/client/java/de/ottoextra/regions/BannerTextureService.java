@@ -1,5 +1,4 @@
 package de.ottoextra.regions;
-
 import de.ottoextra.OttoExtra;
 import de.ottoextra.api.OttoExtraApiClient;
 import de.ottoextra.api.model.FactionRecord;
@@ -8,7 +7,6 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.texture.NativeImage;
 import net.minecraft.client.texture.NativeImageBackedTexture;
 import net.minecraft.util.Identifier;
-
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -18,22 +16,16 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-
 public final class BannerTextureService {
-
     private static final byte[] PNG_MAGIC = {(byte) 0x89, 'P', 'N', 'G'};
-
     private final OttoExtraApiClient api;
     private final Map<String, Identifier> texturesByUuid = new ConcurrentHashMap<>();
     private final Set<String> inFlight = ConcurrentHashMap.newKeySet();
     private final Set<String> failed = ConcurrentHashMap.newKeySet();
-
     private final Set<String> refreshedThisSession = ConcurrentHashMap.newKeySet();
-
     public BannerTextureService(OttoExtraApiClient api) {
         this.api = api;
     }
-
     public Optional<Identifier> bannerFor(FactionRecord faction) {
         if (faction == null || faction.uuid() == null || faction.uuid().isBlank()) {
             return Optional.empty();
@@ -47,18 +39,15 @@ public final class BannerTextureService {
         if (failed.contains(uuid) || !inFlight.add(uuid)) {
             return Optional.empty();
         }
-
         Path cached = OttoExtraPaths.bannersCache().resolve(uuid + ".png");
         if (Files.exists(cached)) {
             registerFromDisk(uuid, cached);
             maybeRefresh(uuid, faction.effectiveBannerPath());
             return Optional.empty();
         }
-
         String relative = faction.effectiveBannerPath();
         if ((relative == null || relative.isBlank())
                 && faction.banner_name() != null && !faction.banner_name().isBlank()) {
-
             Identifier bundled = bundledBanner(faction.banner_name());
             inFlight.remove(uuid);
             if (bundled != null) {
@@ -70,7 +59,6 @@ public final class BannerTextureService {
         }
         return startDownload(uuid, relative);
     }
-
     public Optional<Identifier> bannerForPath(String cacheKey, String relativePath) {
         if (cacheKey == null || cacheKey.isBlank()
                 || relativePath == null || relativePath.isBlank()) {
@@ -93,7 +81,6 @@ public final class BannerTextureService {
         }
         return startDownload(key, relativePath);
     }
-
     private Optional<Identifier> startDownload(String uuid, String relative) {
         Path cached = OttoExtraPaths.bannersCache().resolve(uuid + ".png");
         URI uri = api.routes().resolveRelative(relative);
@@ -126,7 +113,6 @@ public final class BannerTextureService {
         });
         return Optional.empty();
     }
-
     private void maybeRefresh(String key, String relativePath) {
         if (relativePath == null || relativePath.isBlank()
                 || !refreshedThisSession.add(key)) {
@@ -158,17 +144,14 @@ public final class BannerTextureService {
             registerBytes(key, bytes);
         });
     }
-
     private static void writeSourceMarker(String key, String relativePath) {
         try {
             Path src = OttoExtraPaths.bannersCache().resolve(key + ".src");
             Files.createDirectories(src.getParent());
             Files.writeString(src, relativePath == null ? "" : relativePath);
         } catch (Exception ignored) {
-
         }
     }
-
     private static Identifier bundledBanner(String bannerName) {
         String stem = RegionNameKeys.sanitizeFileStem(bannerName).toLowerCase(Locale.ROOT);
         Identifier id = OttoExtra.id("textures/banners/custom_" + stem + ".png");
@@ -176,7 +159,6 @@ public final class BannerTextureService {
                 .getResource(id).isPresent();
         return exists ? id : null;
     }
-
     private void registerFromDisk(String uuid, Path file) {
         try {
             byte[] bytes = Files.readAllBytes(file);
@@ -191,7 +173,6 @@ public final class BannerTextureService {
             failed.add(uuid);
         }
     }
-
     private void registerBytes(String uuid, byte[] bytes) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client == null) {
@@ -214,7 +195,6 @@ public final class BannerTextureService {
             }
         });
     }
-
     private static boolean isPng(byte[] bytes) {
         if (bytes == null || bytes.length < PNG_MAGIC.length) {
             return false;

@@ -1,10 +1,8 @@
 package de.ottoextra.api.auth;
-
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import de.ottoextra.OttoExtra;
 import de.ottoextra.api.ApiProblem;
-
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -17,13 +15,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
-
 public final class ApiAuthService {
-
     static final Duration FAILURE_BACKOFF = Duration.ofMinutes(5);
-
     static final Duration NOT_DEPLOYED_BACKOFF = Duration.ofMinutes(30);
-
     private final HttpClient http;
     private final Duration requestTimeout;
     private final URI challengeUri;
@@ -33,12 +27,9 @@ public final class ApiAuthService {
     private final MojangSessionJoiner joiner;
     private final ResponseVerifier verifier;
     private final Clock clock;
-
     private volatile ApiToken token;
-
     private final AtomicReference<CompletableFuture<ApiToken>> pending = new AtomicReference<>();
     private volatile Instant backoffUntil = Instant.EPOCH;
-
     public ApiAuthService(HttpClient http,
                           Duration requestTimeout,
                           URI challengeUri,
@@ -58,7 +49,6 @@ public final class ApiAuthService {
         this.verifier = verifier;
         this.clock = clock;
     }
-
     public CompletableFuture<ApiToken> tokenAsync() {
         ApiToken current = token;
         if (current != null && current.usable(clock.instant())) {
@@ -93,20 +83,16 @@ public final class ApiAuthService {
                 });
         return attempt;
     }
-
     public void invalidate() {
         token = null;
     }
-
     public boolean backedOff() {
         return clock.instant().isBefore(backoffUntil);
     }
-
     private ApiToken handshakeWithRetry() {
         try {
             return handshakeOnce();
         } catch (ChallengeExpiredException first) {
-
             try {
                 return handshakeOnce();
             } catch (ChallengeExpiredException second) {
@@ -114,15 +100,12 @@ public final class ApiAuthService {
             }
         }
     }
-
     private ApiToken handshakeOnce() {
         SessionSnapshot session = sessionSupplier.get();
         if (session == null || !session.valid()) {
-
             OttoExtra.LOGGER.info("[api/auth] keine gültige Session — Offline-Modus");
             throw ApiProblem.badRequest("Keine gültige Minecraft-Session").toException();
         }
-
         JsonObject challengeRequest = new JsonObject();
         challengeRequest.addProperty("username", session.username());
         challengeRequest.addProperty("uuid", session.uuid().toString());
@@ -131,15 +114,12 @@ public final class ApiAuthService {
         if (serverId == null || serverId.isBlank()) {
             throw ApiProblem.parse(challengeUri, "serverId fehlt").toException();
         }
-
         try {
-
             joiner.joinServer(session.uuid(), session.accessToken(), serverId);
         } catch (Exception e) {
             OttoExtra.LOGGER.info("[api/auth] keine gültige Session — Offline-Modus");
             throw ApiProblem.offline(challengeUri, "joinServer: " + e.getClass().getSimpleName()).toException();
         }
-
         JsonObject verifyRequest = new JsonObject();
         verifyRequest.addProperty("username", session.username());
         verifyRequest.addProperty("serverId", serverId);
@@ -155,7 +135,6 @@ public final class ApiAuthService {
             throw ApiProblem.parse(verifyUri, "expiresAt unlesbar").toException();
         }
     }
-
     private JsonObject postJson(URI uri, JsonObject body) {
         HttpRequest request = HttpRequest.newBuilder(uri)
                 .timeout(requestTimeout)
@@ -186,7 +165,6 @@ public final class ApiAuthService {
             throw ApiProblem.parse(uri, "Antwort kein JSON-Objekt").toException();
         }
     }
-
     private static Duration backoffFor(Throwable error) {
         Throwable cause = error.getCause() != null ? error.getCause() : error;
         if (cause instanceof ApiProblem.ApiException api
@@ -196,7 +174,6 @@ public final class ApiAuthService {
         }
         return FAILURE_BACKOFF;
     }
-
     private static String summarize(Throwable error) {
         Throwable cause = error.getCause() != null ? error.getCause() : error;
         if (cause instanceof ApiProblem.ApiException api) {
@@ -204,7 +181,6 @@ public final class ApiAuthService {
         }
         return cause.getClass().getSimpleName();
     }
-
     private static final class ChallengeExpiredException extends RuntimeException {
     }
 }

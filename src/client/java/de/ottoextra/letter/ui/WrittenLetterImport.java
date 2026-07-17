@@ -1,5 +1,4 @@
 package de.ottoextra.letter.ui;
-
 import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.letter.LetterDraft;
 import de.ottoextra.letter.LetterDraftCache;
@@ -14,18 +13,14 @@ import net.minecraft.text.Text;
 import net.minecraft.text.TextColor;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.Hand;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
-
 public final class WrittenLetterImport {
-
     private WrittenLetterImport() {
     }
-
     public static ItemStack heldWrittenBookStack() {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player == null) {
@@ -39,7 +34,6 @@ public final class WrittenLetterImport {
         }
         return null;
     }
-
     public static boolean isOwn(ItemStack stack) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (stack == null || client.player == null) {
@@ -50,11 +44,9 @@ public final class WrittenLetterImport {
             return false;
         }
         String needle = me.toLowerCase(Locale.ROOT);
-
         if (containsIgnoreCase(stack.getName(), needle)) {
             return true;
         }
-
         LoreComponent lore = stack.get(DataComponentTypes.LORE);
         if (lore != null) {
             for (Text line : lore.lines()) {
@@ -63,17 +55,14 @@ public final class WrittenLetterImport {
                 }
             }
         }
-
         WrittenBookContentComponent book = stack.get(DataComponentTypes.WRITTEN_BOOK_CONTENT);
         return book != null && book.author() != null
                 && book.author().toLowerCase(Locale.ROOT).contains(needle);
     }
-
     private static boolean containsIgnoreCase(Text text, String needleLower) {
         return text != null
                 && text.getString().toLowerCase(Locale.ROOT).contains(needleLower);
     }
-
     private static String localAccountName() {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player != null && client.player.getGameProfile() != null) {
@@ -84,7 +73,6 @@ public final class WrittenLetterImport {
         }
         return client.getSession() != null ? client.getSession().getUsername() : null;
     }
-
     public static void editInEditor(OttoExtraConfig config, ItemStack stack) {
         WrittenBookContentComponent book = stack == null
                 ? null : stack.get(DataComponentTypes.WRITTEN_BOOK_CONTENT);
@@ -92,22 +80,18 @@ public final class WrittenLetterImport {
         draft.meta.draftId = UUID.randomUUID().toString().substring(0, 8);
         draft.meta.importedFromBook = true;
         draft.meta.pagesOneToOne = false;
-
         List<String> imported = book == null ? new ArrayList<>() : toSectionPages(book);
         List<String> pages = repaginate(config, imported);
-
         int last = pages.size() - 1;
         String content = pages.get(last);
         String withBlank = content.isEmpty() ? "" : content + "\n";
         pages.set(last, withBlank);
-
         draft.pages = pages;
         draft.meta.lockedPages = last;
         draft.meta.lockedOffset = withBlank.length();
         LetterDraftCache.save(draft);
         MinecraftClient.getInstance().setScreen(new LetterEditorScreen(null, config));
     }
-
     private static List<String> repaginate(OttoExtraConfig config, List<String> imported) {
         var tr = MinecraftClient.getInstance().textRenderer;
         if (tr == null || imported.isEmpty()) {
@@ -119,10 +103,8 @@ public final class WrittenLetterImport {
         }
         int maxLines = "PAGE".equalsIgnoreCase(config.letter.sendMode)
                 ? config.letter.pageModeMaxLinesPerPage : config.letter.maxLinesPerPage;
-
         PageSplitter sp = new PageSplitter(tr::getWidth, 108, maxLines,
                 config.letter.pageModeEffectiveCharBudget);
-
         String joined = String.join("\n", imported);
         String[] rawLines = joined.split("\n", -1);
         StringBuilder norm = new StringBuilder();
@@ -139,7 +121,6 @@ public final class WrittenLetterImport {
         }
         return pages;
     }
-
     public static List<String> toSectionPages(WrittenBookContentComponent book) {
         List<String> out = new ArrayList<>();
         for (Text page : book.getPages(false)) {
@@ -147,7 +128,6 @@ public final class WrittenLetterImport {
         }
         return out;
     }
-
     private static String toSection(Text page) {
         StringBuilder sb = new StringBuilder();
         boolean[] prevFormatted = {false};
@@ -166,7 +146,6 @@ public final class WrittenLetterImport {
         }, Style.EMPTY);
         return sb.toString();
     }
-
     private static String codesFor(Style s) {
         StringBuilder c = new StringBuilder();
         TextColor col = s.getColor();
@@ -193,7 +172,6 @@ public final class WrittenLetterImport {
         }
         return c.toString();
     }
-
     private static Formatting colorToFormatting(TextColor col) {
         int rgb = col.getRgb();
         for (Formatting f : Formatting.values()) {

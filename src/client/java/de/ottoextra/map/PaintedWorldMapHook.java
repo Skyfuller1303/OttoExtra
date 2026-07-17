@@ -1,24 +1,17 @@
 package de.ottoextra.map;
-
 import de.ottoextra.OttoExtra;
 import de.ottoextra.config.OttoExtraConfig;
 import net.minecraft.client.gui.screen.Screen;
-
 import java.util.function.BooleanSupplier;
-
 public final class PaintedWorldMapHook {
-
     private static volatile OttoExtraConfig.Map cfg;
     private static volatile BooleanSupplier visible;
-
     private PaintedWorldMapHook() {
     }
-
     public static void install(OttoExtraConfig.Map config, BooleanSupplier visibleCheck) {
         cfg = config;
         visible = visibleCheck;
     }
-
     public static void renderUnderElements(Screen screen) {
         OttoExtraConfig.Map c = cfg;
         BooleanSupplier v = visible;

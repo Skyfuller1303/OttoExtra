@@ -1,21 +1,16 @@
 package de.ottoextra.config;
-
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
-
 public final class OttoExtraAdvancedScreen extends Screen {
-
     private record Field(String labelKey, Supplier<String> get, Consumer<String> set) {
     }
-
     private final Screen parent;
     private final OttoExtraConfig config;
     private final List<Field> fields;
@@ -23,7 +18,6 @@ public final class OttoExtraAdvancedScreen extends Screen {
     private final List<TextFieldWidget> inputs = new ArrayList<>();
     private final List<Integer> baseYs = new ArrayList<>();
     private int scrollOffset = 0;
-
     private OttoExtraAdvancedScreen(Screen parent, OttoExtraConfig config,
                                     Text title, List<Field> fields, boolean withPreview) {
         super(title);
@@ -32,7 +26,6 @@ public final class OttoExtraAdvancedScreen extends Screen {
         this.fields = fields;
         this.withPreview = withPreview;
     }
-
     public static OttoExtraAdvancedScreen regions(Screen parent, OttoExtraConfig c) {
         List<Field> f = new ArrayList<>();
         f.add(intField("ottoextra.adv.maxTextWidth", () -> c.regions.maxTextWidth, v -> c.regions.maxTextWidth = v, 50, 800));
@@ -53,7 +46,6 @@ public final class OttoExtraAdvancedScreen extends Screen {
         return new OttoExtraAdvancedScreen(parent, c,
                 Text.translatable("ottoextra.config.advanced.regions"), f, true);
     }
-
     public static OttoExtraAdvancedScreen resourcepack(Screen parent, OttoExtraConfig c) {
         List<Field> f = new ArrayList<>();
         f.add(new Field("ottoextra.adv.manifestUrl",
@@ -70,7 +62,6 @@ public final class OttoExtraAdvancedScreen extends Screen {
         return new OttoExtraAdvancedScreen(parent, c,
                 Text.translatable("ottoextra.config.advanced.resourcepack"), f, false);
     }
-
     public static OttoExtraAdvancedScreen nametags(Screen parent, OttoExtraConfig c) {
         List<Field> f = new ArrayList<>();
         f.add(floatField("ottoextra.adv.tagTitleScale",
@@ -86,7 +77,6 @@ public final class OttoExtraAdvancedScreen extends Screen {
         return new OttoExtraAdvancedScreen(parent, c,
                 Text.translatable("ottoextra.config.advanced.nametags"), f, false);
     }
-
     public static OttoExtraAdvancedScreen map(Screen parent, OttoExtraConfig c) {
         List<Field> f = new ArrayList<>();
         f.add(doubleField("ottoextra.adv.nameMinScale",
@@ -146,7 +136,6 @@ public final class OttoExtraAdvancedScreen extends Screen {
         return new OttoExtraAdvancedScreen(parent, c,
                 Text.translatable("ottoextra.config.advanced.map"), f, false);
     }
-
     private static Field doubleField(String key, Supplier<Double> get, Consumer<Double> set,
                                      double min, double max) {
         return new Field(key, () -> String.format(java.util.Locale.ROOT, "%.3f", get.get()), raw -> {
@@ -156,11 +145,9 @@ public final class OttoExtraAdvancedScreen extends Screen {
                     set.accept(v);
                 }
             } catch (NumberFormatException ignored) {
-
             }
         });
     }
-
     private static Field floatField(String key, Supplier<Float> get, Consumer<Float> set) {
         return new Field(key, () -> String.format(java.util.Locale.ROOT, "%.2f", get.get()), raw -> {
             try {
@@ -169,11 +156,9 @@ public final class OttoExtraAdvancedScreen extends Screen {
                     set.accept(v);
                 }
             } catch (NumberFormatException ignored) {
-
             }
         });
     }
-
     private static Field intField(String key, Supplier<Integer> get, Consumer<Integer> set, int min, int max) {
         return new Field(key, () -> Integer.toString(get.get()), raw -> {
             try {
@@ -182,45 +167,35 @@ public final class OttoExtraAdvancedScreen extends Screen {
                     set.accept(v);
                 }
             } catch (NumberFormatException ignored) {
-
             }
         });
     }
-
     private int panelX() {
         return Math.max(8, (width - panelW()) / 2);
     }
-
     private int panelY() {
         return Math.max(8, (height - panelH()) / 2);
     }
-
     private int panelW() {
         return Math.min(width - 16, 420);
     }
-
     private int panelH() {
-
         int cols = fields.size() > 6 ? 2 : 1;
         int rows = (fields.size() + cols - 1) / cols;
         return Math.min(height - 16, 26 + rows * 22 + 34);
     }
-
     private int viewTop() {
         return panelY() + 24;
     }
-
     private int viewBottom() {
         return panelY() + panelH() - 30;
     }
-
     private int maxScroll() {
         int cols = fields.size() > 6 ? 2 : 1;
         int rows = (fields.size() + cols - 1) / cols;
         int contentBottom = panelY() + 26 + rows * 22;
         return Math.max(0, contentBottom - viewBottom());
     }
-
     private void applyScroll() {
         scrollOffset = Math.max(0, Math.min(scrollOffset, maxScroll()));
         for (int i = 0; i < inputs.size(); i++) {
@@ -230,7 +205,6 @@ public final class OttoExtraAdvancedScreen extends Screen {
             w.visible = y >= viewTop() - 2 && y + 18 <= viewBottom() + 4;
         }
     }
-
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
         if (maxScroll() > 0
@@ -242,7 +216,6 @@ public final class OttoExtraAdvancedScreen extends Screen {
         }
         return super.mouseScrolled(mouseX, mouseY, horizontal, vertical);
     }
-
     @Override
     protected void init() {
         inputs.clear();
@@ -252,7 +225,6 @@ public final class OttoExtraAdvancedScreen extends Screen {
         int fieldW = 70;
         int rowH = 22;
         int startY = panelY() + 26;
-
         for (int i = 0; i < fields.size(); i++) {
             Field field = fields.get(i);
             int col = i % cols;
@@ -261,7 +233,6 @@ public final class OttoExtraAdvancedScreen extends Screen {
             int y = startY + row * rowH;
             boolean wide = cols == 1;
             int fw = wide ? Math.min(220, colW - 4) : fieldW;
-
             TextFieldWidget input = new TextFieldWidget(textRenderer,
                     x + colW - fw - 6, y, fw, 18, Text.translatable(field.labelKey()));
             input.setMaxLength(256);
@@ -271,50 +242,42 @@ public final class OttoExtraAdvancedScreen extends Screen {
             addDrawableChild(input);
         }
         applyScroll();
-
         int bw = 100;
         addDrawableChild(ButtonWidget.builder(Text.translatable("gui.done"), b -> saveAndClose())
                 .dimensions(panelX() + panelW() - bw - 8, panelY() + panelH() - 26, bw, 18).build());
         addDrawableChild(ButtonWidget.builder(Text.translatable("gui.cancel"), b -> client.setScreen(parent))
                 .dimensions(panelX() + 8, panelY() + panelH() - 26, bw, 18).build());
         if (withPreview) {
-
             addDrawableChild(ButtonWidget.builder(Text.translatable("ottoextra.config.preview"), b -> {
                 applyFields();
                 OttoExtraConfigScreen.triggerPreview();
             }).dimensions(panelX() + (panelW() - bw) / 2, panelY() + panelH() - 26, bw, 18).build());
         }
     }
-
     private void applyFields() {
         for (int i = 0; i < fields.size(); i++) {
             fields.get(i).set().accept(inputs.get(i).getText());
         }
         config.repair();
     }
-
     private void saveAndClose() {
         applyFields();
         config.save();
         client.setScreen(parent);
     }
-
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
         int px = panelX();
         int py = panelY();
         int pw = panelW();
         int ph = panelH();
-
         ctx.fill(px - 2, py - 2, px + pw + 2, py + ph + 2, OttoExtraConfigScreen.COL_BORDER);
         ctx.fill(px, py, px + pw, py + ph, OttoExtraConfigScreen.COL_PANEL);
         ctx.fill(px, py, px + pw, py + 1, OttoExtraConfigScreen.COL_INNER_TL);
         ctx.fill(px, py, px + 1, py + ph, OttoExtraConfigScreen.COL_INNER_TL);
         ctx.fill(px, py + ph - 1, px + pw, py + ph, OttoExtraConfigScreen.COL_INNER_BR);
         ctx.fill(px + pw - 1, py, px + pw, py + ph, OttoExtraConfigScreen.COL_INNER_BR);
-
         ctx.drawText(textRenderer, title, px + 8, py + 9, OttoExtraConfigScreen.COL_TITLE, false);
-
         int cols = fields.size() > 6 ? 2 : 1;
         int colW = (pw - 24) / cols;
         int rowH = 22;
@@ -331,7 +294,6 @@ public final class OttoExtraAdvancedScreen extends Screen {
                     textRenderer.trimToWidth(Text.translatable(fields.get(i).labelKey()).getString(), colW - 84),
                     x, y, OttoExtraConfigScreen.COL_TEXT, false);
         }
-
         int ms = maxScroll();
         if (ms > 0) {
             int trackX = px + pw - 5;
@@ -342,15 +304,11 @@ public final class OttoExtraAdvancedScreen extends Screen {
             int thumbY = trackTop + (trackH - thumbH) * scrollOffset / ms;
             ctx.fill(trackX, thumbY, trackX + 3, thumbY + thumbH, OttoExtraConfigScreen.COL_BORDER);
         }
-
         super.render(ctx, mouseX, mouseY, delta);
-
         if (withPreview) {
-
             de.ottoextra.regions.RegionNotificationOverlay.render(ctx, null);
         }
     }
-
     @Override
     public void close() {
         client.setScreen(parent);

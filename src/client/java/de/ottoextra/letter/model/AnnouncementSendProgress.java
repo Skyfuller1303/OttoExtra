@@ -1,8 +1,6 @@
 package de.ottoextra.letter.model;
-
 import java.util.ArrayList;
 import java.util.List;
-
 public final class AnnouncementSendProgress {
     public String draftId = "";
     public String totalChecksum = "";

@@ -1,32 +1,22 @@
 package de.ottoextra.resourcepack;
-
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import de.ottoextra.OttoExtra;
 import de.ottoextra.config.OttoExtraPaths;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-
 public final class PackState {
-
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
-
     public String version;
     public String sha256;
     public String etag;
-
     public String installedAt;
-
     public String lastCheckedAt;
-
     public String remoteVersion;
-
     public boolean enabled = true;
-
     public static PackState load() {
         Path file = OttoExtraPaths.resourcepackState();
         if (Files.exists(file)) {
@@ -41,7 +31,6 @@ public final class PackState {
         }
         return new PackState();
     }
-
     public void save() {
         Path file = OttoExtraPaths.resourcepackState();
         try {
@@ -57,7 +46,6 @@ public final class PackState {
             OttoExtra.LOGGER.error("[resourcepack] state.json speichern fehlgeschlagen: {}", e.getMessage());
         }
     }
-
     public boolean matchesSha(String otherSha) {
         return sha256 != null && otherSha != null && sha256.equalsIgnoreCase(otherSha);
     }

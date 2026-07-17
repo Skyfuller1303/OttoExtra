@@ -1,37 +1,25 @@
 package de.ottoextra.letter.format;
-
 import java.util.LinkedHashSet;
-
 public final class LetterFormattingCodes {
-
     public static final char SECTION = '§';
-
     public static final char AMPERSAND = '&';
-
     private static final String COLORS = "0123456789abcdef";
     private static final String STYLES = "klmnor";
-
     private static final String VALID = COLORS + STYLES;
-
     private LetterFormattingCodes() {
     }
-
     public static boolean isColor(char c) {
         return COLORS.indexOf(Character.toLowerCase(c)) >= 0;
     }
-
     public static boolean isValidCode(char c) {
         return VALID.indexOf(Character.toLowerCase(c)) >= 0;
     }
-
     public static String sectionToAmpersand(String input) {
         return convertPrefix(input, SECTION, AMPERSAND);
     }
-
     public static String ampersandToSection(String input) {
         return convertPrefix(input, AMPERSAND, SECTION);
     }
-
     private static String convertPrefix(String input, char from, char to) {
         if (input == null || input.isEmpty()) {
             return input == null ? "" : input;
@@ -47,7 +35,6 @@ public final class LetterFormattingCodes {
         }
         return out.toString();
     }
-
     public static String activePrefixBefore(String document, int index) {
         if (document == null || document.isEmpty()) {
             return "";
@@ -80,11 +67,9 @@ public final class LetterFormattingCodes {
         }
         return out.toString();
     }
-
     public static String resetAndRestoreAt(String document, int index) {
         return String.valueOf(SECTION) + 'r' + activePrefixBefore(document, index);
     }
-
     public static int visibleLength(String s) {
         if (s == null || s.isEmpty()) {
             return 0;

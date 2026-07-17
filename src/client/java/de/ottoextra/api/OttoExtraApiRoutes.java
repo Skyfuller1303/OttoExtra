@@ -1,21 +1,15 @@
 package de.ottoextra.api;
-
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-
 public final class OttoExtraApiRoutes {
-
     private static final String DEFAULT_BASE_URL = "https://api.ottoextra.dev";
     private static final String LEGACY_BASE_URL = "https://regions.skyfuller.de";
-
     private final String base;
-
     public OttoExtraApiRoutes(String baseUrl) {
         String b = (baseUrl == null || baseUrl.isBlank())
                 ? DEFAULT_BASE_URL
                 : baseUrl.trim();
-
         if (b.startsWith("http://")) {
             b = "https://" + b.substring("http://".length());
         }
@@ -24,108 +18,82 @@ public final class OttoExtraApiRoutes {
         }
         this.base = migrateLegacyUrl(b);
     }
-
     private URI action(String action) {
         return URI.create(base + "/api/index.php?action=" + action);
     }
-
     private URI action(String action, String key, String value) {
         return URI.create(base + "/api/index.php?action=" + action
                 + "&" + key + "=" + enc(value));
     }
-
     private static String enc(String v) {
         return URLEncoder.encode(v == null ? "" : v, StandardCharsets.UTF_8);
     }
-
     public URI bootstrap() {
         return action("public-bootstrap");
     }
-
     public URI sync(long since) {
         return action("public-sync", "since", Long.toString(since));
     }
-
     public URI regionList() {
         return action("public-region-list");
     }
-
     public URI faction(String uuid) {
         return action("public-faction", "uuid", uuid);
     }
-
     public URI factionPlayers(String factionUuid) {
         return action("public-faction-players", "uuid", factionUuid);
     }
-
     public URI player(String uuid) {
         return action("public-player", "uuid", uuid);
     }
-
     public URI regionByName(String name) {
         return action("public-region", "name", name);
     }
-
     public URI compactPlayers() {
         return action("public-player-compact");
     }
-
     public URI playerHeadInfo(String uuid) {
         return action("public-player-head-info", "uuid", uuid);
     }
-
     public URI playerHead(String uuid) {
         return action("public-player-head", "uuid", uuid);
     }
-
     public URI communityParticipantRpName() {
         return action("community-participant-rp-name");
     }
-
     private URI v2(String path) {
         return URI.create(base + "/v2/" + path);
     }
-
     public URI v2AuthChallenge() {
         return v2("auth/challenge");
     }
-
     public URI v2AuthVerify() {
         return v2("auth/verify");
     }
-
     public URI v2Bootstrap() {
         return v2("bootstrap");
     }
-
     public URI v2Sync(long since) {
         return v2("sync?since=" + since);
     }
-
     public URI v2RegionList() {
         return v2("region-list");
     }
-
     public URI v2Faction(String uuid) {
         return v2("faction/" + enc(uuid));
     }
-
     public URI v2FactionPlayers(String factionUuid) {
         return v2("faction/" + enc(factionUuid) + "/players");
     }
-
     public URI v2Player(String uuid) {
         return v2("player/" + enc(uuid));
     }
-
     public URI v2RegionByName(String name) {
         return v2("region/" + enc(name));
     }
-
     public URI v2CompactPlayers() {
         return v2("player-compact");
     }
-
     public URI resolveRelative(String relativePath) {
         if (relativePath == null || relativePath.isBlank()) {
             return null;
@@ -136,11 +104,9 @@ public final class OttoExtraApiRoutes {
         String p = relativePath.startsWith("/") ? relativePath : "/" + relativePath;
         return URI.create(base + p);
     }
-
     public String baseUrl() {
         return base;
     }
-
     private static String migrateLegacyUrl(String url) {
         if (url.equalsIgnoreCase(LEGACY_BASE_URL)) {
             return DEFAULT_BASE_URL;

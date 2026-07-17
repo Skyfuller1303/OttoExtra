@@ -1,5 +1,4 @@
 package de.ottoextra.rpnames.inspect;
-
 import net.minecraft.block.BlockState;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.LoreComponent;
@@ -10,59 +9,40 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.registry.Registries;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-
-/**
- * Liefert kurze, rein clientseitig ableitbare Informationen zu Gegenstaenden.
- * Custom-Name und vorhandene Lore haben immer Vorrang vor allgemeinen
- * OttoExtra-Kategorietexten. Es werden keine versteckten Serverdaten gelesen.
- */
 final class ItemInspectionDescriptions {
-
     private static final int MAX_LORE_LINES = 2;
     private static final int MAX_VISIBLE_CHARS = 54;
     private static final int MAX_DETAIL_LINES = 5;
-
     private ItemInspectionDescriptions() {
     }
-
-    /**
-     * Baut die nach einer abgeschlossenen Untersuchung sichtbaren Zusatzzeilen.
-     */
     static List<Text> details(ItemStack stack) {
         List<Text> details = new ArrayList<>();
         if (stack == null || stack.isEmpty()) {
             details.add(Text.translatable("ottoextra.inspect.item.empty"));
             return details;
         }
-
         boolean hasVisibleLore = addLore(stack, details);
         addBookInformation(stack, details);
-
         if (!hasVisibleLore && details.isEmpty()) {
             details.add(describe(stack));
         }
-
         addCondition(stack, details);
         if (stack.getCount() > 1) {
             details.add(Text.translatable("ottoextra.inspect.item.amount", stack.getCount()));
         }
-
         if (details.size() > MAX_DETAIL_LINES) {
             return List.copyOf(details.subList(0, MAX_DETAIL_LINES));
         }
         return List.copyOf(details);
     }
-
     private static boolean addLore(ItemStack stack, List<Text> out) {
         LoreComponent lore = stack.get(DataComponentTypes.LORE);
         if (lore == null || lore.lines().isEmpty()) {
             return false;
         }
-
         int added = 0;
         for (Text line : lore.lines()) {
             if (line == null || line.getString().isBlank()) {
@@ -76,7 +56,6 @@ final class ItemInspectionDescriptions {
         }
         return added > 0;
     }
-
     private static void addBookInformation(ItemStack stack, List<Text> out) {
         WrittenBookContentComponent written = stack.get(DataComponentTypes.WRITTEN_BOOK_CONTENT);
         if (written != null) {
@@ -89,7 +68,6 @@ final class ItemInspectionDescriptions {
                     written.getPages(false).size()));
             return;
         }
-
         WritableBookContentComponent writable = stack.get(DataComponentTypes.WRITABLE_BOOK_CONTENT);
         if (writable != null) {
             long pages = writable.stream(false).count();
@@ -97,12 +75,10 @@ final class ItemInspectionDescriptions {
             out.add(Text.translatable("ottoextra.inspect.book.pages", pages));
         }
     }
-
     private static void addCondition(ItemStack stack, List<Text> out) {
         if (!stack.isDamageable() || stack.getMaxDamage() <= 0) {
             return;
         }
-
         double remaining = 1.0 - (double) stack.getDamage() / (double) stack.getMaxDamage();
         String key;
         if (remaining >= 0.90) {
@@ -118,7 +94,6 @@ final class ItemInspectionDescriptions {
         }
         out.add(Text.translatable("ottoextra.inspect.condition", Text.translatable(key)));
     }
-
     private static Text shorten(Text text) {
         String plain = text.getString().strip();
         if (plain.length() <= MAX_VISIBLE_CHARS) {
@@ -127,15 +102,12 @@ final class ItemInspectionDescriptions {
         return Text.literal(plain.substring(0, MAX_VISIBLE_CHARS - 1) + "…")
                 .setStyle(text.getStyle());
     }
-
     static Text describe(ItemStack stack) {
         if (stack == null || stack.isEmpty()) {
             return Text.translatable("ottoextra.inspect.item.empty");
         }
-
         Identifier id = Registries.ITEM.getId(stack.getItem());
         String path = id.getPath().toLowerCase(Locale.ROOT);
-
         if (stack.get(DataComponentTypes.FOOD) != null) {
             return Text.translatable("ottoextra.inspect.item.food");
         }
@@ -203,10 +175,8 @@ final class ItemInspectionDescriptions {
         if (containsAny(path, "clock", "compass", "spyglass")) {
             return Text.translatable("ottoextra.inspect.item.instrument");
         }
-
         return Text.translatable("ottoextra.inspect.item.generic");
     }
-
     static Text describe(BlockState state) {
         if (state == null || state.isAir()) {
             return Text.translatable("ottoextra.inspect.block.generic");
@@ -214,7 +184,6 @@ final class ItemInspectionDescriptions {
         Identifier id = Registries.BLOCK.getId(state.getBlock());
         return describeBlockPath(id.getPath().toLowerCase(Locale.ROOT));
     }
-
     private static Text describeBlockPath(String path) {
         if (containsAny(path, "door", "trapdoor", "gate")) {
             return Text.translatable("ottoextra.inspect.block.entrance");
@@ -246,7 +215,6 @@ final class ItemInspectionDescriptions {
         }
         return Text.translatable("ottoextra.inspect.block.generic");
     }
-
     private static boolean containsAny(String value, String... needles) {
         for (String needle : needles) {
             if (value.contains(needle)) {

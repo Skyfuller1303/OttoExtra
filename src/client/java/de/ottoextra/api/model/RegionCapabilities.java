@@ -1,7 +1,5 @@
 package de.ottoextra.api.model;
-
 import java.util.List;
-
 public record RegionCapabilities(
         String id,
         String name,
