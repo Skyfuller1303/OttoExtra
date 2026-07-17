@@ -1,6 +1,7 @@
 package de.ottoextra.mixin;
 
 import de.ottoextra.chat.ChatChannelButton;
+import de.ottoextra.chat.ChatInputLayout;
 import de.ottoextra.chat.ChatChannelState;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.ChatInputSuggestor;
@@ -114,6 +115,7 @@ public abstract class ChatScreenMixin {
             int newX = Math.max(VANILLA_X, shift);
             int right = client.currentScreen != null ? client.currentScreen.width - VANILLA_X
                     : chatField.getX() + chatField.getWidth();
+            right -= ChatInputLayout.rightReservedWidth();
             chatField.setX(newX);
             chatField.setWidth(Math.max(60, right - newX));
         } catch (Throwable ignored) {

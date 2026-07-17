@@ -1,4 +1,181 @@
+## [0.1.13.2-y] – 2026-07-17
+
+### Einstellbare RP-Chatfarben
+
+- Im Bereich **Chat → RP-Chatformatierung** können normale Nachrichtentexte, `*Emotes*` und `(OOC-Kommentare)` nun jeweils eine eigene Farbe erhalten.
+- Farben werden als Hexwert im Format `#RRGGBB` gespeichert und direkt auf neue Chatnachrichten angewendet.
+- Standardfarben: normaler Text `#AAAAAA`, Emotes `#C6C6C6`, OOC `#FFD45A`.
+- Emotes bleiben unabhängig von ihrer gewählten Farbe kursiv; OOC-Texte werden weiterhin nicht kursiv dargestellt.
+- Ungültige oder leere Farbwerte fallen sicher auf die jeweilige Standardfarbe zurück.
+
+## [0.1.13.2-x] – 2026-07-17
+
+### RP-Chatformatierung
+
+- Text zwischen einzelnen Sternen wird im sichtbaren Chat hellgrau und kursiv dargestellt, zum Beispiel `*blickt den Fremden an*`.
+- OOC-Kommentare in runden Klammern werden dunkelgelb dargestellt, während normaler Text seine vorhandene Serverfarbe behält.
+- Die Formatierung betrifft ausschließlich den eigentlichen Nachrichtentext; Kanal, Titel, RP-Name, Chatkopf sowie Klick- und Hoverinformationen bleiben erhalten.
+- OOC-Kommentare können innerhalb eines Emotes stehen und kehren nach der schließenden Klammer wieder zum Emote-Stil zurück.
+- Die RP-Chatformatierung lässt sich in den OttoExtra-Chatoptionen vollständig deaktivieren.
+
+### Lange Nachrichten
+
+- Der Splitter verwendet nun dieselbe RP-Syntax-Zustandsmaschine wie die Chatanzeige.
+- Wird eine lange Nachricht mitten in einem Emote oder OOC-Kommentar getrennt, wird der offene Bereich für die Teilnachricht sauber abgeschlossen und in der Folgemeldung wieder geöffnet.
+- Sterne innerhalb eines OOC-Kommentars öffnen nicht versehentlich einen Emote-Bereich.
+- Verschachtelte runde Klammern werden beim Aufteilen berücksichtigt.
+
+## [0.1.13.2-w] – 2026-07-16
+
+### Behoben
+
+- Der RP-Lupen-Zoom greift nicht mehr in `GameRenderer#getFov` ein und kann dadurch den C-Zoom anderer Mods nicht mehr durch ein vorzeitiges Zurueckgeben blockieren.
+- OttoExtra skaliert stattdessen erst die vollstaendig berechnete Welt-Projektionsmatrix. OptiFine- und andere Zoom-Effekte bleiben dadurch erhalten und werden mit dem ALT-Zoom kombiniert.
+- Auch der optionale Low-Health-FOV-Effekt wird ueber die Projektionsmatrix angewendet, damit keine versteckte FOV-Kollision bestehen bleibt.
+- Der Renderer-Mixin besitzt eine niedrigere Prioritaet und legt OttoExtra-Effekte nach den ueblichen Zoom-Modifikationen auf die fertige Projektion.
+
+## [0.1.13.2-v] – 2026-07-16
+
+### Behoben
+
+- Der RP-Lupen-Zoom blockiert starke Zoom-Effekte von OptiFine und anderen Zoom-Mods nicht mehr durch eine feste FOV-Untergrenze von 30 Grad.
+- Der OttoExtra-Zoom wird nun proportional auf den bereits von Minecraft oder anderen Mods berechneten Sichtwinkel angewendet.
+- ALT und ein zusätzlicher C-Zoom können dadurch gleichzeitig verwendet werden; beide Zoomstufen ergänzen sich weich.
+- Eine minimale Sicherheitsgrenze von 1 Grad verhindert nur ungültige Renderwerte, ohne normale Zoom-Mods einzuschränken.
+
+## [0.1.13.2-u] – 2026-07-16
+
+### RP-Untersuchungsmodus
+
+- Bei untersuchten Spielern werden auf Wunsch die offen sichtbaren Gegenstände in Haupt- und Nebenhand angezeigt.
+- Sind beide Hände leer, erscheint die RP-gerechte Angabe „Die Hände sind leer.“
+- Sichtbare Rüstungsteile können ebenfalls nach Kopf, Oberkörper, Beinen und Füßen aufgelistet werden.
+- Custom-Namen sichtbarer Gegenstände werden übernommen; versteckte Werte, Haltbarkeit und Verzauberungen anderer Spieler werden nicht analysiert.
+- Hand- und Rüstungsanzeige lassen sich in den OttoExtra-Einstellungen getrennt deaktivieren.
+- Größere Ergebnisboxen werden am unteren Bildschirmrand gehalten, damit zusätzliche Ausrüstungszeilen nicht abgeschnitten werden.
+
+## [0.1.13.2-t] – 2026-07-16
+
+### Behoben
+
+- Der zufällige RP-Gedanke wechselt nicht mehr hektisch, wenn beim Laufen mit gehaltener ALT-Taste das anvisierte Ziel wechselt.
+- Pro gedrückter ALT-Phase wird genau ein RP-Satz verwendet. Ein neuer Satz wird erst nach dem Loslassen und erneuten Drücken von ALT gewählt.
+- Direkt aufeinanderfolgende ALT-Aktivierungen vermeiden nach Möglichkeit denselben Satz.
+
+## [0.1.13.2-s] – 2026-07-16
+
+### RP-Untersuchungsmodus
+
+- Der Hauptschalter heißt nun eindeutig „RP-Untersuchungsmodus aktivieren“.
+- Wird er deaktiviert, werden ALT-Taste, Lupe, Fortschrittsring, Untersuchungstexte, Zoom und Randunschärfe vollständig und sofort abgeschaltet.
+- Die Detailoptionen bleiben als Voreinstellungen gespeichert und gelten wieder, sobald der Hauptschalter aktiviert wird.
+
+## [0.1.13.2-r] – 2026-07-16
+
+### RP-Untersuchungsmodus
+
+- Beim Untersuchen wird pro Ziel ein zufälliger innerer RP-Gedanke eingeblendet.
+- Die RP-Sätze bleiben während derselben Untersuchung stabil und wechseln erst beim nächsten Ziel.
+- Der Untersuchungsvorgang dauert höchstens zwei Sekunden.
+- RP-Gedanken und ihre Dauer lassen sich in den OttoExtra-Optionen getrennt einstellen oder deaktivieren.
+- Bei deaktivierten RP-Gedanken bleibt die neutrale Anzeige „Wird untersucht …“ erhalten.
+
+## [0.1.13.2-q] – 2026-07-16
+
+### Neu
+
+- Der Untersuchen-Modus arbeitet nun vollständig rollenspielorientiert: Nach dem Erfassen eines Ziels steht zunächst nur „Wird untersucht …“ im HUD.
+- Ein dezenter Ring um die Lupe zeigt den Fortschritt des Musterns an; erst nach standardmäßig 2,5 Sekunden werden die Ergebnisse enthüllt.
+- Die Untersuchungsdauer ist in den OttoExtra-Einstellungen zwischen 1,5 und 4 Sekunden einstellbar.
+- Custom-Name und vorhandene Item-Lore werden bevorzugt angezeigt, ohne eigene Geschichten oder Serverdaten zu erfinden.
+- Geschriebene Bücher zeigen Autor und Seitenzahl; unfertige Bücher werden als Entwurf erkannt.
+- Haltbare Gegenstände erhalten eine RP-gerechte Zustandsbeschreibung statt technischer Schadenspunkte.
+- Schilder zeigen nach der Untersuchung die tatsächlich sichtbare Vorder- oder Rückseite, inklusive vorhandener Schrift, Leuchtschrift und Versiegelung.
+- Item-Rahmen, Lesepulte, Banner, Rüstungsständer sowie Tiere und andere sichtbare Wesen werden gesondert behandelt.
+- Rüstungsständer listen ausschließlich ihre offen sichtbare Ausrüstung auf.
+- Ausgewählte sichtbare Blockzustände wie geöffnet, entzündet, Kerzenanzahl, Honigfüllstand oder Wachstumsstand werden erkannt.
+
+### Verbessert
+
+- Der Gradle-Wrapper verwendet die verfügbare Version 9.6.1 samt Prüfsumme, damit der Quellstand wieder reproduzierbar gebaut werden kann.
+- Kleine Bewegungen des Fadenkreuzes lassen die Untersuchung nicht mehr sofort flackern oder von vorn beginnen.
+- Ein Zielwechsel startet die Untersuchung zuverlässig neu; kurzes Abrutschen vom Ziel wird für wenige Millisekunden abgefangen.
+- Normale Blöcke zeigen nur ihren echten Namen. Allgemeine Beschreibungstexte erscheinen nur bei sinnvoll einordenbaren Objekten.
+- Der Lupenmodus bleibt vollständig clientseitig und zeigt ausschließlich Daten, die Minecraft oder das lokale OttoExtra-Personenbuch bereits kennt.
+
+## [0.1.13.2-p] – 2026-07-15
+
+### Neu
+
+- Der ALT-Untersuchen-Modus erkennt nun gedroppte Gegenstände, Gegenstände in Rahmen und anvisierte Blöcke.
+- Beim Anvisieren erscheint zuerst der sichtbare Name; nach kurzem Mustern folgt eine knappe Beschreibung des Gegenstandstyps.
+- Stapel mit mehr als einem Gegenstand zeigen nach längerem Mustern zusätzlich die Anzahl.
+- Vanilla- und Custom-Gegenstände werden rein clientseitig nach Kategorien wie Waffe, Werkzeug, Nahrung, Rüstung, Schriftstück, Rohstoff oder Baustoff eingeordnet.
+- Für unbekannte Mod-Gegenstände wird eine neutrale Beschreibung verwendet, statt keine Information anzuzeigen.
+
+### Technisch
+
+- Gedroppte Items werden über einen lokalen Sichtstrahl erkannt, auch wenn Minecraft sie nicht als normales Fadenkreuz-Ziel meldet.
+- Die Erkennung respektiert sichtbare Hindernisse und liest keine versteckten Inventar- oder Serverdaten aus.
+
+## [0.1.13.2-o] – 2026-07-15
+
+### Geändert
+
+- Der ALT-Untersuchen-Modus zeigt nun eine mittige Lupe als eigenes HUD-Symbol.
+- Beim Halten der Taste fährt ein sanfter, animierter Zoom ein und beim Loslassen wieder aus.
+- Die Bildmitte bleibt scharf; nur der äußere Bildschirmrand wird leicht weichgezeichnet und dezent abgedunkelt.
+- Lupe, Zoom und Randunschärfe funktionieren bereits beim Halten von ALT; Personendaten erscheinen nur bei einem gültigen Ziel.
+- Zoom und Randunschärfe können getrennt in den OttoExtra-Einstellungen deaktiviert werden.
+
+## [0.1.13.2-n] – 2026-07-15
+
+### Neu
+
+- Neuer rein clientseitiger **Untersuchen-Modus**: Linke Alt-Taste gedrückt halten und einen Spieler ansehen.
+- Zeigt ausschließlich bereits im lokalen Personenbuch bekannte RP-Namen und Titel.
+- Informationen werden beim längeren Mustern stufenweise eingeblendet.
+- Unbekannte Personen bleiben konsequent als „Unbekannt“ verborgen.
+- Taste ist über die Minecraft-Tastenbelegung frei änderbar.
+
 # Changelog
+
+## [0.1.13.2-m] – 2026-07-15
+
+### Hinzugefügt
+
+- Beim Öffnen der Xaero-Weltkarte wird sofort ein inkrementeller Regions-Sync ausgelöst.
+
+### Geändert
+
+- Die Regions-API wurde von `regions.skyfuller.de` auf `api.ottoextra.dev` umgestellt.
+- Bereits gespeicherte Konfigurationen mit der alten Regions-Domain werden automatisch migriert.
+- Parallele Regions-Syncs während eines laufenden Bootstraps oder Syncs werden vermieden.
+
+## [0.1.13.2-l] – 2026-07-15
+
+### Hinzugefügt
+
+- Bereits vorhandene Chatzeilen werden nach Änderungen im RP-Namensbuch neu aufgebaut.
+- Titelanzeige und automatische Titelaktualisierung der Tabliste sind getrennt schaltbar.
+- Gemeinsame Chat-Eingabefläche für Addons; TranslateUtils kann seinen Sprachschalter anzeigen, ohne den eingegebenen Text zu überdecken.
+
+### Geändert
+
+- RP-Name und Titel werden im Ottonien-Rich-Text-Chat ersetzt, ohne Wappen, Spielerkopf, Hover-Informationen oder Nachrichtenfarben zu verlieren.
+- Die eindeutige Accountzuordnung der Spieler-Kopfkomponente hat Vorrang vor gleichnamigen RP-Profilen.
+- Persönliche Farben aus dem RP-Namensbuch haben in Chat, Tabliste und Nametag Vorrang vor Katalog- und Standardfarben.
+- Bei aktiver Titelanzeige behalten unbekannte Spieler ihren originalen Servertitel in der Tabliste; bekannte Spieler erhalten den lokal angepassten Titel.
+- OttoExtra-Version auf `0.1.13.2-l` aktualisiert; kompatibel mit TranslateUtils `0.1.1`.
+
+### Behoben
+
+- Manuelle Änderungen im RP-Namensbuch werden beim Personenwechsel, Tabwechsel und Schließen automatisch übernommen und zuverlässig auf Platte gespeichert.
+- Angepasste RP-Namen, Titel und Farben erschienen teilweise nur in Nametags oder der Tabliste, nicht aber im Chat.
+- Gleichnamige Profile konnten fälschlich als `Unbekannt` angezeigt werden und den Titel verlieren.
+- Beim Chat-Umschreiben entstanden sichtbare Ressourcenpfade, falsche Farben oder große Leerbereiche.
+- Die Einstellung „Titel in Tabliste“ wurde zuvor mit der automatischen Titelaktualisierung vermischt.
+- Der Platzhalter `Unbekannt` wird nur auf echte Spieler angewendet, nicht auf NPCs, Tiere oder andere Entitäten.
 
 ## [0.1.12] – 2026-07-12
 

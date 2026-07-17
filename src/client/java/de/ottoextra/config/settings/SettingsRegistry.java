@@ -257,6 +257,19 @@ public final class SettingsRegistry {
                         () -> c.chat.longChatMaxInput, v -> c.chat.longChatMaxInput = v, 256, 32500),
                 Option.string("ottoextra.config.chat.longchatMarker", "chat.longChatMarker",
                         () -> c.chat.longChatMarker, v -> c.chat.longChatMarker = v));
+        card(chatBase, "ottoextra.set.chat.rpformat", "ottoextra.set.chat.rpformat.desc",
+                Option.bool("ottoextra.config.chat.rpformat", "chat.rpFormattingEnabled",
+                        () -> c.chat.rpFormattingEnabled, v -> c.chat.rpFormattingEnabled = v)
+                        .tooltip("ottoextra.set.chat.rpformat.tip"),
+                Option.color("ottoextra.config.chat.normalColor", "chat.rpNormalColor",
+                        () -> c.chat.rpNormalColor, v -> c.chat.rpNormalColor = v)
+                        .tooltip("ottoextra.set.chat.normalColor.tip"),
+                Option.color("ottoextra.config.chat.emoteColor", "chat.rpEmoteColor",
+                        () -> c.chat.rpEmoteColor, v -> c.chat.rpEmoteColor = v)
+                        .tooltip("ottoextra.set.chat.emoteColor.tip"),
+                Option.color("ottoextra.config.chat.oocColor", "chat.rpOocColor",
+                        () -> c.chat.rpOocColor, v -> c.chat.rpOocColor = v)
+                        .tooltip("ottoextra.set.chat.oocColor.tip"));
         var chatAdv = tab(chat, "ottoextra.set.tab.advanced");
         card(chatAdv, "ottoextra.set.chat.longchat", "ottoextra.set.chat.longchat.desc",
                 Option.intVal("ottoextra.config.chat.longchatDelayMs", "chat.longChatDelayMs",
@@ -494,6 +507,36 @@ public final class SettingsRegistry {
                 Option.bool("ottoextra.config.rpnames.proactiveMeet", "rpnames.proactiveMeet",
                         () -> c.rpnames.proactiveMeet, v -> c.rpnames.proactiveMeet = v)
                         .tooltip("ottoextra.set.rpn.meet.tip"));
+        card(rpnBase, "ottoextra.set.rpn.inspect", "ottoextra.set.rpn.inspect.desc",
+                Option.bool("ottoextra.config.rpnames.inspect", "rpnames.inspectEnabled",
+                        () -> c.rpnames.inspectEnabled, v -> c.rpnames.inspectEnabled = v)
+                        .tooltip("ottoextra.set.rpn.inspect.enabled.tip"),
+                Option.bool("ottoextra.config.rpnames.inspectPlayerHands", "rpnames.inspectShowPlayerHands",
+                        () -> c.rpnames.inspectShowPlayerHands,
+                        v -> c.rpnames.inspectShowPlayerHands = v)
+                        .tooltip("ottoextra.set.rpn.inspect.playerHands.tip"),
+                Option.bool("ottoextra.config.rpnames.inspectPlayerArmor", "rpnames.inspectShowPlayerArmor",
+                        () -> c.rpnames.inspectShowPlayerArmor,
+                        v -> c.rpnames.inspectShowPlayerArmor = v)
+                        .tooltip("ottoextra.set.rpn.inspect.playerArmor.tip"),
+                Option.bool("ottoextra.config.rpnames.inspectZoom", "rpnames.inspectZoomEnabled",
+                        () -> c.rpnames.inspectZoomEnabled, v -> c.rpnames.inspectZoomEnabled = v),
+                Option.doubleVal("ottoextra.config.rpnames.inspectZoomDegrees", "rpnames.inspectZoomDegrees",
+                        () -> c.rpnames.inspectZoomDegrees, v -> c.rpnames.inspectZoomDegrees = v,
+                        3.0, 18.0).tooltip("ottoextra.set.rpn.inspect.zoom.tip"),
+                Option.bool("ottoextra.config.rpnames.inspectBlur", "rpnames.inspectEdgeBlurEnabled",
+                        () -> c.rpnames.inspectEdgeBlurEnabled, v -> c.rpnames.inspectEdgeBlurEnabled = v),
+                Option.bool("ottoextra.config.rpnames.inspectRoleplayPhrases", "rpnames.inspectRoleplayPhrasesEnabled",
+                        () -> c.rpnames.inspectRoleplayPhrasesEnabled,
+                        v -> c.rpnames.inspectRoleplayPhrasesEnabled = v)
+                        .tooltip("ottoextra.set.rpn.inspect.phrases.tip"),
+                Option.doubleVal("ottoextra.config.rpnames.inspectRoleplayPhraseSeconds", "rpnames.inspectRoleplayPhraseSeconds",
+                        () -> c.rpnames.inspectRoleplayPhraseSeconds,
+                        v -> c.rpnames.inspectRoleplayPhraseSeconds = v,
+                        0.5, 2.0).tooltip("ottoextra.set.rpn.inspect.phraseSeconds.tip"),
+                Option.doubleVal("ottoextra.config.rpnames.inspectRevealSeconds", "rpnames.inspectRevealSeconds",
+                        () -> c.rpnames.inspectRevealSeconds, v -> c.rpnames.inspectRevealSeconds = v,
+                        0.5, 2.0).tooltip("ottoextra.set.rpn.inspect.reveal.tip"));
         card(rpnBase, "ottoextra.set.rpn.marker", "ottoextra.set.rpn.marker.desc",
                 Option.bool("ottoextra.config.rpnames.markerGlow", "rpnames.meetMarkerGlow",
                         () -> c.rpnames.meetMarkerGlow, v -> c.rpnames.meetMarkerGlow = v)
@@ -510,9 +553,12 @@ public final class SettingsRegistry {
         card(rpnBase, "ottoextra.set.rpn.tablist", "ottoextra.set.rpn.tablist.desc",
                 Option.bool("ottoextra.config.rpnames.tablist", "rpnames.tablistEnabled",
                         () -> c.rpnames.tablistEnabled, v -> c.rpnames.tablistEnabled = v),
-                Option.bool("ottoextra.config.rpnames.tablistTitles", "rpnames.tablistTitlesAlways",
+                Option.bool("ottoextra.config.rpnames.tablistTitles", "rpnames.tablistShowTitle",
+                        () -> c.rpnames.tablistShowTitle, v -> c.rpnames.tablistShowTitle = v)
+                        .tooltip("ottoextra.set.rpn.tablistTitles.tip"),
+                Option.bool("ottoextra.config.rpnames.tablistTitlesAlways", "rpnames.tablistTitlesAlways",
                         () -> c.rpnames.tablistTitlesAlways, v -> c.rpnames.tablistTitlesAlways = v)
-                        .tooltip("ottoextra.set.rpn.tablistTitles.tip"));
+                        .tooltip("ottoextra.set.rpn.tablistTitlesAlways.tip"));
 
         var letter = r.module("letter", "ottoextra.module.letter", "ottoextra.set.letter.desc");
         var letterBase = tab(letter, "ottoextra.set.tab.base");

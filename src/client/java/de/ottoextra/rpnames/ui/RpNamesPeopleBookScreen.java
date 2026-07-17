@@ -153,6 +153,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
 
     private int listScroll = 0;
     private volatile String statusLine = "";
+    private boolean personDirty = false;
 
     private String titleAutofill;
 
@@ -304,6 +305,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
     private int tabButton(int x, int y, String key, Tab target) {
         int w = textRenderer.getWidth(Text.translatable(key)) + 14;
         ButtonWidget btn = ButtonWidget.builder(Text.translatable(key), b -> {
+            savePendingPerson();
             tab = target;
             listScroll = 0;
             clearAndInit();
@@ -338,7 +340,10 @@ public final class RpNamesPeopleBookScreen extends Screen {
 
         rpNameField = new TextFieldWidget(textRenderer, x, y, w, 16, Text.empty());
         rpNameField.setMaxLength(48);
-        rpNameField.setChangedListener(s -> autoLock());
+        rpNameField.setChangedListener(s -> {
+            autoLock();
+            markPersonDirty();
+        });
         addDrawableChild(rpNameField);
         y += 21;
         titleField = new TextFieldWidget(textRenderer, x, y, w, 16, Text.empty());
@@ -347,6 +352,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         titleField.setChangedListener(s -> {
 
             autoLockTitle();
+            markPersonDirty();
             titleAutofill = null;
             titleField.setSuggestion("");
             String typed = s.trim();
@@ -409,6 +415,11 @@ public final class RpNamesPeopleBookScreen extends Screen {
         y += 19;
 
         notesField = field(x, y, w, 200, "ottoextra.rpbook.notes");
+        notesField.setChangedListener(s -> {
+            notesField.setSuggestion(s.isEmpty()
+                    ? Text.translatable("ottoextra.rpbook.notes").getString() : "");
+            markPersonDirty();
+        });
         y += 21;
 
         saveButton = ButtonWidget.builder(Text.translatable("ottoextra.rpbook.save"), b -> savePerson())
@@ -451,7 +462,10 @@ public final class RpNamesPeopleBookScreen extends Screen {
     private TextFieldWidget colorField(int x, int y, int w) {
         TextFieldWidget f = new TextFieldWidget(textRenderer, x, y, w, 14, Text.empty());
         f.setMaxLength(7);
-        f.setChangedListener(s -> autoLock());
+        f.setChangedListener(s -> {
+            autoLock();
+            markPersonDirty();
+        });
         addDrawableChild(f);
         return f;
     }
@@ -478,6 +492,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         ButtonWidget btn = ButtonWidget.builder(flagLabel(key, get.getAsBoolean()), b -> {
             boolean next = !get.getAsBoolean();
             set.accept(next);
+            markPersonDirty();
             b.setMessage(flagLabel(key, next));
         }).dimensions(x, y, w, 16).build();
         addDrawableChild(btn);
@@ -653,6 +668,9 @@ public final class RpNamesPeopleBookScreen extends Screen {
     }
 
     private void select(LocalRpProfile profile) {
+        if (selected != null && selected != profile) {
+            savePendingPerson();
+        }
         selected = profile;
         if (profile == null) {
             setPeopleEditEnabled(false);
@@ -682,6 +700,20 @@ public final class RpNamesPeopleBookScreen extends Screen {
         tagFlagButton.setMessage(flagLabel("ottoextra.rpbook.flag.tag", profile.showInNametag));
         setPeopleEditEnabled(true);
         suppressLockAuto = false;
+        personDirty = false;
+    }
+
+    private void markPersonDirty() {
+        if (!suppressLockAuto && tab == Tab.PEOPLE && selected != null) {
+            personDirty = true;
+        }
+    }
+
+    private void savePendingPerson() {
+        if (personDirty && tab == Tab.PEOPLE && selected != null
+                && rpNameField != null && titleField != null && notesField != null) {
+            savePerson();
+        }
     }
 
     private void setPeopleEditEnabled(boolean enabled) {
@@ -752,6 +784,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
             p.showInNametag = showTag;
         }, lock);
         selected = updated;
+        personDirty = false;
         refilter();
         setPeopleEditEnabled(true);
 
@@ -1024,6 +1057,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
             e.id = TitleRegistry.normalize(e.title);
         }
         RpNamesServices.catalog().save();
+        de.ottoextra.rpnames.chat.ChatHistoryRefresh.request();
 
         refilterTitles();
         statusLine = Text.translatable("ottoextra.rpbook.saved").getString();
@@ -1954,6 +1988,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
 
     @Override
     public void close() {
+        savePendingPerson();
         store.saveNow();
         MinecraftClient.getInstance().setScreen(parent);
     }

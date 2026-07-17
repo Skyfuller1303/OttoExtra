@@ -4,15 +4,20 @@ import de.ottoextra.nametags.NametagLabelRenderer;
 import net.minecraft.client.render.command.OrderedRenderCommandQueue;
 import net.minecraft.client.render.entity.EntityRenderer;
 import net.minecraft.client.render.entity.state.EntityRenderState;
-import net.minecraft.client.render.entity.state.PlayerEntityRenderState;
 import net.minecraft.client.render.state.CameraRenderState;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.EntityType;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+/**
+ * Basis-Label-Pfad: EntityCulling u. a. rendert Labels gecullter Spieler
+ * direkt über {@code EntityRenderer.renderLabelIfPresent}. Der gemeinsame
+ * Renderer prüft deshalb ausdrücklich, ob der State zu einem echten Spieler
+ * mit PlayerListEntry gehört; Tiere, andere benannte Entities und NPCs werden
+ * hier nicht übernommen.
+ */
 @Mixin(EntityRenderer.class)
 public abstract class EntityRendererMixin {
 
@@ -24,20 +29,9 @@ public abstract class EntityRendererMixin {
     private void ottoextra$rpLabelBase(EntityRenderState state, MatrixStack matrices,
                                        OrderedRenderCommandQueue queue, CameraRenderState camera,
                                        CallbackInfo ci) {
-        /*
-         * EntityRenderer rendert auch Namensschilder von Tieren,
-         * Rüstungsständern und anderen benannten Entities.
-         *
-         * PlayerEntityRenderState deckt den normalen Spielerpfad ab.
-         * EntityType.PLAYER ist zusätzlich nötig, weil EntityCulling einen
-         * gecullten Spieler teilweise nur als normalen EntityRenderState
-         * über diesen Basispfad weitergibt.
-         */
-        if (!(state instanceof PlayerEntityRenderState)
-                && state.entityType != EntityType.PLAYER) {
-            return;
-        }
-
+        // Auch rohe EntityRenderStates: EntityCulling extrahiert gecullte
+        // Spieler ohne PlayerEntityRenderState (renderNametagsThroughWalls).
+        // NametagLabelRenderer lässt Nicht-Spieler unverändert durch.
         if (NametagLabelRenderer.submit(state, matrices, queue, camera, "ER")) {
             ci.cancel();
         }

@@ -7,7 +7,6 @@ import net.minecraft.client.render.entity.state.EntityRenderState;
 import net.minecraft.client.render.entity.state.PlayerEntityRenderState;
 import net.minecraft.client.render.state.CameraRenderState;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.EntityType;
 import net.minecraft.entity.player.PlayerEntity;
 
 /**
@@ -39,50 +38,42 @@ public final class NametagLabelRenderer {
                                  OrderedRenderCommandQueue queue, CameraRenderState camera,
                                  String source) {
         try {
-            /*
-             * Defensive zweite Sperre:
-             * Dieser Renderer darf ausschließlich Spieler-Nametags verändern.
-             * Tiere und andere benannte Entities müssen vollständig durch den
-             * normalen Vanilla-Renderer laufen.
-             *
-             * Die EntityType-Prüfung erhält gleichzeitig die Unterstützung für
-             * rohe Spieler-RenderStates von EntityCulling.
-             */
-            if (!(state instanceof PlayerEntityRenderState)
-                    && state.entityType != EntityType.PLAYER) {
-                return false;
-            }
-
             if (state.nameLabelPos == null) {
                 return false; // Vanilla überspringt dann ebenfalls
             }
-
             // Accountname aus der State-Map (updateRenderState-Capture);
-            // Fallback playerName/displayName (EntityCulling-Roh-States)
+            // Fallback playerName/displayName (EntityCulling-Roh-States).
             String account = NametagService.accountFor(state);
+
+            /*
+             * Der Hook in EntityRenderer sieht auch Tiere, Ruestungsstaender,
+             * Villager und serverseitige NPCs. Ein displayName allein beweist
+             * daher nicht, dass dieser State zu einem echten Spieler gehoert.
+             * Nur eine PlayerEntity mit aktivem PlayerListEntry darf durch die
+             * RP-Namenslogik laufen; alle anderen Labels bleiben bei Vanilla.
+             */
+            PlayerEntity entity = findOnlinePlayer(account);
+            if (entity == null) {
+                return false;
+            }
 
             // Sichtbarkeit auch auf diesem Pfad durchsetzen (EntityCulling
             // umgeht hasLabel teilweise)
-            PlayerEntity entity = findPlayer(account);
-            if (entity != null && !NametagService.shouldRender(entity)) {
+            if (!NametagService.shouldRender(entity)) {
                 return true; // unterdrücken
             }
-
             NametagService.Lines lines = NametagService.linesFor(account, state.displayName);
             if (lines == null) {
                 return false; // Vanilla
             }
-
             var cfg = NametagService.config();
             int spacing = cfg != null ? Math.max(4, cfg.lineSpacing) : 10;
             float titleScale = cfg != null ? cfg.titleScale : 1.0f;
             float nameScale = cfg != null ? cfg.nameScale : 1.0f;
             float accountScale = cfg != null ? cfg.accountScale : 0.8f;
-
             // Mit Account-Zeile alles eine Zeile hochschieben (positive
             // Offsets gehen nach unten), sonst hängt die dritte Zeile im Kopf
             int base = lines.account() != null ? -spacing : 0;
-
             if (!lines.name().getString().isEmpty()) {
                 scaledLabel(matrices, queue, camera, state, lines.name(), base, nameScale);
             }
@@ -92,7 +83,6 @@ public final class NametagLabelRenderer {
             if (lines.account() != null) {
                 scaledLabel(matrices, queue, camera, state, lines.account(), base + spacing, accountScale);
             }
-
             if (DEBUG_DRAWN.add(account + "@" + source)) {
                 OttoExtra.LOGGER.info("[nametags] zeichne {} via {}", account, source);
             }
@@ -106,14 +96,15 @@ public final class NametagLabelRenderer {
         }
     }
 
-    private static PlayerEntity findPlayer(String account) {
+    private static PlayerEntity findOnlinePlayer(String account) {
         MinecraftClient client = MinecraftClient.getInstance();
-        if (client.world == null || account == null) {
+        if (client.world == null || client.getNetworkHandler() == null || account == null) {
             return null;
         }
-        for (PlayerEntity player : client.world.getPlayers()) {
-            if (account.equalsIgnoreCase(player.getName().getString())) {
-                return player;
+        for (PlayerEntity p : client.world.getPlayers()) {
+            if (account.equalsIgnoreCase(p.getName().getString())
+                    && NametagService.isOnlinePlayer(p)) {
+                return p;
             }
         }
         return null;
@@ -133,7 +124,6 @@ public final class NametagLabelRenderer {
                     state.light, state.squaredDistanceToCamera, camera);
             return;
         }
-
         var pos = state.nameLabelPos;
         matrices.push();
         try {

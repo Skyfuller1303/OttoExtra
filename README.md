@@ -29,6 +29,7 @@ Die Mod ist als clientseitige Community-Erweiterung für Ottonien gedacht und er
 - Lokale Titel können den serverseitigen Titel in der Tabliste ersetzen, ohne das Lehenswappen zu entfernen
 - Lokales RP-Personenbuch mit Titel-, Farb-, Notiz- und Importverwaltung
 - Chat-Kanal-Umschaltung direkt am Chat-Eingabefeld
+- RP-Chatformatierung für `*Emotes*` und `(OOC-Kommentare)` mit formatstabiler Aufteilung langer Nachrichten
 - Regionen-Einblendung beim Betreten eines Lehens
 - Pergamentmodus, gemalte Übersichtskarte und anklickbare Lehen für Xaero's World Map und Minimap
 - Brief- und Verkündungseditor mit Seitenverwaltung, Formatierung und Vorschau

@@ -23,6 +23,7 @@ public final class RpNamesModule implements OttoExtraModule {
 
     private int tickCounter = 0;
     private int titleTickCounter = 0;
+    private int historyRefreshTicks = -1;
     private net.minecraft.client.option.KeyBinding peopleKey;
     private final java.util.Set<String> pendingMeetApiRequests =
             ConcurrentHashMap.newKeySet();
@@ -62,6 +63,9 @@ public final class RpNamesModule implements OttoExtraModule {
             if (client.player == null || client.getNetworkHandler() == null
                     || !RpNamesServices.isActive()) {
                 return;
+            }
+            if (historyRefreshTicks > 0 && --historyRefreshTicks == 0) {
+                de.ottoextra.rpnames.chat.ChatHistoryRefresh.request();
             }
             if (++titleTickCounter >= TITLE_SYNC_INTERVAL_TICKS) {
                 titleTickCounter = 0;
@@ -106,6 +110,7 @@ public final class RpNamesModule implements OttoExtraModule {
                 });
 
         MeetMarkerRenderer.register();
+        de.ottoextra.rpnames.inspect.InspectMode.register(context.config().rpnames);
 
         OttoExtra.LOGGER.info("[rpnames] initialisiert (lokales Bekanntschaftssystem, {} Personen).",
                 RpNamesServices.store().size());
@@ -323,6 +328,9 @@ public final class RpNamesModule implements OttoExtraModule {
     }
 
     private void syncTitlesFromTablist(MinecraftClient client) {
+        if (!RpNamesServices.config().tablistTitlesAlways) {
+            return;
+        }
         try {
             for (PlayerListEntry entry : client.getNetworkHandler().getPlayerList()) {
                 var profile = entry.getProfile();
@@ -353,6 +361,10 @@ public final class RpNamesModule implements OttoExtraModule {
     @Override
     public void onServerJoin(OttoExtraContext context) {
         RpNamesServices.setActive(true);
+        // MoreChatHistory stellt alte Zeilen erst nach dem Join wieder her.
+        // Der verzögerte Lauf aktualisiert auch diese Nachrichten mit den
+        // inzwischen manuell geänderten RP-Profilen.
+        historyRefreshTicks = 100;
         de.ottoextra.rpnames.upload.RpNameUploadService.resetObservedSession();
 
         var store = RpNamesServices.store();
@@ -364,6 +376,7 @@ public final class RpNamesModule implements OttoExtraModule {
                                     error.toString());
                         } else {
                             store.saveNow();
+                            de.ottoextra.rpnames.chat.ChatHistoryRefresh.request();
                             OttoExtra.LOGGER.info("[rpnames] Auto-API-Abgleich: {}", result);
                         }
                     });
@@ -373,6 +386,7 @@ public final class RpNamesModule implements OttoExtraModule {
     @Override
     public void onDisconnect(OttoExtraContext context) {
         RpNamesServices.setActive(false);
+        historyRefreshTicks = -1;
         de.ottoextra.rpnames.upload.RpNameUploadService.resetObservedSession();
         de.ottoextra.chat.SkinCache.flush();
         if (RpNamesServices.store() != null) {

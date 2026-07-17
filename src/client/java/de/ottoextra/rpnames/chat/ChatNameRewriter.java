@@ -145,10 +145,24 @@ public final class ChatNameRewriter {
         if (node == null) {
             return;
         }
+        TextContent content = node.getContent();
+        if (content instanceof net.minecraft.text.TranslatableTextContent translated
+                && "%s".equals(translated.getKey())) {
+            for (Object argument : translated.getArgs()) {
+                if (argument instanceof Text text) {
+                    findSpeakerNode(text, cfg, bounds, forced, titleOnly, flatPos, best);
+                } else if (argument != null) {
+                    flatPos[0] += argument.toString().length();
+                }
+            }
+            for (Text sibling : node.getSiblings()) {
+                findSpeakerNode(sibling, cfg, bounds, forced, titleOnly, flatPos, best);
+            }
+            return;
+        }
         String own = ownText(node);
         int nodeStart = flatPos[0];
         int nodeEnd = nodeStart + own.length();
-        TextContent content = node.getContent();
 
         if (content instanceof PlainTextContent && !isVisualComponent(node)
                 && !own.isBlank() && overlapsSpeaker(nodeStart, nodeEnd, bounds)) {
@@ -188,12 +202,14 @@ public final class ChatNameRewriter {
                     if (identityAt >= 0) {
                         rs = nodeStart + localFrom + identityAt;
                         re = rs + identity.length();
-                        score = 7_500 + identity.length();
+                        // Der Account aus der Head-Komponente ist eindeutig und
+                        // muss immer gegen gleichnamige RP-Profile gewinnen.
+                        score = 30_000 + identity.length();
                     } else {
 
                         rs = nodeStart + localFrom;
                         re = nodeStart + localTo;
-                        score = 2_000 + re;
+                        score = 25_000 + re;
                     }
                     best.offer(new SpeakerInfo(node, forced, identity,
                                     nodeStart, rs, re, titleZoneStart(bounds, nodeStart)),
@@ -251,10 +267,34 @@ public final class ChatNameRewriter {
     }
 
     private Text rebuild(Text node, SpeakerInfo si, int[] flatPos, boolean titleOnly) {
+        TextContent content = node.getContent();
+        if (content instanceof net.minecraft.text.TranslatableTextContent translated
+                && "%s".equals(translated.getKey())) {
+            Object[] arguments = translated.getArgs();
+            Object[] rewrittenArguments = new Object[arguments.length];
+            for (int index = 0; index < arguments.length; index++) {
+                Object argument = arguments[index];
+                if (argument instanceof Text text) {
+                    rewrittenArguments[index] = rebuild(text, si, flatPos, titleOnly);
+                } else {
+                    rewrittenArguments[index] = argument;
+                    if (argument != null) {
+                        flatPos[0] += argument.toString().length();
+                    }
+                }
+            }
+            MutableText translatedCopy = MutableText.of(
+                    new net.minecraft.text.TranslatableTextContent(
+                            translated.getKey(), translated.getFallback(), rewrittenArguments))
+                    .setStyle(safeStyle(node.getStyle()));
+            for (Text sibling : node.getSiblings()) {
+                translatedCopy.append(rebuild(sibling, si, flatPos, titleOnly));
+            }
+            return translatedCopy;
+        }
         String own = ownText(node);
         int start = flatPos[0];
         int end = start + own.length();
-        TextContent content = node.getContent();
         Style style = safeStyle(node.getStyle());
         MutableText copy;
 
@@ -337,6 +377,25 @@ public final class ChatNameRewriter {
     private Text collapseSpaces(Text node, boolean[] lastSpace) {
         TextContent content = node.getContent();
         Style style = safeStyle(node.getStyle());
+        if (content instanceof net.minecraft.text.TranslatableTextContent translated
+                && "%s".equals(translated.getKey())) {
+            Object[] arguments = translated.getArgs();
+            Object[] collapsedArguments = new Object[arguments.length];
+            for (int index = 0; index < arguments.length; index++) {
+                Object argument = arguments[index];
+                collapsedArguments[index] = argument instanceof Text text
+                        ? collapseSpaces(text, lastSpace)
+                        : argument;
+            }
+            MutableText translatedCopy = MutableText.of(
+                    new net.minecraft.text.TranslatableTextContent(
+                            translated.getKey(), translated.getFallback(), collapsedArguments))
+                    .setStyle(style);
+            for (Text sibling : node.getSiblings()) {
+                translatedCopy.append(collapseSpaces(sibling, lastSpace));
+            }
+            return translatedCopy;
+        }
         MutableText copy;
 
         if (isVisualComponent(node)) {
@@ -409,10 +468,7 @@ public final class ChatNameRewriter {
                 ? catalog.titleColor(profile.title).orElse(null) : null;
         String fallback = catalog != null ? catalog.fallbackTitleColor() : "#a17f5f";
         String pers = profile.colors.chatTitleColor;
-        String titleColor = de.ottoextra.rpnames.RpNamesServices.titleOverridesColor(profile.title)
-                ? firstNonBlank(catalogColor,
-                firstNonBlank(pers, firstNonBlank(groupTitleColor, fallback)))
-                : firstNonBlank(pers,
+        String titleColor = firstNonBlank(pers,
                 firstNonBlank(catalogColor, firstNonBlank(groupTitleColor, fallback)));
         return colored(de.ottoextra.rpnames.RpNamesServices
                 .canonicalTitle(profile.title) + " ", titleColor);

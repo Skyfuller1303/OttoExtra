@@ -4,6 +4,7 @@ import de.ottoextra.OttoExtra;
 import de.ottoextra.OttoExtraContext;
 import de.ottoextra.OttoExtraModule;
 import de.ottoextra.config.OttoExtraConfig;
+import de.ottoextra.regions.RegionsServices;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
@@ -62,6 +63,9 @@ public final class MapModule implements OttoExtraModule {
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
             if (!XaeroMapBridge.isWorldmapScreen(screen)) {
                 return;
+            }
+            if (context.isOnOttonien() && RegionsServices.data() != null) {
+                RegionsServices.data().syncNow();
             }
             LehenPolygonStore.ensureLoaded();
             PoliticalOverlay.clearSelection();

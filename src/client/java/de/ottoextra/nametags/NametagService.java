@@ -96,6 +96,12 @@ public final class NametagService {
         if (cfg == null || !cfg.enabled) {
             return true;
         }
+        // PlayerEntityRenderer wird auf modernen Versionen auch fuer
+        // PlayerLike-NPCs verwendet. RP-Sichtbarkeitsregeln duerfen jedoch nur
+        // echte, in der Spielerliste gefuehrte Spieler beeinflussen.
+        if (!isOnlinePlayer(entity)) {
+            return true;
+        }
         try {
             LocalRpProfile profile = profileFor(entity);
             if (profile != null && !profile.showInNametag) {
@@ -109,6 +115,19 @@ public final class NametagService {
         } catch (Throwable t) {
             return true;
         }
+    }
+
+    /** Echte Online-Spieler von Tieren, sonstigen Entities und Fake-Player-NPCs trennen. */
+    public static boolean isOnlinePlayer(Entity entity) {
+        if (!(entity instanceof net.minecraft.entity.player.PlayerEntity player)) {
+            return false;
+        }
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client == null || client.getNetworkHandler() == null) {
+            return false;
+        }
+        return player == client.player
+                || client.getNetworkHandler().getPlayerListEntry(player.getUuid()) != null;
     }
 
     /** Drei-Punkt-Sichtlinie (Augen, Oberkörper 70 %, Box-Mitte) wie OttoNames. */
@@ -229,9 +248,8 @@ public final class NametagService {
             // greifen so auch am Namensschild).
             String pers = profile.colors.nametagTitleColor;
             // „Farbe überschreibt": Katalogfarbe schlägt den Personen-Override.
-            String titleColor = RpNamesServices.titleOverridesColor(profile.title)
-                    ? firstNonBlank(catalogColor, firstNonBlank(pers, firstNonBlank(groupColor, fallback)))
-                    : firstNonBlank(pers, firstNonBlank(catalogColor, firstNonBlank(groupColor, fallback)));
+            String titleColor = firstNonBlank(pers,
+                    firstNonBlank(catalogColor, firstNonBlank(groupColor, fallback)));
             title = colored(RpNamesServices.canonicalTitle(profile.title), titleColor);
         }
         // Proaktives Kennenlernen: Marker ist jetzt ein 3D-Ausrufezeichen über dem

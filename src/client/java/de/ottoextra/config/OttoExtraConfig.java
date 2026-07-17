@@ -112,7 +112,7 @@ public final class OttoExtraConfig {
 
     public static final class Api {
         public boolean enabled = true;
-        public String baseUrl = "https://regions.skyfuller.de/";
+        public String baseUrl = "https://api.ottoextra.dev/";
         public int connectTimeoutMs = 10_000;
         public int requestTimeoutMs = 20_000;
         public int syncIntervalSeconds = 1_800;
@@ -413,6 +413,25 @@ public final class OttoExtraConfig {
 
         public boolean syncFromPublicApi = true;
 
+        /** Untersuchen-Modus: linke Alt-Taste halten und Spieler ansehen. */
+        public boolean inspectEnabled = true;
+        /** Zeigt offen sichtbare Gegenstaende in Haupt- und Nebenhand untersuchter Spieler. */
+        public boolean inspectShowPlayerHands = true;
+        /** Zeigt offen sichtbare Ruestung untersuchter Spieler. */
+        public boolean inspectShowPlayerArmor = true;
+        public boolean inspectShowAccount = false;
+        public double inspectMaxDistance = 8.0;
+        public int inspectOffsetY = 38;
+        public boolean inspectZoomEnabled = true;
+        public double inspectZoomDegrees = 9.0;
+        public boolean inspectEdgeBlurEnabled = true;
+        /** RP-Verzögerung, bevor Untersuchungsergebnisse sichtbar werden. */
+        public double inspectRevealSeconds = 2.0;
+        /** Wechselnde innere RP-Gedanken waehrend der Untersuchung. */
+        public boolean inspectRoleplayPhrasesEnabled = true;
+        /** Maximale Dauer des RP-Gedankens; niemals laenger als die Untersuchung. */
+        public double inspectRoleplayPhraseSeconds = 2.0;
+
     }
 
     public static final class Nametags {
@@ -481,6 +500,17 @@ public final class OttoExtraConfig {
         public boolean shiftTabCycleChannels = true;
 
         public boolean longChatEnabled = true;
+
+        public boolean rpFormattingEnabled = true;
+
+        /** Farbe des normalen Nachrichtentextes im RP-Chat (#RRGGBB). */
+        public String rpNormalColor = "#AAAAAA";
+
+        /** Farbe von Text zwischen *Sternen* (#RRGGBB). */
+        public String rpEmoteColor = "#C6C6C6";
+
+        /** Farbe von OOC-Kommentaren in (runden Klammern) (#RRGGBB). */
+        public String rpOocColor = "#FFD45A";
 
         public int longChatMaxInput = 8192;
 
@@ -605,6 +635,10 @@ public final class OttoExtraConfig {
 
         if (api.baseUrl.startsWith("http://")) {
             api.baseUrl = "https://" + api.baseUrl.substring("http://".length());
+        }
+        if (api.baseUrl.equalsIgnoreCase("https://regions.skyfuller.de")
+                || api.baseUrl.equalsIgnoreCase("https://regions.skyfuller.de/")) {
+            api.baseUrl = new Api().baseUrl;
         }
     }
 

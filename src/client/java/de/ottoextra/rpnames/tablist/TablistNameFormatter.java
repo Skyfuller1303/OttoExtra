@@ -31,7 +31,7 @@ public final class TablistNameFormatter {
         }
 
         OttoExtraConfig.RpNames cfg = RpNamesServices.config();
-        boolean showTitles = cfg.tablistTitlesAlways;
+        boolean showTitles = cfg.tablistShowTitle;
         String account = gameProfile.name();
         Text base = original != null ? original : Text.literal(account);
         LocalRpProfile profile = RpNamesServices.store()
@@ -48,10 +48,10 @@ public final class TablistNameFormatter {
             String color = unknown && !RpNamesServices.unknownShowsAccount()
                     ? UNKNOWN_COLOR : RpNamesServices.playerNameColor(null, null);
 
-            // Unbekannte dürfen keinen Titel verraten. Ist die globale Titelanzeige
-            // deaktiviert, wird ebenfalls nur der Titel entfernt; Wappen und sonstige
-            // Rich-Text-Komponenten des Servers bleiben erhalten.
-            if (unknown || !showTitles) {
+            // Bei aktiver Titelanzeige bleibt auch für unbekannte Spieler der
+            // originale Servertitel sichtbar. Nur bei ausgeschalteter Option
+            // wird er entfernt; Wappen und sonstige Rich-Text-Komponenten bleiben.
+            if (!showTitles) {
                 LocalRpProfile placeholder = new LocalRpProfile();
                 placeholder.accountName = account;
                 Text stripped = replaceServerTitleAndName(base, account, null,
@@ -90,10 +90,10 @@ public final class TablistNameFormatter {
 
         boolean hasRenderableLocalTitle = hasRenderableTitle(profile);
 
-        // Bei unbekannten Personen wird der Titel immer entfernt. Bei ausgeschalteter
-        // Titeloption ebenso. Ein lokaler, gültiger Titel ersetzt den Servertitel nur,
-        // wenn die Titeloption eingeschaltet ist.
-        if (!knownForDisplay || !showTitles || hasRenderableLocalTitle) {
+        // Unbekannte behalten bei aktiver Titelanzeige den originalen Servertitel.
+        // Ein lokaler Titel ersetzt ihn nur bei bekannten Personen; bei
+        // ausgeschalteter Titeloption wird er für alle entfernt.
+        if (!showTitles || (knownForDisplay && hasRenderableLocalTitle)) {
             boolean includeLocalTitle = knownForDisplay && showTitles && hasRenderableLocalTitle;
             Text titled = replaceServerTitleAndName(base, account, profile.rpName,
                     replacement, color, profile, includeLocalTitle);
@@ -428,9 +428,8 @@ public final class TablistNameFormatter {
         String fallback = catalog != null ? catalog.fallbackTitleColor() : "#a17f5f";
         String shown = cleanObjectDebugTokens(RpNamesServices.canonicalTitle(cleanTitle));
         String personal = profile.colors.tabTitleColor;
-        String titleColor = RpNamesServices.titleOverridesColor(cleanTitle)
-                ? firstNonBlank(catalogColor, firstNonBlank(personal, firstNonBlank(groupColor, fallback)))
-                : firstNonBlank(personal, firstNonBlank(catalogColor, firstNonBlank(groupColor, fallback)));
+        String titleColor = firstNonBlank(personal,
+                firstNonBlank(catalogColor, firstNonBlank(groupColor, fallback)));
         return colored(shown + " ", titleColor, baseStyle);
     }
 

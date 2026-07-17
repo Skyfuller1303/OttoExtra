@@ -31,6 +31,9 @@ public final class HoverDebug {
             StringBuilder sb = new StringBuilder();
             int[] count = {0};
             walk(message, sb, count);
+            OttoExtra.LOGGER.info(
+                    "[rpnames-hoverdebug] Nachricht-Struktur \"{}\": {}",
+                    message.getString(), toJson(message));
             if (count[0] > 0) {
                 OttoExtra.LOGGER.info(
                         "[rpnames-hoverdebug] Nachricht \"{}\" — {} Hover:\n{}",

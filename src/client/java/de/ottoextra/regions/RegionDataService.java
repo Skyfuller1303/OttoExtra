@@ -45,6 +45,7 @@ public final class RegionDataService {
     private final Map<String, Long> detailRequestedAt = new ConcurrentHashMap<>();
     private final Map<String, Integer> gatheringByKey = new ConcurrentHashMap<>();
     private final AtomicBoolean bootstrapRunning = new AtomicBoolean(false);
+    private final AtomicBoolean syncRunning = new AtomicBoolean(false);
 
     private volatile long syncCursor = -1;
     private volatile ScheduledFuture<?> syncTask;
@@ -92,16 +93,27 @@ public final class RegionDataService {
 
     private void startSyncLoop() {
         stopSyncLoop();
-        syncTask = scheduler.scheduleAtFixedRate(() -> {
-            long cursor = syncCursor;
-            api.sync(Math.max(0, cursor)).whenComplete((env, t) -> {
+        syncTask = scheduler.scheduleAtFixedRate(this::syncNow,
+                SYNC_INTERVAL_MINUTES, SYNC_INTERVAL_MINUTES, TimeUnit.MINUTES);
+    }
+
+    public void syncNow() {
+        if (bootstrapRunning.get() || !syncRunning.compareAndSet(false, true)) {
+            return;
+        }
+
+        long cursor = syncCursor;
+        api.sync(Math.max(0, cursor)).whenComplete((env, t) -> {
+            try {
                 if (t != null) {
                     OttoExtra.LOGGER.debug("[regions] Sync uebersprungen: {}", rootMessage(t));
                     return;
                 }
                 applyEnvelope(env, false);
-            });
-        }, SYNC_INTERVAL_MINUTES, SYNC_INTERVAL_MINUTES, TimeUnit.MINUTES);
+            } finally {
+                syncRunning.set(false);
+            }
+        });
     }
 
     private void stopSyncLoop() {

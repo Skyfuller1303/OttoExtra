@@ -6,6 +6,7 @@
   "client": [
     "ClientPlayNetworkHandlerMixin",
     "ChatHudMixin",
+    "ChatHudAccessor",
     "PlayerListEntryMixin",
     "PlayerListEntryAccessor",
     "PlayerEntityRendererMixin",
