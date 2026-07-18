@@ -1,6 +1,9 @@
 package de.ottoextra.api.model;
+
 import com.google.gson.JsonElement;
+
 import java.util.List;
+
 public record ApiEnvelope(
         boolean ok,
         String server_time,

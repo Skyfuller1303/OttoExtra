@@ -1,4 +1,5 @@
 package de.ottoextra.config;
+
 import de.ottoextra.map.PoliticalOverlay;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
@@ -6,47 +7,61 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+
 public final class MapGroupColorsScreen extends Screen {
+
     private static final int ROW_H = 20;
+
     private final Screen parent;
     private final OttoExtraConfig config;
+
     private final List<String> groupNames = new ArrayList<>();
     private final List<TextFieldWidget> hexFields = new ArrayList<>();
     private final List<Integer> baseY = new ArrayList<>();
     private TextFieldWidget searchField;
     private int scroll = 0;
+
     public MapGroupColorsScreen(Screen parent, OttoExtraConfig config) {
         super(Text.translatable("ottoextra.map.groupColors.title"));
         this.parent = parent;
         this.config = config;
     }
+
     private int panelX() {
         return Math.max(8, (width - panelW()) / 2);
     }
+
     private int panelY() {
         return Math.max(8, (height - panelH()) / 2);
     }
+
     private int panelW() {
         return Math.min(width - 16, 360);
     }
+
     private int panelH() {
         return Math.min(height - 16, 300);
     }
+
     private int listTop() {
         return panelY() + 48;
     }
+
     private int listBottom() {
         return panelY() + panelH() - 28;
     }
+
     @Override
     protected void init() {
         groupNames.clear();
         hexFields.clear();
         baseY.clear();
+
         searchField = new TextFieldWidget(textRenderer, panelX() + 8, panelY() + 24,
                 panelW() - 16, 16, Text.translatable("ottoextra.rpbook.search"));
         searchField.setSuggestion(Text.translatable("ottoextra.rpbook.search").getString());
@@ -57,8 +72,10 @@ public final class MapGroupColorsScreen extends Screen {
             rebuildRows();
         });
         addDrawableChild(searchField);
+
         addDrawableChild(ButtonWidget.builder(Text.translatable("gui.done"), b -> close())
                 .dimensions(panelX() + panelW() - 60, panelY() + panelH() - 24, 52, 16).build());
+
         addDrawableChild(ButtonWidget.builder(Text.translatable("ottoextra.map.groupColors.adopt"), b -> {
             for (Map.Entry<String, Integer> e : PoliticalOverlay.groupTintOverview().entrySet()) {
                 config.map.groupColors.putIfAbsent(e.getKey(),
@@ -67,8 +84,10 @@ public final class MapGroupColorsScreen extends Screen {
             pushColors();
             rebuildRows();
         }).dimensions(panelX() + 8, panelY() + panelH() - 24, 150, 16).build());
+
         rebuildRows();
     }
+
     private void rebuildRows() {
         for (TextFieldWidget f : hexFields) {
             remove(f);
@@ -76,6 +95,7 @@ public final class MapGroupColorsScreen extends Screen {
         groupNames.clear();
         hexFields.clear();
         baseY.clear();
+
         String q = searchField == null ? "" : searchField.getText().toLowerCase(Locale.ROOT).trim();
         Map<String, Integer> overview = PoliticalOverlay.groupTintOverview();
         int x = panelX() + 8;
@@ -99,6 +119,7 @@ public final class MapGroupColorsScreen extends Screen {
         }
         applyScroll();
     }
+
     private void applyColor(String name, String raw) {
         String s = raw == null ? "" : raw.trim().replace("#", "");
         if (s.isEmpty()) {
@@ -112,15 +133,18 @@ public final class MapGroupColorsScreen extends Screen {
             pushColors();
         }
     }
+
     private void pushColors() {
         config.save();
         PoliticalOverlay.setUserGroupColors(config.map.groupColors);
     }
+
     private int maxScroll() {
         int rows = groupNames.size();
         int visible = Math.max(1, (listBottom() - listTop()) / ROW_H);
         return Math.max(0, (rows - visible) * ROW_H);
     }
+
     private void applyScroll() {
         scroll = Math.max(0, Math.min(scroll, maxScroll()));
         for (int i = 0; i < hexFields.size(); i++) {
@@ -130,6 +154,7 @@ public final class MapGroupColorsScreen extends Screen {
             f.visible = y >= listTop() - 2 && y + 14 <= listBottom() + 2;
         }
     }
+
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
         if (mouseY >= listTop() && mouseY <= listBottom()) {
@@ -139,6 +164,7 @@ public final class MapGroupColorsScreen extends Screen {
         }
         return super.mouseScrolled(mouseX, mouseY, horizontal, vertical);
     }
+
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
         int px = panelX();
@@ -148,6 +174,7 @@ public final class MapGroupColorsScreen extends Screen {
         ctx.fill(px - 1, py - 1, px + pw + 1, py + ph + 1, OttoExtraConfigScreen.COL_BORDER);
         ctx.fill(px, py, px + pw, py + ph, OttoExtraConfigScreen.COL_BG);
         ctx.drawText(textRenderer, getTitle(), px + 8, py + 8, OttoExtraConfigScreen.COL_TITLE, false);
+
         Map<String, Integer> overview = PoliticalOverlay.groupTintOverview();
         for (int i = 0; i < groupNames.size(); i++) {
             int y = baseY.get(i) - scroll;
@@ -170,8 +197,10 @@ public final class MapGroupColorsScreen extends Screen {
             int barY = trackTop + (trackH - barH) * scroll / maxScroll();
             ctx.fill(px + pw - 6, barY, px + pw - 3, barY + barH, OttoExtraConfigScreen.COL_BORDER);
         }
+
         super.render(ctx, mouseX, mouseY, delta);
     }
+
     @Override
     public void close() {
         MinecraftClient.getInstance().setScreen(parent);

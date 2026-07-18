@@ -1,4 +1,5 @@
 package de.ottoextra.letter.ui;
+
 import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.letter.LetterDraft;
 import de.ottoextra.letter.LetterDraftCache;
@@ -8,16 +9,20 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
+
 public final class OutputModeDialog extends Screen {
+
     private final Screen parent;
     private final OttoExtraConfig config;
     private final LetterDraft draft;
+
     public OutputModeDialog(Screen parent, OttoExtraConfig config, LetterDraft draft) {
         super(Text.translatable("ottoextra.letter.mode.title"));
         this.parent = parent;
         this.config = config;
         this.draft = draft;
     }
+
     @Override
     protected void init() {
         int cx = width / 2;
@@ -35,6 +40,7 @@ public final class OutputModeDialog extends Screen {
         addDrawableChild(ButtonWidget.builder(Text.translatable("gui.back"), b -> close())
                 .dimensions(cx - 50, y + 26, 100, 20).build());
     }
+
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
         super.render(ctx, mouseX, mouseY, delta);
@@ -44,6 +50,7 @@ public final class OutputModeDialog extends Screen {
                 Text.translatable("ottoextra.letter.mode.hint"), width / 2,
                 height / 2 + 54, 0xFFB8A88F);
     }
+
     @Override
     public void close() {
         MinecraftClient.getInstance().setScreen(parent);

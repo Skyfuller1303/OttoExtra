@@ -1,4 +1,5 @@
 package de.ottoextra.letter.paste;
+
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.WritableBookContentComponent;
@@ -6,11 +7,15 @@ import net.minecraft.component.type.WrittenBookContentComponent;
 import net.minecraft.item.ItemStack;
 import net.minecraft.text.Text;
 import net.minecraft.util.Hand;
+
 import java.util.ArrayList;
 import java.util.List;
+
 public final class BookImportService {
+
     private BookImportService() {
     }
+
     public static List<String> readHeldBook() {
         List<String> pages = new ArrayList<>();
         MinecraftClient client = MinecraftClient.getInstance();

@@ -1,4 +1,5 @@
 package de.ottoextra.letter;
+
 import de.ottoextra.OttoExtra;
 import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.config.OttoExtraPaths;
@@ -7,54 +8,73 @@ import de.ottoextra.letter.model.LetterSendProgress;
 import de.ottoextra.letter.paste.PageSplitter;
 import de.ottoextra.letter.recovery.SendProgressStore;
 import de.ottoextra.letter.send.CommandSendQueue;
+
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+
 public final class LetterServices {
+
     public static final String EMPTY_LINE = "\u2007";
+
     static final int BOOK_PAGE_WIDTH = 108;
+
     private static java.util.function.ToIntFunction<String> textWidth() {
         var tr = net.minecraft.client.MinecraftClient.getInstance().textRenderer;
         return tr != null ? tr::getWidth : (s -> s.length() * 6);
     }
+
     private static SendProgressStore<LetterSendProgress> letterStore;
     private static SendProgressStore<AnnouncementSendProgress> announcementStore;
+
     private static volatile boolean sending = false;
     private static volatile boolean sendingAnnouncement = false;
+
     private LetterServices() {
     }
+
     public static boolean isSending() {
         return sending;
     }
+
     public static boolean isSendingAnnouncement() {
         return sendingAnnouncement;
     }
+
     public static void clearSendingState() {
         sending = false;
     }
+
     public record PendingLetter(LetterDraft draft, long createdAtMs) {
     }
+
     private static final long PENDING_TTL_MS = 10 * 60 * 1000L;
     private static volatile PendingLetter pending;
+
     public static void setPending(LetterDraft draft) {
         pending = new PendingLetter(draft, System.currentTimeMillis());
     }
+
     public static boolean hasPending() {
         PendingLetter p = pending;
         return p != null
                 && System.currentTimeMillis() - p.createdAtMs() <= PENDING_TTL_MS;
     }
+
     public static LetterDraft pendingDraft() {
         return hasPending() ? pending.draft() : null;
     }
+
     public static void consumePending() {
         pending = null;
         LetterDraftCache.clear();
     }
+
     private static Path cacheDir() {
         return OttoExtraPaths.root().resolve(".cache").resolve("letters");
     }
+
     public static synchronized SendProgressStore<LetterSendProgress> letterStore() {
         if (letterStore == null) {
             letterStore = new SendProgressStore<>(
@@ -62,6 +82,7 @@ public final class LetterServices {
         }
         return letterStore;
     }
+
     public static synchronized SendProgressStore<AnnouncementSendProgress> announcementStore() {
         if (announcementStore == null) {
             announcementStore = new SendProgressStore<>(
@@ -70,6 +91,7 @@ public final class LetterServices {
         }
         return announcementStore;
     }
+
     static List<String> buildLetterLines(OttoExtraConfig config, LetterDraft draft,
                                          List<Integer> pageIndexOut) {
         PageSplitter wrapper = new PageSplitter(textWidth(), BOOK_PAGE_WIDTH, Integer.MAX_VALUE);
@@ -85,12 +107,16 @@ public final class LetterServices {
         }
         return out;
     }
+
     static final int BOOK_MAX_LINES = 14;
     static final int BOOK_MAX_EFFECTIVE_CHARS = 256;
+
     static final int SAFE_CHAT_MESSAGE_LIMIT = 256;
+
     static boolean pageMode(OttoExtraConfig config) {
         return "PAGE".equalsIgnoreCase(config.letter.sendMode);
     }
+
     static int effectiveBookLength(String page) {
         int count = 0;
         for (int i = 0; i < page.length(); i++) {
@@ -98,12 +124,15 @@ public final class LetterServices {
         }
         return count;
     }
+
     static int lineCount(String page) {
         return page.isEmpty() ? 1 : page.split("\n", -1).length;
     }
+
     static String normalizeFormattingCodes(String raw) {
         return de.ottoextra.letter.format.LetterFormattingCodes.sectionToAmpersand(raw);
     }
+
     static String encodePagePayload(String raw) {
         StringBuilder out = new StringBuilder(raw.length() + 8);
         for (int i = 0; i < raw.length(); i++) {
@@ -118,8 +147,10 @@ public final class LetterServices {
         }
         return out.toString();
     }
+
     static List<String> buildLetterPages(OttoExtraConfig config, LetterDraft draft,
                                          List<Integer> pageIndexOut) {
+
         PageSplitter wrapper = new PageSplitter(textWidth(), BOOK_PAGE_WIDTH,
                 config.letter.pageModeMaxLinesPerPage, config.letter.pageModeEffectiveCharBudget);
         String prefix = config.letter.letterCommand + " ";
@@ -136,6 +167,7 @@ public final class LetterServices {
                 if (encoded.length() > payloadLimit
                         || effectiveBookLength(normalized) > BOOK_MAX_EFFECTIVE_CHARS
                         || lineCount(normalized) > BOOK_MAX_LINES) {
+
                     OttoExtra.LOGGER.warn("[letter] Teilseite zu lang (Buch={}, Zeilen={}, "
                             + "Payload={}) — uebersprungen.", effectiveBookLength(normalized),
                             lineCount(normalized), encoded.length());
@@ -151,12 +183,14 @@ public final class LetterServices {
         }
         return out;
     }
+
     private static List<String> buildSendCommands(OttoExtraConfig config, LetterDraft draft,
                                                   List<Integer> pageIndexOut) {
         return pageMode(config)
                 ? buildLetterPages(config, draft, pageIndexOut)
                 : buildLetterLines(config, draft, pageIndexOut);
     }
+
     private static long[] buildDelays(OttoExtraConfig config, List<Integer> pageIndex,
                                       int totalCommands) {
         if (pageMode(config)) {
@@ -180,8 +214,10 @@ public final class LetterServices {
         }
         return delays;
     }
+
     public static void startWrite(OttoExtraConfig config, LetterDraft draft) {
         List<Integer> pageIndex = new ArrayList<>();
+
         boolean append = draft.meta.lockedPages > 0 || draft.meta.lockedOffset > 0;
         LetterDraft toWrite = unlockedPart(draft);
         List<String> commands = append
@@ -192,6 +228,7 @@ public final class LetterServices {
         progress.pendingCommands = commands;
         progress.startedAtMs = System.currentTimeMillis();
         letterStore().save(progress);
+
         LetterDraftCache.clear();
         long[] delays = buildDelays(config, pageIndex, commands.size());
         sending = true;
@@ -207,10 +244,12 @@ public final class LetterServices {
                     progress.draftId, progress.pendingCommands.size());
         }).withDelays(delays).start(0);
     }
+
     public static void sendPost(OttoExtraConfig config, String recipient) {
         sendCommand(config.letter.postCommand + " " + recipient);
         OttoExtra.LOGGER.info("[letter] Brief an {} zugestellt.", recipient);
     }
+
     public static boolean sendAnnounceSubmit(OttoExtraConfig config) {
         if (!hasSubmitCommand(config)) {
             hint("ottoextra.letter.announcement.manualSubmit");
@@ -220,6 +259,7 @@ public final class LetterServices {
         OttoExtra.LOGGER.info("[letter] Verkündung ausgelöst.");
         return true;
     }
+
     private static LetterDraft unlockedPart(LetterDraft draft) {
         int locked = Math.max(0, draft.meta.lockedPages);
         int offset = Math.max(0, draft.meta.lockedOffset);
@@ -240,12 +280,14 @@ public final class LetterServices {
         }
         return sub;
     }
+
     private static void sendCommand(String command) {
         var nh = net.minecraft.client.MinecraftClient.getInstance().getNetworkHandler();
         if (nh != null) {
             nh.sendChatCommand(command);
         }
     }
+
     public static void startLetterSend(OttoExtraConfig config, LetterDraft draft,
                                        String recipient) {
         List<Integer> pageIndex = new ArrayList<>();
@@ -258,9 +300,11 @@ public final class LetterServices {
         progress.pendingCommands = commands;
         progress.startedAtMs = System.currentTimeMillis();
         letterStore().save(progress);
+
         LetterDraftCache.clear();
         runLetterQueue(config, progress, 0, pageIndex);
     }
+
     public static void runLetterQueue(OttoExtraConfig config, LetterSendProgress progress,
                                       int startIndex, List<Integer> pageIndex) {
         long[] delays = buildDelays(config, pageIndex != null ? pageIndex : List.of(),
@@ -278,10 +322,12 @@ public final class LetterServices {
                     progress.recipient);
         }).withDelays(delays).start(startIndex);
     }
+
     public static boolean hasSubmitCommand(OttoExtraConfig config) {
         return config.letter.announcementSubmitCommand != null
                 && !config.letter.announcementSubmitCommand.isBlank();
     }
+
     public static void startAnnouncementSend(OttoExtraConfig config, LetterDraft draft) {
         List<Integer> pageIndex = new ArrayList<>();
         List<String> commands = buildSendCommands(config, draft, pageIndex);
@@ -298,6 +344,7 @@ public final class LetterServices {
         LetterDraftCache.clear();
         runAnnouncementQueue(config, progress, 0, pageIndex);
     }
+
     public static void runAnnouncementQueue(OttoExtraConfig config,
                                             AnnouncementSendProgress progress,
                                             int startIndex, List<Integer> pageIndex) {
@@ -313,6 +360,7 @@ public final class LetterServices {
         }, () -> {
             sending = false;
             announcementStore().clear();
+
             if (manualSubmit) {
                 hint("ottoextra.letter.announcement.manualSubmit");
             }
@@ -320,6 +368,7 @@ public final class LetterServices {
                     progress.draftId, progress.pageCount);
         }).withDelays(delays).start(startIndex);
     }
+
     private static void hint(String key) {
         var client = net.minecraft.client.MinecraftClient.getInstance();
         if (client.player != null) {

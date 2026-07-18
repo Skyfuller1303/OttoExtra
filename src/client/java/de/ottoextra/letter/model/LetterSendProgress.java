@@ -1,6 +1,8 @@
 package de.ottoextra.letter.model;
+
 import java.util.ArrayList;
 import java.util.List;
+
 public final class LetterSendProgress {
     public String draftId = "";
     public List<String> pendingCommands = new ArrayList<>();

@@ -1,7 +1,9 @@
 package de.ottoextra.letter;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import de.ottoextra.config.OttoExtraPaths;
+
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -10,17 +12,23 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
+
 public final class SavedDraftStore {
+
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting()
             .disableHtmlEscaping().create();
+
     private SavedDraftStore() {
     }
+
     private static Path dir() {
         return OttoExtraPaths.draftsDir();
     }
+
     private static Path fileFor(String id) {
         return dir().resolve(id + ".json");
     }
+
     public static synchronized LetterDraft save(LetterDraft source, String name) {
         LetterDraft copy = deepCopy(source);
         copy.repair();
@@ -35,9 +43,11 @@ public final class SavedDraftStore {
             Files.writeString(tmp, GSON.toJson(copy), StandardCharsets.UTF_8);
             Files.move(tmp, f, StandardCopyOption.REPLACE_EXISTING);
         } catch (Exception ignored) {
+
         }
         return copy;
     }
+
     public static synchronized List<LetterDraft> list() {
         List<LetterDraft> out = new ArrayList<>();
         Path d = dir();
@@ -55,13 +65,16 @@ public final class SavedDraftStore {
                                 out.add(draft);
                             }
                         } catch (Exception ignored) {
+
                         }
                     });
         } catch (Exception ignored) {
+
         }
         out.sort(Comparator.comparingLong((LetterDraft dr) -> dr.meta.updatedAtMs).reversed());
         return out;
     }
+
     public static synchronized LetterDraft load(String id) {
         try {
             Path f = fileFor(id);
@@ -78,12 +91,15 @@ public final class SavedDraftStore {
             return null;
         }
     }
+
     public static synchronized void delete(String id) {
         try {
             Files.deleteIfExists(fileFor(id));
         } catch (Exception ignored) {
+
         }
     }
+
     private static LetterDraft deepCopy(LetterDraft src) {
         return GSON.fromJson(GSON.toJson(src), LetterDraft.class);
     }

@@ -1,4 +1,5 @@
 package de.ottoextra.letter.ui;
+
 import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.letter.LetterDraft;
 import de.ottoextra.letter.LetterServices;
@@ -8,12 +9,16 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
+
 import java.util.ArrayList;
+
 public final class AnnouncementPreflightScreen extends Screen {
+
     private final Screen parent;
     private final OttoExtraConfig config;
     private final LetterDraft draft;
     private AnnouncementLetterPreflightService.Result result;
+
     public AnnouncementPreflightScreen(Screen parent, OttoExtraConfig config, LetterDraft draft) {
         super(Text.translatable("ottoextra.letter.preflight.title"));
         this.parent = parent;
@@ -21,6 +26,7 @@ public final class AnnouncementPreflightScreen extends Screen {
         this.draft = draft;
         recheck();
     }
+
     private AnnouncementLetterPreflightService service() {
         return new AnnouncementLetterPreflightService(
                 config.letter.announcementSafeLinesPerPage,
@@ -28,14 +34,17 @@ public final class AnnouncementPreflightScreen extends Screen {
                 config.letter.announcementHardLinesPerPage,
                 config.letter.announcementHardCharsPerLine);
     }
+
     private void recheck() {
         result = service().check(draft.meta.draftId, draft.pages);
     }
+
     @Override
     protected void init() {
         int cx = width / 2;
         ButtonWidget send = ButtonWidget.builder(
                 Text.translatable("ottoextra.letter.preflight.send"), b -> {
+
                     LetterServices.sendAnnounceSubmit(config);
                     LetterServices.consumePending();
                     MinecraftClient.getInstance().setScreen(null);
@@ -45,12 +54,14 @@ public final class AnnouncementPreflightScreen extends Screen {
         addDrawableChild(ButtonWidget.builder(
                 Text.translatable("ottoextra.letter.preflight.optimize"), b -> {
                     draft.pages = new ArrayList<>(service().optimize(draft.pages));
+
                     recheck();
                     clearAndInit();
                 }).dimensions(cx - 52, height - 30, 104, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.translatable("gui.back"), b -> close())
                 .dimensions(cx + 56, height - 30, 100, 20).build());
     }
+
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
         super.render(ctx, mouseX, mouseY, delta);
@@ -88,6 +99,7 @@ public final class AnnouncementPreflightScreen extends Screen {
             }
         }
     }
+
     @Override
     public void close() {
         MinecraftClient.getInstance().setScreen(parent);

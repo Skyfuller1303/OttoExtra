@@ -1,4 +1,5 @@
 package de.ottoextra.map;
+
 import de.ottoextra.api.model.FactionRecord;
 import de.ottoextra.api.model.RegionRecord;
 import de.ottoextra.config.OttoExtraConfig;
@@ -9,16 +10,22 @@ import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.util.Identifier;
 import org.joml.Matrix3x2fStack;
+
 import java.util.Optional;
+
 public final class MapOverlayRenderer {
+
     private static final int COL_BORDER = 0xCCB8893A;
     private static final int COL_BORDER_INSIDE = 0xFFE6C8A9;
     private static final int COL_NAME = 0xFFF4E9C8;
     private static final int COL_NAME_SECONDARY = 0xFFB9AC8C;
     private static final int COL_NAME_SHADOW = 0xFF1A1208;
+
     private static final double CULL_MARGIN = 256.0;
+
     private MapOverlayRenderer() {
     }
+
     public static void render(DrawContext ctx, XaeroMapBridge.View view, OttoExtraConfig.Map cfg,
                               int mouseX, int mouseY) {
         if (view == null || cfg == null) {
@@ -30,27 +37,35 @@ public final class MapOverlayRenderer {
         }
         MinecraftClient client = MinecraftClient.getInstance();
         TextRenderer tr = client.textRenderer;
+
         double qMinX = view.worldMinX() - CULL_MARGIN;
         double qMaxX = view.worldMaxX() + CULL_MARGIN;
         double qMinZ = view.worldMinZ() - CULL_MARGIN;
         double qMaxZ = view.worldMaxZ() + CULL_MARGIN;
+
         double playerX = client.player != null ? client.player.getX() : Double.NaN;
         double playerZ = client.player != null ? client.player.getZ() : Double.NaN;
+
         double eff = view.effScale();
         float indFade = fadeIn(eff, cfg.nameMinScale);
         float nameAlpha = cfg.showNames ? indFade : 0f;
         float bannerAlpha = cfg.showBanners ? fadeIn(eff, cfg.bannerMinScale) * indFade : 0f;
         boolean drawNames = nameAlpha > 0.02f;
         boolean drawBanners = bannerAlpha > 0.02f;
+
         float groupAlpha = 1f - indFade;
+
         PoliticalOverlay.renderFills(view, cfg.politicalFill, cfg.politicalMaxScale, mouseX, mouseY);
         if (cfg.showActivity) {
+
             ActivityRenderer.render(view, 1.0f, indFade, groupAlpha);
         }
+
         if (cfg.showBorders) {
             int width = Math.max(1, cfg.borderWidthPx);
             int borderCol = parseHexColor(cfg.borderColor, COL_BORDER);
             float styleScale = (float) Math.max(0.22, Math.min(1.0, eff / 0.35));
+
             borderCol = withAlpha(borderCol, 0.5f + 0.5f * styleScale * styleScale);
             for (BorderSegment seg : LehenPolygonStore.segments()) {
                 if (!seg.intersects(qMinX, qMinZ, qMaxX, qMaxZ)) {
@@ -63,9 +78,11 @@ public final class MapOverlayRenderer {
                         borderCol, width, styleScale, cfg);
             }
         }
+
         if (cfg.showNpcVillages) {
             drawNpcVillages(ctx, tr, view, cfg);
         }
+
         if (drawNames || drawBanners) {
             for (LehenPolygon poly : LehenPolygonStore.polygons()) {
                 if (!poly.labelOwner() || !poly.intersects(qMinX, qMinZ, qMaxX, qMaxZ)) {
@@ -75,10 +92,12 @@ public final class MapOverlayRenderer {
                         drawBanners ? bannerAlpha : 0f, groupAlpha, cfg);
             }
         }
+
         if (groupAlpha > 0.02f && (cfg.showNames || cfg.showBanners)) {
             drawGroupLabels(ctx, tr, view, cfg, groupAlpha);
         }
     }
+
     private static void drawNpcVillages(DrawContext ctx, TextRenderer tr,
                                         XaeroMapBridge.View view, OttoExtraConfig.Map cfg) {
         if (cfg.npcVillages == null) {
@@ -99,6 +118,7 @@ public final class MapOverlayRenderer {
             drawOutlinedText(ctx, tr, v.name, cx, cy, scale, COL_NAME, 1f);
         }
     }
+
     public static String insidePolygonKey(double px, double pz) {
         if (Double.isNaN(px)) {
             return null;
@@ -111,9 +131,11 @@ public final class MapOverlayRenderer {
         }
         return null;
     }
+
     private static void drawSegment(DrawContext ctx, float x1, float y1, float x2, float y2,
                                     int viewW, int viewH, int color, int widthPx,
                                     float styleScale, OttoExtraConfig.Map cfg) {
+
         double dx = x2 - x1;
         double dy = y2 - y1;
         double t0 = 0;
@@ -150,6 +172,7 @@ public final class MapOverlayRenderer {
         if (len < 0.5f) {
             return;
         }
+
         Matrix3x2fStack m = ctx.getMatrices();
         m.pushMatrix();
         m.translate(cx1, cy1);
@@ -168,6 +191,7 @@ public final class MapOverlayRenderer {
         }
         m.popMatrix();
     }
+
     private static void drawLabel(DrawContext ctx, TextRenderer tr, XaeroMapBridge.View view,
                                   LehenPolygon poly, float nameAlpha, float bannerAlpha,
                                   float groupAlpha, OttoExtraConfig.Map cfg) {
@@ -176,6 +200,7 @@ public final class MapOverlayRenderer {
         if (sx < -64 || sy < -64 || sx > view.width() + 64 || sy > view.height() + 64) {
             return;
         }
+
         String verbandName = PoliticalOverlay.verbandDisplayName(poly.key());
         String primary;
         String secondary;
@@ -185,9 +210,11 @@ public final class MapOverlayRenderer {
         } else {
             String lehenName = displayName(poly);
             String factionName = factionName(poly);
+
             primary = factionName != null ? factionName : lehenName;
             secondary = factionName != null ? lehenName : null;
         }
+
         if (groupAlpha > 0.02f) {
             String groupName = PoliticalOverlay.groupDisplayName(poly.key());
             if (groupName != null
@@ -195,11 +222,13 @@ public final class MapOverlayRenderer {
                 return;
             }
         }
+
         float t = breakpointT(view.effScale(), cfg.labelZoomA, cfg.labelZoomB);
         float global = Math.max(0.3f, Math.min(3f, cfg.labelScale));
         float factionScale = lerp(cfg.factionScaleA, cfg.factionScaleB, t) * global;
         float lehenScale = lerp(cfg.lehenScaleA, cfg.lehenScaleB, t) * global;
         int bannerSize = Math.max(4, Math.round(lerp(cfg.bannerSizeA, cfg.bannerSizeB, t)));
+
         if (bannerAlpha > 0.02f) {
             Identifier banner = bannerFor(poly);
             if (banner != null) {
@@ -221,10 +250,12 @@ public final class MapOverlayRenderer {
             }
         }
     }
+
     private static void drawGroupLabels(DrawContext ctx, TextRenderer tr, XaeroMapBridge.View view,
                                         OttoExtraConfig.Map cfg, float alpha) {
         var banners = RegionsServices.banners();
         float global = Math.max(0.3f, Math.min(3f, cfg.labelScale));
+
         float scale = cfg.factionScaleA * global;
         int bannerSize = Math.max(8, cfg.bannerSizeA + 4);
         for (PoliticalOverlay.GroupLabel g : PoliticalOverlay.groupLabels()) {
@@ -255,6 +286,7 @@ public final class MapOverlayRenderer {
             }
         }
     }
+
     private static float breakpointT(double eff, double zoomA, double zoomB) {
         if (zoomB <= zoomA) {
             return 1f;
@@ -263,6 +295,7 @@ public final class MapOverlayRenderer {
         t = Math.max(0f, Math.min(1f, t));
         return t * t * (3f - 2f * t);
     }
+
     private static float fadeIn(double eff, double minScale) {
         if (minScale <= 0) {
             return 1f;
@@ -271,13 +304,16 @@ public final class MapOverlayRenderer {
         t = Math.max(0f, Math.min(1f, t));
         return t * t * (3f - 2f * t);
     }
+
     private static float lerp(float a, float b, float t) {
         return a + (b - a) * t;
     }
+
     private static int withAlpha(int argb, float alpha) {
         int a = Math.round(((argb >>> 24) & 0xFF) * Math.max(0f, Math.min(1f, alpha)));
         return (a << 24) | (argb & 0xFFFFFF);
     }
+
     private static int parseHexColor(String hex, int fallback) {
         if (hex == null) {
             return fallback;
@@ -291,9 +327,11 @@ public final class MapOverlayRenderer {
                 return (int) Long.parseLong(s, 16);
             }
         } catch (NumberFormatException ignored) {
+
         }
         return fallback;
     }
+
     private static void drawOutlinedText(DrawContext ctx, TextRenderer tr, String text,
                                          int centerX, int y, float scale, int color, float alpha) {
         float tw = tr.getWidth(text) * scale;
@@ -309,17 +347,20 @@ public final class MapOverlayRenderer {
         ctx.drawText(tr, text, 0, 0, color, false);
         m.popMatrix();
     }
+
     private static String factionName(LehenPolygon poly) {
         var data = RegionsServices.data();
         if (data == null) {
             return null;
         }
+
         return data.factionForRegion(poly.key())
                 .map(FactionRecord::name)
                 .filter(n -> n != null && !n.isBlank())
                 .map(PoliticalOverlay::displayNameFor)
                 .orElse(null);
     }
+
     private static String displayName(LehenPolygon poly) {
         var data = RegionsServices.data();
         if (data != null) {
@@ -336,15 +377,18 @@ public final class MapOverlayRenderer {
         }
         return poly.key().replace("lehen_", "Lehen ");
     }
+
     private static Identifier bannerFor(LehenPolygon poly) {
         return bannerForKey(poly.key());
     }
+
     public static Identifier bannerForKey(String polyKey) {
         var data = RegionsServices.data();
         var banners = RegionsServices.banners();
         if (data == null || banners == null || polyKey == null) {
             return null;
         }
+
         var region = data.regionByName(polyKey);
         String regionBanner = region.map(r -> r.effectiveRegionBannerPath()).orElse(null);
         if (regionBanner != null && !regionBanner.isBlank()) {
@@ -356,6 +400,7 @@ public final class MapOverlayRenderer {
         Optional<FactionRecord> faction = data.factionForRegion(polyKey);
         return faction.flatMap(banners::bannerFor).orElse(null);
     }
+
     private static boolean contains(LehenPolygon poly, double px, double pz) {
         boolean inside = false;
         int n = poly.pointCount();

@@ -1,12 +1,17 @@
 package de.ottoextra.chat;
+
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.PlayerListEntry;
 import net.minecraft.client.util.DefaultSkinHelper;
 import net.minecraft.entity.player.SkinTextures;
+
 import java.util.UUID;
+
 public final class ChatHeads {
+
     private ChatHeads() {
     }
+
     public static SkinTextures skinForUuid(UUID uuid, String account) {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.getNetworkHandler() != null) {
@@ -28,6 +33,7 @@ public final class ChatHeads {
         if (uuid == null) {
             return null;
         }
+
         SkinTextures local = SkinCache.localSkin(uuid);
         if (local != null) {
             return local;
@@ -39,6 +45,7 @@ public final class ChatHeads {
                 return s;
             }
         } catch (Throwable ignored) {
+
         }
         return DefaultSkinHelper.getSkinTextures(uuid);
     }

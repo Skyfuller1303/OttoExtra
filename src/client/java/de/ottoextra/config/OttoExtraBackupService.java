@@ -1,7 +1,9 @@
 package de.ottoextra.config;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import de.ottoextra.OttoExtra;
+
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -14,37 +16,48 @@ import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.stream.Stream;
+
 public final class OttoExtraBackupService {
+
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final String REWORK_REASON = "settings-gui-rework";
+
     public static final class ManifestFile {
         public String source;
         public String target;
         public String sha256;
     }
+
     public static final class Manifest {
         public String createdAt;
         public String reason;
         public List<ManifestFile> files = new ArrayList<>();
     }
+
     private static final class State {
         String lastBackupReason;
         String lastBackupPath;
         boolean completed;
     }
+
     public record BackupEntry(Path dir, String name, long files) {
     }
+
     private static volatile boolean backupOk = false;
     private static volatile String lastBackupName = "";
+
     private OttoExtraBackupService() {
     }
+
     private static Path backupsRoot() {
         return OttoExtraPaths.root().resolve("backups").resolve(REWORK_REASON);
     }
+
     private static Path stateFile() {
         return OttoExtraPaths.root().resolve("backups").resolve(".state")
                 .resolve(REWORK_REASON + ".json");
     }
+
     private static List<Path> sources() {
         Path cfg = OttoExtraPaths.root();
         Path mcConfig = cfg.getParent();
@@ -65,6 +78,7 @@ public final class OttoExtraBackupService {
         }
         return out;
     }
+
     public static synchronized boolean ensurePreMigrationBackup() {
         try {
             State state = loadState();
@@ -93,6 +107,7 @@ public final class OttoExtraBackupService {
             return false;
         }
     }
+
     public static synchronized Path createBackup() throws Exception {
         String stamp = LocalDateTime.now()
                 .format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"));
@@ -125,6 +140,7 @@ public final class OttoExtraBackupService {
         backupOk = true;
         return dir;
     }
+
     private static void copyRecursive(Path sourceDir, Path targetDir, Manifest manifest,
                                       String relBase) throws Exception {
         try (Stream<Path> walk = Files.walk(sourceDir)) {
@@ -140,6 +156,7 @@ public final class OttoExtraBackupService {
             }
         }
     }
+
     private static void addManifest(Manifest manifest, Path source, String rel) throws Exception {
         ManifestFile f = new ManifestFile();
         f.source = rel;
@@ -147,10 +164,12 @@ public final class OttoExtraBackupService {
         f.sha256 = sha256(source);
         manifest.files.add(f);
     }
+
     private static String sha256(Path file) throws Exception {
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
         return HexFormat.of().formatHex(digest.digest(Files.readAllBytes(file)));
     }
+
     public static List<BackupEntry> listBackups() {
         List<BackupEntry> out = new ArrayList<>();
         try (Stream<Path> dirs = Files.list(backupsRoot())) {
@@ -166,6 +185,7 @@ public final class OttoExtraBackupService {
         }
         return out;
     }
+
     public static synchronized boolean restoreBackup(Path backupDir) {
         try {
             createBackup();
@@ -191,12 +211,15 @@ public final class OttoExtraBackupService {
             return false;
         }
     }
+
     public static boolean isBackupOk() {
         return backupOk;
     }
+
     public static String lastBackupName() {
         return lastBackupName;
     }
+
     private static State loadState() {
         try {
             Path f = stateFile();
@@ -208,6 +231,7 @@ public final class OttoExtraBackupService {
             return null;
         }
     }
+
     private static void saveState(State state) throws Exception {
         Path f = stateFile();
         Files.createDirectories(f.getParent());

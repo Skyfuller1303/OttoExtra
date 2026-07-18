@@ -1,5 +1,7 @@
 package de.ottoextra.api.model;
+
 import java.util.List;
+
 public record FactionRecord(
         String uuid,
         String faction_ref,
@@ -24,18 +26,21 @@ public record FactionRecord(
         String description,
         RegionCapabilities region_capabilities
 ) {
+
     public String effectiveBannerPath() {
         if (media_override_path != null && !media_override_path.isBlank()) {
             return media_override_path;
         }
         return banner_path;
     }
+
     public boolean isLanded() {
         boolean hasRegion = (region_name != null && !region_name.isBlank()
                 && !"-".equals(region_name.trim()))
                 || (region_id != null && !region_id.isBlank());
         return hasRegion && !"Ungelandet".equalsIgnoreCase(rank_name);
     }
+
     public static FactionRecord better(FactionRecord a, FactionRecord b) {
         if (a == null) {
             return b;

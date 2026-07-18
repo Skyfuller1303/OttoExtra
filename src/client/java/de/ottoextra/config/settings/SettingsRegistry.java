@@ -1,5 +1,7 @@
 package de.ottoextra.config.settings;
+
 import de.ottoextra.config.OttoExtraConfig;
+
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -7,8 +9,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+
 public final class SettingsRegistry {
+
     public enum Type { BOOL, INT, FLOAT, COLOR, STRING, COMMAND, ACTION, CYCLE, SLIDER }
+
     public static final class Option {
         public final String labelKey;
         public final String tooltipKey;
@@ -21,6 +26,7 @@ public final class SettingsRegistry {
         public final Runnable action;
         public final String[] cycleValues;
         public final boolean dangerous;
+
         private Option(String labelKey, String tooltipKey, Type type, String configKey,
                        Supplier<String> get, Consumer<String> set, double min, double max,
                        Runnable action, String[] cycleValues, boolean dangerous) {
@@ -36,20 +42,24 @@ public final class SettingsRegistry {
             this.cycleValues = cycleValues;
             this.dangerous = dangerous;
         }
+
         public static Option bool(String labelKey, String configKey,
                                   Supplier<Boolean> get, Consumer<Boolean> set) {
             return new Option(labelKey, null, Type.BOOL, configKey,
                     () -> String.valueOf(get.get()), v -> set.accept(Boolean.parseBoolean(v)),
                     0, 0, null, null, false);
         }
+
         public Option tooltip(String key) {
             return new Option(labelKey, key, type, configKey, get, set, min, max,
                     action, cycleValues, dangerous);
         }
+
         public Option danger() {
             return new Option(labelKey, tooltipKey, type, configKey, get, set, min, max,
                     action, cycleValues, true);
         }
+
         public static Option intVal(String labelKey, String configKey,
                                     Supplier<Integer> get, Consumer<Integer> set,
                                     int min, int max) {
@@ -59,6 +69,7 @@ public final class SettingsRegistry {
                 set.accept((int) Math.max(min, Math.min(max, parsed)));
             }, min, max, null, null, false);
         }
+
         public static Option slider(String labelKey, String configKey,
                                     Supplier<Integer> get, Consumer<Integer> set,
                                     int min, int max) {
@@ -68,6 +79,7 @@ public final class SettingsRegistry {
                 set.accept((int) Math.max(min, Math.min(max, parsed)));
             }, min, max, null, null, false);
         }
+
         public static Option floatVal(String labelKey, String configKey,
                                       Supplier<Float> get, Consumer<Float> set,
                                       double min, double max) {
@@ -77,6 +89,7 @@ public final class SettingsRegistry {
                 set.accept((float) Math.max(min, Math.min(max, parsed)));
             }, min, max, null, null, false);
         }
+
         public static Option doubleVal(String labelKey, String configKey,
                                        Supplier<Double> get, Consumer<Double> set,
                                        double min, double max) {
@@ -86,6 +99,7 @@ public final class SettingsRegistry {
                 set.accept(Math.max(min, Math.min(max, parsed)));
             }, min, max, null, null, false);
         }
+
         public static Option color(String labelKey, String configKey,
                                    Supplier<String> get, Consumer<String> set) {
             return new Option(labelKey, null, Type.COLOR, configKey, get, v -> {
@@ -99,11 +113,13 @@ public final class SettingsRegistry {
                 }
             }, 0, 0, null, null, false);
         }
+
         public static Option string(String labelKey, String configKey,
                                     Supplier<String> get, Consumer<String> set) {
             return new Option(labelKey, null, Type.STRING, configKey, get,
                     v -> set.accept(v.trim()), 0, 0, null, null, false);
         }
+
         public static Option command(String labelKey, String configKey,
                                      Supplier<String> get, Consumer<String> set) {
             return new Option(labelKey, null, Type.COMMAND, configKey, get, v -> {
@@ -111,10 +127,12 @@ public final class SettingsRegistry {
                 set.accept(s.startsWith("/") ? s.substring(1) : s);
             }, 0, 0, null, null, false);
         }
+
         public static Option action(String labelKey, String configKey, Runnable run) {
             return new Option(labelKey, null, Type.ACTION, configKey,
                     () -> "", v -> { }, 0, 0, run, null, false);
         }
+
         public static Option cycle(String labelKey, String configKey,
                                    Supplier<String> get, Consumer<String> set,
                                    String... values) {
@@ -122,33 +140,43 @@ public final class SettingsRegistry {
                     v -> set.accept(v), 0, 0, null, values, false);
         }
     }
+
     public record Card(String titleKey, String descKey, List<Option> options) {
     }
+
     public record Tab(String titleKey, List<Card> cards) {
     }
+
     public record ModulePage(String id, String titleKey, String descKey, List<Tab> tabs) {
     }
+
     private final List<ModulePage> modules = new ArrayList<>();
+
     public List<ModulePage> modules() {
         return modules;
     }
+
     public ModulePage module(String id, String titleKey, String descKey) {
         ModulePage m = new ModulePage(id, titleKey, descKey, new ArrayList<>());
         modules.add(m);
         return m;
     }
+
     public static Tab tab(ModulePage module, String titleKey) {
         Tab t = new Tab(titleKey, new ArrayList<>());
         module.tabs().add(t);
         return t;
     }
+
     public static Card card(Tab tab, String titleKey, String descKey, Option... options) {
         Card c = new Card(titleKey, descKey, new ArrayList<>(List.of(options)));
         tab.cards().add(c);
         return c;
     }
+
     public record SearchHit(ModulePage module, int tabIndex, Card card, Option option) {
     }
+
     public List<SearchHit> search(String query, java.util.function.Function<String, String> translate) {
         List<SearchHit> hits = new ArrayList<>();
         String q = query.toLowerCase(Locale.ROOT).trim();
@@ -171,11 +199,13 @@ public final class SettingsRegistry {
         }
         return hits;
     }
+
     public static SettingsRegistry build(OttoExtraConfig c, Runnable openPeopleBook,
                                          Runnable openGroupColors, Runnable openBannerEdit,
                                          Runnable openLetterEditor, Runnable openRegionThemes,
                                          Runnable openFollowing) {
         SettingsRegistry r = new SettingsRegistry();
+
         var rp = r.module("resourcepack", "ottoextra.module.resourcepack", "ottoextra.set.rp.desc");
         var rpBase = tab(rp, "ottoextra.set.tab.base");
         card(rpBase, "ottoextra.set.rp.card", "ottoextra.set.rp.card.desc",
@@ -200,6 +230,7 @@ public final class SettingsRegistry {
                 Option.intVal("ottoextra.adv.requestTimeoutMs", "resourcepack.requestTimeoutMs",
                         () -> c.resourcepack.requestTimeoutMs, v -> c.resourcepack.requestTimeoutMs = v,
                         1000, 300000));
+
         var chat = r.module("chat", "ottoextra.module.chat", "ottoextra.set.chat.desc");
         var chatBase = tab(chat, "ottoextra.set.tab.base");
         card(chatBase, "ottoextra.set.chat.channel", "ottoextra.set.chat.channel.desc",
@@ -230,9 +261,6 @@ public final class SettingsRegistry {
                 Option.bool("ottoextra.config.chat.rpformat", "chat.rpFormattingEnabled",
                         () -> c.chat.rpFormattingEnabled, v -> c.chat.rpFormattingEnabled = v)
                         .tooltip("ottoextra.set.chat.rpformat.tip"),
-                Option.color("ottoextra.config.chat.normalColor", "chat.rpNormalColor",
-                        () -> c.chat.rpNormalColor, v -> c.chat.rpNormalColor = v)
-                        .tooltip("ottoextra.set.chat.normalColor.tip"),
                 Option.color("ottoextra.config.chat.emoteColor", "chat.rpEmoteColor",
                         () -> c.chat.rpEmoteColor, v -> c.chat.rpEmoteColor = v)
                         .tooltip("ottoextra.set.chat.emoteColor.tip"),
@@ -244,6 +272,7 @@ public final class SettingsRegistry {
                 Option.intVal("ottoextra.config.chat.longchatDelayMs", "chat.longChatDelayMs",
                         () -> c.chat.longChatDelayMs, v -> c.chat.longChatDelayMs = v, 500, 1500)
                         .tooltip("ottoextra.set.chat.longchatDelayMs.tip"));
+
         var reg = r.module("regions", "ottoextra.module.regions", "ottoextra.set.regions.desc");
         var regBase = tab(reg, "ottoextra.set.tab.base");
         card(regBase, "ottoextra.set.regions.toast", "ottoextra.set.regions.toast.desc",
@@ -307,6 +336,7 @@ public final class SettingsRegistry {
                         () -> c.regions.hierarchyScale, v -> c.regions.hierarchyScale = v, 0.2, 3.0),
                 Option.floatVal("ottoextra.adv.hintScale", "regions.hintScale",
                         () -> c.regions.hintScale, v -> c.regions.hintScale = v, 0.1, 3.0));
+
         var tags = r.module("nametags", "ottoextra.module.nametags", "ottoextra.set.tags.desc");
         var tagsBase = tab(tags, "ottoextra.set.tab.base");
         card(tagsBase, "ottoextra.set.tags.visibility", "ottoextra.set.tags.visibility.desc",
@@ -335,6 +365,7 @@ public final class SettingsRegistry {
                         () -> c.nametags.lineSpacing, v -> c.nametags.lineSpacing = v, 4, 30),
                 Option.color("ottoextra.adv.tagAccountColor", "nametags.accountColor",
                         () -> c.nametags.accountColor, v -> c.nametags.accountColor = v));
+
         var map = r.module("map", "ottoextra.module.map", "ottoextra.set.map.desc");
         var mapBase = tab(map, "ottoextra.set.tab.base");
         card(mapBase, "ottoextra.set.map.visibility", "ottoextra.set.map.visibility.desc",
@@ -437,6 +468,7 @@ public final class SettingsRegistry {
                         () -> c.map.factionHudScale, v -> c.map.factionHudScale = v, 0.5, 3),
                 Option.color("ottoextra.adv.factionHudColor", "map.factionHudColor",
                         () -> c.map.factionHudColor, v -> c.map.factionHudColor = v));
+
         var rpn = r.module("rpnames", "ottoextra.module.rpnames", "ottoextra.set.rpn.desc");
         var rpnBase = tab(rpn, "ottoextra.set.tab.base");
         card(rpnBase, "ottoextra.set.rpn.people", "ottoextra.set.rpn.people.desc",
@@ -524,6 +556,7 @@ public final class SettingsRegistry {
                 Option.bool("ottoextra.config.rpnames.tablistTitlesAlways", "rpnames.tablistTitlesAlways",
                         () -> c.rpnames.tablistTitlesAlways, v -> c.rpnames.tablistTitlesAlways = v)
                         .tooltip("ottoextra.set.rpn.tablistTitlesAlways.tip"));
+
         var letter = r.module("letter", "ottoextra.module.letter", "ottoextra.set.letter.desc");
         var letterBase = tab(letter, "ottoextra.set.tab.base");
         card(letterBase, "ottoextra.set.letter.editor", "ottoextra.set.letter.editor.desc",
@@ -576,6 +609,7 @@ public final class SettingsRegistry {
                         () -> c.letter.pageModeSendDelayMs,
                         v -> c.letter.pageModeSendDelayMs = v, 200, 5000)
                         .tooltip("ottoextra.set.letter.pageModeDelay.tip"));
+
         var tweaks = r.module("tweaks", "ottoextra.module.tweaks", "ottoextra.set.tweaks.desc");
         var tweaksBase = tab(tweaks, "ottoextra.set.tab.base");
         card(tweaksBase, "ottoextra.set.tweaks.toolprotect", "ottoextra.set.tweaks.toolprotect.desc",
@@ -619,6 +653,7 @@ public final class SettingsRegistry {
                 Option.bool("ottoextra.config.tweaks.lowhealth.calm", "tweaks.lowHealth.calmAfterNoDamage",
                         () -> c.tweaks.lowHealth.calmAfterNoDamage, v -> c.tweaks.lowHealth.calmAfterNoDamage = v)
                         .tooltip("ottoextra.set.tweaks.lowhealth.calm.tip"));
+
         return r;
     }
 }

@@ -1,17 +1,24 @@
 package de.ottoextra.letter.announcement;
+
 import de.ottoextra.letter.model.AnnouncementPageCheck;
 import de.ottoextra.letter.model.AnnouncementPreflightResult;
 import de.ottoextra.letter.placeholder.LetterPlaceholderParser;
+
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+
 public final class AnnouncementPreflightService {
+
     public static final int DISCORD_MESSAGE_LIMIT = 2000;
     public static final int MAX_CHUNKS_PER_PAGE = 20;
+
     private final AnnouncementCommandBuilder builder;
+
     public AnnouncementPreflightService(AnnouncementCommandBuilder builder) {
         this.builder = builder;
     }
+
     public AnnouncementPreflightResult check(String draftId, List<String> pageTexts) {
         List<AnnouncementPageCheck> checks = new ArrayList<>();
         for (int i = 0; i < pageTexts.size(); i++) {

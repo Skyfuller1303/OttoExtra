@@ -1,4 +1,5 @@
 package de.ottoextra.rpnames;
+
 import de.ottoextra.config.OttoExtraConfig;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
@@ -13,17 +14,23 @@ import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.RotationAxis;
 import net.minecraft.util.math.Vec3d;
+
 import java.util.List;
+
 public final class MeetMarkerRenderer {
+
     private static final Identifier TEXTURE =
             de.ottoextra.OttoExtra.id("textures/entity/meet_marker.png");
     private static final float BASE_SCALE = 1.0f;
     private static final double RANGE = 48.0;
+
     private MeetMarkerRenderer() {
     }
+
     public static void register() {
         WorldRenderEvents.AFTER_ENTITIES.register(MeetMarkerRenderer::render);
     }
+
     private static void render(WorldRenderContext ctx) {
         try {
             if (!RpNamesServices.proactiveMeetEnabled()) {
@@ -46,11 +53,14 @@ public final class MeetMarkerRenderer {
             Camera cam = mc.gameRenderer.getCamera();
             Vec3d camPos = cam.getCameraPos();
             VertexConsumer vc = consumers.getBuffer(RenderLayers.entityCutoutNoCull(TEXTURE));
+
             float delta = mc.getRenderTickCounter().getTickProgress(true);
+
             long time = System.currentTimeMillis();
             float spin = (time % 36000L) / 100.0f * (float) cfg.meetMarkerSpinSpeed;
             float bob = (float) Math.sin(time / 380.0) * 0.06f;
             float scale = BASE_SCALE * (float) cfg.meetMarkerSize;
+
             for (var p : mc.world.getPlayers()) {
                 if (p == mc.player) {
                     continue;
@@ -71,8 +81,10 @@ public final class MeetMarkerRenderer {
                 drawModel(quads, matrices, vc, dx, dy, dz, spin, scale, light);
             }
         } catch (Throwable ignored) {
+
         }
     }
+
     private static void drawModel(List<MeetMarkerModel.Quad> quads, MatrixStack matrices,
                                   VertexConsumer vc, double dx, double dy, double dz,
                                   float spin, float scale, int light) {

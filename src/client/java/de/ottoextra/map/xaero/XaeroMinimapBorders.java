@@ -1,4 +1,5 @@
 package de.ottoextra.map.xaero;
+
 import de.ottoextra.OttoExtra;
 import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.map.LehenPolygonStore;
@@ -15,23 +16,31 @@ import xaero.hud.minimap.element.render.MinimapElementRenderLocation;
 import xaero.hud.minimap.element.render.MinimapElementRenderProvider;
 import xaero.hud.minimap.element.render.MinimapElementRenderer;
 import xaero.hud.minimap.element.render.over.MinimapElementOverMapRendererHandler;
+
 import java.lang.reflect.Field;
 import java.util.function.BooleanSupplier;
+
 public final class XaeroMinimapBorders extends MinimapElementRenderer<XaeroMinimapBorders.Marker, Void> {
+
     public static final class Marker {
         static final Marker INSTANCE = new Marker();
     }
+
     private static final int COL_BORDER = 0xCCB8893A;
     private static final int COL_BORDER_INSIDE = 0xFFE6C8A9;
+
     private static boolean registered = false;
+
     private static volatile boolean lastCircle = false;
     private static volatile long lastCircleStampMs = 0;
+
     public static Boolean circleShape() {
         if (System.currentTimeMillis() - lastCircleStampMs > 5000L) {
             return null;
         }
         return lastCircle;
     }
+
     private static boolean minimapHasTile(xaero.common.minimap.region.MinimapChunk[][] blocks,
                                           int originX, int originZ, int ccx, int ccz) {
         int mcx = (ccx >> 2) - originX;
@@ -46,8 +55,10 @@ public final class XaeroMinimapBorders extends MinimapElementRenderer<XaeroMinim
         xaero.common.minimap.region.MinimapChunk chunk = column[mcz];
         return chunk != null && chunk.getTile(ccx & 3, ccz & 3) != null;
     }
+
     private final OttoExtraConfig.Map cfg;
     private final BooleanSupplier visible;
+
     private final MinimapElementOverMapRendererHandler handler;
     private Field fPs;
     private Field fPc;
@@ -56,6 +67,7 @@ public final class XaeroMinimapBorders extends MinimapElementRenderer<XaeroMinim
     private Field fCircle;
     private boolean fieldsResolved = false;
     private boolean fieldsFailed = false;
+
     private XaeroMinimapBorders(OttoExtraConfig.Map cfg, BooleanSupplier visible,
                                 MinimapElementOverMapRendererHandler handler) {
         super(new BorderReader(), new BorderProvider(cfg, visible), null);
@@ -63,6 +75,7 @@ public final class XaeroMinimapBorders extends MinimapElementRenderer<XaeroMinim
         this.visible = visible;
         this.handler = handler;
     }
+
     public static boolean tryRegister(OttoExtraConfig.Map cfg, BooleanSupplier visible) {
         if (registered) {
             return true;
@@ -87,20 +100,24 @@ public final class XaeroMinimapBorders extends MinimapElementRenderer<XaeroMinim
             return false;
         }
     }
+
     @Override
     public boolean shouldRender(MinimapElementRenderLocation location) {
         return location == MinimapElementRenderLocation.OVER_MINIMAP;
     }
+
     @Override
     public void preRender(MinimapElementRenderInfo renderInfo,
                           VertexConsumerProvider.Immediate vanillaBufferSource,
                           MultiTextureRenderTypeRendererProvider multiTextureRenderTypeRenderers) {
     }
+
     @Override
     public void postRender(MinimapElementRenderInfo renderInfo,
                            VertexConsumerProvider.Immediate vanillaBufferSource,
                            MultiTextureRenderTypeRendererProvider multiTextureRenderTypeRenderers) {
     }
+
     @Override
     public boolean renderElement(Marker element, boolean highlighted, boolean outOfBounds,
                                  double optionalDepth, float optionalScale,
@@ -127,17 +144,21 @@ public final class XaeroMinimapBorders extends MinimapElementRenderer<XaeroMinim
             }
             double camX = info.renderPos.x;
             double camZ = info.renderPos.z;
+
             double worldHalf = halfView / zoom + 64;
             double qMinX = camX - worldHalf;
             double qMaxX = camX + worldHalf;
             double qMinZ = camZ - worldHalf;
             double qMaxZ = camZ + worldHalf;
+
             MinecraftClient client = MinecraftClient.getInstance();
             double playerX = client.player != null ? client.player.getX() : Double.NaN;
             double playerZ = client.player != null ? client.player.getZ() : Double.NaN;
             String insideKey = de.ottoextra.map.MapOverlayRenderer.insidePolygonKey(playerX, playerZ);
+
             MatrixStack pose = graphics.pose();
             int width = Math.max(1, cfg.borderWidthPx);
+
             if (cfg.minimapPainted && cfg.paintedMap) {
                 xaero.hud.minimap.module.MinimapSession session =
                         xaero.hud.minimap.BuiltInHudModules.MINIMAP.getCurrentSession();
@@ -154,6 +175,7 @@ public final class XaeroMinimapBorders extends MinimapElementRenderer<XaeroMinim
                             (ccx, ccz) -> minimapHasTile(blocks, originX, originZ, ccx, ccz));
                 }
             }
+
             if (cfg.minimapPolitical && cfg.politicalFill) {
                 for (de.ottoextra.map.LehenPolygon poly : LehenPolygonStore.polygons()) {
                     if (!poly.intersects(qMinX, qMinZ, qMaxX, qMaxZ)) {
@@ -163,12 +185,14 @@ public final class XaeroMinimapBorders extends MinimapElementRenderer<XaeroMinim
                             de.ottoextra.map.PoliticalOverlay.fillTintFor(poly.key()));
                 }
             }
+
             for (de.ottoextra.map.BorderSegment seg : LehenPolygonStore.segments()) {
                 if (!seg.intersects(qMinX, qMinZ, qMaxX, qMaxZ)) {
                     continue;
                 }
                 boolean highlight = insideKey != null && seg.ownerKeys().contains(insideKey);
                 int color = highlight ? COL_BORDER_INSIDE : COL_BORDER;
+
                 double ox1 = seg.x1() - camX;
                 double oy1 = seg.z1() - camZ;
                 double ox2 = seg.x2() - camX;
@@ -184,10 +208,12 @@ public final class XaeroMinimapBorders extends MinimapElementRenderer<XaeroMinim
         }
         return false;
     }
+
     @Override
     public int getOrder() {
         return 50;
     }
+
     private boolean resolveHandlerFields() {
         if (fieldsResolved) {
             return true;
@@ -211,6 +237,7 @@ public final class XaeroMinimapBorders extends MinimapElementRenderer<XaeroMinim
             return false;
         }
     }
+
     private static Field findField(Class<?> start, String name) throws NoSuchFieldException {
         Class<?> c = start;
         while (c != null) {
@@ -224,6 +251,7 @@ public final class XaeroMinimapBorders extends MinimapElementRenderer<XaeroMinim
         }
         throw new NoSuchFieldException(name);
     }
+
     private static void drawClippedSegment(MinimapElementGraphics graphics, MatrixStack pose,
                                            double x1, double y1, double x2, double y2,
                                            int half, boolean circle, int color, int widthPx,
@@ -233,6 +261,7 @@ public final class XaeroMinimapBorders extends MinimapElementRenderer<XaeroMinim
         double t0 = 0;
         double t1 = 1;
         if (circle) {
+
             double r = half;
             double a = dx * dx + dy * dy;
             double b = 2 * (x1 * dx + y1 * dy);
@@ -309,6 +338,7 @@ public final class XaeroMinimapBorders extends MinimapElementRenderer<XaeroMinim
         }
         pose.pop();
     }
+
     private static void fillPolygon(MinimapElementGraphics graphics,
                                     de.ottoextra.map.LehenPolygon poly,
                                     double camX, double camZ, double ps, double pc,
@@ -364,103 +394,127 @@ public final class XaeroMinimapBorders extends MinimapElementRenderer<XaeroMinim
             }
         }
     }
+
     private static final class BorderReader extends MinimapElementReader<Marker, Void> {
         @Override
         public boolean isHidden(Marker e, Void ctx) {
             return false;
         }
+
         @Override
         public double getRenderX(Marker e, Void ctx, float partial) {
             MinecraftClient mc = MinecraftClient.getInstance();
             return mc.getCameraEntity() != null ? mc.getCameraEntity().getX() : 0;
         }
+
         @Override
         public double getRenderY(Marker e, Void ctx, float partial) {
             return 0;
         }
+
         @Override
         public double getRenderZ(Marker e, Void ctx, float partial) {
             MinecraftClient mc = MinecraftClient.getInstance();
             return mc.getCameraEntity() != null ? mc.getCameraEntity().getZ() : 0;
         }
+
         @Override
         public int getInteractionBoxLeft(Marker e, Void ctx, float p) {
             return 0;
         }
+
         @Override
         public int getInteractionBoxRight(Marker e, Void ctx, float p) {
             return 0;
         }
+
         @Override
         public int getInteractionBoxTop(Marker e, Void ctx, float p) {
             return 0;
         }
+
         @Override
         public int getInteractionBoxBottom(Marker e, Void ctx, float p) {
             return 0;
         }
+
         @Override
         public int getRenderBoxLeft(Marker e, Void ctx, float p) {
             return 0;
         }
+
         @Override
         public int getRenderBoxRight(Marker e, Void ctx, float p) {
             return 0;
         }
+
         @Override
         public int getRenderBoxTop(Marker e, Void ctx, float p) {
             return 0;
         }
+
         @Override
         public int getRenderBoxBottom(Marker e, Void ctx, float p) {
             return 0;
         }
+
         @Override
         public int getLeftSideLength(Marker e, MinecraftClient mc) {
             return 0;
         }
+
         @Override
         public boolean shouldScaleBoxWithOptionalScale() {
             return false;
         }
+
         @Override
         public String getMenuName(Marker e) {
             return "OttoExtra";
         }
+
         @Override
         public String getFilterName(Marker e) {
             return "OttoExtra";
         }
+
         @Override
         public int getMenuTextFillLeftPadding(Marker e) {
             return 0;
         }
+
         @Override
         public int getRightClickTitleBackgroundColor(Marker e) {
             return 0;
         }
     }
+
     private static final class BorderProvider extends MinimapElementRenderProvider<Marker, Void> {
         private final OttoExtraConfig.Map cfg;
         private final BooleanSupplier visible;
         private boolean served;
+
         private BorderProvider(OttoExtraConfig.Map cfg, BooleanSupplier visible) {
             this.cfg = cfg;
             this.visible = visible;
         }
+
         @Override
         public void begin(MinimapElementRenderLocation location, Void ctx) {
             served = !(cfg.minimapBorders && visible.getAsBoolean());
         }
+
         @Override
         public boolean hasNext(MinimapElementRenderLocation location, Void ctx) {
             return !served;
         }
+
         @Override
         public Marker getNext(MinimapElementRenderLocation location, Void ctx) {
             served = true;
             return Marker.INSTANCE;
         }
+
         @Override
         public void end(MinimapElementRenderLocation location, Void ctx) {
         }

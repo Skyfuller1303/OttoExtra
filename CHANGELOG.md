@@ -1,3 +1,24 @@
+## [0.1.14] – 2026-07-17
+
+### RP-Untersuchungsmodus
+
+- Spieler, sichtbare Ausrüstung, Gegenstände, Kreaturen und ausgewählte Blöcke können mit einer frei belegbaren Untersuchungstaste betrachtet werden.
+- RP-Gedanken, Untersuchungsdauer und sichtbare Detailinformationen lassen sich in den OttoExtra-Einstellungen anpassen.
+
+### RP-Chatformatierung
+
+- `*Emotes*` werden in RP-Kanälen hellgrau und kursiv dargestellt.
+- `(OOC-Kommentare)` innerhalb von RP-Nachrichten werden goldgelb hervorgehoben.
+- Farben für Emotes und OOC-Kommentare sind frei einstellbar; normaler Text behält die vom Server festgelegte Farbe des jeweiligen Kanals.
+- Die Formatierung gilt ausschließlich für Murmeln, Flüstern, Sprechen, Rufen und Brüllen.
+- Offtopic und Hilfe bleiben unverändert und erhalten keine automatische RP-Formatierung.
+
+### Lange Nachrichten
+
+- Nachrichten über 256 Zeichen werden automatisch aufgeteilt.
+- Offene Emotes und OOC-Kommentare werden nur in RP-Kanälen korrekt über Teilnachrichten fortgeführt.
+- In Offtopic und Hilfe bleiben Sternchen und Klammern beim Aufteilen unverändert.
+
 ## [0.1.13.2-y] – 2026-07-17
 
 ### Einstellbare RP-Chatfarben

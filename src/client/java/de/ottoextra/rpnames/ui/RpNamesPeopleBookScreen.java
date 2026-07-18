@@ -1,4 +1,5 @@
 package de.ottoextra.rpnames.ui;
+
 import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.rpnames.RpNamesServices;
 import de.ottoextra.rpnames.chat.ChatNameRewriter;
@@ -19,13 +20,16 @@ import net.minecraft.text.MutableText;
 import net.minecraft.text.Style;
 import net.minecraft.text.Text;
 import net.minecraft.text.TextColor;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+
 public final class RpNamesPeopleBookScreen extends Screen {
+
     private static final int COL_PANEL = 0xC8141418;
     private static final int COL_BORDER = 0xFF000000;
     private static final int COL_TITLE = 0xFFFFFFFF;
@@ -35,15 +39,19 @@ public final class RpNamesPeopleBookScreen extends Screen {
     private static final int COL_CONFLICT = 0xFFFF5555;
     private static final int COL_ONLINE = 0xFF55FF55;
     private static final int ROW_H = 22;
+
     private enum Tab { PEOPLE, TITLES, GROUPS, IMPORT }
+
     private static final String TF_ALL = "__all__";
     private static final String TF_ACTIVE = "__active__";
     private static final String TF_INACTIVE = "__inactive__";
     private static final String TF_MANUAL = "__manual__";
     private static final String TF_WIKI = "__wiki__";
     private static final String TF_CAT_PREFIX = "cat:";
+
     private record FilterOption(String id, Text label) {
     }
+
     private enum Chip {
         ALL("ottoextra.rpbook.chip.all"),
         UNKNOWN("ottoextra.rpbook.chip.unknown"),
@@ -53,22 +61,28 @@ public final class RpNamesPeopleBookScreen extends Screen {
         API("ottoextra.rpbook.chip.api"),
         CONFLICT("ottoextra.rpbook.chip.conflict"),
         ONLINE("ottoextra.rpbook.chip.online");
+
         final String key;
+
         Chip(String key) {
             this.key = key;
         }
     }
+
     private final Screen parent;
     private final LocalRpIdentityStore store;
     private final TitleRegistry titles;
+
     private Tab tab = Tab.PEOPLE;
     private Chip chip = Chip.ALL;
+
     private TextFieldWidget searchField;
     private TextFieldWidget rpNameField;
     private TextFieldWidget titleField;
     private TextFieldWidget notesField;
     private CheckboxWidget lockCheckbox;
     private CheckboxWidget titleLockCheckbox;
+
     private boolean suppressLockAuto;
     private ButtonWidget chatFlagButton;
     private ButtonWidget tabFlagButton;
@@ -80,16 +94,22 @@ public final class RpNamesPeopleBookScreen extends Screen {
     private ButtonWidget keepLocalButton;
     private ButtonWidget takeApiButton;
     private final List<ButtonWidget> chipButtons = new ArrayList<>();
+
     private boolean filterDropdownOpen;
     private ButtonWidget filterButton;
+
     private final List<LocalRpProfile> filtered = new ArrayList<>();
     private final Set<String> onlineNamesLower = new HashSet<>();
     private LocalRpProfile selected;
+
     private net.minecraft.client.network.AbstractClientPlayerEntity previewEntity;
     private String previewEntityKey;
+
     private static final java.util.UUID FALLBACK_SKIN_UUID =
             new java.util.UUID(0L, 0L);
+
     private static net.minecraft.entity.player.SkinTextures fallbackSkinCache;
+
     private static net.minecraft.entity.player.SkinTextures fallbackSkin() {
         if (fallbackSkinCache == null) {
             net.minecraft.util.AssetInfo.TextureAsset tex =
@@ -100,6 +120,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         }
         return fallbackSkinCache;
     }
+
     private TextFieldWidget groupLabelField;
     private TextFieldWidget groupTitleColorField;
     private TextFieldWidget groupNameColorField;
@@ -107,6 +128,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
     private ButtonWidget groupSaveButton;
     private final List<String> groupKeys = new ArrayList<>();
     private String selectedGroupKey;
+
     private String titleFilter = TF_ALL;
     private TextFieldWidget titleSearchField;
     private TextFieldWidget catTitleField;
@@ -124,25 +146,33 @@ public final class RpNamesPeopleBookScreen extends Screen {
     private final List<de.ottoextra.rpnames.title.TitleCatalogStore.Entry> filteredTitles = new ArrayList<>();
     private de.ottoextra.rpnames.title.TitleCatalogStore.Entry selectedTitle;
     private String catCategoryValue = "unclassified";
+
     private ButtonWidget forgetAllButton;
     private boolean forgetAllArmed = false;
     private boolean importRunning = false;
+
     private int listScroll = 0;
     private volatile String statusLine = "";
     private boolean personDirty = false;
+
     private String titleAutofill;
+
     private String pendingSelectAccount;
+
     public RpNamesPeopleBookScreen(Screen parent) {
         super(Text.translatable("ottoextra.rpbook.title"));
         this.parent = parent;
+
         RpNamesServices.ensureInitialized(OttoExtraConfig.active().rpnames);
         this.store = RpNamesServices.store();
         this.titles = RpNamesServices.titles();
     }
+
     public RpNamesPeopleBookScreen(Screen parent, String selectAccount) {
         this(parent);
         this.pendingSelectAccount = selectAccount;
     }
+
     public static void openFor(Screen parent, String rawName, String uuid) {
         RpNamesServices.ensureInitialized(OttoExtraConfig.active().rpnames);
         LocalRpIdentityStore store = RpNamesServices.store();
@@ -155,63 +185,82 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 de.ottoextra.rpnames.model.RpNameSource.SEEN_ONLINE);
         MinecraftClient.getInstance().setScreen(new RpNamesPeopleBookScreen(parent, account));
     }
+
     private int panelW() {
         return Math.max(520 > width - 16 ? width - 16 : 520, Math.min(width - 48, 900));
     }
+
     private int panelH() {
         return height;
     }
+
     private int panelX() {
         return Math.max(4, (width - panelW()) / 2);
     }
+
     private int panelY() {
         return 0;
     }
+
     private int contentY() {
         return panelY() + 40;
     }
+
     private int contentBottom() {
         return height - 36;
     }
+
     private int listX() {
         return panelX() + 8;
     }
+
     private int listW() {
         return Math.max(180, Math.min(230, panelW() / 4 + 40));
     }
+
     private int listTop() {
         return contentY() + 42;
     }
+
     private int listBottom() {
         return contentBottom() - 14;
     }
+
     private int editX() {
         return listX() + listW() + 10;
     }
+
     private int editW() {
         int right = previewVisible() ? previewX() - 8 : panelX() + panelW() - 8;
         return right - editX();
     }
+
     private int peopleFieldsW() {
         int avail = editW() - 50;
         return Math.max(120, Math.min(avail, 210));
     }
+
     private int modelX() {
         return editX() + 50 + peopleFieldsW() + 12;
     }
+
     private boolean previewVisible() {
         return panelW() >= 640;
     }
+
     private int previewX() {
         return panelX() + panelW() - 8 - previewW();
     }
+
     private int previewW() {
         return Math.max(180, Math.min(260, panelW() / 4));
     }
+
     @Override
     protected void init() {
         chipButtons.clear();
         refreshOnline();
+
         String[] tabKeys = {"ottoextra.rpbook.tab.people",
                 "ottoextra.rpbook.tab.titles", "ottoextra.rpbook.tab.import"};
         int tabsTotal = 0;
@@ -225,6 +274,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         tabButton(tx, ty, "ottoextra.rpbook.tab.import", Tab.IMPORT);
         addDrawableChild(ButtonWidget.builder(Text.translatable("gui.done"), b -> close())
                 .dimensions(width / 2 - 75, height - 26, 150, 20).build());
+
         switch (tab) {
             case PEOPLE -> {
                 initPeople();
@@ -235,6 +285,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
             case IMPORT -> initImport();
         }
     }
+
     private void selectPendingIfAny() {
         if (pendingSelectAccount == null) {
             return;
@@ -250,6 +301,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         refilter();
         select(p);
     }
+
     private int tabButton(int x, int y, String key, Tab target) {
         int w = textRenderer.getWidth(Text.translatable(key)) + 14;
         ButtonWidget btn = ButtonWidget.builder(Text.translatable(key), b -> {
@@ -262,6 +314,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         addDrawableChild(btn);
         return x + w + 4;
     }
+
     private void initPeople() {
         searchField = new TextFieldWidget(textRenderer, listX(), contentY(), listW(), 16,
                 Text.translatable("ottoextra.rpbook.search"));
@@ -273,15 +326,18 @@ public final class RpNamesPeopleBookScreen extends Screen {
             refilter();
         });
         addDrawableChild(searchField);
+
         filterDropdownOpen = false;
         filterButton = ButtonWidget.builder(filterLabel(), b ->
                         filterDropdownOpen = !filterDropdownOpen)
                 .dimensions(listX(), contentY() + 20, listW(), 16).build();
         addDrawableChild(filterButton);
+
         int labelW = 50;
         int x = editX() + labelW;
         int w = peopleFieldsW();
         int y = contentY() + 12;
+
         rpNameField = new TextFieldWidget(textRenderer, x, y, w, 16, Text.empty());
         rpNameField.setMaxLength(48);
         rpNameField.setChangedListener(s -> {
@@ -292,7 +348,9 @@ public final class RpNamesPeopleBookScreen extends Screen {
         y += 21;
         titleField = new TextFieldWidget(textRenderer, x, y, w, 16, Text.empty());
         titleField.setMaxLength(48);
+
         titleField.setChangedListener(s -> {
+
             autoLockTitle();
             markPersonDirty();
             titleAutofill = null;
@@ -318,6 +376,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         });
         addDrawableChild(titleField);
         y += 21;
+
         lockCheckbox = CheckboxWidget.builder(Text.translatable("ottoextra.rpbook.lock"), textRenderer)
                 .pos(x, y - 1).build();
         addDrawableChild(lockCheckbox);
@@ -326,6 +385,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 .pos(x + w / 2 + 2, y - 1).build();
         addDrawableChild(titleLockCheckbox);
         y += 21;
+
         int fieldW = (w - 16 - 4) / 2 - 12;
         for (int row = 0; row < 3; row++) {
             int fy = y + 12 + row * 19;
@@ -333,6 +393,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
             colorFields[row * 2 + 1] = colorField(x + fieldW + 16, fy, fieldW);
         }
         y += 12 + 3 * 19 + 2;
+
         copyChatColorsButton = ButtonWidget.builder(Text.translatable("ottoextra.rpbook.colors.copyChat"), b -> {
             colorFields[2].setText(colorFields[0].getText());
             colorFields[3].setText(colorFields[1].getText());
@@ -341,6 +402,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         }).dimensions(x, y, w, 14).build();
         addDrawableChild(copyChatColorsButton);
         y += 17;
+
         chatFlagButton = flagButton(x, y, w / 3 - 2, "ottoextra.rpbook.flag.chat",
                 () -> selected != null && selected.showInChat,
                 v -> { if (selected != null) selected.showInChat = v; });
@@ -351,6 +413,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 () -> selected != null && selected.showInNametag,
                 v -> { if (selected != null) selected.showInNametag = v; });
         y += 19;
+
         notesField = field(x, y, w, 200, "ottoextra.rpbook.notes");
         notesField.setChangedListener(s -> {
             notesField.setSuggestion(s.isEmpty()
@@ -358,12 +421,14 @@ public final class RpNamesPeopleBookScreen extends Screen {
             markPersonDirty();
         });
         y += 21;
+
         saveButton = ButtonWidget.builder(Text.translatable("ottoextra.rpbook.save"), b -> savePerson())
                 .dimensions(x, y, w / 2 - 2, 16).build();
         addDrawableChild(saveButton);
         forgetButton = ButtonWidget.builder(Text.translatable("ottoextra.rpbook.forget"), b -> forget())
                 .dimensions(x + w / 2 + 2, y, w / 2 - 2, 16).build();
         addDrawableChild(forgetButton);
+
         if (previewVisible()) {
             int px = previewX();
             int pw = previewW();
@@ -375,6 +440,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
                     b -> resolveConflict(true)).dimensions(px + pw / 2 + 2, py, pw / 2 - 2, 14).build();
             addDrawableChild(takeApiButton);
         }
+
         refilter();
         if (selected != null) {
             select(selected);
@@ -382,6 +448,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
             setPeopleEditEnabled(false);
         }
     }
+
     private TextFieldWidget field(int x, int y, int w, int maxLen, String suggestionKey) {
         TextFieldWidget f = new TextFieldWidget(textRenderer, x, y, w, 16, Text.empty());
         f.setMaxLength(maxLen);
@@ -391,6 +458,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         addDrawableChild(f);
         return f;
     }
+
     private TextFieldWidget colorField(int x, int y, int w) {
         TextFieldWidget f = new TextFieldWidget(textRenderer, x, y, w, 14, Text.empty());
         f.setMaxLength(7);
@@ -401,6 +469,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         addDrawableChild(f);
         return f;
     }
+
     private void autoLock() {
         if (suppressLockAuto || tab != Tab.PEOPLE || selected == null || lockCheckbox == null
                 || !lockCheckbox.active || lockCheckbox.isChecked()) {
@@ -408,6 +477,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         }
         lockCheckbox.onPress(null);
     }
+
     private void autoLockTitle() {
         if (suppressLockAuto || tab != Tab.PEOPLE || selected == null || titleLockCheckbox == null
                 || !titleLockCheckbox.active || titleLockCheckbox.isChecked()) {
@@ -415,6 +485,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         }
         titleLockCheckbox.onPress(null);
     }
+
     private ButtonWidget flagButton(int x, int y, int w, String key,
                                     java.util.function.BooleanSupplier get,
                                     java.util.function.Consumer<Boolean> set) {
@@ -427,19 +498,23 @@ public final class RpNamesPeopleBookScreen extends Screen {
         addDrawableChild(btn);
         return btn;
     }
+
     private Text flagLabel(String key, boolean on) {
         return Text.translatable(key).copy().append(": ")
                 .append(Text.translatable(on ? "ottoextra.rpbook.flag.on"
                         : "ottoextra.rpbook.flag.off"));
     }
+
     private void updateChipState() {
         if (filterButton != null) {
             filterButton.setMessage(filterLabel());
         }
     }
+
     private Text filterLabel() {
         return Text.translatable("ottoextra.rpbook.filter", currentFilterLabel());
     }
+
     private Text currentFilterLabel() {
         String cur = tab == Tab.TITLES ? titleFilter : chip.name();
         for (FilterOption o : filterOptions()) {
@@ -449,6 +524,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         }
         return Text.literal("?");
     }
+
     private List<FilterOption> filterOptions() {
         List<FilterOption> opts = new ArrayList<>();
         if (tab == Tab.TITLES) {
@@ -473,6 +549,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         }
         return opts;
     }
+
     private void selectFilter(int index) {
         List<FilterOption> opts = filterOptions();
         if (index < 0 || index >= opts.size()) {
@@ -490,15 +567,19 @@ public final class RpNamesPeopleBookScreen extends Screen {
         filterDropdownOpen = false;
         updateChipState();
     }
+
     private int dropdownX() {
         return listX();
     }
+
     private int dropdownY() {
         return contentY() + 36;
     }
+
     private int dropdownRowH() {
         return 13;
     }
+
     private void refreshOnline() {
         onlineNamesLower.clear();
         MinecraftClient client = MinecraftClient.getInstance();
@@ -511,9 +592,11 @@ public final class RpNamesPeopleBookScreen extends Screen {
             }
         }
     }
+
     private boolean isOnline(LocalRpProfile p) {
         return p.accountName != null && onlineNamesLower.contains(p.accountName.toLowerCase(Locale.ROOT));
     }
+
     private boolean matchesChip(LocalRpProfile p) {
         return switch (chip) {
             case ALL -> true;
@@ -527,6 +610,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
             case ONLINE -> isOnline(p);
         };
     }
+
     private void refilter() {
         filtered.clear();
         String q = searchField == null ? "" : searchField.getText().toLowerCase(Locale.ROOT).trim();
@@ -541,6 +625,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 filtered.add(p);
             }
         }
+
         filtered.sort(Comparator
                 .comparing((LocalRpProfile p) -> !isOnline(p))
                 .thenComparing(p -> p.apiConflict == null || p.apiConflict.isBlank())
@@ -549,9 +634,11 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 .thenComparing(p -> !p.hasRpName())
                 .thenComparing(p -> p.accountName == null ? "" : p.accountName.toLowerCase(Locale.ROOT)));
     }
+
     private static boolean contains(String hay, String needle) {
         return hay != null && hay.toLowerCase(Locale.ROOT).contains(needle);
     }
+
     private String[] defaultColorsFor(String title) {
         var catalog = RpNamesServices.catalog();
         String titleColor = catalog != null ? catalog.titleColor(title).orElse(null) : null;
@@ -559,11 +646,13 @@ public final class RpNamesPeopleBookScreen extends Screen {
             titleColor = titles.find(title == null ? "" : title)
                     .map(r -> r.group().titleColor).orElse("");
         }
+
         String nameColor = catalog != null
                 ? catalog.titleNameColor(title).orElse(catalog.defaultNameColor())
                 : "#c7a87f";
         return new String[]{titleColor, nameColor, titleColor, nameColor, titleColor, nameColor};
     }
+
     private String groupForTitle(String title) {
         var catalog = RpNamesServices.catalog();
         if (catalog != null) {
@@ -577,6 +666,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         return titles.find(title == null ? "" : title)
                 .map(TitleRegistry.ResolvedTitle::groupKey).orElse("");
     }
+
     private void select(LocalRpProfile profile) {
         if (selected != null && selected != profile) {
             savePendingPerson();
@@ -596,6 +686,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         if (titleLockCheckbox.isChecked() != profile.titleLocked) {
             titleLockCheckbox.onPress(null);
         }
+
         String[] overrides = {profile.colors.chatTitleColor, profile.colors.chatNameColor,
                 profile.colors.tabTitleColor, profile.colors.tabNameColor,
                 profile.colors.nametagTitleColor, profile.colors.nametagNameColor};
@@ -611,17 +702,20 @@ public final class RpNamesPeopleBookScreen extends Screen {
         suppressLockAuto = false;
         personDirty = false;
     }
+
     private void markPersonDirty() {
         if (!suppressLockAuto && tab == Tab.PEOPLE && selected != null) {
             personDirty = true;
         }
     }
+
     private void savePendingPerson() {
         if (personDirty && tab == Tab.PEOPLE && selected != null
                 && rpNameField != null && titleField != null && notesField != null) {
             savePerson();
         }
     }
+
     private void setPeopleEditEnabled(boolean enabled) {
         rpNameField.setEditable(enabled);
         titleField.setEditable(enabled);
@@ -650,6 +744,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
             takeApiButton.visible = conflict;
         }
     }
+
     private void savePerson() {
         if (selected == null) {
             return;
@@ -658,6 +753,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         String title = titleField.getText().trim();
         String notes = notesField.getText().trim();
         String group = groupForTitle(title);
+
         String[] defaults = defaultColorsFor(title);
         String[] hex = new String[6];
         for (int i = 0; i < 6; i++) {
@@ -665,6 +761,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
             hex[i] = v != null && v.equalsIgnoreCase(normalizeHex(defaults[i]) == null
                     ? "" : normalizeHex(defaults[i])) ? null : v;
         }
+
         boolean showChat = selected.showInChat;
         boolean showTab = selected.showInTablist;
         boolean showTag = selected.showInNametag;
@@ -672,6 +769,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         LocalRpProfile updated = store.updateManual(selected.accountName, p -> {
             p.rpName = rpName.isEmpty() ? LocalRpProfile.UNKNOWN_NAME : rpName;
             p.title = title;
+
             p.titleLocked = titleLockCheckbox.isChecked() && !title.isEmpty();
             p.titleGroup = group;
             p.notes = notes;
@@ -689,8 +787,10 @@ public final class RpNamesPeopleBookScreen extends Screen {
         personDirty = false;
         refilter();
         setPeopleEditEnabled(true);
+
         statusLine = Text.translatable("ottoextra.rpbook.saved").getString();
     }
+
     private void forget() {
         if (selected == null) {
             return;
@@ -700,6 +800,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         setPeopleEditEnabled(false);
         refilter();
     }
+
     private void resolveConflict(boolean takeApi) {
         if (selected == null || selected.apiConflict == null) {
             return;
@@ -717,6 +818,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         select(selected);
         refilter();
     }
+
     private static String normalizeHex(String raw) {
         if (raw == null) {
             return null;
@@ -727,6 +829,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         }
         return "#" + s.toUpperCase(Locale.ROOT);
     }
+
     private void initTitles() {
         titleChipButtons.clear();
         titleSearchField = new TextFieldWidget(textRenderer, listX(), contentY(), listW(), 16,
@@ -739,15 +842,18 @@ public final class RpNamesPeopleBookScreen extends Screen {
             refilterTitles();
         });
         addDrawableChild(titleSearchField);
+
         filterDropdownOpen = false;
         filterButton = ButtonWidget.builder(filterLabel(), b ->
                         filterDropdownOpen = !filterDropdownOpen)
                 .dimensions(listX(), contentY() + 20, listW(), 16).build();
         addDrawableChild(filterButton);
+
         int labelW = 58;
         int x = editX() + labelW;
         int w = editW() + (previewVisible() ? previewW() + 8 : 0) - labelW;
         int y = contentY() + 12;
+
         catTitleField = new TextFieldWidget(textRenderer, x, y, w, 16, Text.empty());
         catTitleField.setMaxLength(48);
         addDrawableChild(catTitleField);
@@ -765,6 +871,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
             int idx = Math.max(0, keys.indexOf(catCategoryValue));
             catCategoryValue = keys.get((idx + 1) % keys.size());
             b.setMessage(catCategoryLabel());
+
             if (selectedTitle != null
                     && (selectedTitle.colorOverride == null || selectedTitle.colorOverride.isBlank())) {
                 catColorField.setText(categoryColor(catCategoryValue));
@@ -776,6 +883,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 .pos(x + w / 2 + 2, y - 1).build();
         addDrawableChild(catEnabledCheckbox);
         y += 21;
+
         catNewCategoryField = new TextFieldWidget(textRenderer, x, y, w / 2 - 18, 16, Text.empty());
         catNewCategoryField.setMaxLength(32);
         catNewCategoryField.setSuggestion(
@@ -796,6 +904,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 .checked(true).pos(x + w / 2 + 2, y - 1).build();
         addDrawableChild(catOverrideColorCheckbox);
         y += 21;
+
         catNameColorField = colorField(x, y, w / 2 - 16);
         y += 21;
         catSaveButton = ButtonWidget.builder(Text.translatable("ottoextra.rpbook.save"),
@@ -805,8 +914,10 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 b -> deleteTitle()).dimensions(x + w / 2 + 2, y, w / 2 - 2, 16).build();
         addDrawableChild(catDeleteButton);
         y += 21;
+
         addDrawableChild(ButtonWidget.builder(Text.translatable("ottoextra.rpbook.titles.new"),
                 b -> newTitle()).dimensions(listX(), listBottom() + 2, listW(), 18).build());
+
         refilterTitles();
         if (selectedTitle != null) {
             selectTitle(selectedTitle);
@@ -814,6 +925,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
             setTitleEditEnabled(false);
         }
     }
+
     private void addCategoryFromField() {
         if (catNewCategoryField == null) {
             return;
@@ -829,18 +941,22 @@ public final class RpNamesPeopleBookScreen extends Screen {
             catNewCategoryField.setText("");
         }
     }
+
     private List<String> catalogCategories() {
         var cats = RpNamesServices.catalog().categories().keySet();
         return cats.isEmpty() ? List.of("unclassified") : new ArrayList<>(cats);
     }
+
     private String categoryColor(String key) {
         var c = RpNamesServices.catalog().categories().get(key);
         return c != null && c.color != null ? c.color : "";
     }
+
     private Text catCategoryLabel() {
         return Text.translatable("ottoextra.rpbook.titles.category").copy()
                 .append(": " + catCategoryValue);
     }
+
     private boolean matchesTitleFilter(de.ottoextra.rpnames.title.TitleCatalogStore.Entry e) {
         return switch (titleFilter) {
             case TF_ALL -> true;
@@ -852,6 +968,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
                     && titleFilter.substring(TF_CAT_PREFIX.length()).equals(e.category);
         };
     }
+
     private void refilterTitles() {
         filteredTitles.clear();
         String q = titleSearchField == null ? ""
@@ -870,6 +987,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 .comparing((de.ottoextra.rpnames.title.TitleCatalogStore.Entry e) -> e.category)
                 .thenComparing(e -> e.title == null ? "" : e.title.toLowerCase(Locale.ROOT)));
     }
+
     private void selectTitle(de.ottoextra.rpnames.title.TitleCatalogStore.Entry e) {
         selectedTitle = e;
         if (e == null) {
@@ -881,6 +999,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         catVariant2Field.setText(e.variants.size() > 1 ? e.variants.get(1) : "");
         catCategoryValue = e.category == null || e.category.isBlank() ? "unclassified" : e.category;
         catCategoryButton.setMessage(catCategoryLabel());
+
         catColorField.setText(e.colorOverride != null && !e.colorOverride.isBlank()
                 ? e.colorOverride : categoryColor(catCategoryValue));
         catNameColorField.setText(e.nameColor == null ? "" : e.nameColor);
@@ -891,8 +1010,10 @@ public final class RpNamesPeopleBookScreen extends Screen {
             catOverrideColorCheckbox.onPress(null);
         }
         setTitleEditEnabled(true);
+
         catDeleteButton.active = !"WIKI_IMPORT".equals(e.source);
     }
+
     private void setTitleEditEnabled(boolean enabled) {
         catTitleField.setEditable(enabled);
         catVariant1Field.setEditable(enabled);
@@ -905,12 +1026,14 @@ public final class RpNamesPeopleBookScreen extends Screen {
         catSaveButton.active = enabled;
         catDeleteButton.active = enabled;
     }
+
     private void saveTitle() {
         if (selectedTitle == null) {
             return;
         }
         var e = selectedTitle;
         e.title = catTitleField.getText().trim();
+
         List<String> variants = new ArrayList<>();
         for (String t : new String[]{catVariant1Field.getText().trim(),
                 catVariant2Field.getText().trim()}) {
@@ -923,6 +1046,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         }
         e.variants = variants;
         e.category = catCategoryValue;
+
         String hex = normalizeHex(catColorField.getText());
         e.colorOverride = hex != null && hex.equalsIgnoreCase(categoryColor(catCategoryValue))
                 ? null : hex;
@@ -934,9 +1058,11 @@ public final class RpNamesPeopleBookScreen extends Screen {
         }
         RpNamesServices.catalog().save();
         de.ottoextra.rpnames.chat.ChatHistoryRefresh.request();
+
         refilterTitles();
         statusLine = Text.translatable("ottoextra.rpbook.saved").getString();
     }
+
     private void deleteTitle() {
         if (selectedTitle == null || "WIKI_IMPORT".equals(selectedTitle.source)) {
             return;
@@ -946,6 +1072,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         setTitleEditEnabled(false);
         refilterTitles();
     }
+
     private void newTitle() {
         var e = new de.ottoextra.rpnames.title.TitleCatalogStore.Entry();
         e.title = "";
@@ -962,6 +1089,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         selectTitle(e);
         catTitleField.setFocused(true);
     }
+
     private void initGroups() {
         groupKeys.clear();
         groupKeys.addAll(titles.groups().keySet());
@@ -971,6 +1099,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         int x = editX();
         int w = editW() + (previewVisible() ? previewW() + 8 : 0);
         int y = contentY() + 12;
+
         groupLabelField = field(x, y, w, 48, "ottoextra.rpbook.groupLabel");
         y += 21;
         groupTitleColorField = colorField(x, y, w / 2 - 16);
@@ -981,8 +1110,10 @@ public final class RpNamesPeopleBookScreen extends Screen {
         groupSaveButton = ButtonWidget.builder(Text.translatable("ottoextra.rpbook.save"),
                 b -> saveGroup()).dimensions(x, y, w / 2 - 2, 16).build();
         addDrawableChild(groupSaveButton);
+
         selectGroup(selectedGroupKey);
     }
+
     private void selectGroup(String key) {
         selectedGroupKey = key;
         TitleRegistry.Group g = key == null ? null : titles.groups().get(key);
@@ -1000,6 +1131,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         groupNameColorField.setText(g.nameColor == null ? "" : g.nameColor);
         groupTitlesField.setText(String.join(", ", g.titles));
     }
+
     private void saveGroup() {
         TitleRegistry.Group g = selectedGroupKey == null ? null : titles.groups().get(selectedGroupKey);
         if (g == null) {
@@ -1025,10 +1157,12 @@ public final class RpNamesPeopleBookScreen extends Screen {
         titles.save();
         statusLine = Text.translatable("ottoextra.rpbook.saved").getString();
     }
+
     private void initImport() {
         int x = listX();
         int w = Math.min(360, panelW() - 16);
         int y = contentY() + 24;
+
         addDrawableChild(ButtonWidget.builder(Text.translatable("ottoextra.rpbook.import.known"),
                 b -> runImport(false)).dimensions(x, y, w, 18).build());
         y += 34;
@@ -1053,6 +1187,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 b -> forgetAll()).dimensions(x, y, w, 18).build();
         addDrawableChild(forgetAllButton);
     }
+
     private void runImport(boolean createMissing) {
         if (importRunning) {
             return;
@@ -1074,6 +1209,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
                     }
                 }));
     }
+
     private void runOttoPlusImport(boolean createMissing) {
         if (importRunning) {
             return;
@@ -1097,6 +1233,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
                     }
                 }));
     }
+
     private void forgetAll() {
         if (!forgetAllArmed) {
             forgetAllArmed = true;
@@ -1114,6 +1251,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         forgetAllButton.setMessage(Text.translatable("ottoextra.rpbook.forgetAll"));
         statusLine = Text.translatable("ottoextra.rpbook.forgotAll").getString();
     }
+
     private int listSize() {
         return switch (tab) {
             case PEOPLE -> filtered.size();
@@ -1122,9 +1260,11 @@ public final class RpNamesPeopleBookScreen extends Screen {
             case IMPORT -> 0;
         };
     }
+
     private int rowHeight() {
         return tab == Tab.PEOPLE || tab == Tab.TITLES ? ROW_H : 12;
     }
+
     private int currentListTop() {
         return switch (tab) {
             case PEOPLE -> listTop();
@@ -1132,14 +1272,18 @@ public final class RpNamesPeopleBookScreen extends Screen {
             default -> contentY() + 12;
         };
     }
+
     private int visibleRows() {
         return Math.max(1, (listBottom() - currentListTop()) / rowHeight());
     }
+
     private int maxScroll() {
         return Math.max(0, listSize() - visibleRows());
     }
+
     @Override
     public boolean keyPressed(net.minecraft.client.input.KeyInput input) {
+
         if (input.key() == org.lwjgl.glfw.GLFW.GLFW_KEY_TAB
                 && tab == Tab.PEOPLE && titleField != null && titleField.isFocused()
                 && titleAutofill != null) {
@@ -1148,6 +1292,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
             titleAutofill = null;
             return true;
         }
+
         if ((input.key() == org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER
                 || input.key() == org.lwjgl.glfw.GLFW.GLFW_KEY_KP_ENTER)
                 && tab == Tab.PEOPLE && titleField != null && titleField.isFocused()) {
@@ -1156,6 +1301,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         }
         return super.keyPressed(input);
     }
+
     private void applyTitleColorFromCatalog() {
         String t = titleField.getText().trim();
         if (t.isEmpty()) {
@@ -1176,6 +1322,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
             colorFields[4].setText(c);
         }
     }
+
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
         if (tab != Tab.IMPORT && mouseX >= listX() && mouseX <= listX() + listW()
@@ -1185,6 +1332,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         }
         return super.mouseScrolled(mouseX, mouseY, horizontal, vertical);
     }
+
     @Override
     public boolean mouseClicked(net.minecraft.client.gui.Click click, boolean doubled) {
         double mx = click.x();
@@ -1199,11 +1347,13 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 selectFilter((int) ((my - dy) / rh));
                 return true;
             }
+
             if (filterButton == null || !filterButton.isMouseOver(mx, my)) {
                 filterDropdownOpen = false;
                 return true;
             }
         }
+
         if (tab == Tab.PEOPLE && selected != null && click.button() == 0) {
             for (int i = 0; i < colorFields.length; i++) {
                 if (resetIconHit(colorFields[i], mx, my)) {
@@ -1211,6 +1361,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
                     return true;
                 }
             }
+
             if (resetIconHit(rpNameField, mx, my)) {
                 String original = firstNonBlank(selected.apiRpName,
                         firstNonBlank(selected.apiConflict,
@@ -1219,12 +1370,14 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 return true;
             }
             if (resetIconHit(titleField, mx, my)) {
+
                 String serverTitle = RpNamesServices.serverTitleFor(selected.accountName);
                 titleField.setText(serverTitle != null ? serverTitle : "");
                 applyTitleColorFromCatalog();
                 return true;
             }
         }
+
         if (tab == Tab.TITLES && selectedTitle != null && click.button() == 0) {
             var def = RpNamesServices.catalog().bundledDefault(selectedTitle.id).orElse(null);
             if (resetIconHit(catTitleField, mx, my)) {
@@ -1266,10 +1419,13 @@ public final class RpNamesPeopleBookScreen extends Screen {
         }
         return super.mouseClicked(click, doubled);
     }
+
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
+
         super.render(ctx, mouseX, mouseY, delta);
         ctx.drawCenteredTextWithShadow(textRenderer, getTitle(), width / 2, 8, COL_TITLE);
+
         if (tab != Tab.IMPORT) {
             ctx.fill(listX() - 2, currentListTop() - 2,
                     listX() + listW() + 2, listBottom() + 2, COL_PANEL);
@@ -1290,6 +1446,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
                             ? selectedTitle.title + " · " + selectedTitle.source
                             : Text.translatable("ottoextra.rpbook.titles.select").getString(),
                     editX(), contentY(), selectedTitle != null ? COL_TEXT : COL_MUTED, false);
+
             String[] fieldLabels = {
                     Text.translatable("ottoextra.rpbook.titles.name").getString(),
                     Text.translatable("ottoextra.rpbook.titles.variant1").getString(),
@@ -1308,6 +1465,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
             drawSwatch(ctx, catColorField);
             drawSwatch(ctx, catNameColorField);
             if (selectedTitle != null) {
+
                 drawResetIcon(ctx, catTitleField);
                 drawResetIcon(ctx, catVariant1Field);
                 drawResetIcon(ctx, catVariant2Field);
@@ -1318,10 +1476,12 @@ public final class RpNamesPeopleBookScreen extends Screen {
         if (tab == Tab.GROUPS) {
             renderGroupLabels(ctx);
         }
+
         if (!statusLine.isEmpty()) {
             ctx.drawText(textRenderer, textRenderer.trimToWidth(statusLine, panelW() - 80),
                     listX(), contentBottom() - 10, COL_MUTED, false);
         }
+
         if (filterDropdownOpen && tab != Tab.IMPORT) {
             List<FilterOption> opts = filterOptions();
             int dx = dropdownX();
@@ -1344,6 +1504,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
             }
         }
     }
+
     private void renderList(DrawContext ctx) {
         int rows = visibleRows();
         int top = currentListTop();
@@ -1368,6 +1529,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
                         + (e.enabled ? "" : " · inaktiv");
                 ctx.drawText(textRenderer, textRenderer.trimToWidth(line2, listW() - 18),
                         listX() + 2, ry + 12, COL_MUTED, false);
+
                 String hex = e.colorOverride != null && !e.colorOverride.isBlank()
                         ? e.colorOverride
                         : RpNamesServices.catalog().categories().get(e.category) != null
@@ -1384,13 +1546,16 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 if (p == selected) {
                     ctx.fill(listX() - 1, ry, listX() + listW() + 1, ry + rh - 1, COL_SELECTED);
                 }
+
                 String line1 = p.hasRpName() ? p.rpName : LocalRpProfile.UNKNOWN_NAME;
                 ctx.drawText(textRenderer, textRenderer.trimToWidth(line1, listW() - 18),
                         listX() + 2, ry + 2, p.hasRpName() ? COL_TITLE : COL_MUTED, false);
+
                 String line2 = p.accountName + " · " + stateShort(p.knowledgeState)
                         + (p.titleGroup != null && !p.titleGroup.isBlank() ? " · " + p.titleGroup : "");
                 ctx.drawText(textRenderer, textRenderer.trimToWidth(line2, listW() - 18),
                         listX() + 2, ry + 12, COL_MUTED, false);
+
                 int markerX = listX() + listW() - 8;
                 if (isOnline(p)) {
                     ctx.fill(markerX, ry + 3, markerX + 5, ry + 8, COL_ONLINE);
@@ -1421,6 +1586,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         ctx.drawText(textRenderer, counter,
                 listX() + listW() - textRenderer.getWidth(counter), panelY() + 6, COL_MUTED, false);
     }
+
     private static String stateShort(KnowledgeState s) {
         return switch (s) {
             case SEEN -> "Gesehen";
@@ -1431,6 +1597,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
             case MANUAL_LOCKED -> "Gesperrt";
         };
     }
+
     private void renderPeopleLabels(DrawContext ctx) {
         int x = editX();
         if (selected != null) {
@@ -1444,10 +1611,12 @@ public final class RpNamesPeopleBookScreen extends Screen {
                     Text.translatable("ottoextra.rpbook.select").getString(),
                     x, contentY(), COL_MUTED, false);
         }
+
         ctx.drawText(textRenderer, Text.translatable("ottoextra.rpbook.rpname").getString(),
                 x, contentY() + 16, COL_TEXT, false);
         ctx.drawText(textRenderer, Text.translatable("ottoextra.rpbook.titleField").getString(),
                 x, contentY() + 37, COL_TEXT, false);
+
         String[] rowLabels = {
                 Text.translatable("ottoextra.rpbook.colors.chat").getString(),
                 Text.translatable("ottoextra.rpbook.colors.tab").getString(),
@@ -1459,21 +1628,27 @@ public final class RpNamesPeopleBookScreen extends Screen {
         for (TextFieldWidget f : colorFields) {
             drawSwatch(ctx, f);
             if (f != null && selected != null) {
+
                 drawResetIcon(ctx, f);
             }
         }
+
         if (selected != null) {
             drawResetIcon(ctx, rpNameField);
             drawResetIcon(ctx, titleField);
         }
     }
+
     private static final int RESET_ICON_SIZE = 11;
+
     private int resetIconX(TextFieldWidget f) {
         return f.getX() + f.getWidth() - RESET_ICON_SIZE - 1;
     }
+
     private int resetIconY(TextFieldWidget f) {
         return f.getY() + (f.getHeight() - RESET_ICON_SIZE) / 2;
     }
+
     private boolean resetIconHit(TextFieldWidget f, double mx, double my) {
         if (f == null || !f.visible) {
             return false;
@@ -1482,6 +1657,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         int iy = resetIconY(f);
         return mx >= ix && mx <= ix + RESET_ICON_SIZE && my >= iy && my <= iy + RESET_ICON_SIZE;
     }
+
     private void drawResetIcon(DrawContext ctx, TextFieldWidget f) {
         if (f == null) {
             return;
@@ -1494,8 +1670,10 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 0, 0, 0f, 0f, 16, 16, 16, 16);
         m.popMatrix();
     }
+
     private static final net.minecraft.util.Identifier RESET_ICON =
             de.ottoextra.OttoExtra.id("textures/gui/reset.png");
+
     private void renderGroupLabels(DrawContext ctx) {
         drawSwatch(ctx, groupTitleColorField);
         drawSwatch(ctx, groupNameColorField);
@@ -1503,6 +1681,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 Text.translatable("ottoextra.rpbook.groups.hint").getString(),
                 editX(), contentY(), COL_MUTED, false);
     }
+
     private void renderImportInfo(DrawContext ctx) {
         int x = listX() + Math.min(360, panelW() - 16) + 12;
         int y = contentY() + 24;
@@ -1520,6 +1699,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
             }
         }
     }
+
     private List<String> wrap(String line, int maxW) {
         if (line.isEmpty()) {
             return List.of("");
@@ -1538,6 +1718,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         out.add(current.toString());
         return out;
     }
+
     private void renderPlayerModel(DrawContext ctx, int mouseX, int mouseY) {
         if (selected == null) {
             return;
@@ -1558,6 +1739,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
             return;
         }
         ctx.fill(x1, boxTop, x2, boxBottom, 0x50000000);
+
         int cx = (x1 + x2) / 2;
         int maxW = (x2 - x1) - 8;
         int ly = boxTop + 3;
@@ -1567,6 +1749,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         }
         String displayName = selected.hasRpName() ? selected.rpName : selected.accountName;
         drawScaledCentered(ctx, displayName, cx, ly, previewNameColor(), maxW, 1.5f);
+
         int size = (int) Math.min((boxBottom - boxTop) * 0.32f, (x2 - x1) * 0.8f);
         float sway = (float) Math.sin(System.currentTimeMillis() / 1400.0) * 25f;
         try {
@@ -1574,8 +1757,10 @@ public final class RpNamesPeopleBookScreen extends Screen {
                     ctx, x1, boxTop + 24, x2, boxBottom - 6, size, 0.0f,
                     mouseX - sway, mouseY, previewEntity);
         } catch (Throwable ignored) {
+
         }
     }
+
     private void drawScaledCentered(DrawContext ctx, String s, int cx, int y, int color,
                                     int maxW, float baseScale) {
         if (s == null || s.isEmpty()) {
@@ -1590,14 +1775,17 @@ public final class RpNamesPeopleBookScreen extends Screen {
         ctx.drawCenteredTextWithShadow(textRenderer, Text.literal(s), 0, 0, color);
         m.popMatrix();
     }
+
     private static int previewArgb(String hex, int def) {
         net.minecraft.text.TextColor c =
                 de.ottoextra.rpnames.chat.ChatNameRewriter.parseColor(hex);
         return c != null ? (0xFF000000 | c.getRgb()) : def;
     }
+
     private static String previewFirst(String a, String b) {
         return a != null && !a.isBlank() ? a : b;
     }
+
     private int previewTitleColor() {
         var catalog = RpNamesServices.catalog();
         String catalogColor = catalog != null
@@ -1607,16 +1795,19 @@ public final class RpNamesPeopleBookScreen extends Screen {
                         .map(r -> r.group().titleColor).orElse(null)
                 : null;
         String fallback = catalog != null ? catalog.fallbackTitleColor() : "#a17f5f";
+
         String pers = selected.colors.nametagTitleColor;
         String hex = RpNamesServices.titleOverridesColor(selected.title)
                 ? previewFirst(catalogColor, previewFirst(pers, previewFirst(groupColor, fallback)))
                 : previewFirst(pers, previewFirst(catalogColor, previewFirst(groupColor, fallback)));
         return previewArgb(hex, COL_TITLE);
     }
+
     private int previewNameColor() {
         String hex = RpNamesServices.rpNameColor(selected.colors.nametagNameColor, selected.title);
         return previewArgb(hex, COL_TITLE);
     }
+
     private void ensurePreviewEntity(MinecraftClient client) {
         String key = selected.accountName;
         if (key == null || key.isBlank()) {
@@ -1629,6 +1820,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         previewEntityKey = key;
         previewEntity = null;
         try {
+
             com.mojang.authlib.GameProfile profile = serverProfile(client, key);
             final boolean online = profile != null;
             boolean fallback = false;
@@ -1651,6 +1843,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
                             if (useFallback) {
                                 return fallbackSkin();
                             }
+
                             if (!online) {
                                 var local = de.ottoextra.chat.SkinCache.localSkin(previewUuid);
                                 if (local != null) {
@@ -1660,6 +1853,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
                             return super.getSkin();
                         }
                     };
+
             entity.getDataTracker().set(
                     de.ottoextra.mixin.PlayerCustomizationAccessor.ottoextra$customization(),
                     (byte) (useFallback ? 0x00 : 0x7F));
@@ -1670,6 +1864,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
                     key, t.toString());
         }
     }
+
     private com.mojang.authlib.GameProfile serverProfile(MinecraftClient client, String account) {
         var nh = client.getNetworkHandler();
         if (nh == null) {
@@ -1680,6 +1875,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
             try {
                 entry = nh.getPlayerListEntry(java.util.UUID.fromString(selected.uuid));
             } catch (IllegalArgumentException ignored) {
+
             }
         }
         if (entry == null) {
@@ -1687,6 +1883,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         }
         return entry != null ? entry.getProfile() : null;
     }
+
     private void renderPreview(DrawContext ctx) {
         int x = previewX();
         int w = previewW();
@@ -1698,6 +1895,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         if (selected == null) {
             return;
         }
+
         ctx.drawText(textRenderer, "Chat:", x + 2, y, COL_MUTED, false);
         y += 10;
         Text chatLine = Text.literal("[Reden] ")
@@ -1707,6 +1905,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         ctx.drawText(textRenderer, trimText(rewritten == null ? chatLine : rewritten, w - 6),
                 x + 2, y, 0xFFFFFFFF, false);
         y += 16;
+
         ctx.drawText(textRenderer, "Tab:", x + 2, y, COL_MUTED, false);
         y += 10;
         Text tabText = null;
@@ -1717,12 +1916,14 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 tabText = TablistNameFormatter.format(gp, Text.literal(selected.accountName));
             }
         } catch (Exception ignored) {
+
         }
         if (tabText == null) {
             tabText = fallbackStyled();
         }
         ctx.drawText(textRenderer, trimText(tabText, w - 6), x + 2, y, 0xFFFFFFFF, false);
         y += 16;
+
         ctx.drawText(textRenderer, "Schild:", x + 2, y, COL_MUTED, false);
         y += 10;
         MutableText line1 = fallbackStyled();
@@ -1730,6 +1931,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         y += 10;
         ctx.drawText(textRenderer, selected.accountName, x + 2, y, 0xFF9A9A9A, false);
         y += 16;
+
         if (selected.apiConflict != null && !selected.apiConflict.isBlank()) {
             ctx.drawText(textRenderer,
                     Text.translatable("ottoextra.rpbook.conflict.head").getString(),
@@ -1739,6 +1941,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
                     x + 2, y, COL_TEXT, false);
         }
     }
+
     private MutableText fallbackStyled() {
         String[] defaults = defaultColorsFor(selected.title);
         MutableText out = Text.empty();
@@ -1750,6 +1953,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 firstNonBlank(selected.colors.chatNameColor, defaults[1])));
         return out;
     }
+
     private static MutableText colored(String s, String hex) {
         MutableText t = Text.literal(s);
         TextColor c = ChatNameRewriter.parseColor(hex);
@@ -1758,15 +1962,18 @@ public final class RpNamesPeopleBookScreen extends Screen {
         }
         return t;
     }
+
     private static String firstNonBlank(String a, String b) {
         return a != null && !a.isBlank() ? a : b;
     }
+
     private Text trimText(Text text, int maxW) {
         if (textRenderer.getWidth(text) <= maxW) {
             return text;
         }
         return Text.literal(textRenderer.trimToWidth(text.getString(), maxW)).setStyle(text.getStyle());
     }
+
     private void drawSwatch(DrawContext ctx, TextFieldWidget field) {
         if (field == null || !field.visible) {
             return;
@@ -1778,6 +1985,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         ctx.fill(sx - 1, sy - 1, sx + 11, sy + 11, COL_BORDER);
         ctx.fill(sx, sy, sx + 10, sy + 10, rgb);
     }
+
     @Override
     public void close() {
         savePendingPerson();

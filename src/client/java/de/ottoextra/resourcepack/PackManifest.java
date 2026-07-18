@@ -1,4 +1,5 @@
 package de.ottoextra.resourcepack;
+
 public record PackManifest(
         String version,
         String url,
@@ -11,6 +12,7 @@ public record PackManifest(
     public boolean hasUrl() {
         return url != null && !url.isBlank();
     }
+
     public boolean hasSha() {
         return sha256 != null && !sha256.isBlank();
     }

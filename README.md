@@ -1,73 +1,124 @@
 # OttoExtra
 
-Clientseitiger Fabric-Mod für das Mittelalter-Rollenspiel-Netzwerk **Ottonien**.
+Clientseitige Fabric-Mod für das Mittelalter-Rollenspiel-Netzwerk **Ottonien**.
 
-OttoExtra bündelt mehrere Komfort- und Rollenspiel-Funktionen in einer zentralen Mod: RP-Namen, Chat-Kanäle, Karten-Overlay, Regionen-Einblendungen, Briefsystem, Resourcepack-Downloader, Importfunktionen und ein gemeinsames Einstellungs-GUI.
+OttoExtra bündelt zahlreiche Komfort- und Rollenspiel-Funktionen in einer gemeinsamen Mod. Dazu gehören RP-Namen, ein lokales Personenbuch, Chat-Kanäle, RP-Chatformatierung, ein Untersuchungsmodus, Regionen-Einblendungen, Kartenfunktionen, ein Briefsystem, Resourcepack-Verwaltung und Importmöglichkeiten für bestehende Daten.
 
 ## Projektstatus
 
-OttoExtra befindet sich in aktiver Entwicklung.  
-Die Mod ist als clientseitige Community-Erweiterung für Ottonien gedacht und ersetzt keine serverseitigen Systeme.
+OttoExtra befindet sich in aktiver Entwicklung und wird fortlaufend erweitert.
 
-## Überblick
+Die Mod arbeitet vollständig clientseitig und ersetzt keine serverseitigen Systeme. Ottonien-spezifische Funktionen werden nur auf dem vorgesehenen Server aktiv.
 
-| Bereich | Beschreibung |
+## Voraussetzungen
+
+| Bereich | Voraussetzung |
 |---|---|
+| OttoExtra | `0.1.14` |
 | Minecraft | `1.21.11` |
 | Modloader | Fabric |
 | Fabric Loader | `>= 0.18.1` |
 | Fabric API | erforderlich |
-| Seite | clientseitig |
-| Version | `0.2.2` |
-| Server-Gate | Funktionen werden nur auf Ottonien aktiv |
-| Server-Interaktion | ausschließlich über normale Chat-Befehle und öffentliche APIs |
+| ModMenu | optional, aber empfohlen |
+| Installation | clientseitig |
 
-## Features
+## Neu in 0.1.14
 
-- Zentrales Einstellungs-GUI für alle Module
-- RP-Namen in Chat, Tabliste und Namensschildern
-- Lokale Titel können den serverseitigen Titel in der Tabliste ersetzen, ohne das Lehenswappen zu entfernen
-- Lokales RP-Personenbuch mit Titel-, Farb-, Notiz- und Importverwaltung
-- Chat-Kanal-Umschaltung direkt am Chat-Eingabefeld
-- RP-Chatformatierung für `*Emotes*` und `(OOC-Kommentare)` mit formatstabiler Aufteilung langer Nachrichten
-- Regionen-Einblendung beim Betreten eines Lehens
-- Pergamentmodus, gemalte Übersichtskarte und anklickbare Lehen für Xaero's World Map und Minimap
-- Brief- und Verkündungseditor mit Seitenverwaltung, Formatierung und Vorschau
-- Nach dem Absenden startet der nächste neue Brief mit einer leeren Seite
-- Resourcepack-Downloader für das Ottonien-Resourcepack
-- Import bestehender Daten aus OttoPlus/OttoTalk
-- Backup- und Recovery-Funktionen für wichtige lokale Daten
+### RP-Untersuchungsmodus
+
+Mit der frei belegbaren Taste **„Untersuchen“** könnt ihr Spieler, Gegenstände, Kreaturen und verschiedene Blöcke genauer betrachten.
+
+Standardmäßig liegt die Funktion auf der **linken ALT-Taste**. Die Belegung kann unter den normalen Minecraft-Tastenbelegungen geändert werden.
+
+Beim Start einer Untersuchung erscheint zunächst ein kurzer RP-Gedanke, beispielsweise:
+
+- „Hm … ich sehe mir das genauer an …“
+- „Mal sehen, was wir hier haben …“
+- „Interessant … ich betrachte es genauer …“
+- „Einen Augenblick … das will geprüft sein …“
+
+Nach einer kurzen Verzögerung werden die erkennbaren Informationen eingeblendet. Während ALT gedrückt bleibt, bleibt der gewählte RP-Satz bestehen und wechselt nicht bei jeder kleinen Bewegung.
+
+Untersucht werden können unter anderem:
+
+- RP-Name und Titel eines Spielers
+- Gegenstände in Haupt- und Nebenhand
+- sichtbare Rüstung
+- eigene Namen sichtbarer Waffen und Gegenstände
+- herumliegende Gegenstände und Gegenstandsrahmen
+- Bücher, Schilder, Banner und Lesepulte
+- junge oder gezähmte Kreaturen
+- sichtbare Ausrüstung von Rüstungsständern
+- Türen, Tore, Lichtquellen, Kerzen und Pflanzen
+- Honigstand von Bienenstöcken und Bienennestern
+
+Es werden ausschließlich Informationen verwendet, die dem eigenen Client bereits bekannt sind. Versteckte Inventarinhalte, Lebenspunkte oder geheime Serverwerte werden nicht ausgelesen.
+
+Der Untersuchungsmodus, die RP-Gedanken, die Untersuchungsdauer sowie einzelne Spielerinformationen können in den OttoExtra-Einstellungen angepasst oder vollständig deaktiviert werden.
+
+### RP-Chatformatierung
+
+Die RP-Chatformatierung ist ausschließlich in den **RP-Kanälen** aktiv. Dazu gehören **Murmeln (`/m`)**, **Flüstern (`/f`)**, **Sprechen (`/s`)**, **Rufen (`/r`)** und **Brüllen (`/b`)**. In den OOC-Kanälen **Offtopic (`/o`)** und **Hilfe (`/h`)** werden Nachrichten nicht durch die RP-Formatierung verändert.
+
+In den RP-Kanälen erkennt der Chat automatisch RP-Emotes und OOC-Kommentare:
+
+```text
+*blickt den fremden misstrauisch an*
+```
+
+Emotes zwischen `*...*` werden standardmäßig **hellgrau und kursiv** dargestellt.
+
+```text
+(bin kurz afk)
+```
+
+OOC-Kommentare zwischen `(...)` werden standardmäßig **goldgelb** dargestellt.
+
+Auch Kombinationen funktionieren:
+
+```text
+*blickt sich um (bin kurz weg) und setzt seinen weg fort*
+```
+
+Nach dem OOC-Kommentar wird automatisch wieder der vorherige Emote-Stil verwendet. Normaler Text behält immer die vom Server vorgegebene Farbe des jeweiligen Chatkanals.
+
+Unter **Chatkanäle → RP-Chatformatierung** können ausschließlich die Farben für Emotes und OOC-Kommentare über Hexwerte wie `#FFD45A` selbst festgelegt werden. Die Farbe des normalen Textes wird nicht überschrieben, damit jeder Chatkanal seine serverseitig vorgegebene Farbe behält. Die gesamte Formatierung kann ebenfalls deaktiviert werden. Diese Einstellungen wirken nur in den RP-Kanälen.
+
+### Lange Chatnachrichten
+
+Nachrichten mit mehr als 256 Zeichen werden automatisch in mehrere Chatnachrichten aufgeteilt.
+
+In den RP-Kanälen werden offene Emotes und OOC-Kommentare dabei über die einzelnen Teilnachrichten hinweg korrekt weitergeführt. Lange RP-Texte müssen dadurch nicht mehr von Hand getrennt werden. In den OOC-Kanälen werden keine RP-Farben oder Emote-Formatierungen angewendet.
 
 ## Installation
 
 1. Fabric Loader für Minecraft `1.21.11` installieren.
-2. Fabric API in den `mods`-Ordner legen.
-3. OttoExtra in den `mods`-Ordner legen.
-4. Optional: ModMenu installieren, um die Einstellungen komfortabel zu öffnen.
+2. Fabric API herunterladen und in den `mods`-Ordner legen.
+3. Die OttoExtra-JAR ebenfalls in den `mods`-Ordner legen.
+4. Optional ModMenu installieren, um die Einstellungen bequem zu öffnen.
 5. Minecraft starten und dem Ottonien-Server beitreten.
 
-Die Mod ist rein clientseitig. Auf anderen Servern bleiben die Ottonien-spezifischen Module still.
+Die Mod ist rein clientseitig. Auf anderen Servern bleiben die Ottonien-spezifischen Module inaktiv.
 
 ## Einstellungs-GUI
 
-Die zentrale Konfiguration ist über **ModMenu → OttoExtra** oder ein konfigurierbares Tastenkürzel erreichbar.
+Die zentrale Konfiguration ist über **ModMenu → OttoExtra** oder über das belegbare OttoExtra-Tastenkürzel erreichbar.
 
-Geplant beziehungsweise enthalten:
+Das Menü bietet unter anderem:
 
-- Modul-Navigation in der Kopfzeile
-- Tabs pro Modul, zum Beispiel Basis und Erweitert
-- Volltextsuche über alle Optionen
-- Optionserklärungen und Hover-Hilfen
-- Zurücksetzen einzelner Optionen auf Standardwerte
-- Backup-Erstellung vor größeren Änderungen
-- Wiederherstellung lokaler Backups
-- übersichtliche Gruppierung pro Funktionsbereich
+- Navigation zwischen allen Modulen
+- getrennte Einstellungsbereiche pro Funktion
+- Volltextsuche über die Optionen
+- Erklärungen und Hover-Hilfen
+- Zurücksetzen einzelner Werte
+- Backup- und Wiederherstellungsfunktionen
+- anpassbare Farben, Positionen und Anzeigeoptionen
 
 ## RP-Namen
 
-OttoExtra ersetzt Minecraft-Accountnamen durch **Titel + RP-Name**.
+OttoExtra kann Minecraft-Accountnamen durch **Titel und RP-Namen** ersetzen.
 
-Die Anzeige kann getrennt gesteuert werden für:
+Die Anzeige lässt sich getrennt steuern für:
 
 - Chat
 - Tabliste
@@ -75,30 +126,30 @@ Die Anzeige kann getrennt gesteuert werden für:
 - RP-Kanäle
 - OOC-Kanäle
 
-Datenquellen:
+Als Datenquellen dienen:
 
 1. manuelle Einträge im Personenbuch
 2. gelernte Namen aus Chat-Hoverdaten
-3. Import aus der Ottonien-Regions-API
-4. Import aus OttoPlus/OttoTalk-Caches
+3. Daten aus öffentlichen Ottonien-APIs
+4. importierte OttoPlus- oder OttoTalk-Daten
 
-Manuelle Einträge haben Vorrang vor automatisch importierten Daten.
+Manuelle Einträge haben Vorrang vor automatisch übernommenen Informationen.
 
 ### Anzeigeoptionen
 
-- Titel anzeigen oder ausblenden
-- RP-Name anzeigen oder ausblenden
-- Accountname anzeigen oder ausblenden
-- Skalierung der Namensschilder
+- Titel ein- oder ausblenden
+- RP-Namen ein- oder ausblenden
+- Accountnamen ein- oder ausblenden
+- Namensschilder skalieren
 - eigene Farben für Chat, Tabliste und Namensschild
-- Verhalten bei unbekannten Spielern
-- kanalabhängige Aktivierung
+- Verhalten bei unbekannten Spielern festlegen
+- Anzeige abhängig vom Chatkanal steuern
 
 ## Titelkatalog
 
-Der Titelkatalog verwaltet bekannte Titel mit Kategorie, Farbe und Varianten.
+Der Titelkatalog verwaltet bekannte Titel, Farben und Varianten.
 
-Kategorien können unter anderem sein:
+Mögliche Kategorien sind beispielsweise:
 
 - System
 - Adel
@@ -109,123 +160,113 @@ Kategorien können unter anderem sein:
 - Custom
 - Spielernamen
 
-Beim Vergeben eines Titels kann die Titelfarbe automatisch aus dem Katalog übernommen werden.
+Beim Vergeben eines Titels kann die passende Farbe automatisch aus dem Katalog übernommen werden.
 
 ## RP-Personenbuch
 
-Das Personenbuch ist das lokale Adressbuch für RP-Wissen.
+Das Personenbuch speichert das lokale RP-Wissen über andere Spieler.
 
 Funktionen:
 
 - Personen suchen und filtern
-- RP-Name bearbeiten
-- Titel bearbeiten
-- Accountname einsehen
-- Farben pro Anzeigeort setzen
-- Live-Vorschau für Chat, Tabliste und Namensschild
-- Konflikte zwischen lokalen Daten und API-Daten auflösen
-- Einträge sperren, damit Imports sie nicht überschreiben
-- Importbereich für OttoPlus/OttoTalk-Daten
+- RP-Namen und Titel bearbeiten
+- Accountnamen einsehen
+- Farben pro Anzeigeort festlegen
+- Notizen verwalten
+- Vorschau für Chat, Tabliste und Namensschild
+- Konflikte zwischen lokalen und importierten Daten auflösen
+- Einträge gegen automatisches Überschreiben sperren
+- OttoPlus- und OttoTalk-Daten importieren
 
 ### Schnellzugriff
 
-Optional kann das Personenbuch direkt geöffnet werden über:
+Das Personenbuch kann optional direkt geöffnet werden über:
 
 - Shift-Linksklick auf einen Namen im Chat
 - Shift-Rechtsklick auf einen Spieler
 
 ## Chat-Kanäle
 
-OttoExtra ergänzt den Chat um einen festen Kanal-Button links unten am Eingabefeld.
-
-Unterstützte Kanäle:
+OttoExtra ergänzt das Chat-Eingabefeld um einen festen Kanal-Button.
 
 | Kanal | Befehl |
 |---|---|
-| Sprechen | `/s` |
+| Murmeln | `/m` |
 | Flüstern | `/f` |
+| Sprechen | `/s` |
 | Rufen | `/r` |
+| Brüllen | `/b` |
 | Offtopic | `/o` |
 | Hilfe | `/h` |
 
 Bedienung:
 
-- Linksklick wechselt durch die RP-Kanäle
-- Shift-Linksklick wechselt durch die OOC-Kanäle
-- Normaler Linksklick führt zurück in die RP-Kanäle
-- Der Wechsel sendet den passenden Serverbefehl
-- OOC-Kanäle werden bewusst nur per Shift-Wechsel aktiviert
+- Linksklick wechselt durch die RP-Kanäle.
+- Shift-Linksklick wechselt durch die OOC-Kanäle.
+- Ein normaler Linksklick führt wieder zu den RP-Kanälen zurück.
+- Beim Wechsel wird der passende Serverbefehl verwendet.
 
 Zusätzliche Optionen:
 
-- Auto-`/s` kurz nach dem Serverbeitritt
-- Warnmarker für Offtopic
+- automatisches `/s` kurz nach dem Serverbeitritt
+- Warnmarker für den Offtopic-Kanal
 - eigene Farben pro Kanal
-- optionale Hotkeys pro Kanal
-
-## Karte und Reisehilfe
-
-Die Xaero-Weltkarte verwendet wieder ein kontinuierliches Zoomverhalten. Beim
-Herauszoomen werden einzelne Lehen schrittweise zugunsten der Gefolge-Übersicht
-reduziert; optional kann die gemalte Ottonien-Karte das Terrain vollständig
-überblenden.
-
-Ein Klick auf ein Lehen öffnet eine Infokarte mit Herrschaft, Lehnsherr,
-Stand, Gefolge, Entfernung, Himmelsrichtung und geschätzter Reisezeit. Der
-Pergamentmodus ergänzt Rahmen, Kompass und Maßstabsleiste. Alle Bestandteile
-lassen sich in den Karteneinstellungen einzeln anpassen.
+- optionale Hotkeys
+- eigene Farben für Emotes und OOC-Kommentare in RP-Kanälen
+- RP-Chatformatierung für RP-Kanäle ein- oder ausschalten
+- keine automatische RP-Formatierung in Offtopic und Hilfe
 
 ## Regionen-Einblendung
 
 Beim Betreten eines Lehens zeigt OttoExtra eine gestaltete Einblendung an.
 
-Inhalte:
+Mögliche Inhalte:
 
 - Hinweis „Du betrittst“
 - Regionsname
 - Hierarchie
 - Wappen
-- optionaler Hinweistext
-- optionale Sonderbeschreibung
+- Hinweistext
+- Sonderbeschreibung
 
-Optionen:
+Anpassbar sind unter anderem:
 
-- Position oben rechts
-- Position oben links
-- Position oben mittig
-- Position zentriert
-- Light-Theme
-- Dark-Theme
-- Custom-Themes
+- Position der Einblendung
+- Light- oder Dark-Theme
+- eigene Themes
+- Farben und Abstände
+- Schriftgrößen
 - Live-Vorschau im Einstellungsmenü
-- anpassbare Farben, Abstände und Schriftgrößen
 
-## Karte
+## Karte und Reisehilfe
 
-OttoExtra integriert Ottonien-Daten in Xaero's World Map und Xaero's Minimap.
+OttoExtra integriert Ottonien-Daten in **Xaero's World Map** und **Xaero's Minimap**.
 
-Xaero's World Map und Xaero's Minimap sind empfohlen, aber die Mod soll ohne sie nicht abstürzen.
+Beide Xaero-Mods sind empfohlen, OttoExtra bleibt jedoch auch ohne sie nutzbar.
 
-### Worldmap
+### World Map
 
-Geplante beziehungsweise enthaltene Anzeigen:
+Je nach Konfiguration können angezeigt werden:
 
 - Lehengrenzen
 - Lehensnamen
 - Wappen
 - politische Flächen nach Gefolge
 - Vasallen-Schraffuren
-- Aktivitätskreise bei Spielerversammlungen
+- Aktivitätsbereiche
 - NPC-Dörfer
-- gemalte Ottonien-Karte über unerkundetem Terrain
-- Debug-Kalibrierung für Kartenpositionen
+- gemalte Ottonien-Übersichtskarte
+- anklickbare Lehen mit Detailinformationen
+
+Ein Klick auf ein Lehen kann eine Infokarte mit Herrschaft, Lehnsherr, Stand, Gefolge, Entfernung, Himmelsrichtung und geschätzter Reisezeit öffnen.
+
+Der optionale Pergamentmodus ergänzt Rahmen, Kompass und Maßstabsleiste.
 
 ### Minimap
 
-Geplante beziehungsweise enthaltene Anzeigen:
+Mögliche Anzeigen:
 
-- Grenzen
-- politische Flächen
+- Grenzen und politische Flächen
 - gemalte Karte
 - Wappen-HUD
 - Name, Stand und Fraktion des aktuellen Bereichs
@@ -243,39 +284,29 @@ Funktionen:
 
 - mehrseitiger Editor
 - automatischer Wortumbruch
-- Cursor und Selektion
-- Copy, Cut und Paste
-- Paste mit automatischer Seitenerstellung
+- Cursor und Textauswahl
+- Kopieren, Ausschneiden und Einfügen
+- automatische Seitenerstellung bei längeren eingefügten Texten
 - gespeicherte Entwürfe
-- Versand-Recovery nach Verbindungsverlust
-- Actionbar-Status während des Versands
+- Wiederaufnahme nach einem Verbindungsverlust
+- Statusanzeige während des Versands
 - automatisches Schließen nach erfolgreichem Absenden
+- neuer leerer Brief nach abgeschlossenem Versand
 
 ### Platzhalter
 
-Im Editor können Platzhalter genutzt werden:
-
 | Platzhalter | Funktion |
 |---|---|
-| `{{name:Spieler}}` | wird zum RP-Namen des Spielers |
-| `{{title:Spieler}}` | wird zum Titel des Spielers |
-| `{{full:Spieler}}` | wird zu Titel + RP-Name |
-| `{{mc:Spieler}}` | wird zum Minecraft-Accountnamen |
+| `{{name:Spieler}}` | RP-Name des Spielers |
+| `{{title:Spieler}}` | Titel des Spielers |
+| `{{full:Spieler}}` | Titel und RP-Name |
+| `{{mc:Spieler}}` | Minecraft-Accountname |
 
-Die Auflösung kann per Tab ausgelöst werden.
-
-### Brief oder Verkündung
-
-Am Ende des Schreibprozesses wird unterschieden zwischen:
-
-- Brief an einen Empfänger
-- Verkündung
-
-Bei Verkündungen soll besonders darauf geachtet werden, dass Minecraft-Seiten sauber in Discord-Nachrichten übertragen werden und keine unnötig unschönen Umbrüche entstehen.
+Die Platzhalter können im Editor aufgelöst werden.
 
 ## Resourcepack-Downloader
 
-OttoExtra kann das Ottonien-Server-Resourcepack automatisch herunterladen und aktivieren.
+OttoExtra kann das Ottonien-Resourcepack prüfen, herunterladen und aktivieren.
 
 Optionen:
 
@@ -284,18 +315,64 @@ Optionen:
 - manuelles Deaktivieren respektieren
 - erneute Prüfung bei Änderungen
 
-## Import aus OttoPlus
+## Import aus OttoPlus und OttoTalk
 
-OttoExtra kann bestehende RP-Daten aus OttoPlus beziehungsweise OttoTalk übernehmen.
+Bestehende RP-Daten können aus OttoPlus beziehungsweise OttoTalk übernommen werden.
 
-Importierbare Daten:
+Importierbare Angaben:
 
 - RP-Name
 - Titel
 - Titelfarbe
 - UUID-Zuordnung
 
-Ablage für Importdateien:
+Importdateien können hier abgelegt werden:
 
 ```text
 config/ottoextra/import/
+```
+
+## Lokale Daten und Backups
+
+OttoExtra speichert persönliche Einstellungen, das Personenbuch und weitere lokale Daten im Minecraft-Konfigurationsordner.
+
+Vor größeren Änderungen können Backups erstellt und bei Bedarf wiederhergestellt werden. Diese Daten bleiben lokal auf dem eigenen Rechner, sofern sie nicht bewusst über eine vorgesehene Import- oder Exportfunktion weitergegeben werden.
+
+## Datenschutz und Server-Interaktion
+
+OttoExtra ist eine clientseitige Community-Erweiterung.
+
+Die Mod verwendet für ihre Funktionen ausschließlich:
+
+- Informationen, die der Minecraft-Client bereits erhalten hat
+- normale Chatbefehle
+- öffentliche Ottonien-APIs
+- lokal gespeicherte Einstellungen und RP-Daten
+
+Der RP-Untersuchungsmodus liest keine versteckten Inventare, Lebenspunkte oder internen Serverdaten aus.
+
+## Aus dem Quellcode bauen
+
+Vorausgesetzt werden ein passendes Java Development Kit und eine funktionierende Gradle-Umgebung.
+
+Unter Windows:
+
+```powershell
+.\gradlew.bat clean build
+```
+
+Unter Linux oder macOS:
+
+```bash
+./gradlew clean build
+```
+
+Die erzeugten JAR-Dateien befinden sich anschließend normalerweise unter:
+
+```text
+build/libs/
+```
+
+## Hinweis
+
+OttoExtra ist eine Community-Erweiterung für Ottonien und kein offizieller Bestandteil von Mojang, Microsoft oder Fabric.

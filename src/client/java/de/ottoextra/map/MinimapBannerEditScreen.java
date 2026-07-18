@@ -1,4 +1,5 @@
 package de.ottoextra.map;
+
 import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.map.xaero.MinimapBannerOverlay;
 import net.minecraft.client.MinecraftClient;
@@ -10,10 +11,14 @@ import net.minecraft.text.Text;
 import xaero.hud.minimap.BuiltInHudModules;
 import xaero.lib.client.gui.IScreenBase;
 import xaero.lib.client.gui.widget.dropdown.DropDownWidget;
+
 import java.util.List;
+
 public final class MinimapBannerEditScreen extends Screen implements IScreenBase {
+
     private final Screen parent;
     private final OttoExtraConfig config;
+
     private MinimapBannerOverlay.Kind dragging;
     private MinimapBannerOverlay.Kind resizing;
     private double dragOffX;
@@ -25,11 +30,13 @@ public final class MinimapBannerEditScreen extends Screen implements IScreenBase
     private float resizeStartScale;
     private int resizeStartSize;
     private int resizeStartWidth;
+
     public MinimapBannerEditScreen(Screen parent, OttoExtraConfig config) {
         super(Text.translatable("ottoextra.map.bannerEdit.title"));
         this.parent = parent;
         this.config = config;
     }
+
     @Override
     protected void init() {
         addDrawableChild(ButtonWidget.builder(Text.translatable("gui.done"), b -> close())
@@ -39,6 +46,7 @@ public final class MinimapBannerEditScreen extends Screen implements IScreenBase
             config.save();
         }).dimensions(width / 2 + 4, height - 28, 76, 18).build());
     }
+
     private List<MinimapBannerOverlay.Element> elements() {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player == null) {
@@ -48,6 +56,7 @@ public final class MinimapBannerEditScreen extends Screen implements IScreenBase
         List<MinimapBannerOverlay.Element> list =
                 MinimapBannerOverlay.computeElements(client, config.map, session);
         if (dragging != null) {
+
             list = list.stream().map(e -> e.kind() == dragging
                     ? new MinimapBannerOverlay.Element(e.kind(), curX, curY, e.width(), e.height(),
                             e.banner(), e.iconSize(), e.text(), e.scale())
@@ -55,10 +64,12 @@ public final class MinimapBannerEditScreen extends Screen implements IScreenBase
         }
         return list;
     }
+
     private int[] resizeHandle(MinimapBannerOverlay.Element e) {
         int s = 8;
         return new int[]{e.x() + e.width() + 1, e.y() + e.height() + 1, s};
     }
+
     private MinimapBannerOverlay.Element ottoHoveredElement(double mx, double my) {
         for (var e : elements()) {
             if (mx >= e.x() - 2 && mx <= e.x() + e.width() + 2
@@ -68,9 +79,11 @@ public final class MinimapBannerEditScreen extends Screen implements IScreenBase
         }
         return null;
     }
+
     @Override
     public boolean mouseClicked(Click click, boolean doubled) {
         if (click.button() == 0) {
+
             for (var e : elements()) {
                 int[] hnd = resizeHandle(e);
                 if (click.x() >= hnd[0] && click.x() <= hnd[0] + hnd[2]
@@ -106,9 +119,11 @@ public final class MinimapBannerEditScreen extends Screen implements IScreenBase
         }
         return super.mouseClicked(click, doubled);
     }
+
     @Override
     public boolean mouseDragged(Click click, double deltaX, double deltaY) {
         if (resizing != null) {
+
             double dx = click.x() - resizeStartX;
             double dy = click.y() - resizeStartY;
             switch (resizing) {
@@ -146,6 +161,7 @@ public final class MinimapBannerEditScreen extends Screen implements IScreenBase
         }
         return super.mouseDragged(click, deltaX, deltaY);
     }
+
     @Override
     public boolean mouseReleased(Click click) {
         if (resizing != null) {
@@ -166,6 +182,7 @@ public final class MinimapBannerEditScreen extends Screen implements IScreenBase
         }
         return super.mouseReleased(click);
     }
+
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
         super.render(ctx, mouseX, mouseY, delta);
@@ -190,6 +207,7 @@ public final class MinimapBannerEditScreen extends Screen implements IScreenBase
             ctx.fill(e.x() + e.width() + 1, e.y() - 1, e.x() + e.width() + 2,
                     e.y() + e.height() + 1, col);
             MinimapBannerOverlay.draw(ctx, client, e, config.map);
+
             int[] hnd = resizeHandle(e);
             boolean hov = (mouseX >= hnd[0] && mouseX <= hnd[0] + hnd[2]
                     && mouseY >= hnd[1] && mouseY <= hnd[1] + hnd[2])
@@ -197,6 +215,7 @@ public final class MinimapBannerEditScreen extends Screen implements IScreenBase
             int hcol = hov ? 0xFFFFD479 : 0xFFB08D57;
             ctx.fill(hnd[0], hnd[1], hnd[0] + hnd[2], hnd[1] + hnd[2],
                     hov ? 0xCC7A5A3A : 0x99000000);
+
             for (int i = 1; i < hnd[2] - 1; i++) {
                 ctx.fill(hnd[0] + i, hnd[1] + i, hnd[0] + i + 1, hnd[1] + i + 1, hcol);
             }
@@ -208,28 +227,36 @@ public final class MinimapBannerEditScreen extends Screen implements IScreenBase
                     hnd[1] + hnd[2] - 1, hcol);
         }
     }
+
     @Override
     public void renderBackground(DrawContext ctx, int mouseX, int mouseY, float delta) {
+
     }
+
     @Override
     public boolean shouldPause() {
         return false;
     }
+
     @Override
     public void close() {
         MinecraftClient.getInstance().setScreen(parent);
     }
+
     @Override
     public boolean shouldSkipWorldRender() {
         return false;
     }
+
     @Override
     public Screen getEscape() {
         return parent;
     }
+
     @Override
     public void onDropdownOpen(DropDownWidget widget) {
     }
+
     @Override
     public void onDropdownClosed(DropDownWidget widget) {
     }

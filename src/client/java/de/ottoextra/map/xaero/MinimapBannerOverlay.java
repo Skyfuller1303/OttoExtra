@@ -1,4 +1,5 @@
 package de.ottoextra.map.xaero;
+
 import de.ottoextra.OttoExtra;
 import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.map.MapOverlayRenderer;
@@ -9,18 +10,26 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.util.Identifier;
 import xaero.hud.minimap.BuiltInHudModules;
 import xaero.hud.minimap.module.MinimapSession;
+
 import java.util.ArrayList;
 import java.util.List;
+
 public final class MinimapBannerOverlay {
+
     public enum Kind { BANNER, NAME, STATE, FACTION }
+
     public record Element(Kind kind, int x, int y, int width, int height,
                           Identifier banner, int iconSize, String text, float scale) {
     }
+
     private static final int COL_NAME = 0xFFE6C8A9;
     private static final int COL_STATE = 0xFFB8A88F;
+
     private static boolean disabled = false;
+
     private MinimapBannerOverlay() {
     }
+
     public static void render(DrawContext ctx, OttoExtraConfig.Map cfg) {
         if (disabled) {
             return;
@@ -30,6 +39,7 @@ public final class MinimapBannerOverlay {
             if (client.player == null || client.options.hudHidden) {
                 return;
             }
+
             if (client.options.playerListKey.isPressed()) {
                 return;
             }
@@ -37,12 +47,14 @@ public final class MinimapBannerOverlay {
             if (session == null || !session.isActive()) {
                 return;
             }
+
             if (client.currentScreen != null && session.getHideMinimapUnderScreen()
                     && !(client.currentScreen instanceof net.minecraft.client.gui.screen.ChatScreen)
                     && !(client.currentScreen instanceof net.minecraft.client.gui.screen.DeathScreen)
                     && !(client.currentScreen instanceof xaero.lib.client.gui.IScreenBase)) {
                 return;
             }
+
             if (client.debugHudEntryList.isF3Enabled() && session.getHideMinimapUnderF3()) {
                 return;
             }
@@ -54,6 +66,7 @@ public final class MinimapBannerOverlay {
             OttoExtra.LOGGER.warn("[map] Minimap-Wappen deaktiviert: {}", t.toString());
         }
     }
+
     public static List<Element> computeElements(MinecraftClient client, OttoExtraConfig.Map cfg,
                                                 MinimapSession session) {
         List<Element> out = new ArrayList<>(3);
@@ -69,6 +82,7 @@ public final class MinimapBannerOverlay {
         String regionName = info[0];
         String stateLine = info[1];
         String factionName = info[2];
+
         int size = Math.max(8, cfg.minimapBannerSize);
         int dockX = sw - size - 2;
         int dockY = 2;
@@ -86,6 +100,7 @@ public final class MinimapBannerOverlay {
             dockY = Math.min(y + h + 2 + offY, sh - size - 2);
         }
         int nextDockY = dockY;
+
         if (cfg.minimapBanner) {
             Identifier banner = MapOverlayRenderer.bannerForKey(key);
             if (banner != null) {
@@ -116,6 +131,7 @@ public final class MinimapBannerOverlay {
             out.add(new Element(Kind.STATE, pos[0], pos[1], w, h, null, 0, stateLine, sc));
             nextDockY = pos[1] + h + 2;
         }
+
         String factionShown = de.ottoextra.map.PoliticalOverlay.displayNameFor(factionName);
         if (cfg.minimapBannerShowFaction && factionShown != null && !factionShown.isBlank()) {
             float sc = clampScale(cfg.factionHudScale);
@@ -128,6 +144,7 @@ public final class MinimapBannerOverlay {
         }
         return out;
     }
+
     private static String[] nameAndState(String polyKey, boolean liegeTop) {
         var data = de.ottoextra.regions.RegionsServices.data();
         String apiName = null;
@@ -144,6 +161,7 @@ public final class MinimapBannerOverlay {
             if (faction != null) {
                 apiFaction = fixMojibake(faction.name());
                 String rank = fixMojibake(faction.rank_name());
+
                 String[] liege = resolveLiege(data, faction, liegeTop);
                 String lordName = liege[0];
                 String lordRank = liege[1];
@@ -156,9 +174,11 @@ public final class MinimapBannerOverlay {
         }
         var current = RegionMessageService.current();
         if (current != null && current.regionName() != null && !current.regionName().isBlank()) {
+
             boolean matches = apiName == null
                     || normalize(current.regionName()).equals(normalize(apiName));
             if (matches) {
+
                 String state = liegeTop ? apiState
                         : (current.hierarchyLine() != null && !current.hierarchyLine().isBlank()
                                 ? current.hierarchyLine() : apiState);
@@ -167,6 +187,7 @@ public final class MinimapBannerOverlay {
         }
         return new String[]{apiName, apiState, apiFaction};
     }
+
     private static String[] resolveLiege(de.ottoextra.regions.RegionDataService data,
                                          de.ottoextra.api.model.FactionRecord faction,
                                          boolean top) {
@@ -203,9 +224,11 @@ public final class MinimapBannerOverlay {
         String lordRank = lordRec != null ? fixMojibake(lordRec.rank_name()) : null;
         return new String[]{fixMojibake(lordName), lordRank};
     }
+
     private static String normalize(String s) {
         return de.ottoextra.regions.RegionNameKeys.normalize(s);
     }
+
     private static String fixMojibake(String s) {
         if (s == null) {
             return null;
@@ -221,6 +244,7 @@ public final class MinimapBannerOverlay {
         }
         return fixed;
     }
+
     private static int[] resolve(int cfgX, int cfgY, boolean fromRight, boolean fromBottom,
                                  int w, int h, int dockX, int dockY, int sw, int sh) {
         int x;
@@ -236,6 +260,7 @@ public final class MinimapBannerOverlay {
         y = Math.max(0, Math.min(y, sh - h));
         return new int[]{x, y};
     }
+
     public static void draw(DrawContext ctx, MinecraftClient client, Element e,
                             OttoExtraConfig.Map cfg) {
         switch (e.kind()) {
@@ -249,6 +274,7 @@ public final class MinimapBannerOverlay {
                     parseColor(cfg != null ? cfg.factionHudColor : null, COL_NAME));
         }
     }
+
     private static int parseColor(String hex, int fallback) {
         if (hex == null || hex.isBlank()) {
             return fallback;
@@ -259,7 +285,9 @@ public final class MinimapBannerOverlay {
             return fallback;
         }
     }
+
     private static void drawScaledText(DrawContext ctx, MinecraftClient client, Element e, int color) {
+
         String text = client.textRenderer.trimToWidth(e.text(),
                 Math.max(10, Math.round(e.width() / e.scale())));
         if (Math.abs(e.scale() - 1.0f) < 0.01f) {
@@ -273,9 +301,11 @@ public final class MinimapBannerOverlay {
         ctx.drawText(client.textRenderer, text, 0, 0, color, true);
         m.popMatrix();
     }
+
     public static float clampScale(float s) {
         return Math.max(0.5f, Math.min(3.0f, s));
     }
+
     public static void savePosition(OttoExtraConfig.Map cfg, Kind kind,
                                     int x, int y, int w, int h, int sw, int sh) {
         boolean fromRight = x + w / 2 > sw / 2;
@@ -309,6 +339,7 @@ public final class MinimapBannerOverlay {
             }
         }
     }
+
     public static void resetPositions(OttoExtraConfig.Map cfg) {
         cfg.bannerHudX = -1;
         cfg.bannerHudY = -1;

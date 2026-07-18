@@ -1,4 +1,5 @@
 package de.ottoextra.letter.ui;
+
 import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.letter.LetterDraftCache;
 import de.ottoextra.letter.LetterServices;
@@ -9,10 +10,13 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
+
 public final class RecoveryPromptScreen extends Screen {
+
     private final OttoExtraConfig config;
     private final LetterSendProgress letter;
     private final AnnouncementSendProgress announcement;
+
     public RecoveryPromptScreen(OttoExtraConfig config, LetterSendProgress letter,
                                 AnnouncementSendProgress announcement) {
         super(Text.translatable("ottoextra.letter.recovery.title"));
@@ -20,6 +24,7 @@ public final class RecoveryPromptScreen extends Screen {
         this.letter = letter;
         this.announcement = announcement;
     }
+
     @Override
     protected void init() {
         int cx = width / 2;
@@ -45,6 +50,7 @@ public final class RecoveryPromptScreen extends Screen {
             close();
         }).dimensions(cx + 54, y, 100, 20).build());
     }
+
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
         super.render(ctx, mouseX, mouseY, delta);
@@ -63,6 +69,7 @@ public final class RecoveryPromptScreen extends Screen {
         ctx.drawCenteredTextWithShadow(textRenderer, detail, width / 2,
                 height / 2 - 30, 0xFFB8A88F);
     }
+
     @Override
     public void close() {
         MinecraftClient.getInstance().setScreen(null);

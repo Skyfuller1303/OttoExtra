@@ -1,38 +1,49 @@
 package de.ottoextra.letter.send;
+
 import de.ottoextra.OttoExtra;
 import net.minecraft.client.MinecraftClient;
+
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.IntConsumer;
+
 public final class CommandSendQueue {
+
     public static final long COMMAND_DELAY_MS = 1500L;
+
     private long[] delays;
+
     public CommandSendQueue withDelays(long[] perCommandDelays) {
         this.delays = perCommandDelays;
         return this;
     }
+
     private static final ScheduledExecutorService SCHEDULER =
             Executors.newSingleThreadScheduledExecutor(r -> {
                 Thread t = new Thread(r, "ottoextra-letter-send");
                 t.setDaemon(true);
                 return t;
             });
+
     private volatile boolean cancelled = false;
     private volatile int sent = 0;
     private final List<String> commands;
     private final IntConsumer onProgress;
     private final Runnable onComplete;
+
     public CommandSendQueue(List<String> commands, IntConsumer onProgress, Runnable onComplete) {
         this.commands = List.copyOf(commands);
         this.onProgress = onProgress;
         this.onComplete = onComplete;
     }
+
     public void start(int startIndex) {
         sent = Math.max(0, startIndex);
         scheduleNext(0L);
     }
+
     private void scheduleNext(long delayMs) {
         SCHEDULER.schedule(() -> {
             MinecraftClient client = MinecraftClient.getInstance();
@@ -47,6 +58,7 @@ public final class CommandSendQueue {
                     return;
                 }
                 if (client.player == null || client.getNetworkHandler() == null) {
+
                     OttoExtra.LOGGER.warn("[letter] Versand unterbrochen bei {}/{}",
                             sent, commands.size());
                     return;
@@ -62,12 +74,15 @@ public final class CommandSendQueue {
             });
         }, delayMs, TimeUnit.MILLISECONDS);
     }
+
     public void cancel() {
         cancelled = true;
     }
+
     public int sent() {
         return sent;
     }
+
     public int total() {
         return commands.size();
     }

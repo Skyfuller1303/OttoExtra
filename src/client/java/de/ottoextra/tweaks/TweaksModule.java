@@ -1,4 +1,5 @@
 package de.ottoextra.tweaks;
+
 import com.mojang.brigadier.arguments.FloatArgumentType;
 import de.ottoextra.OttoExtra;
 import de.ottoextra.OttoExtraContext;
@@ -15,31 +16,43 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.text.Text;
+
 import java.util.Locale;
+
 public final class TweaksModule implements OttoExtraModule {
+
     private final LowHealthState lowHealth = new LowHealthState();
     private final LowHealthSoundController heartbeat = new LowHealthSoundController();
+
     private static LowHealthState activeState;
     private static OttoExtraConfig.Tweaks.LowHealth activeConfig;
+
     @Override
     public String id() {
         return "tweaks";
     }
+
     @Override
     public void onInitializeClient(OttoExtraContext context) {
         OttoExtraConfig config = context.config();
         activeState = lowHealth;
         activeConfig = config.tweaks.lowHealth;
+
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             lowHealth.update(client, config.tweaks.lowHealth);
             heartbeat.tick(client, lowHealth, config.tweaks.lowHealth);
         });
+
         HudRenderCallback.EVENT.register((ctx, tick) ->
                 LowHealthHudOverlay.render(ctx, lowHealth, config.tweaks.lowHealth));
+
         ToolProtectHandler.register(config);
+
         registerCommands(config);
+
         OttoExtra.LOGGER.info("[tweaks] initialisiert (Low-Health-Effekt + Werkzeugschutz + Test-Commands).");
     }
+
     private void registerCommands(OttoExtraConfig config) {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, access) ->
                 dispatcher.register(ClientCommandManager.literal("ottoextra")
@@ -78,6 +91,7 @@ public final class TweaksModule implements OttoExtraModule {
                                                     return 1;
                                                 }))))));
     }
+
     public static int lowHealthBlurPasses() {
         LowHealthState state = activeState;
         OttoExtraConfig.Tweaks.LowHealth cfg = activeConfig;
@@ -106,6 +120,7 @@ public final class TweaksModule implements OttoExtraModule {
         int passes = Math.round(t * cfg.blurStrength * 4.0f);
         return Math.max(0, Math.min(8, passes));
     }
+
     public static float lowHealthFovBoost() {
         LowHealthState state = activeState;
         OttoExtraConfig.Tweaks.LowHealth cfg = activeConfig;
@@ -114,12 +129,14 @@ public final class TweaksModule implements OttoExtraModule {
         }
         return state.intensity() * cfg.fovMaxDegrees;
     }
+
     private void forceTest(float value) {
         lowHealth.setForced(value);
         msg("§a[Tweaks]§7 Low-Health-Test-Intensität: §e"
                 + String.format(Locale.ROOT, "%.2f", value)
                 + " §8(/ottoextra tweaks lowhealth stop)");
     }
+
     private static void msg(String text) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player != null) {

@@ -1,5 +1,7 @@
 package de.ottoextra.api.model;
+
 import java.util.List;
+
 public record PlayerRecord(
         String entity_key,
         String uuid,

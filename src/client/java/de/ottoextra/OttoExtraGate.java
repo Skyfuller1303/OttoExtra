@@ -1,10 +1,15 @@
 package de.ottoextra;
+
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ServerInfo;
+
 import java.util.Locale;
+
 public final class OttoExtraGate {
+
     private OttoExtraGate() {
     }
+
     public static boolean isOnOttonien(MinecraftClient client) {
         if (client == null) {
             return false;

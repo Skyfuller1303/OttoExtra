@@ -1,14 +1,20 @@
 package de.ottoextra.addon;
+
 import de.ottoextra.OttoExtra;
 import de.ottoextra.config.settings.SettingsRegistry;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.entrypoint.EntrypointContainer;
+
 import java.util.ArrayList;
 import java.util.List;
+
 public final class OttoExtraAddons {
+
     private static List<OttoExtraAddon> addons;
+
     private OttoExtraAddons() {
     }
+
     private static synchronized List<OttoExtraAddon> addons() {
         if (addons == null) {
             List<OttoExtraAddon> found = new ArrayList<>();
@@ -27,6 +33,7 @@ public final class OttoExtraAddons {
         }
         return addons;
     }
+
     public static void registerSettings(SettingsRegistry registry) {
         for (OttoExtraAddon addon : addons()) {
             try {
@@ -36,6 +43,7 @@ public final class OttoExtraAddons {
             }
         }
     }
+
     public static void registerDefaultSettings(SettingsRegistry registry) {
         for (OttoExtraAddon addon : addons()) {
             try {

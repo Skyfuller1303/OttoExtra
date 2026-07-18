@@ -1,4 +1,5 @@
 package de.ottoextra.regions;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import de.ottoextra.OttoExtra;
@@ -8,6 +9,7 @@ import de.ottoextra.api.model.FactionRecord;
 import de.ottoextra.api.model.PlayerRecord;
 import de.ottoextra.api.model.RegionRecord;
 import de.ottoextra.config.OttoExtraPaths;
+
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -25,13 +27,18 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+
 public final class RegionDataService {
+
     private static final long SYNC_INTERVAL_MINUTES = 30;
     private static final long GATHERING_INTERVAL_MINUTES = 7;
     private static final long REGION_DETAIL_COOLDOWN_MS = 10 * 60_000L;
+
     private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
+
     private final OttoExtraApiClient api;
     private final ScheduledExecutorService scheduler;
+
     private final Map<String, FactionRecord> factionsByUuid = new ConcurrentHashMap<>();
     private final Map<String, String> factionUuidByKey = new ConcurrentHashMap<>();
     private final Map<String, RegionRecord> regionsByKey = new ConcurrentHashMap<>();
@@ -39,9 +46,11 @@ public final class RegionDataService {
     private final Map<String, Integer> gatheringByKey = new ConcurrentHashMap<>();
     private final AtomicBoolean bootstrapRunning = new AtomicBoolean(false);
     private final AtomicBoolean syncRunning = new AtomicBoolean(false);
+
     private volatile long syncCursor = -1;
     private volatile ScheduledFuture<?> syncTask;
     private volatile ScheduledFuture<?> gatheringTask;
+
     public RegionDataService(OttoExtraApiClient api) {
         this.api = api;
         this.scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
@@ -52,6 +61,7 @@ public final class RegionDataService {
         loadSnapshotFromDisk();
         applyLocalOverrides();
     }
+
     public void onServerJoin() {
         if (!bootstrapRunning.compareAndSet(false, true)) {
             return;
@@ -71,22 +81,27 @@ public final class RegionDataService {
         startSyncLoop();
         startGatheringLoop();
     }
+
     public void onDisconnect() {
         stopSyncLoop();
     }
+
     public void shutdown() {
         stopSyncLoop();
         scheduler.shutdownNow();
     }
+
     private void startSyncLoop() {
         stopSyncLoop();
         syncTask = scheduler.scheduleAtFixedRate(this::syncNow,
                 SYNC_INTERVAL_MINUTES, SYNC_INTERVAL_MINUTES, TimeUnit.MINUTES);
     }
+
     public void syncNow() {
         if (bootstrapRunning.get() || !syncRunning.compareAndSet(false, true)) {
             return;
         }
+
         long cursor = syncCursor;
         api.sync(Math.max(0, cursor)).whenComplete((env, t) -> {
             try {
@@ -100,6 +115,7 @@ public final class RegionDataService {
             }
         });
     }
+
     private void stopSyncLoop() {
         ScheduledFuture<?> task = syncTask;
         if (task != null) {
@@ -112,6 +128,7 @@ public final class RegionDataService {
             gatheringTask = null;
         }
     }
+
     private void startGatheringLoop() {
         gatheringTask = scheduler.scheduleAtFixedRate(() ->
                 api.regionList().whenComplete((regions, t) -> {
@@ -131,10 +148,12 @@ public final class RegionDataService {
                     gatheringByKey.putAll(fresh);
                 }), 0, GATHERING_INTERVAL_MINUTES, TimeUnit.MINUTES);
     }
+
     public int gatheringCount(String regionKey) {
         Integer g = gatheringByKey.get(RegionNameKeys.normalize(regionKey));
         return g != null ? g : 0;
     }
+
     public Optional<FactionRecord> factionForRegion(String regionName) {
         String key = RegionNameKeys.normalize(regionName);
         if (key.isEmpty()) {
@@ -155,10 +174,12 @@ public final class RegionDataService {
         }
         return Optional.empty();
     }
+
     public Optional<RegionRecord> regionByName(String regionName) {
         String key = RegionNameKeys.normalize(regionName);
         return key.isEmpty() ? Optional.empty() : Optional.ofNullable(regionsByKey.get(key));
     }
+
     public void requestRegionDetail(String regionName) {
         String key = RegionNameKeys.normalize(regionName);
         if (key.isEmpty()) {
@@ -181,6 +202,7 @@ public final class RegionDataService {
             persistSnapshot();
         });
     }
+
     public CompletableFuture<List<PlayerRecord>> factionPlayers(FactionRecord faction) {
         try {
             return api.factionPlayers(UUID.fromString(faction.uuid()));
@@ -188,12 +210,15 @@ public final class RegionDataService {
             return CompletableFuture.completedFuture(List.of());
         }
     }
+
     public Optional<FactionRecord> factionByUuid(String uuid) {
         return uuid == null ? Optional.empty() : Optional.ofNullable(factionsByUuid.get(uuid));
     }
+
     public List<FactionRecord> allFactions() {
         return new ArrayList<>(factionsByUuid.values());
     }
+
     public List<FactionRecord> vassalsOf(FactionRecord faction) {
         List<FactionRecord> result = new ArrayList<>();
         if (faction.vassal_uuids() != null) {
@@ -206,6 +231,7 @@ public final class RegionDataService {
         }
         return result;
     }
+
     private void applyEnvelope(ApiEnvelope env, boolean fromBootstrap) {
         if (env == null) {
             return;
@@ -222,6 +248,7 @@ public final class RegionDataService {
         applyLocalOverrides();
         persistSnapshot();
     }
+
     private void applyLocalOverrides() {
         applyFactionIfMissing("lehen_27", new FactionRecord(
                 "local-holdern", null, null, "Holdern", "Herzogtum",
@@ -229,12 +256,14 @@ public final class RegionDataService {
                 "lehen_27", "Holdern", 0, 0,
                 null, null, null, 0, 0, null, null));
     }
+
     private void applyFactionIfMissing(String regionKey, FactionRecord override) {
         if (factionForRegion(regionKey).isPresent()) {
             return;
         }
         indexFaction(override);
     }
+
     private void indexFaction(FactionRecord f) {
         if (f == null || f.uuid() == null || f.uuid().isBlank()) {
             return;
@@ -252,6 +281,7 @@ public final class RegionDataService {
             }
         }
     }
+
     private void indexRegion(RegionRecord r) {
         if (r == null) {
             return;
@@ -270,26 +300,31 @@ public final class RegionDataService {
             putFactionKey(r.original_name(), r.current_faction().uuid());
         }
     }
+
     private void putRegionKey(String raw, RegionRecord r) {
         String key = RegionNameKeys.normalize(raw);
         if (!key.isEmpty()) {
             regionsByKey.put(key, r);
         }
     }
+
     private void putFactionKey(String raw, String uuid) {
         String key = RegionNameKeys.normalize(raw);
         if (!key.isEmpty() && uuid != null) {
             factionUuidByKey.putIfAbsent(key, uuid);
         }
     }
+
     private static final class Snapshot {
         long syncCursor = -1;
         List<FactionRecord> factions = List.of();
         List<RegionRecord> regions = List.of();
     }
+
     private Path snapshotFile() {
         return OttoExtraPaths.apiCache().resolve("snapshot.json");
     }
+
     private void loadSnapshotFromDisk() {
         Path file = snapshotFile();
         if (!Files.exists(file)) {
@@ -313,15 +348,18 @@ public final class RegionDataService {
             OttoExtra.LOGGER.warn("[regions] Snapshot unlesbar — wird neu aufgebaut. ({})", e.getMessage());
         }
     }
+
     private void persistSnapshot() {
         scheduler.execute(() -> {
             try {
                 Snapshot snap = new Snapshot();
                 snap.syncCursor = syncCursor;
                 snap.factions = new ArrayList<>(factionsByUuid.values());
+
                 List<RegionRecord> regions = new ArrayList<>();
                 regionsByKey.values().stream().distinct().forEach(regions::add);
                 snap.regions = regions;
+
                 Path file = snapshotFile();
                 Files.createDirectories(file.getParent());
                 Path tmp = file.resolveSibling("snapshot.json.tmp");
@@ -336,6 +374,7 @@ public final class RegionDataService {
             }
         });
     }
+
     private static String rootMessage(Throwable t) {
         Throwable cause = t;
         while (cause.getCause() != null) {

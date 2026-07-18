@@ -1,5 +1,7 @@
 package de.ottoextra.map;
+
 import java.util.List;
+
 public record BorderSegment(
         double x1,
         double z1,

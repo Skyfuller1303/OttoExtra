@@ -1,4 +1,5 @@
 package de.ottoextra.rpnames.importer;
+
 import com.google.gson.Gson;
 import com.google.gson.annotations.SerializedName;
 import de.ottoextra.OttoExtra;
@@ -6,6 +7,7 @@ import de.ottoextra.rpnames.model.KnowledgeState;
 import de.ottoextra.rpnames.model.LocalRpProfile;
 import de.ottoextra.rpnames.model.RpNameSource;
 import de.ottoextra.rpnames.store.LocalRpIdentityStore;
+
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -14,22 +16,28 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+
 public final class RegionsApiRpNameImporter {
+
     private static final String URL =
             "https://api.ottoextra.dev/api/index.php?action=public-player-compact";
     private static final Gson GSON = new Gson();
+
     public record Result(int total, int updated, int created, int conflicts, String error) {
         public static Result failure(String error) {
             return new Result(0, 0, 0, 0, error);
         }
+
         public boolean ok() {
             return error == null;
         }
     }
+
     private static final class Envelope {
         boolean ok;
         List<Player> players;
     }
+
     private static final class Player {
         String uuid;
         @SerializedName("minecraft_name")
@@ -39,14 +47,18 @@ public final class RegionsApiRpNameImporter {
         String title;
         String state;
     }
+
     private RegionsApiRpNameImporter() {
     }
+
     public static CompletableFuture<Result> run(LocalRpIdentityStore store, boolean createMissing) {
         return CompletableFuture.supplyAsync(() -> doImport(store, createMissing, true));
     }
+
     public static CompletableFuture<Result> runAuto(LocalRpIdentityStore store) {
         return CompletableFuture.supplyAsync(() -> doImport(store, false, false));
     }
+
     private static Result doImport(LocalRpIdentityStore store, boolean createMissing, boolean backup) {
         Envelope env;
         try {
@@ -72,9 +84,11 @@ public final class RegionsApiRpNameImporter {
         if (env == null || !env.ok || env.players == null) {
             return Result.failure("Antwort unbrauchbar");
         }
+
         if (backup) {
             store.backup();
         }
+
         String selfName = null;
         try {
             selfName = net.minecraft.client.MinecraftClient.getInstance().getSession().getUsername();
@@ -92,6 +106,7 @@ public final class RegionsApiRpNameImporter {
             String rpName = clean(p.rpName);
             String title = clean(p.title);
             String group = clean(p.state);
+
             LocalRpProfile existing = store.find(p.uuid, account).orElse(null);
             if (existing != null) {
                 boolean hadConflict = existing.apiConflict != null;
@@ -134,6 +149,7 @@ public final class RegionsApiRpNameImporter {
                 env.players.size(), updated, created, conflicts);
         return new Result(env.players.size(), updated, created, conflicts, null);
     }
+
     private static boolean applyGroup(LocalRpProfile profile, String group) {
         if (group == null || profile.locked || !profile.knowledgeState.allowsAutomaticUpdates()
                 || (profile.titleGroup != null && !profile.titleGroup.isBlank())) {
@@ -142,6 +158,7 @@ public final class RegionsApiRpNameImporter {
         profile.titleGroup = group;
         return true;
     }
+
     private static String clean(String s) {
         if (s == null) {
             return null;

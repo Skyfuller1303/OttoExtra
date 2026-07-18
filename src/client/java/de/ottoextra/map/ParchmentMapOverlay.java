@@ -1,17 +1,22 @@
 package de.ottoextra.map;
+
 import de.ottoextra.config.OttoExtraConfig;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.text.Text;
+
 public final class ParchmentMapOverlay {
+
     private static final int EDGE = 0xA6513E2A;
     private static final int INNER = 0x80E6C8A9;
     private static final int PAPER = 0x34C8AC8E;
     private static final int TEXT = 0xFFE6C8A9;
     private static final int SHADOW = 0xCC2B1C10;
+
     private ParchmentMapOverlay() {
     }
+
     public static void render(DrawContext ctx, XaeroMapBridge.View view, OttoExtraConfig.Map cfg) {
         if (ctx == null || view == null || cfg == null || !cfg.parchmentMode) {
             return;
@@ -19,6 +24,7 @@ public final class ParchmentMapOverlay {
         int w = view.width();
         int h = view.height();
         int m = Math.max(3, cfg.parchmentMarginPx);
+
         TextRenderer tr = MinecraftClient.getInstance().textRenderer;
         Text title = Text.translatable("ottoextra.map.parchment.title");
         int titleW = tr.getWidth(title);
@@ -27,8 +33,10 @@ public final class ParchmentMapOverlay {
         ctx.fill(boxX - 1, boxY - 1, boxX + titleW + 15, boxY + 12, EDGE);
         ctx.fill(boxX, boxY, boxX + titleW + 14, boxY + 11, 0xD0A88968);
         ctx.drawText(tr, title, boxX + 7, boxY + 2, TEXT, true);
+
         drawScaleBar(ctx, view, m + 12, h - m - 17);
     }
+
     private static void drawScaleBar(DrawContext ctx, XaeroMapBridge.View view, int x, int y) {
         TextRenderer tr = MinecraftClient.getInstance().textRenderer;
         int targetPixels = 72;
@@ -43,6 +51,7 @@ public final class ParchmentMapOverlay {
                 : Text.translatable("ottoextra.map.travel.blocks", blocks).getString();
         ctx.drawText(tr, label, x, y - 11, TEXT, true);
     }
+
     private static int niceDistance(double raw) {
         if (raw <= 1) {
             return 1;

@@ -1,9 +1,11 @@
 package de.ottoextra.rpnames.title;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.annotations.SerializedName;
 import de.ottoextra.OttoExtra;
 import de.ottoextra.config.OttoExtraPaths;
+
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -15,7 +17,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+
 public final class TitleRegistry {
+
     public static final class Group {
         public String label = "";
         public int priority = 0;
@@ -25,17 +29,24 @@ public final class TitleRegistry {
         public String nameColor = "#DDDDDD";
         public List<String> titles = new ArrayList<>();
     }
+
     private static final class FileModel {
         int schemaVersion = 1;
         Map<String, Group> groups = new LinkedHashMap<>();
     }
+
     public record ResolvedTitle(String title, String groupKey, Group group) {
     }
+
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
     private static final String BUNDLED = "/assets/ottoextra/rpnames/title-groups-default.json";
+
     private volatile Map<String, Group> groups = new LinkedHashMap<>();
+
     private volatile Map<String, ResolvedTitle> byNormalizedTitle = Map.of();
+
     private volatile List<String> normalizedByLength = List.of();
+
     public void load() {
         Path file = OttoExtraPaths.rpnamesTitleGroups();
         try {
@@ -60,6 +71,7 @@ public final class TitleRegistry {
             }
         }
     }
+
     private void writeBundledDefault(Path file) throws Exception {
         try (InputStream in = TitleRegistry.class.getResourceAsStream(BUNDLED)) {
             if (in == null) {
@@ -69,6 +81,7 @@ public final class TitleRegistry {
             Files.write(file, in.readAllBytes());
         }
     }
+
     private void apply(Map<String, Group> loaded) {
         Map<String, ResolvedTitle> index = new HashMap<>();
         for (Map.Entry<String, Group> e : loaded.entrySet()) {
@@ -85,9 +98,11 @@ public final class TitleRegistry {
         this.byNormalizedTitle = Map.copyOf(index);
         this.normalizedByLength = List.copyOf(sorted);
     }
+
     public Map<String, Group> groups() {
         return groups;
     }
+
     public synchronized void save() {
         Path file = OttoExtraPaths.rpnamesTitleGroups();
         try {
@@ -102,12 +117,14 @@ public final class TitleRegistry {
             OttoExtra.LOGGER.warn("[rpnames] title-groups.json speichern fehlgeschlagen: {}", e.toString());
         }
     }
+
     public Optional<ResolvedTitle> find(String title) {
         if (title == null || title.isBlank()) {
             return Optional.empty();
         }
         return Optional.ofNullable(byNormalizedTitle.get(normalize(title)));
     }
+
     public Optional<ResolvedTitle> findPrefix(String line) {
         if (line == null || line.isBlank()) {
             return Optional.empty();
@@ -120,6 +137,7 @@ public final class TitleRegistry {
         }
         return Optional.empty();
     }
+
     public static String normalize(String s) {
         if (s == null) {
             return "";

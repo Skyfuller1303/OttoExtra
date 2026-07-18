@@ -1,4 +1,5 @@
 package de.ottoextra.map;
+
 import com.mojang.blaze3d.buffers.GpuBuffer;
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.pipeline.BlendFunction;
@@ -33,30 +34,40 @@ import org.joml.Matrix4f;
 import org.joml.Matrix4fStack;
 import org.joml.Vector3f;
 import org.joml.Vector4f;
+
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.OptionalDouble;
 import java.util.OptionalInt;
+
 public final class PaintedMapRenderer {
+
     private static final double MAP_MIN_X = -10525.0;
     private static final double MAP_MAX_X = 13559.0;
     private static final double MAP_MIN_Z = -7394.0;
     private static final double MAP_MAX_Z = 7108.0;
+
     private static final Identifier TEX_LOWER = OttoExtra.id("textures/map/otto-large_map_lower_layer.png");
     private static final Identifier TEX_NODETAILS = OttoExtra.id("textures/map/otto-large_map_lower_layer_nodetails.png");
     private static final Identifier TEX_UPPER = OttoExtra.id("textures/map/otto-large_map_upper_layer.png");
     private static final Identifier TEX_UPPER_HIRES = OttoExtra.id("textures/map/otto-large_map_upper_layer_high_res.png");
+
     private static volatile boolean worldmapFailed = false;
     private static int worldmapRetryCooldown = 0;
+
     private static volatile boolean minimapFailed = false;
     private static int minimapRetryCooldown = 0;
+
     private static final int RETRY_COOLDOWN_FRAMES = 40;
+
     private static volatile double userOffsetX = 0;
     private static volatile double userOffsetZ = 0;
+
     public static void setUserOffset(double x, double z) {
         userOffsetX = x;
         userOffsetZ = z;
     }
+
     private static RenderPipeline pipeline;
     private static GpuBuffer paramsBuffer;
     private static GpuTexture copyTexture;
@@ -67,11 +78,14 @@ public final class PaintedMapRenderer {
     private static int copyW = -1;
     private static int copyH = -1;
     private static boolean texturesRegistered = false;
+
     private PaintedMapRenderer() {
     }
+
     public static boolean isDisabled() {
         return false;
     }
+
     private static boolean worldmapSkipFrame() {
         if (worldmapFailed) {
             if (worldmapRetryCooldown > 0) {
@@ -82,12 +96,14 @@ public final class PaintedMapRenderer {
         }
         return false;
     }
+
     private static void worldmapRecovered() {
         if (worldmapFailed) {
             worldmapFailed = false;
             OttoExtra.LOGGER.info("[map] Gemalte Karte wieder aktiv.");
         }
     }
+
     private static void worldmapFailure(Throwable t) {
         invalidateGpu();
         worldmapRetryCooldown = RETRY_COOLDOWN_FRAMES;
@@ -97,6 +113,7 @@ public final class PaintedMapRenderer {
                     + "in Kuerze (z. B. nach Shader-Wechsel): {}", t.toString());
         }
     }
+
     private static boolean minimapSkipFrame() {
         if (minimapFailed) {
             if (minimapRetryCooldown > 0) {
@@ -107,12 +124,14 @@ public final class PaintedMapRenderer {
         }
         return false;
     }
+
     private static void minimapRecovered() {
         if (minimapFailed) {
             minimapFailed = false;
             OttoExtra.LOGGER.info("[map] Minimap-Karte wieder aktiv.");
         }
     }
+
     private static void minimapFailure(Throwable t) {
         invalidateGpu();
         minimapRetryCooldown = RETRY_COOLDOWN_FRAMES;
@@ -122,6 +141,7 @@ public final class PaintedMapRenderer {
                     + "Selbstheilung in Kuerze: {}", t.toString());
         }
     }
+
     private static void invalidateGpu() {
         pipeline = null;
         texturesRegistered = false;
@@ -129,6 +149,7 @@ public final class PaintedMapRenderer {
             try {
                 copyTexture.close();
             } catch (Throwable ignored) {
+
             }
             copyTexture = null;
             copyView = null;
@@ -136,7 +157,9 @@ public final class PaintedMapRenderer {
             copyH = -1;
         }
     }
+
     private static final boolean DEBUG_SIMPLE_DRAW = false;
+
     public static void render(XaeroMapBridge.View view, int screenW, int screenH) {
         if (view == null || worldmapSkipFrame()) {
             return;
@@ -145,22 +168,26 @@ public final class PaintedMapRenderer {
         try {
             ensureResources(client);
             worldmapRecovered();
+
             if (DEBUG_SIMPLE_DRAW
                     || de.ottoextra.config.OttoExtraConfig.active().map.paintedMapSimple) {
                 renderBackground(view, screenW, screenH);
                 return;
             }
+
             Framebuffer fb = client.getFramebuffer();
             int fbW = fb.textureWidth;
             int fbH = fb.textureHeight;
             ensureCopyTexture(fbW, fbH);
             CommandEncoder encoder = RenderSystem.getDevice().createCommandEncoder();
             encoder.copyTextureToTexture(fb.getColorAttachment(), copyTexture, 0, 0, 0, 0, 0, fbW, fbH);
+
             double eff = view.effScale();
             double adjCamX = (view.cameraX() - 65.0) / 0.98;
             double adjCamZ = (view.cameraZ() + 50.0) / 1.01;
             double adjScaleX = eff * 0.98;
             double adjScaleZ = eff * 1.01;
+
             double cx = (MAP_MIN_X + MAP_MAX_X) / 2.0 - 650.0 + userOffsetX;
             double cz = (MAP_MIN_Z + MAP_MAX_Z) / 2.0 + 150.0 + userOffsetZ;
             double hw = (MAP_MAX_X - MAP_MIN_X) / 2.0 * 0.99;
@@ -176,6 +203,7 @@ public final class PaintedMapRenderer {
             float uRight = (screenW - x1) / (x2 - x1);
             float vTop = (0.0f - y1) / (y2 - y1);
             float vBottom = (screenH - y1) / (y2 - y1);
+
             float skyBrightness = client.world != null
                     ? clamp01(1.0f - client.world.getAmbientDarkness() / 11.0f) : 1.0f;
             float night = 0.7f * (0.3f + 0.7f * skyBrightness);
@@ -186,10 +214,12 @@ public final class PaintedMapRenderer {
             if (overallAlpha <= 0.0f) {
                 return;
             }
+
             float hudGuard = (float) (14.0 * client.getWindow().getScaleFactor());
             float fullCover = fullCoverBlend(eff);
             writeParams((float) adjScaleX, hudGuard, night, detailBlend, upperAlpha, lowerAlpha,
                     overallAlpha, fullCover);
+
             Identifier upperTex = eff > 0.15 ? TEX_UPPER_HIRES : TEX_UPPER;
             withGuiOrtho(client, () ->
                     drawQuad(client, upperTex, screenW, screenH, uLeft, uRight, vTop, vBottom));
@@ -197,6 +227,7 @@ public final class PaintedMapRenderer {
             worldmapFailure(t);
         }
     }
+
     public static void onResourceReload() {
         invalidateGpu();
         worldmapFailed = false;
@@ -204,6 +235,7 @@ public final class PaintedMapRenderer {
         minimapFailed = false;
         minimapRetryCooldown = 0;
     }
+
     private static void ensureResources(MinecraftClient client) {
         if (pipeline == null) {
             pipeline = RenderPipeline.builder()
@@ -229,6 +261,7 @@ public final class PaintedMapRenderer {
                     GpuBuffer.USAGE_UNIFORM | GpuBuffer.USAGE_COPY_DST, 32L);
         }
         if (!texturesRegistered) {
+
             loadMapTexture(client, TEX_LOWER);
             loadMapTexture(client, TEX_NODETAILS);
             loadMapTexture(client, TEX_UPPER);
@@ -242,7 +275,9 @@ public final class PaintedMapRenderer {
                     FilterMode.LINEAR, FilterMode.LINEAR, 1, OptionalDouble.empty());
         }
     }
+
     private static void loadMapTexture(MinecraftClient client, Identifier id) {
+
         String path = "/assets/" + id.getNamespace() + "/" + id.getPath();
         try (var stream = PaintedMapRenderer.class.getResourceAsStream(path)) {
             if (stream == null) {
@@ -255,6 +290,7 @@ public final class PaintedMapRenderer {
             throw new IllegalStateException("Karten-Textur " + id + ": " + e.getMessage(), e);
         }
     }
+
     private static void ensureCopyTexture(int w, int h) {
         if (copyTexture != null && w == copyW && h == copyH) {
             return;
@@ -275,8 +311,10 @@ public final class PaintedMapRenderer {
         copyW = w;
         copyH = h;
     }
+
     private static final ByteBuffer PARAMS_STAGING =
             ByteBuffer.allocateDirect(32).order(ByteOrder.nativeOrder());
+
     private static void writeParams(float fadeScale, float hudGuard, float night,
                                     float detail, float upper, float lower, float overall,
                                     float fullCover) {
@@ -287,6 +325,7 @@ public final class PaintedMapRenderer {
         RenderSystem.getDevice().createCommandEncoder()
                 .writeToBuffer(paramsBuffer.slice(0, 32), PARAMS_STAGING);
     }
+
     private static float fullCoverBlend(double eff) {
         var map = de.ottoextra.config.OttoExtraConfig.active().map;
         if (!map.paintedFullCoverZoomOut || !map.politicalFill) {
@@ -299,6 +338,7 @@ public final class PaintedMapRenderer {
         float t = clamp01((float) ((eff - min) / (min * 0.6)));
         return 1f - t * t * (3f - 2f * t);
     }
+
     private static void drawQuad(MinecraftClient client, Identifier upperTexId, int screenW, int screenH,
                                  float uL, float uR, float vT, float vB) {
         BufferBuilder buffer = Tessellator.getInstance()
@@ -307,10 +347,12 @@ public final class PaintedMapRenderer {
         buffer.vertex(0, screenH, 0).texture(uL, vB);
         buffer.vertex(screenW, screenH, 0).texture(uR, vB);
         buffer.vertex(screenW, 0, 0).texture(uR, vT);
+
         TextureManager tm = client.getTextureManager();
         AbstractTexture lower = tm.getTexture(TEX_LOWER);
         AbstractTexture nodetails = tm.getTexture(TEX_NODETAILS);
         AbstractTexture upper = tm.getTexture(upperTexId);
+
         Framebuffer target = client.getFramebuffer();
         GpuTextureView colorTarget = RenderSystem.outputColorTextureOverride != null
                 ? RenderSystem.outputColorTextureOverride : target.getColorAttachmentView();
@@ -318,17 +360,20 @@ public final class PaintedMapRenderer {
                 ? (RenderSystem.outputDepthTextureOverride != null
                 ? RenderSystem.outputDepthTextureOverride : target.getDepthAttachmentView())
                 : null;
+
         try (BuiltBuffer mesh = buffer.end()) {
             RenderSystem.ShapeIndexBuffer shapeIndex =
                     RenderSystem.getSequentialBuffer(VertexFormat.DrawMode.QUADS);
             GpuBuffer indexBuffer = shapeIndex.getIndexBuffer(mesh.getDrawParameters().indexCount());
             GpuBuffer vertexBuffer = pipeline.getVertexFormat()
                     .uploadImmediateVertexBuffer(mesh.getBuffer());
+
             GpuBufferSlice dynamicTransforms = RenderSystem.getDynamicUniforms().write(
                     RenderSystem.getModelViewMatrix(),
                     new Vector4f(1f, 1f, 1f, 1f),
                     new Vector3f(),
                     new Matrix4f());
+
             try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder()
                     .createRenderPass(() -> "ottoextra painted map", colorTarget,
                             OptionalInt.empty(), depthTarget, OptionalDouble.empty())) {
@@ -346,9 +391,11 @@ public final class PaintedMapRenderer {
             }
         }
     }
+
     private static float clamp01(float v) {
         return Math.max(0f, Math.min(1f, v));
     }
+
     public static void renderMinimap(Matrix4f poseMatrix, double camX, double camZ,
                                      double ps, double pc, double zoom,
                                      int halfView, boolean circle,
@@ -364,13 +411,16 @@ public final class PaintedMapRenderer {
             double cz = (MAP_MIN_Z + MAP_MAX_Z) / 2.0 + 150.0 + userOffsetZ;
             double hw = (MAP_MAX_X - MAP_MIN_X) / 2.0 * 0.99;
             double hz = (MAP_MAX_Z - MAP_MIN_Z) / 2.0 * 0.98;
+
             float skyBrightness = client.world != null
                     ? clamp01(1.0f - client.world.getAmbientDarkness() / 11.0f) : 1.0f;
             float night = 0.7f * (0.3f + 0.7f * skyBrightness);
+
             int camChunkX = (int) Math.floor(camX / 16.0);
             int camChunkZ = (int) Math.floor(camZ / 16.0);
             int range = (int) Math.ceil(halfView / zoom / 16.0) + 1;
             double clipR = circle ? halfView + 16 * zoom : halfView * Math.sqrt(2) + 16 * zoom;
+
             BufferBuilder buf = null;
             for (int dcx = -range; dcx <= range; dcx++) {
                 for (int dcz = -range; dcz <= range; dcz++) {
@@ -379,6 +429,7 @@ public final class PaintedMapRenderer {
                     if (explored.test(ccx, ccz)) {
                         continue;
                     }
+
                     double mx = ccx * 16 + 8 - camX;
                     double mz = ccz * 16 + 8 - camZ;
                     double ex = (ps * mx - pc * mz) * zoom;
@@ -386,6 +437,7 @@ public final class PaintedMapRenderer {
                     if (ex * ex + ey * ey > clipR * clipR) {
                         continue;
                     }
+
                     int exploredNeighbors = 0;
                     if (explored.test(ccx + 1, ccz)) exploredNeighbors++;
                     if (explored.test(ccx - 1, ccz)) exploredNeighbors++;
@@ -406,6 +458,7 @@ public final class PaintedMapRenderer {
             }
             TextureManager tm = client.getTextureManager();
             AbstractTexture lower = tm.getTexture(TEX_LOWER);
+
             drawImmediate(client, buf,
                     net.minecraft.client.gl.RenderPipelines.GUI_TEXTURED,
                     lower.getGlTextureView(), mapSampler);
@@ -413,7 +466,9 @@ public final class PaintedMapRenderer {
             minimapFailure(t);
         }
     }
+
     private static final int CIRCLE_CLIP_SIDES = 32;
+
     private static void emitClippedChunkQuad(BufferBuilder buf, Matrix4f pose,
                                              int ccx, int ccz,
                                              double camX, double camZ, double ps, double pc, double zoom,
@@ -421,6 +476,7 @@ public final class PaintedMapRenderer {
                                              float night, float alpha, int halfView, boolean circle) {
         double wx0 = ccx * 16;
         double wz0 = ccz * 16;
+
         double[] xs = new double[40];
         double[] ys = new double[40];
         int n = 0;
@@ -433,6 +489,7 @@ public final class PaintedMapRenderer {
             ys[n] = (pc * ox + ps * oy) * zoom;
             n++;
         }
+
         boolean inside = true;
         for (int i = 0; i < 4 && inside; i++) {
             if (circle) {
@@ -464,6 +521,7 @@ public final class PaintedMapRenderer {
                 return;
             }
         }
+
         for (int i = 1; i + 1 < n; i++) {
             emitElementVertex(buf, pose, xs[0], ys[0], camX, camZ, ps, pc, zoom, cx, cz, hw, hz, night, alpha);
             emitElementVertex(buf, pose, xs[i], ys[i], camX, camZ, ps, pc, zoom, cx, cz, hw, hz, night, alpha);
@@ -471,6 +529,7 @@ public final class PaintedMapRenderer {
             emitElementVertex(buf, pose, xs[i + 1], ys[i + 1], camX, camZ, ps, pc, zoom, cx, cz, hw, hz, night, alpha);
         }
     }
+
     private static int clipHalfPlane(double[] xs, double[] ys, int n,
                                      double a, double b, double c,
                                      double[] tx, double[] ty) {
@@ -493,6 +552,7 @@ public final class PaintedMapRenderer {
         }
         return out;
     }
+
     private static void emitElementVertex(BufferBuilder buf, Matrix4f pose,
                                           double ex, double ey,
                                           double camX, double camZ, double ps, double pc, double zoom,
@@ -500,12 +560,14 @@ public final class PaintedMapRenderer {
                                           float night, float alpha) {
         double ox = (ps * ex + pc * ey) / zoom;
         double oy = (-pc * ex + ps * ey) / zoom;
+
         double kx = (camX + ox - 65.0) / 0.98;
         double kz = (camZ + oy + 50.0) / 1.01;
         float u = (float) ((kx - (cx - hw)) / (2 * hw));
         float v = (float) ((kz - (cz - hz)) / (2 * hz));
         buf.vertex(pose, (float) ex, (float) ey, 0f).texture(u, v).color(night, night, night, alpha);
     }
+
     static void withGuiOrtho(MinecraftClient client, Runnable draw) {
         com.mojang.blaze3d.buffers.GpuBufferSlice projBackup = RenderSystem.getProjectionMatrixBuffer();
         ProjectionType projTypeBackup = RenderSystem.getProjectionType();
@@ -527,6 +589,7 @@ public final class PaintedMapRenderer {
             RenderSystem.setProjectionMatrix(projBackup, projTypeBackup);
         }
     }
+
     public static void renderBackground(XaeroMapBridge.View view, int screenW, int screenH) {
         if (view == null || worldmapSkipFrame()) {
             return;
@@ -535,11 +598,13 @@ public final class PaintedMapRenderer {
         try {
             ensureResources(client);
             worldmapRecovered();
+
             double eff = view.effScale();
             double adjCamX = (view.cameraX() - 65.0) / 0.98;
             double adjCamZ = (view.cameraZ() + 50.0) / 1.01;
             double adjScaleX = eff * 0.98;
             double adjScaleZ = eff * 1.01;
+
             double cx = (MAP_MIN_X + MAP_MAX_X) / 2.0 - 650.0 + userOffsetX;
             double cz = (MAP_MIN_Z + MAP_MAX_Z) / 2.0 + 150.0 + userOffsetZ;
             double hw = (MAP_MAX_X - MAP_MIN_X) / 2.0 * 0.99;
@@ -551,20 +616,26 @@ public final class PaintedMapRenderer {
             if (x2 - x1 < 1 || y2 - y1 < 1) {
                 return;
             }
+
             float detailBlend = clamp01(1.0f - (float) ((eff - 0.05) / 0.1));
             float upperAlpha = clamp01(1.0f - (float) ((eff - 0.3) / 0.2));
             float overallAlpha = clamp01(1.0f - (float) ((eff - 5.4) / 0.4));
             if (overallAlpha <= 0f) {
                 return;
             }
+
             TextureManager tm = client.getTextureManager();
             AbstractTexture lowerTex = tm.getTexture(detailBlend > 0.5f ? TEX_LOWER : TEX_NODETAILS);
             AbstractTexture upperTex = tm.getTexture(eff > 0.15 ? TEX_UPPER_HIRES : TEX_UPPER);
+
             withGuiOrtho(client, () -> {
+
                 drawImmediateColorQuad(client, 0, 0, screenW, screenH,
                         packColor(0x6E, 0x7B, 0x8B, overallAlpha));
+
                 drawImmediateTexturedQuad(client, lowerTex, x1, y1, x2, y2,
                         packColor(0xFF, 0xFF, 0xFF, overallAlpha));
+
                 if (upperAlpha > 0.02f) {
                     drawImmediateTexturedQuad(client, upperTex, x1, y1, x2, y2,
                             packColor(0xFF, 0xFF, 0xFF, upperAlpha * overallAlpha));
@@ -574,10 +645,12 @@ public final class PaintedMapRenderer {
             worldmapFailure(t);
         }
     }
+
     private static int packColor(int r, int g, int b, float a) {
         int ai = Math.max(0, Math.min(255, Math.round(a * 255)));
         return (ai << 24) | (r << 16) | (g << 8) | b;
     }
+
     private static void drawImmediateTexturedQuad(MinecraftClient client, AbstractTexture tex,
                                                   float x1, float y1, float x2, float y2, int color) {
         float a = ((color >>> 24) & 0xFF) / 255f;
@@ -592,6 +665,7 @@ public final class PaintedMapRenderer {
         buf.vertex(x2, y1, 0).texture(1f, 0f).color(r, g, b, a);
         drawImmediate(client, buf, pl, tex.getGlTextureView(), mapSampler);
     }
+
     private static void drawImmediateColorQuad(MinecraftClient client,
                                                float x1, float y1, float x2, float y2, int color) {
         float a = ((color >>> 24) & 0xFF) / 255f;
@@ -606,6 +680,7 @@ public final class PaintedMapRenderer {
         buf.vertex(x2, y1, 0).color(r, g, b, a);
         drawImmediate(client, buf, pl, null, null);
     }
+
     static void drawImmediate(MinecraftClient client, BufferBuilder buffer,
                               RenderPipeline pl, GpuTextureView texView, GpuSampler sampler) {
         Framebuffer target = client.getFramebuffer();
@@ -615,16 +690,19 @@ public final class PaintedMapRenderer {
                 ? (RenderSystem.outputDepthTextureOverride != null
                 ? RenderSystem.outputDepthTextureOverride : target.getDepthAttachmentView())
                 : null;
+
         try (BuiltBuffer mesh = buffer.end()) {
             RenderSystem.ShapeIndexBuffer shapeIndex =
                     RenderSystem.getSequentialBuffer(VertexFormat.DrawMode.QUADS);
             GpuBuffer indexBuffer = shapeIndex.getIndexBuffer(mesh.getDrawParameters().indexCount());
             GpuBuffer vertexBuffer = pl.getVertexFormat().uploadImmediateVertexBuffer(mesh.getBuffer());
+
             GpuBufferSlice dynamicTransforms = RenderSystem.getDynamicUniforms().write(
                     RenderSystem.getModelViewMatrix(),
                     new Vector4f(1f, 1f, 1f, 1f),
                     new Vector3f(),
                     new Matrix4f());
+
             try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder()
                     .createRenderPass(() -> "ottoextra painted bg", colorTarget,
                             OptionalInt.empty(), depthTarget, OptionalDouble.empty())) {
@@ -640,6 +718,7 @@ public final class PaintedMapRenderer {
             }
         }
     }
+
     public static void renderSimple(net.minecraft.client.gui.DrawContext ctx,
                                     XaeroMapBridge.View view, int screenW, int screenH) {
         if (view == null || worldmapSkipFrame()) {
@@ -649,11 +728,13 @@ public final class PaintedMapRenderer {
         try {
             ensureResources(client);
             worldmapRecovered();
+
             double eff = view.effScale();
             double adjCamX = (view.cameraX() - 65.0) / 0.98;
             double adjCamZ = (view.cameraZ() + 50.0) / 1.01;
             double adjScaleX = eff * 0.98;
             double adjScaleZ = eff * 1.01;
+
             double cx = (MAP_MIN_X + MAP_MAX_X) / 2.0 - 650.0 + userOffsetX;
             double cz = (MAP_MIN_Z + MAP_MAX_Z) / 2.0 + 150.0 + userOffsetZ;
             double hw = (MAP_MAX_X - MAP_MIN_X) / 2.0 * 0.99;
@@ -667,6 +748,7 @@ public final class PaintedMapRenderer {
             if (w < 1 || h < 1) {
                 return;
             }
+
             float skyBrightness = client.world != null
                     ? clamp01(1.0f - client.world.getAmbientDarkness() / 11.0f) : 1.0f;
             float night = 0.7f * (0.3f + 0.7f * skyBrightness);
@@ -676,13 +758,16 @@ public final class PaintedMapRenderer {
             if (overallAlpha <= 0f) {
                 return;
             }
+
             int nb = (int) (255 * night);
             int fill = 0xFF000000 | (tint(0x6E, night) << 16) | (tint(0x7B, night) << 8) | tint(0x8B, night);
             ctx.fill(0, 0, screenW, screenH, withOverall(fill, overallAlpha));
+
             Identifier lowerTex = detailBlend > 0.5f ? TEX_LOWER : TEX_NODETAILS;
             int tintCol = tintColor(night, overallAlpha);
             ctx.drawTexture(net.minecraft.client.gl.RenderPipelines.GUI_TEXTURED, lowerTex,
                     x1, y1, 0f, 0f, w, h, w, h, tintCol);
+
             if (upperAlpha > 0.02f) {
                 ctx.drawTexture(net.minecraft.client.gl.RenderPipelines.GUI_TEXTURED,
                         eff > 0.15 ? TEX_UPPER_HIRES : TEX_UPPER,
@@ -692,14 +777,17 @@ public final class PaintedMapRenderer {
             worldmapFailure(t);
         }
     }
+
     private static int tint(int channel, float f) {
         return Math.max(0, Math.min(255, Math.round(channel * f)));
     }
+
     private static int tintColor(float night, float alpha) {
         int a = Math.max(0, Math.min(255, Math.round(alpha * 255)));
         int c = Math.max(0, Math.min(255, Math.round(night * 255)));
         return (a << 24) | (c << 16) | (c << 8) | c;
     }
+
     private static int withOverall(int argb, float alpha) {
         int a = Math.round(((argb >>> 24) & 0xFF) * alpha);
         return (a << 24) | (argb & 0xFFFFFF);

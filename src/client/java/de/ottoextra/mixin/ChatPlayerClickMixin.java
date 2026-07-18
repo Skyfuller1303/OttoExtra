@@ -1,4 +1,5 @@
 package de.ottoextra.mixin;
+
 import de.ottoextra.rpnames.RpNamesServices;
 import de.ottoextra.rpnames.ui.RpNamesPeopleBookScreen;
 import net.minecraft.client.MinecraftClient;
@@ -13,8 +14,10 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
 @Mixin(ChatScreen.class)
 public abstract class ChatPlayerClickMixin {
+
     @Inject(method = "mouseClicked(Lnet/minecraft/client/gui/Click;Z)Z",
             at = @At("HEAD"), cancellable = true)
     private void ottoextra$shiftClickPlayer(Click click, boolean doubled,
@@ -30,6 +33,7 @@ public abstract class ChatPlayerClickMixin {
             if (!shift) {
                 return;
             }
+
             DrawnTextConsumer.ClickHandler handler = new DrawnTextConsumer.ClickHandler(
                     mc.textRenderer, (int) click.x(), (int) click.y()).insert(false);
             mc.inGameHud.getChatHud().render(handler, mc.getWindow().getScaledHeight(),
@@ -58,6 +62,7 @@ public abstract class ChatPlayerClickMixin {
             RpNamesPeopleBookScreen.openFor(null, account, null);
             cir.setReturnValue(true);
         } catch (Throwable ignored) {
+
         }
     }
 }

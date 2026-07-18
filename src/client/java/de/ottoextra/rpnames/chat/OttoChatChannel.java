@@ -1,5 +1,7 @@
 package de.ottoextra.rpnames.chat;
+
 import de.ottoextra.config.OttoExtraConfig;
+
 public enum OttoChatChannel {
     SPRECHEN,
     REDEN,
@@ -12,6 +14,7 @@ public enum OttoChatChannel {
     OOC,
     SYSTEM,
     OTHER;
+
     public static OttoChatChannel fromMessage(String plain) {
         if (plain == null || plain.isEmpty() || plain.charAt(0) != '[') {
             return OTHER;
@@ -48,6 +51,7 @@ public enum OttoChatChannel {
         }
         return OTHER;
     }
+
     public boolean shouldReplace(OttoExtraConfig.RpNames cfg) {
         if (cfg.showInAllChannels) {
             return this != OTHER && this != SYSTEM;
@@ -65,13 +69,16 @@ public enum OttoChatChannel {
             default -> false;
         };
     }
+
     public boolean isOoc() {
         return this == OFFTOPIC || this == OOC;
     }
+
     public boolean isRpSpeak() {
         return this == SPRECHEN || this == REDEN || this == RUFEN
                 || this == BRUELLEN || this == FLUESTERN || this == MURMELN;
     }
+
     public boolean shouldLearn() {
         return switch (this) {
             case SPRECHEN, REDEN, RUFEN, BRUELLEN, FLUESTERN, MURMELN, HILFE -> true;

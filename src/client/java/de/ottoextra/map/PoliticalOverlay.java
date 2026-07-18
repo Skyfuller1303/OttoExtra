@@ -1,4 +1,5 @@
 package de.ottoextra.map;
+
 import com.mojang.blaze3d.vertex.VertexFormat;
 import de.ottoextra.api.model.FactionRecord;
 import de.ottoextra.api.model.RegionRecord;
@@ -8,6 +9,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.render.BufferBuilder;
 import net.minecraft.client.render.Tessellator;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -15,50 +17,71 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+
 public final class PoliticalOverlay {
+
     private static final int NEUTRAL_TINT = 0x5055585E;
+
     private static final int GROUP_ALPHA = 0x52;
+
     private static final long GROUPS_TTL_MS = 60_000L;
     private static final int CLICK_HIGHLIGHT_COLOR = 0xFFE0A0;
+
     private static final Map<LehenPolygon, int[]> TRI_CACHE = new ConcurrentHashMap<>();
+
     private static volatile Map<String, Integer> tintByPolyKey = Map.of();
+
     private static volatile Map<String, Integer> groupTintOverview = Map.of();
+
     private static volatile Map<String, String> userGroupColors = Map.of();
+
     private static volatile Map<String, Integer> userLehenColors = Map.of();
+
     private static volatile Map<String, Integer> userFactionColors = Map.of();
+
     private static volatile Map<String, String> groupNameOverrides = Map.of();
     private static volatile Set<String> vassalPolyKeys = Set.of();
     private static volatile Map<String, String> groupNameByPoly = Map.of();
+
     private static volatile Map<String, String> verbandNameByPoly = Map.of();
     private static volatile List<GroupLabel> groupLabels = List.of();
+
     public static String groupDisplayName(String polyKey) {
         return groupNameByPoly.get(polyKey);
     }
+
     public static String verbandDisplayName(String polyKey) {
         refreshGroupsIfStale();
         return verbandNameByPoly.get(polyKey);
     }
+
     public static int fillTintFor(String polyKey) {
         refreshGroupsIfStale();
         return tintByPolyKey.getOrDefault(polyKey, NEUTRAL_TINT);
     }
     private static long groupsBuiltAt;
+
     private static final net.minecraft.util.Identifier STRIPES_TEX =
             de.ottoextra.OttoExtra.id("textures/map/vassal_stripes.png");
     private static boolean stripesLoaded;
     private static net.minecraft.client.gl.GpuSampler stripesSampler;
+
     public record GroupLabel(FactionRecord rootFaction, String displayName,
                              String bannerCacheKey, String bannerPath,
                              double centerX, double centerZ) {
     }
+
     public static List<GroupLabel> groupLabels() {
         refreshGroupsIfStale();
         return groupLabels;
     }
+
     private static LehenPolygon clickedPoly;
     private static long clickTime;
+
     private PoliticalOverlay() {
     }
+
     public static boolean handleClick(net.minecraft.client.gui.screen.Screen screen,
                                       XaeroMapBridge.View view, double mouseX, double mouseY) {
         LehenPolygon poly = polyAt(view, mouseX, mouseY);
@@ -74,16 +97,20 @@ public final class PoliticalOverlay {
         XaeroMapBridge.setCamera(screen, poly.centroidX(), poly.centroidZ());
         return true;
     }
+
     public static LehenPolygon selectedPolygon() {
         return clickedPoly;
     }
+
     public static void clearSelection() {
         clickedPoly = null;
     }
+
     public static Map<String, Integer> groupTintOverview() {
         refreshGroupsIfStale();
         return groupTintOverview;
     }
+
     public static void setUserGroupColors(Map<String, String> colors) {
         Map<String, String> normalized = new HashMap<>();
         if (colors != null) {
@@ -96,6 +123,7 @@ public final class PoliticalOverlay {
         userGroupColors = Map.copyOf(normalized);
         invalidateGroups();
     }
+
     public static void setUserLehenColors(Map<String, String> colors) {
         Map<String, Integer> parsed = new HashMap<>();
         if (colors != null) {
@@ -109,6 +137,7 @@ public final class PoliticalOverlay {
         userLehenColors = Map.copyOf(parsed);
         invalidateGroups();
     }
+
     public static void setUserFactionColors(Map<String, String> colors) {
         Map<String, Integer> parsed = new HashMap<>();
         if (colors != null) {
@@ -122,10 +151,12 @@ public final class PoliticalOverlay {
         userFactionColors = Map.copyOf(parsed);
         invalidateGroups();
     }
+
     public static String jsonDefaultColor(String groupName) {
         Integer rgb = LehenPolygonStore.groupColors().get(normalizeName(groupName));
         return rgb == null ? null : String.format("#%06X", rgb & 0xFFFFFF);
     }
+
     public static void setGroupNameOverrides(Map<String, String> overrides) {
         Map<String, String> normalized = new HashMap<>();
         if (overrides != null) {
@@ -138,16 +169,19 @@ public final class PoliticalOverlay {
         groupNameOverrides = Map.copyOf(normalized);
         invalidateGroups();
     }
+
     public static String displayNameFor(String originalName) {
         if (originalName == null) {
             return "";
         }
         return groupNameOverrides.getOrDefault(normalizeName(originalName), originalName);
     }
+
     public static void invalidateGroups() {
         groupsBuiltAt = 0;
         TRI_CACHE.clear();
     }
+
     private static Integer parseHex(String hex) {
         if (hex == null || hex.isBlank()) {
             return null;
@@ -158,6 +192,7 @@ public final class PoliticalOverlay {
             return null;
         }
     }
+
     private static LehenPolygon polyAt(XaeroMapBridge.View view, double mouseX, double mouseY) {
         if (view == null) {
             return null;
@@ -173,12 +208,16 @@ public final class PoliticalOverlay {
         }
         return null;
     }
+
     public static void renderFills(XaeroMapBridge.View view, boolean politicalEnabled,
                                    double maxScale, int mouseX, int mouseY) {
         MinecraftClient client = MinecraftClient.getInstance();
+
         double ramp = Math.max(0.01, maxScale / 3.0);
         float zoomAlpha = clamp01((float) ((maxScale - view.effScale()) / ramp));
+
         float opacity = overlayOpacity(client);
+
         BufferBuilder buf = null;
         int quads = 0;
         if (politicalEnabled && zoomAlpha > 0.02f) {
@@ -191,11 +230,13 @@ public final class PoliticalOverlay {
                         view.worldMaxX(), view.worldMaxZ())) {
                     continue;
                 }
+
                 int tint = tints.getOrDefault(poly.key(), NEUTRAL_TINT);
                 if (buf == null) {
                     buf = Tessellator.getInstance().begin(
                             VertexFormat.DrawMode.QUADS, RenderPipelines.GUI.getVertexFormat());
                 }
+
                 float strength = vassalPolyKeys.contains(poly.key()) ? 0.3f : 1.0f;
                 int col = withAlpha(tint, zoomAlpha * strength * opacity);
                 if (poly.key().equals(hoveredKey)) {
@@ -204,6 +245,7 @@ public final class PoliticalOverlay {
                 quads += emitPolygon(buf, poly, view, col);
             }
         }
+
         if (!politicalEnabled && zoomAlpha > 0.02f) {
             LehenPolygon hoveredPart = polyAt(view, mouseX, mouseY);
             if (hoveredPart != null) {
@@ -219,6 +261,7 @@ public final class PoliticalOverlay {
                 }
             }
         }
+
         if (clickedPoly != null) {
             long elapsed = System.currentTimeMillis() - clickTime;
             float a = elapsed < 900L
@@ -235,6 +278,7 @@ public final class PoliticalOverlay {
                 }
             }
         }
+
         if (buf != null) {
             if (quads == 0) {
                 buf.endNullable();
@@ -244,6 +288,7 @@ public final class PoliticalOverlay {
                         PaintedMapRenderer.drawImmediate(client, finalBuf, RenderPipelines.GUI, null, null));
             }
         }
+
         if (politicalEnabled && zoomAlpha > 0.02f) {
             ensureStripes(client);
             if (stripesSampler == null) {
@@ -266,6 +311,7 @@ public final class PoliticalOverlay {
                     stripeBuf = Tessellator.getInstance().begin(
                             VertexFormat.DrawMode.QUADS, RenderPipelines.GUI_TEXTURED.getVertexFormat());
                 }
+
                 emitPolygonStriped(stripeBuf, poly, view, withAlpha(tint, zoomAlpha * opacity));
             }
             if (stripeBuf != null) {
@@ -277,6 +323,7 @@ public final class PoliticalOverlay {
             }
         }
     }
+
     private static void emitPolygonStriped(BufferBuilder buf, LehenPolygon poly,
                                            XaeroMapBridge.View view, int argb) {
         int[] tris = triangles(poly);
@@ -286,6 +333,7 @@ public final class PoliticalOverlay {
         float b = (argb & 0xFF) / 255f;
         final float cos = (float) Math.cos(Math.toRadians(-35));
         final float sin = (float) Math.sin(Math.toRadians(-35));
+
         final float tile = Math.max(6f, Math.min(16f, (float) (view.effScale() * 53.0)));
         for (int t = 0; t + 2 < tris.length; t += 3) {
             for (int k = 0; k < 4; k++) {
@@ -298,6 +346,7 @@ public final class PoliticalOverlay {
             }
         }
     }
+
     private static void ensureStripes(MinecraftClient client) {
         if (stripesLoaded) {
             return;
@@ -322,6 +371,7 @@ public final class PoliticalOverlay {
             stripesSampler = null;
         }
     }
+
     private static int emitPolygon(BufferBuilder buf, LehenPolygon poly,
                                    XaeroMapBridge.View view, int argb) {
         int[] tris = triangles(poly);
@@ -345,6 +395,7 @@ public final class PoliticalOverlay {
         }
         return emitted;
     }
+
     private static void refreshGroupsIfStale() {
         long now = System.currentTimeMillis();
         if (now - groupsBuiltAt < GROUPS_TTL_MS && !tintByPolyKey.isEmpty()) {
@@ -355,17 +406,21 @@ public final class PoliticalOverlay {
         if (data == null) {
             return;
         }
+
         List<FactionRecord> factions = data.allFactions();
         Map<String, FactionRecord> byName = new HashMap<>();
+
         Set<String> lordNames = new HashSet<>();
         for (FactionRecord f : factions) {
             if (f.name() != null && !f.name().isBlank()) {
+
                 byName.merge(normalizeName(f.name()), f, FactionRecord::better);
             }
             if (f.lord_name() != null && !f.lord_name().isBlank()) {
                 lordNames.add(normalizeName(f.lord_name()));
             }
         }
+
         Map<String, String> groupOfPoly = new HashMap<>();
         Map<String, String> factionOfPoly = new HashMap<>();
         Map<String, GroupMeta> metaOfGroup = new HashMap<>();
@@ -396,6 +451,7 @@ public final class PoliticalOverlay {
                     current = lord;
                 }
                 isVassal = !root.equals(self);
+
                 boolean standalone = !isVassal
                         && (f.vassal_uuids() == null || f.vassal_uuids().isEmpty())
                         && f.vassal_count() <= 0
@@ -405,6 +461,7 @@ public final class PoliticalOverlay {
                 if (verband != null) {
                     RegionRecord eponym = data.regionByName(verband).orElse(null);
                     if (eponym != null) {
+
                         root = "region:" + verband;
                         isVassal = !verband.equals(self);
                         metaOfGroup.putIfAbsent(root, GroupMeta.ofRegion(eponym));
@@ -415,6 +472,7 @@ public final class PoliticalOverlay {
                     metaOfGroup.putIfAbsent(root, GroupMeta.ofFaction(rootFaction, root));
                 }
             } else {
+
                 RegionRecord r = data.regionByName(poly.key()).orElse(null);
                 boolean isRoot = r != null && r.vassal_region_refs() != null
                         && !r.vassal_region_refs().isEmpty();
@@ -422,12 +480,14 @@ public final class PoliticalOverlay {
                     continue;
                 }
                 if (!r.hasParentRegion() && !isRoot) {
+
                     String verband = bannerVerband(data, r.effectiveRegionBannerPath());
                     RegionRecord eponym = verband != null
                             ? data.regionByName(verband).orElse(null) : null;
                     if (eponym == null) {
                         continue;
                     }
+
                     FactionRecord epf = data.factionForRegion(eponym.id()).orElse(null);
                     if (epf != null && epf.name() != null && !epf.name().isBlank()) {
                         root = normalizeName(epf.name());
@@ -450,6 +510,7 @@ public final class PoliticalOverlay {
                     }
                     cur = parent;
                 }
+
                 FactionRecord rf = data.factionForRegion(cur.id()).orElse(null);
                 if (rf != null && rf.name() != null && !rf.name().isBlank()) {
                     root = normalizeName(rf.name());
@@ -473,15 +534,18 @@ public final class PoliticalOverlay {
                 result.put(polyKey, tint);
             }
         });
+
         factionOfPoly.forEach((polyKey, fac) -> {
             Integer rgb = userFactionColors.get(fac);
             if (rgb != null) {
                 result.put(polyKey, (GROUP_ALPHA << 24) | (rgb & 0xFFFFFF));
             }
         });
+
         userLehenColors.forEach((polyKey, rgb) ->
                 result.put(polyKey, (GROUP_ALPHA << 24) | (rgb & 0xFFFFFF)));
         tintByPolyKey = Map.copyOf(result);
+
         Map<String, Integer> overview = new java.util.TreeMap<>();
         metaOfGroup.forEach((g, meta) -> {
             Integer tint = tintOfGroup.get(g);
@@ -506,6 +570,7 @@ public final class PoliticalOverlay {
         verbandNameByPoly = Map.copyOf(verbandNames);
         groupLabels = buildGroupLabels(groupOfPoly, metaOfGroup);
     }
+
     record GroupMeta(String displayName, FactionRecord rootFaction,
                      String bannerCacheKey, String bannerPath) {
         static GroupMeta ofFaction(FactionRecord f, String fallbackName) {
@@ -513,11 +578,13 @@ public final class PoliticalOverlay {
                     ? f.name() : fallbackName;
             return new GroupMeta(name, f, null, null);
         }
+
         static GroupMeta ofRegion(RegionRecord r) {
             return new GroupMeta(r.name() != null ? r.name() : r.id(), null,
                     "region-" + r.id(), r.effectiveRegionBannerPath());
         }
     }
+
     private static String bannerVerband(RegionDataService data, String bannerPath) {
         if (bannerPath == null || bannerPath.isBlank()) {
             return null;
@@ -537,12 +604,14 @@ public final class PoliticalOverlay {
         }
         return data.regionByName(stem).isPresent() ? stem : null;
     }
+
     private static String parentKey(RegionRecord r) {
         if (r.parent_region_ref() != null && !r.parent_region_ref().isBlank()) {
             return r.parent_region_ref();
         }
         return "lehen_" + r.parent_region_id();
     }
+
     private static List<GroupLabel> buildGroupLabels(Map<String, String> groupOfPoly,
                                                      Map<String, GroupMeta> metaOfGroup) {
         Map<String, double[]> acc = new HashMap<>();
@@ -575,6 +644,7 @@ public final class PoliticalOverlay {
         }
         return List.copyOf(out);
     }
+
     private static double shoelaceArea(LehenPolygon poly) {
         double[] xs = poly.xs();
         double[] zs = poly.zs();
@@ -586,10 +656,12 @@ public final class PoliticalOverlay {
         }
         return sum / 2.0;
     }
+
     private static Map<String, Integer> assignDomainColors(Map<String, GroupMeta> metaOfGroup,
                                                            Map<String, String> groupOfPoly) {
         List<String> sorted = new ArrayList<>(metaOfGroup.keySet());
         sorted.sort(String::compareTo);
+
         Map<String, Set<String>> adjacent = new HashMap<>();
         for (BorderSegment seg : LehenPolygonStore.segments()) {
             List<String> owners = seg.ownerKeys();
@@ -607,6 +679,7 @@ public final class PoliticalOverlay {
         }
         Map<String, float[]> colorOfGroup = new HashMap<>();
         Map<String, Integer> tintOfGroup = new HashMap<>();
+
         Map<String, String> userColors = userGroupColors;
         for (String key : sorted) {
             GroupMeta meta = metaOfGroup.get(key);
@@ -621,6 +694,7 @@ public final class PoliticalOverlay {
                 tintOfGroup.put(key, (GROUP_ALPHA << 24) | rgb);
             }
         }
+
         Map<String, Integer> fixedColors = LehenPolygonStore.groupColors();
         for (String key : sorted) {
             if (tintOfGroup.containsKey(key)) {
@@ -637,6 +711,7 @@ public final class PoliticalOverlay {
                 tintOfGroup.put(key, (GROUP_ALPHA << 24) | fixed);
             }
         }
+
         for (String key : sorted) {
             if (tintOfGroup.containsKey(key)) {
                 continue;
@@ -672,6 +747,7 @@ public final class PoliticalOverlay {
         }
         return tintOfGroup;
     }
+
     private static int godotStringHash(String s) {
         int h = 5381;
         for (int i = 0; i < s.length(); i++) {
@@ -679,11 +755,13 @@ public final class PoliticalOverlay {
         }
         return h;
     }
+
     private static final class Pcg32 {
         private static final long MULT = 6364136223846793005L;
         private static final long DEFAULT_INC = 1442695040888963407L;
         private long state;
         private final long inc;
+
         Pcg32(long seed) {
             this.inc = (DEFAULT_INC << 1) | 1L;
             this.state = 0;
@@ -691,6 +769,7 @@ public final class PoliticalOverlay {
             this.state += seed;
             nextInt();
         }
+
         int nextInt() {
             long old = state;
             state = old * MULT + inc;
@@ -698,13 +777,16 @@ public final class PoliticalOverlay {
             int rot = (int) (old >>> 59);
             return Integer.rotateRight(xorshifted, rot);
         }
+
         float randf() {
             return (float) ((nextInt() & 0xFFFFFFFFL) / 4294967295.0);
         }
+
         float randfRange(float from, float to) {
             return randf() * (to - from) + from;
         }
     }
+
     private static float hsvSimilarity(float[] rgb1, float[] rgb2) {
         float[] a = rgbToHsv(rgb1);
         float[] b = rgbToHsv(rgb2);
@@ -714,6 +796,7 @@ public final class PoliticalOverlay {
         float valDist = Math.abs(a[2] - b[2]);
         return hueDist * 0.6f + satDist * 0.25f + valDist * 0.15f;
     }
+
     private static float[] hueShift(float[] rgb, float amount) {
         float[] hsv = rgbToHsv(rgb);
         float h = (hsv[0] + amount) % 1.0f;
@@ -727,6 +810,7 @@ public final class PoliticalOverlay {
                 (packed & 0xFF) / 255f
         };
     }
+
     private static float[] rgbToHsv(float[] rgb) {
         float r = rgb[0];
         float g = rgb[1];
@@ -747,6 +831,7 @@ public final class PoliticalOverlay {
         float s = max == 0 ? 0 : d / max;
         return new float[]{h, s, max};
     }
+
     private static boolean containsPoint(LehenPolygon poly, double px, double pz) {
         boolean inside = false;
         int n = poly.pointCount();
@@ -761,9 +846,11 @@ public final class PoliticalOverlay {
         }
         return inside;
     }
+
     private static int[] triangles(LehenPolygon poly) {
         return TRI_CACHE.computeIfAbsent(poly, PoliticalOverlay::triangulate);
     }
+
     private static int[] triangulate(LehenPolygon poly) {
         int n = poly.pointCount();
         if (n < 3) {
@@ -824,6 +911,7 @@ public final class PoliticalOverlay {
             tris.add(idx.get(1));
             tris.add(idx.get(2));
         }
+
         if (tris.size() / 3 != n - 2) {
             tris.clear();
             for (int i = 1; i + 1 < n; i++) {
@@ -836,6 +924,7 @@ public final class PoliticalOverlay {
         for (int i = 0; i < result.length; i++) {
             result[i] = tris.get(i);
         }
+
         if (ccw) {
             for (int i = 0; i + 2 < result.length; i += 3) {
                 int tmp = result[i + 1];
@@ -845,6 +934,7 @@ public final class PoliticalOverlay {
         }
         return result;
     }
+
     private static boolean pointInTriangle(double px, double pz, double ax, double az,
                                            double bx, double bz, double cx, double cz) {
         double d1 = (px - bx) * (az - bz) - (ax - bx) * (pz - bz);
@@ -854,10 +944,12 @@ public final class PoliticalOverlay {
         boolean hasPos = d1 > 0.0 || d2 > 0.0 || d3 > 0.0;
         return !hasNeg || !hasPos;
     }
+
     private static int withAlpha(int tint, float factor) {
         int a = Math.round(((tint >>> 24) & 0xFF) * factor);
         return (a << 24) | (tint & 0xFFFFFF);
     }
+
     private static int lighten(int argb) {
         int a = Math.min(255, Math.round(((argb >>> 24) & 0xFF) * 1.9f));
         int r = (argb >>> 16) & 0xFF;
@@ -868,9 +960,11 @@ public final class PoliticalOverlay {
         b += Math.round((255 - b) * 0.35f);
         return (a << 24) | (r << 16) | (g << 8) | b;
     }
+
     private static float clamp01(float v) {
         return Math.max(0f, Math.min(1f, v));
     }
+
     private static float overlayOpacity(MinecraftClient client) {
         var map = de.ottoextra.config.OttoExtraConfig.active().map;
         float day = clamp01(map.politicalOpacity / 100f);
@@ -878,6 +972,7 @@ public final class PoliticalOverlay {
         float t = dayFactor(client);
         return night + (day - night) * t;
     }
+
     private static float dayFactor(MinecraftClient client) {
         if (client.world == null) {
             return 1f;
@@ -894,9 +989,11 @@ public final class PoliticalOverlay {
         }
         return (t - 22200L) / 1800f;
     }
+
     private static String normalizeName(String name) {
         return de.ottoextra.regions.RegionNameKeys.normalize(name);
     }
+
     private static int hsvToRgb(float h, float s, float v) {
         float c = v * s;
         float x = c * (1 - Math.abs((h / 60.0f) % 2 - 1));

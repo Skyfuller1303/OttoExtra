@@ -1,4 +1,5 @@
 package de.ottoextra.letter.ui;
+
 import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.letter.LetterDraft;
 import de.ottoextra.letter.LetterServices;
@@ -8,9 +9,12 @@ import net.minecraft.text.ClickEvent;
 import net.minecraft.text.HoverEvent;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
+
 public final class LetterActionPrompt {
+
     private LetterActionPrompt() {
     }
+
     public static void show(OttoExtraConfig config, LetterDraft draft) {
         LetterServices.setPending(draft);
         MinecraftClient client = MinecraftClient.getInstance();
@@ -28,6 +32,7 @@ public final class LetterActionPrompt {
                         0x888888, "ottoextra.letter.prompt.close.hover"));
         client.player.sendMessage(message, false);
     }
+
     public static void onSend(OttoExtraConfig config) {
         LetterDraft draft = LetterServices.pendingDraft();
         if (draft == null) {
@@ -35,8 +40,10 @@ public final class LetterActionPrompt {
             return;
         }
         draft.meta.mode = LetterOutputMode.BRIEF;
+
         MinecraftClient.getInstance().setScreen(new RecipientScreen(null, config, draft));
     }
+
     public static void onAnnounce(OttoExtraConfig config) {
         LetterDraft draft = LetterServices.pendingDraft();
         if (draft == null) {
@@ -44,9 +51,11 @@ public final class LetterActionPrompt {
             return;
         }
         draft.meta.mode = LetterOutputMode.VERKUENDUNG;
+
         MinecraftClient.getInstance().setScreen(
                 new AnnouncementPreflightScreen(null, config, draft));
     }
+
     public static void onClose() {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player != null) {
@@ -54,12 +63,14 @@ public final class LetterActionPrompt {
                     Text.translatable("ottoextra.letter.prompt.closed"), false);
         }
     }
+
     private static MutableText button(String labelKey, String command, int color, String hoverKey) {
         return Text.translatable(labelKey).styled(style -> style
                 .withColor(color)
                 .withClickEvent(new ClickEvent.RunCommand(command))
                 .withHoverEvent(new HoverEvent.ShowText(Text.translatable(hoverKey))));
     }
+
     private static void error() {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player != null) {

@@ -1,5 +1,7 @@
 package de.ottoextra.api.auth;
+
 import de.ottoextra.OttoExtra;
+
 import java.net.http.HttpHeaders;
 import java.security.KeyFactory;
 import java.security.PublicKey;
@@ -9,28 +11,39 @@ import java.util.Base64;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BooleanSupplier;
+
 public final class ResponseVerifier {
+
     public static final String SIGNATURE_HEADER = "X-OE-Signature";
     public static final String KEY_ID_HEADER = "X-OE-Key-Id";
+
     private static final Map<String, String> PUBLIC_KEYS = Map.of(
             "k1", "MCowBQYDK2VwAyEA7+zdLKmnLJSdUCDUlOTHH9YN7ns5z/fKSwpedEqmJ1E=",
             "k2", "MCowBQYDK2VwAyEAGyXZMtbMa108e2CWWOTizr8p4MnWipQBjOlzfWuKr/I=");
+
     private final Map<String, String> keysById;
     private final BooleanSupplier requireSignatures;
     private final Map<String, PublicKey> keyCache = new ConcurrentHashMap<>();
     private volatile boolean warnedNoKeys;
+
     public ResponseVerifier(BooleanSupplier requireSignatures) {
         this(PUBLIC_KEYS, requireSignatures);
     }
+
     public ResponseVerifier(Map<String, String> keysById, BooleanSupplier requireSignatures) {
         this.keysById = Map.copyOf(keysById);
         this.requireSignatures = requireSignatures;
     }
+
     public enum Result {
+
         VALID,
+
         MISSING,
+
         INVALID
     }
+
     public Result check(HttpHeaders headers, byte[] rawBody) {
         String sig = headers.firstValue(SIGNATURE_HEADER).orElse(null);
         String keyId = headers.firstValue(KEY_ID_HEADER).orElse(null);
@@ -52,6 +65,7 @@ public final class ResponseVerifier {
             return Result.INVALID;
         }
     }
+
     public boolean accept(HttpHeaders headers, byte[] rawBody) {
         Result result = check(headers, rawBody);
         return switch (result) {
@@ -68,6 +82,7 @@ public final class ResponseVerifier {
             }
         };
     }
+
     private static PublicKey parseKey(String base64Spki) {
         try {
             KeyFactory factory = KeyFactory.getInstance("Ed25519");

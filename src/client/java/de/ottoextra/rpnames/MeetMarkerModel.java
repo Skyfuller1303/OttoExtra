@@ -1,20 +1,28 @@
 package de.ottoextra.rpnames;
+
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import de.ottoextra.OttoExtra;
+
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+
 public final class MeetMarkerModel {
+
     private static final float TEX = 16.0f;
+
     public record Quad(float[][] pos, float[][] uv, float nx, float ny, float nz) {
     }
+
     private static volatile List<Quad> quads;
+
     private MeetMarkerModel() {
     }
+
     public static List<Quad> quads() {
         List<Quad> q = quads;
         if (q == null) {
@@ -28,6 +36,7 @@ public final class MeetMarkerModel {
         }
         return q;
     }
+
     private static List<Quad> load() {
         List<Quad> out = new ArrayList<>();
         try (InputStream in = MeetMarkerModel.class.getResourceAsStream(
@@ -42,6 +51,7 @@ public final class MeetMarkerModel {
             if (elements == null) {
                 return out;
             }
+
             float minX = Float.MAX_VALUE, minY = Float.MAX_VALUE, minZ = Float.MAX_VALUE;
             float maxX = -Float.MAX_VALUE, maxY = -Float.MAX_VALUE, maxZ = -Float.MAX_VALUE;
             for (var el : elements) {
@@ -89,6 +99,7 @@ public final class MeetMarkerModel {
         }
         return out;
     }
+
     private static void addFace(List<Quad> out, JsonObject faces, String name,
                                 float[][] pos, float nx, float ny, float nz) {
         JsonObject face = faces.has(name) ? faces.getAsJsonObject(name) : null;
@@ -97,9 +108,11 @@ public final class MeetMarkerModel {
         }
         float[] uv = arr(face.getAsJsonArray("uv"));
         float u0 = uv[0] / TEX, v0 = uv[1] / TEX, u1 = uv[2] / TEX, v1 = uv[3] / TEX;
+
         float[][] uvs = {{u0, v1}, {u1, v1}, {u1, v0}, {u0, v0}};
         out.add(new Quad(pos, uvs, nx, ny, nz));
     }
+
     private static float[] arr(JsonArray a) {
         float[] r = new float[a.size()];
         for (int i = 0; i < a.size(); i++) {

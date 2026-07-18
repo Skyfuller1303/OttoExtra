@@ -1,20 +1,28 @@
 package de.ottoextra.rpnames.chat;
+
 import de.ottoextra.OttoExtra;
 import net.minecraft.text.HoverEvent;
 import net.minecraft.text.Style;
 import net.minecraft.text.Text;
+
 import java.util.List;
 import java.util.Optional;
+
 public final class HoverDebug {
+
     private static volatile boolean enabled;
+
     private HoverDebug() {
     }
+
     public static boolean isEnabled() {
         return enabled;
     }
+
     public static void setEnabled(boolean value) {
         enabled = value;
     }
+
     public static void dump(Text message) {
         if (!enabled || message == null) {
             return;
@@ -35,6 +43,7 @@ public final class HoverDebug {
             OttoExtra.LOGGER.info("[rpnames-hoverdebug] Dump-Fehler: {}", t.toString());
         }
     }
+
     public static void logParsed(List<HoverIdentityParser.ParsedIdentity> ids) {
         if (!enabled) {
             return;
@@ -52,6 +61,7 @@ public final class HoverDebug {
                     id.accountName(), id.rpName(), id.title(), id.titleGroup());
         }
     }
+
     private static void walk(Text node, StringBuilder sb, int[] count) {
         Style style = node.getStyle();
         HoverEvent hover = style != null ? style.getHoverEvent() : null;
@@ -71,6 +81,7 @@ public final class HoverDebug {
             walk(sibling, sb, count);
         }
     }
+
     private static void dumpSegments(Text hover, StringBuilder sb) {
         int[] i = {0};
         hover.visit((style, content) -> {
@@ -87,6 +98,7 @@ public final class HoverDebug {
             sb.append("    (Hover-Text ohne Segmente/leer)\n");
         }
     }
+
     private static String ownText(Text node) {
         StringBuilder sb = new StringBuilder();
         node.getContent().visit(s -> {
@@ -95,6 +107,7 @@ public final class HoverDebug {
         });
         return sb.toString();
     }
+
     private static String toJson(Text text) {
         try {
             var handler = net.minecraft.client.MinecraftClient.getInstance().getNetworkHandler();

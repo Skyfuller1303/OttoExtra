@@ -1,4 +1,5 @@
 package de.ottoextra.letter.ui;
+
 import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.letter.LetterDraft;
 import de.ottoextra.letter.LetterServices;
@@ -11,12 +12,16 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+
 public final class RecipientScreen extends Screen {
+
     private static final int ROW_H = 11;
+
     private final Screen parent;
     private final OttoExtraConfig config;
     private final LetterDraft draft;
@@ -24,21 +29,26 @@ public final class RecipientScreen extends Screen {
     private TextFieldWidget searchField;
     private String selected;
     private int scroll;
+
     public RecipientScreen(Screen parent, OttoExtraConfig config, LetterDraft draft) {
         super(Text.translatable("ottoextra.letter.recipient.title"));
         this.parent = parent;
         this.config = config;
         this.draft = draft;
     }
+
     private int listX() {
         return width / 2 - 90;
     }
+
     private int listTop() {
         return 56;
     }
+
     private int listBottom() {
         return height - 40;
     }
+
     @Override
     protected void init() {
         searchField = new TextFieldWidget(textRenderer, listX(), 32, 180, 16,
@@ -51,6 +61,7 @@ public final class RecipientScreen extends Screen {
         ButtonWidget send = ButtonWidget.builder(
                 Text.translatable("ottoextra.letter.recipient.send"), b -> {
                     if (selected != null) {
+
                         LetterServices.sendPost(config, selected);
                         LetterServices.consumePending();
                         MinecraftClient.getInstance().setScreen(null);
@@ -61,6 +72,7 @@ public final class RecipientScreen extends Screen {
                 .dimensions(width / 2 + 2, height - 30, 100, 20).build());
         refilter();
     }
+
     private void refilter() {
         filtered.clear();
         if (RpNamesServices.store() == null) {
@@ -77,10 +89,12 @@ public final class RecipientScreen extends Screen {
                 filtered.add(p);
             }
         }
+
         filtered.sort(Comparator
                 .comparing((LocalRpProfile p) -> !isOnline(p))
                 .thenComparing(p -> p.accountName.toLowerCase(Locale.ROOT)));
     }
+
     private boolean isOnline(LocalRpProfile p) {
         var nh = MinecraftClient.getInstance().getNetworkHandler();
         if (nh == null || p.accountName == null) {
@@ -93,10 +107,12 @@ public final class RecipientScreen extends Screen {
             try {
                 return nh.getPlayerListEntry(java.util.UUID.fromString(p.uuid)) != null;
             } catch (IllegalArgumentException ignored) {
+
             }
         }
         return false;
     }
+
     private net.minecraft.entity.player.SkinTextures skinFor(LocalRpProfile p) {
         var nh = MinecraftClient.getInstance().getNetworkHandler();
         net.minecraft.client.network.PlayerListEntry entry = null;
@@ -105,6 +121,7 @@ public final class RecipientScreen extends Screen {
                 try {
                     entry = nh.getPlayerListEntry(java.util.UUID.fromString(p.uuid));
                 } catch (IllegalArgumentException ignored) {
+
                 }
             }
             if (entry == null && p.accountName != null) {
@@ -114,26 +131,31 @@ public final class RecipientScreen extends Screen {
         if (entry != null) {
             return entry.getSkinTextures();
         }
+
         if (p.uuid != null && !p.uuid.isBlank()) {
             try {
                 return de.ottoextra.chat.ChatHeads.skinForUuid(
                         java.util.UUID.fromString(p.uuid), p.accountName);
             } catch (IllegalArgumentException ignored) {
+
             }
         }
         java.util.UUID uuid = net.minecraft.util.Uuids.getOfflinePlayerUuid(
                 p.accountName == null ? "" : p.accountName);
         return net.minecraft.client.util.DefaultSkinHelper.getSkinTextures(uuid);
     }
+
     private int visibleRows() {
         return Math.max(1, (listBottom() - listTop()) / ROW_H);
     }
+
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
         scroll = Math.max(0, Math.min(scroll - (int) Math.signum(vertical) * 3,
                 Math.max(0, filtered.size() - visibleRows())));
         return true;
     }
+
     @Override
     public boolean mouseClicked(Click click, boolean doubled) {
         if (click.button() == 0 && click.x() >= listX() && click.x() <= listX() + 180
@@ -146,6 +168,7 @@ public final class RecipientScreen extends Screen {
         }
         return super.mouseClicked(click, doubled);
     }
+
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
         super.render(ctx, mouseX, mouseY, delta);
@@ -162,6 +185,7 @@ public final class RecipientScreen extends Screen {
             if (isSel) {
                 ctx.fill(listX() - 2, y - 1, listX() + 182, y + ROW_H - 1, 0x337A5A3A);
             }
+
             net.minecraft.client.gui.PlayerSkinDrawer.draw(ctx, skinFor(p),
                     listX(), y, 8);
             boolean online = isOnline(p);
@@ -177,6 +201,7 @@ public final class RecipientScreen extends Screen {
                     width / 2, listBottom() + 6, 0xFFB8A88F);
         }
     }
+
     @Override
     public void close() {
         MinecraftClient.getInstance().setScreen(parent);

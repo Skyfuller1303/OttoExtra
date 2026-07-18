@@ -1,4 +1,5 @@
 package de.ottoextra.rpnames.chat;
+
 import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.rpnames.model.LocalRpProfile;
 import de.ottoextra.rpnames.store.LocalRpIdentityStore;
@@ -11,18 +12,24 @@ import net.minecraft.text.StyleSpriteSource;
 import net.minecraft.text.Text;
 import net.minecraft.text.TextColor;
 import net.minecraft.text.TextContent;
+
 import java.util.Locale;
 import java.util.Optional;
+
 public final class ChatNameRewriter {
+
     private final LocalRpIdentityStore store;
     private final TitleRegistry titles;
+
     public ChatNameRewriter(LocalRpIdentityStore store, TitleRegistry titles) {
         this.store = store;
         this.titles = titles;
     }
+
     public Text rewrite(Text message, OttoExtraConfig.RpNames cfg) {
         return rewrite(message, cfg, null);
     }
+
     public Text rewrite(Text message, OttoExtraConfig.RpNames cfg, String forcedAccount) {
         try {
             SpeakerBounds bounds = SpeakerBounds.from(message);
@@ -38,6 +45,7 @@ public final class ChatNameRewriter {
             return message;
         }
     }
+
     public Text rewriteTitleOnly(Text message, OttoExtraConfig.RpNames cfg) {
         try {
             SpeakerBounds bounds = SpeakerBounds.from(message);
@@ -51,6 +59,7 @@ public final class ChatNameRewriter {
             return message;
         }
     }
+
     private record SpeakerBounds(int start, int end) {
         static SpeakerBounds from(Text message) {
             if (message == null) {
@@ -72,6 +81,7 @@ public final class ChatNameRewriter {
             }
             return end > start ? new SpeakerBounds(start, end) : null;
         }
+
         private static int separatorColon(String plain, int from) {
             int nestedBrackets = 0;
             int fallback = -1;
@@ -93,20 +103,25 @@ public final class ChatNameRewriter {
             return fallback;
         }
     }
+
     private record ProfileMatch(LocalRpProfile profile, String visibleIdentity,
                                 int localStart, int localEnd, int score) {
     }
+
     private record SpeakerInfo(Text node, LocalRpProfile profile, String visibleIdentity,
                                int nodeStart, int replaceStart, int replaceEnd,
                                int titleZoneStart) {
     }
+
     private static final class BestSpeaker {
         private SpeakerInfo info;
         private int score = Integer.MIN_VALUE;
+
         void offer(SpeakerInfo candidate, int candidateScore) {
             if (candidate == null) {
                 return;
             }
+
             if (info == null || candidateScore > score
                     || (candidateScore == score
                     && candidate.replaceEnd() > info.replaceEnd())) {
@@ -115,6 +130,7 @@ public final class ChatNameRewriter {
             }
         }
     }
+
     private SpeakerInfo findSpeaker(Text message, OttoExtraConfig.RpNames cfg,
                                     SpeakerBounds bounds, LocalRpProfile forced,
                                     boolean titleOnly) {
@@ -122,6 +138,7 @@ public final class ChatNameRewriter {
         findSpeakerNode(message, cfg, bounds, forced, titleOnly, new int[]{0}, best);
         return best.info;
     }
+
     private void findSpeakerNode(Text node, OttoExtraConfig.RpNames cfg,
                                  SpeakerBounds bounds, LocalRpProfile forced,
                                  boolean titleOnly, int[] flatPos, BestSpeaker best) {
@@ -146,6 +163,7 @@ public final class ChatNameRewriter {
         String own = ownText(node);
         int nodeStart = flatPos[0];
         int nodeEnd = nodeStart + own.length();
+
         if (content instanceof PlainTextContent && !isVisualComponent(node)
                 && !own.isBlank() && overlapsSpeaker(nodeStart, nodeEnd, bounds)) {
             int localFrom = bounds == null ? 0 : Math.max(0, bounds.start() - nodeStart);
@@ -153,6 +171,7 @@ public final class ChatNameRewriter {
             if (localFrom < localTo) {
                 String inSpeaker = own.substring(localFrom, localTo);
                 ProfileMatch match = findProfileInSpeakerText(inSpeaker, cfg, titleOnly);
+
                 LocalRpProfile hover = profileFromHover(node);
                 if (hover != null && profileAllowed(hover, cfg, titleOnly)) {
                     String identity = identityInside(inSpeaker, hover);
@@ -165,6 +184,7 @@ public final class ChatNameRewriter {
                                     nodeStart, rs, re, titleZoneStart(bounds, nodeStart)),
                             10_000 + re);
                 }
+
                 if (match != null && profileAllowed(match.profile(), cfg, titleOnly)) {
                     int rs = nodeStart + localFrom + match.localStart();
                     int re = nodeStart + localFrom + match.localEnd();
@@ -172,6 +192,7 @@ public final class ChatNameRewriter {
                                     nodeStart, rs, re, titleZoneStart(bounds, nodeStart)),
                             8_000 + match.score() + re);
                 }
+
                 if (forced != null && profileAllowed(forced, cfg, titleOnly)) {
                     String identity = identityInside(inSpeaker, forced);
                     int identityAt = identityOffset(inSpeaker, identity);
@@ -181,8 +202,11 @@ public final class ChatNameRewriter {
                     if (identityAt >= 0) {
                         rs = nodeStart + localFrom + identityAt;
                         re = rs + identity.length();
+                        // Der Account aus der Head-Komponente ist eindeutig und
+                        // muss immer gegen gleichnamige RP-Profile gewinnen.
                         score = 30_000 + identity.length();
                     } else {
+
                         rs = nodeStart + localFrom;
                         re = nodeStart + localTo;
                         score = 25_000 + re;
@@ -193,17 +217,21 @@ public final class ChatNameRewriter {
                 }
             }
         }
+
         flatPos[0] = nodeEnd;
         for (Text sibling : node.getSiblings()) {
             findSpeakerNode(sibling, cfg, bounds, forced, titleOnly, flatPos, best);
         }
     }
+
     private static int titleZoneStart(SpeakerBounds bounds, int nodeStart) {
         return bounds != null ? bounds.start() : nodeStart;
     }
+
     private static boolean overlapsSpeaker(int start, int end, SpeakerBounds bounds) {
         return bounds == null || (start < bounds.end() && end > bounds.start());
     }
+
     private boolean profileAllowed(LocalRpProfile p, OttoExtraConfig.RpNames cfg,
                                    boolean titleOnly) {
         if (p == null || !p.showInChat) {
@@ -216,6 +244,7 @@ public final class ChatNameRewriter {
                 || (cfg != null && cfg.showUnknownAsUnknown)
                 || de.ottoextra.rpnames.RpNamesServices.proactiveMeetEnabled();
     }
+
     private LocalRpProfile profileFromHover(Text node) {
         try {
             Style style = node.getStyle();
@@ -236,6 +265,7 @@ public final class ChatNameRewriter {
             return null;
         }
     }
+
     private Text rebuild(Text node, SpeakerInfo si, int[] flatPos, boolean titleOnly) {
         TextContent content = node.getContent();
         if (content instanceof net.minecraft.text.TranslatableTextContent translated
@@ -267,12 +297,15 @@ public final class ChatNameRewriter {
         int end = start + own.length();
         Style style = safeStyle(node.getStyle());
         MutableText copy;
+
         boolean known = de.ottoextra.rpnames.RpNamesServices
                 .isKnownForDisplay(si.profile());
         boolean ownTitle = ownTitleApplies(si.profile());
         boolean renderOurTitle = known && ownTitle;
         boolean blankServerTitle = !known || ownTitle;
+
         if (isVisualComponent(node)) {
+
             copy = MutableText.of(content).setStyle(style);
         } else if (node == si.node()) {
             copy = rebuildSpeakerNode(own, start, style, si, titleOnly,
@@ -280,16 +313,19 @@ public final class ChatNameRewriter {
         } else if (content instanceof PlainTextContent && blankServerTitle
                 && !own.trim().isEmpty()
                 && start >= si.titleZoneStart() && end <= si.replaceStart()) {
+
             copy = Text.literal(" ").setStyle(style);
         } else {
             copy = MutableText.of(content).setStyle(style);
         }
+
         flatPos[0] = end;
         for (Text sibling : node.getSiblings()) {
             copy.append(rebuild(sibling, si, flatPos, titleOnly));
         }
         return copy;
     }
+
     private MutableText rebuildSpeakerNode(String own, int nodeStart, Style style,
                                            SpeakerInfo si, boolean titleOnly,
                                            boolean renderOurTitle, boolean known) {
@@ -307,12 +343,15 @@ public final class ChatNameRewriter {
             }
             localStart = leadingWhitespace;
         }
+
         MutableText out = Text.empty().setStyle(style);
         if (localStart > 0) {
             out.append(Text.literal(own.substring(0, localStart)));
         } else if (nodeStart > si.titleZoneStart()) {
+
             out.append(Text.literal(" "));
         }
+
         if (titleOnly) {
             MutableText title = titleComponent(si.profile());
             if (title != null) {
@@ -322,16 +361,19 @@ public final class ChatNameRewriter {
                     ? own.substring(localStart, localEnd) : si.visibleIdentity();
             out.append(Text.literal(visible));
         } else if (!known) {
+
             out.append(Text.literal(de.ottoextra.rpnames.RpNamesServices
                     .unknownChatDisplay(si.profile().accountName)));
         } else {
             out.append(displayName(si.profile(), Style.EMPTY, renderOurTitle));
         }
+
         if (localEnd < own.length()) {
             out.append(Text.literal(own.substring(localEnd)));
         }
         return out;
     }
+
     private Text collapseSpaces(Text node, boolean[] lastSpace) {
         TextContent content = node.getContent();
         Style style = safeStyle(node.getStyle());
@@ -355,6 +397,7 @@ public final class ChatNameRewriter {
             return translatedCopy;
         }
         MutableText copy;
+
         if (isVisualComponent(node)) {
             copy = MutableText.of(content).setStyle(style);
             lastSpace[0] = false;
@@ -381,11 +424,13 @@ public final class ChatNameRewriter {
                 lastSpace[0] = Character.isWhitespace(own.charAt(own.length() - 1));
             }
         }
+
         for (Text sibling : node.getSiblings()) {
             copy.append(collapseSpaces(sibling, lastSpace));
         }
         return copy;
     }
+
     private static boolean isVisualComponent(Text node) {
         if (node == null) {
             return false;
@@ -398,14 +443,17 @@ public final class ChatNameRewriter {
         return font instanceof StyleSpriteSource.Player
                 || font instanceof StyleSpriteSource.Sprite;
     }
+
     private MutableText displayName(LocalRpProfile profile, Style baseStyle) {
         return displayName(profile, baseStyle, true);
     }
+
     private boolean ownTitleApplies(LocalRpProfile profile) {
         return profile != null
                 && de.ottoextra.rpnames.RpNamesServices.isKnownForDisplay(profile)
                 && profile.hasTitle();
     }
+
     private MutableText titleComponent(LocalRpProfile profile) {
         if (!ownTitleApplies(profile)) {
             return null;
@@ -425,6 +473,7 @@ public final class ChatNameRewriter {
         return colored(de.ottoextra.rpnames.RpNamesServices
                 .canonicalTitle(profile.title) + " ", titleColor);
     }
+
     private MutableText displayName(LocalRpProfile profile, Style baseStyle,
                                     boolean includeTitle) {
         MutableText out = Text.empty().setStyle(baseStyle == null ? Style.EMPTY : baseStyle);
@@ -440,6 +489,7 @@ public final class ChatNameRewriter {
         out.append(colored(name, nameColor));
         return out;
     }
+
     private static MutableText colored(String text, String hex) {
         MutableText t = Text.literal(text == null ? "" : text);
         TextColor color = parseColor(hex);
@@ -448,6 +498,7 @@ public final class ChatNameRewriter {
         }
         return t;
     }
+
     public static TextColor parseColor(String hex) {
         if (hex == null || hex.isBlank()) {
             return null;
@@ -459,9 +510,11 @@ public final class ChatNameRewriter {
             return null;
         }
     }
+
     private static String firstNonBlank(String a, String b) {
         return a != null && !a.isBlank() ? a : b;
     }
+
     private ProfileMatch findProfileInSpeakerText(String speaker,
                                                   OttoExtraConfig.RpNames cfg,
                                                   boolean titleOnly) {
@@ -480,6 +533,7 @@ public final class ChatNameRewriter {
         }
         return best;
     }
+
     private static ProfileMatch matchIdentity(String speaker, LocalRpProfile profile) {
         ProfileMatch best = null;
         String account = profile.accountName == null ? "" : profile.accountName.trim();
@@ -498,6 +552,7 @@ public final class ChatNameRewriter {
         }
         return best;
     }
+
     private static ProfileMatch identityMatch(String speaker, String identity,
                                                LocalRpProfile profile, boolean account) {
         int at = tokenIndex(speaker.toLowerCase(Locale.ROOT),
@@ -518,6 +573,7 @@ public final class ChatNameRewriter {
         return new ProfileMatch(profile, identity, at, at + identity.length(),
                 score + identity.length());
     }
+
     private static int tokenIndex(String text, String token) {
         int from = 0;
         while (from <= text.length() - token.length()) {
@@ -536,13 +592,16 @@ public final class ChatNameRewriter {
         }
         return -1;
     }
+
     private static boolean isIdentityChar(char c) {
         return Character.isLetterOrDigit(c) || c == '_';
     }
+
     private static String identityInside(String text, LocalRpProfile profile) {
         ProfileMatch match = matchIdentity(text, profile);
         return match == null ? null : match.visibleIdentity();
     }
+
     private static int identityOffset(String text, String identity) {
         if (text == null || identity == null || identity.isBlank()) {
             return -1;
@@ -550,6 +609,7 @@ public final class ChatNameRewriter {
         return tokenIndex(text.toLowerCase(Locale.ROOT),
                 identity.toLowerCase(Locale.ROOT));
     }
+
     private static String ownText(Text node) {
         StringBuilder sb = new StringBuilder();
         node.getContent().visit(s -> {
@@ -558,6 +618,7 @@ public final class ChatNameRewriter {
         });
         return sb.toString();
     }
+
     private static Style safeStyle(Style style) {
         return style == null ? Style.EMPTY : style;
     }
