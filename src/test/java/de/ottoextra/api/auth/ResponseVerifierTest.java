@@ -84,7 +84,9 @@ class ResponseVerifierTest {
 
     @Test
     void embeddedProductionKeysAreParseable() {
-
+        assertEquals(Map.of("k1",
+                        "MCowBQYDK2VwAyEAlsJDi7fJIJnSpmp6ztPP86GjAlxe/CcLAPuFqBlYnX0="),
+                ResponseVerifier.productionKeys());
         ResponseVerifier production = new ResponseVerifier(() -> true);
         byte[] body = "x".getBytes(StandardCharsets.UTF_8);
         String wrongSig = Base64.getEncoder().encodeToString(new byte[64]);

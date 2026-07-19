@@ -16,7 +16,7 @@ public final class OttoExtraApiRoutes {
                 ? DEFAULT_BASE_URL
                 : baseUrl.trim();
 
-        if (b.startsWith("http://")) {
+        if (b.startsWith("http://") && !isLoopbackHttp(b)) {
             b = "https://" + b.substring("http://".length());
         }
         while (b.endsWith("/")) {
@@ -124,6 +124,24 @@ public final class OttoExtraApiRoutes {
 
     public URI v2CompactPlayers() {
         return v2("player-compact");
+    }
+
+    private static boolean isLoopbackHttp(String value) {
+        try {
+            String host = URI.create(value).getHost();
+            return "127.0.0.1".equals(host) || "localhost".equalsIgnoreCase(host)
+                    || "::1".equals(host);
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    public URI v2ProtectedChatMessages() {
+        return v2("chat-translations");
+    }
+
+    public URI v2ProtectedChatMessage(String id) {
+        return v2("chat-translations/" + enc(id));
     }
 
     public URI resolveRelative(String relativePath) {

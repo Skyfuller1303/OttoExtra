@@ -1,5 +1,7 @@
 package de.ottoextra.mixin;
 
+import de.ottoextra.chat.ChatChannelFormatter;
+import de.ottoextra.chat.RpChatFormatter;
 import de.ottoextra.rpnames.RpNamesServices;
 import net.minecraft.client.gui.hud.ChatHud;
 import net.minecraft.text.Text;
@@ -15,6 +17,11 @@ public abstract class ChatHudMixin {
             at = @At("HEAD"), argsOnly = true, ordinal = 0)
     private Text ottoextra$rewriteRpNames(Text message) {
         Text displayed = RpNamesServices.processChatMessage(message);
+        displayed = ChatChannelFormatter.format(displayed);
+        // Normale OttoExtra-Nachrichten zuerst formatieren. Addons dürfen danach
+        // gezielt ihre eigenen Übersetzungs-/Hover-Stile darüberlegen.
+        displayed = RpChatFormatter.format(displayed);
+        displayed = de.ottoextra.addon.OttoExtraAddons.processChatMessage(displayed);
         return de.ottoextra.rpnames.chat.ChatHistoryRefresh.remember(message, displayed);
     }
 }

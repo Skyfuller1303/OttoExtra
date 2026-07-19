@@ -1,5 +1,6 @@
 package de.ottoextra.mixin;
 
+import de.ottoextra.chat.ChatChannelState;
 import de.ottoextra.chat.LongChatSender;
 import de.ottoextra.config.OttoExtraConfig;
 import net.minecraft.client.network.ClientPlayNetworkHandler;
@@ -21,9 +22,11 @@ public class ChatMessageSplitMixin {
             if (content.startsWith("/") || content.length() <= cfg.longChatChunk) {
                 return;
             }
+            boolean preserveRpSyntax = cfg.rpFormattingEnabled
+                    && ChatChannelState.current().rp;
             LongChatSender.configureMs(cfg.longChatDelayMs);
-            LongChatSender.enqueue(
-                    LongChatSender.split(content, cfg.longChatChunk, cfg.longChatMarker));
+            LongChatSender.enqueue(LongChatSender.split(
+                    content, cfg.longChatChunk, cfg.longChatMarker, preserveRpSyntax));
             ci.cancel();
         } catch (Throwable ignored) {
 

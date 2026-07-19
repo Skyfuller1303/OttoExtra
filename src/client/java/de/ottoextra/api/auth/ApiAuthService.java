@@ -96,6 +96,7 @@ public final class ApiAuthService {
 
     public void invalidate() {
         token = null;
+        backoffUntil = Instant.EPOCH;
     }
 
     public boolean backedOff() {
@@ -127,17 +128,25 @@ public final class ApiAuthService {
         challengeRequest.addProperty("username", session.username());
         challengeRequest.addProperty("uuid", session.uuid().toString());
         JsonObject challenge = postJson(challengeUri, challengeRequest);
+        // Eine gültige, signierte Challenge beweist, dass das Backend wieder
+        // erreichbar ist. Frühere temporäre Fehler dürfen nicht weiter sperren.
+        backoffUntil = Instant.EPOCH;
         String serverId = challenge.has("serverId") ? challenge.get("serverId").getAsString() : null;
         if (serverId == null || serverId.isBlank()) {
             throw ApiProblem.parse(challengeUri, "serverId fehlt").toException();
+        }
+        if (serverId.length() > 40) {
+            throw ApiProblem.parse(challengeUri,
+                    "serverId ist nicht Minecraft-kompatibel (maximal 40 Zeichen)").toException();
         }
 
         try {
 
             joiner.joinServer(session.uuid(), session.accessToken(), serverId);
         } catch (Exception e) {
-            OttoExtra.LOGGER.info("[api/auth] keine gültige Session — Offline-Modus");
-            throw ApiProblem.offline(challengeUri, "joinServer: " + e.getClass().getSimpleName()).toException();
+            String detail = safeExceptionDetail(e);
+            OttoExtra.LOGGER.info("[api/auth] Mojang joinServer fehlgeschlagen ({})", detail);
+            throw ApiProblem.offline(challengeUri, "joinServer: " + detail).toException();
         }
 
         JsonObject verifyRequest = new JsonObject();
@@ -203,6 +212,25 @@ public final class ApiAuthService {
             return api.problem().kind() + " " + api.problem().message();
         }
         return cause.getClass().getSimpleName();
+    }
+
+    private static String safeExceptionDetail(Exception error) {
+        String type = error.getClass().getSimpleName();
+        String message = error.getMessage();
+        if (message == null || message.isBlank()) {
+            return type;
+        }
+        // Authlib's message contains the Mojang status/error, but credentials
+        // must never reach the log. Keep it single-line and deliberately short.
+        String sanitized = message.replaceAll("[\\r\\n\\t]+", " ")
+                // Mojang includes an invalid serverId verbatim in its error.
+                // Challenge nonces are secrets and must not enter the log.
+                .replaceAll("(?i)(serverId\\s*:\\s*)[-0-9a-f]{16,}", "$1<redacted>")
+                .trim();
+        if (sanitized.length() > 160) {
+            sanitized = sanitized.substring(0, 160) + "…";
+        }
+        return type + ": " + sanitized;
     }
 
     private static final class ChallengeExpiredException extends RuntimeException {

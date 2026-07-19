@@ -77,10 +77,11 @@ public final class OttoExtraSettingsScreen extends Screen {
                 () -> open(new de.ottoextra.map.MinimapBannerEditScreen(this, config)),
                 () -> open(new de.ottoextra.letter.ui.LetterEditorScreen(this, config)),
                 () -> open(new de.ottoextra.config.RegionThemeScreen(this, config)),
-                () -> open(new de.ottoextra.config.FollowingScreen(this, config)));
+                () -> open(new de.ottoextra.config.FollowingScreen(this, config)),
+                () -> open(new de.ottoextra.config.ChatChannelColorsScreen(this, config)));
         de.ottoextra.addon.OttoExtraAddons.registerSettings(this.registry);
         SettingsRegistry defaultRegistry = SettingsRegistry.build(new OttoExtraConfig(),
-                () -> { }, () -> { }, () -> { }, () -> { }, () -> { }, () -> { });
+                () -> { }, () -> { }, () -> { }, () -> { }, () -> { }, () -> { }, () -> { });
         de.ottoextra.addon.OttoExtraAddons.registerDefaultSettings(defaultRegistry);
         for (SettingsRegistry.ModulePage m : defaultRegistry.modules()) {
             for (SettingsRegistry.Tab t : m.tabs()) {

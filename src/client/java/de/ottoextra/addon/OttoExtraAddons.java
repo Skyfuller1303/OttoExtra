@@ -4,6 +4,7 @@ import de.ottoextra.OttoExtra;
 import de.ottoextra.config.settings.SettingsRegistry;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.entrypoint.EntrypointContainer;
+import net.minecraft.text.Text;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -52,5 +53,18 @@ public final class OttoExtraAddons {
                 OttoExtra.LOGGER.error("Addon-Default-Settings konnten nicht registriert werden", t);
             }
         }
+    }
+
+    public static Text processChatMessage(Text message) {
+        Text current = message;
+        for (OttoExtraAddon addon : addons()) {
+            try {
+                Text changed = addon.processChatMessage(current);
+                if (changed != null) current = changed;
+            } catch (Throwable t) {
+                OttoExtra.LOGGER.error("Addon-Chatverarbeitung fehlgeschlagen", t);
+            }
+        }
+        return current;
     }
 }

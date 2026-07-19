@@ -110,6 +110,7 @@ public final class RpNamesModule implements OttoExtraModule {
                 });
 
         MeetMarkerRenderer.register();
+        de.ottoextra.rpnames.inspect.InspectMode.register(context.config().rpnames);
 
         OttoExtra.LOGGER.info("[rpnames] initialisiert (lokales Bekanntschaftssystem, {} Personen).",
                 RpNamesServices.store().size());

@@ -82,7 +82,7 @@ public final class TablistNameFormatter {
             replacement = RpNamesServices.unknownDisplay(account);
             color = RpNamesServices.unknownShowsAccount()
                     ? RpNamesServices.playerNameColor(profile.colors.tabNameColor, profile.title)
-                    : UNKNOWN_COLOR;
+                    : firstNonBlank(profile.colors.tabNameColor, UNKNOWN_COLOR);
         } else {
             replacement = account;
             color = RpNamesServices.playerNameColor(profile.colors.tabNameColor, profile.title);
@@ -90,11 +90,10 @@ public final class TablistNameFormatter {
 
         boolean hasRenderableLocalTitle = hasRenderableTitle(profile);
 
-        // Unbekannte behalten bei aktiver Titelanzeige den originalen Servertitel.
-        // Ein lokaler Titel ersetzt ihn nur bei bekannten Personen; bei
-        // ausgeschalteter Titeloption wird er für alle entfernt.
-        if (!showTitles || (knownForDisplay && hasRenderableLocalTitle)) {
-            boolean includeLocalTitle = knownForDisplay && showTitles && hasRenderableLocalTitle;
+        // Der Hauptschalter gilt fuer alle Spieler. Bekanntschaft beeinflusst nur
+        // die Namensdarstellung, niemals mehr die Sichtbarkeit eines Titels.
+        if (!showTitles || hasRenderableLocalTitle) {
+            boolean includeLocalTitle = showTitles && hasRenderableLocalTitle;
             Text titled = replaceServerTitleAndName(base, account, profile.rpName,
                     replacement, color, profile, includeLocalTitle);
             if (titled != null) {

@@ -20,7 +20,12 @@ import java.util.List;
 
 public final class OttoExtraClient implements ClientModInitializer {
 
+    private static volatile OttoExtraApiClient sharedApi;
     private OttoExtraContext context;
+
+    public static OttoExtraApiClient apiClient() {
+        return sharedApi;
+    }
 
     @Override
     public void onInitializeClient() {
@@ -30,6 +35,7 @@ public final class OttoExtraClient implements ClientModInitializer {
         OttoExtraConfig config = OttoExtraConfig.load();
         de.ottoextra.chat.SkinCache.load();
         OttoExtraApiClient api = new HttpOttoExtraApiClient(config);
+        sharedApi = api;
         this.context = new OttoExtraContext(config, api);
 
         List<OttoExtraModule> modules = List.of(
@@ -99,6 +105,7 @@ public final class OttoExtraClient implements ClientModInitializer {
                 runSafe(module, () -> module.onClientStop(context), "stop");
             }
             api.close();
+            sharedApi = null;
         });
     }
 

@@ -29,6 +29,11 @@ public interface OttoExtraApiClient {
 
     CompletableFuture<List<CompactPlayer>> compactPlayers();
 
+    CompletableFuture<String> createProtectedChatMessage(
+            String original, List<String> allowedUsernames);
+
+    CompletableFuture<String> protectedChatMessage(String id);
+
     CompletableFuture<byte[]> downloadBinary(URI uri);
 
     OttoExtraApiRoutes routes();

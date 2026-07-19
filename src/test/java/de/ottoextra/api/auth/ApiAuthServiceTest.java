@@ -44,6 +44,7 @@ class ApiAuthServiceTest {
     private final AtomicInteger verifyCalls = new AtomicInteger();
 
     private volatile int challengeStatus = 200;
+    private volatile String challengeServerId = "abc123";
     private volatile int verifyStatus = 200;
     private volatile int verify410Count;
 
@@ -53,7 +54,7 @@ class ApiAuthServiceTest {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/v2/auth/challenge", exchange -> {
             challengeCalls.incrementAndGet();
-            respond(exchange, challengeStatus, "{\"serverId\":\"abc123\"}");
+            respond(exchange, challengeStatus, "{\"serverId\":\"" + challengeServerId + "\"}");
         });
         server.createContext("/v2/auth/verify", exchange -> {
             verifyCalls.incrementAndGet();
@@ -176,5 +177,34 @@ class ApiAuthServiceTest {
         auth.invalidate();
         auth.tokenAsync().join();
         assertEquals(2, challengeCalls.get());
+    }
+
+    @Test
+    void rejectsServerIdLongerThanMinecraftAllowsBeforeJoin() {
+        challengeServerId = "a".repeat(64);
+        AtomicInteger joinCalls = new AtomicInteger();
+        ApiAuthService auth = service((uuid, token, serverId) -> joinCalls.incrementAndGet(), () -> SESSION);
+
+        assertThrows(CompletionException.class, () -> auth.tokenAsync().join());
+        assertEquals(0, joinCalls.get());
+        assertEquals(0, verifyCalls.get());
+    }
+
+    @Test
+    void invalidateClearsTemporary503BackoffAndAllowsRecovery() {
+        challengeStatus = 503;
+        ApiAuthService auth = service((uuid, token, serverId) -> { }, () -> SESSION);
+
+        assertThrows(CompletionException.class, () -> auth.tokenAsync().join());
+        assertTrue(auth.backedOff());
+        assertEquals(1, challengeCalls.get());
+
+        challengeStatus = 200;
+        auth.invalidate();
+        ApiToken recovered = auth.tokenAsync().join();
+
+        assertNotNull(recovered);
+        assertEquals(2, challengeCalls.get());
+        assertEquals(1, verifyCalls.get());
     }
 }

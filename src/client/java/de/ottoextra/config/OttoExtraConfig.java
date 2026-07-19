@@ -398,7 +398,7 @@ public final class OttoExtraConfig {
 
         public boolean tablistEnabled = true;
         public boolean tablistShowTitle = true;
-
+        /** Titel von noch unbekannten Personen nur optional in der Tabliste zeigen. */
         public boolean tablistTitlesAlways = true;
         public boolean tablistShowAccountForUnknown = true;
 
@@ -412,6 +412,19 @@ public final class OttoExtraConfig {
         public boolean meetMarkerGlow = true;
 
         public boolean syncFromPublicApi = true;
+
+        public boolean inspectEnabled = true;
+        public boolean inspectShowPlayerHands = true;
+        public boolean inspectShowPlayerArmor = true;
+        public boolean inspectShowAccount = false;
+        public double inspectMaxDistance = 8.0;
+        public int inspectOffsetY = 38;
+        public boolean inspectZoomEnabled = true;
+        public double inspectZoomDegrees = 9.0;
+        public boolean inspectEdgeBlurEnabled = true;
+        public double inspectRevealSeconds = 2.0;
+        public boolean inspectRoleplayPhrasesEnabled = true;
+        public double inspectRoleplayPhraseSeconds = 2.0;
 
     }
 
@@ -482,6 +495,15 @@ public final class OttoExtraConfig {
 
         public boolean longChatEnabled = true;
 
+        public boolean rpFormattingEnabled = true;
+        public String rpEmoteColor = "#C6C6C6";
+        public String rpOocColor = "#B4BEC6";
+        public boolean rpEmoteItalic = true;
+        public boolean rpOocItalic = false;
+
+        /** Optionale lokale Farben je Server-Chatkanal; leer = Serverstil. */
+        public java.util.Map<String, ChannelColors> channelColors = defaultChannelColors();
+
         public int longChatMaxInput = 8192;
 
         public int longChatChunk = 256;
@@ -492,6 +514,31 @@ public final class OttoExtraConfig {
         public String voiceKey = "key.keyboard.v";
         public String helpKey = "key.keyboard.h";
         public String offtopicKey = "key.keyboard.o";
+
+        public ChannelColors channelColors(String channel) {
+            if (channelColors == null) {
+                channelColors = defaultChannelColors();
+            }
+            return channelColors.computeIfAbsent(channel,
+                    ignored -> new ChannelColors());
+        }
+
+        private static java.util.Map<String, ChannelColors> defaultChannelColors() {
+            java.util.Map<String, ChannelColors> colors = new java.util.LinkedHashMap<>();
+            for (String channel : java.util.List.of(
+                    "sprechen", "fluestern", "murmeln", "rufen", "bruellen",
+                    "offtopic", "hilfe")) {
+                colors.put(channel, new ChannelColors());
+            }
+            return colors;
+        }
+    }
+
+    public static final class ChannelColors {
+        /** Farbe von [Kanalname], leer behaelt den Serverstil. */
+        public String labelColor = "";
+        /** Farbe des Nachrichtentextes nach dem Sprecher, leer behaelt den Serverstil. */
+        public String messageColor = "";
     }
 
     public static final class ResourcePack {
@@ -599,6 +646,36 @@ public final class OttoExtraConfig {
         if (map.dashLengthPx < 2 || map.dashLengthPx > 64) map.dashLengthPx = md.dashLengthPx;
         if (map.dashGapPx < 0 || map.dashGapPx > 64) map.dashGapPx = md.dashGapPx;
         if (nametags.mode == null) nametags.mode = NameTagMode.REALISTIC;
+        RpNames rpn = new RpNames();
+        if (rpnames.inspectMaxDistance < 1.0 || rpnames.inspectMaxDistance > 32.0) {
+            rpnames.inspectMaxDistance = rpn.inspectMaxDistance;
+        }
+        if (rpnames.inspectZoomDegrees < 0.0 || rpnames.inspectZoomDegrees > 30.0) {
+            rpnames.inspectZoomDegrees = rpn.inspectZoomDegrees;
+        }
+        if (rpnames.inspectRevealSeconds < 0.5 || rpnames.inspectRevealSeconds > 4.0) {
+            rpnames.inspectRevealSeconds = rpn.inspectRevealSeconds;
+        }
+        if (rpnames.inspectRoleplayPhraseSeconds < 0.5
+                || rpnames.inspectRoleplayPhraseSeconds > 4.0) {
+            rpnames.inspectRoleplayPhraseSeconds = rpn.inspectRoleplayPhraseSeconds;
+        }
+        Chat cd = new Chat();
+        if (chat.rpEmoteColor == null || chat.rpEmoteColor.isBlank()) {
+            chat.rpEmoteColor = cd.rpEmoteColor;
+        }
+        if (chat.rpOocColor == null || chat.rpOocColor.isBlank()) {
+            chat.rpOocColor = cd.rpOocColor;
+        }
+        if (chat.channelColors == null) {
+            chat.channelColors = cd.channelColors;
+        } else {
+            for (String channel : cd.channelColors.keySet()) {
+                ChannelColors colors = chat.channelColors(channel);
+                colors.labelColor = optionalHexColor(colors.labelColor);
+                colors.messageColor = optionalHexColor(colors.messageColor);
+            }
+        }
 
 
         if (api.baseUrl == null || api.baseUrl.isBlank()) api.baseUrl = new Api().baseUrl;
@@ -610,6 +687,18 @@ public final class OttoExtraConfig {
                 || api.baseUrl.equalsIgnoreCase("https://regions.skyfuller.de/")) {
             api.baseUrl = new Api().baseUrl;
         }
+    }
+
+    private static String optionalHexColor(String value) {
+        if (value == null || value.isBlank()) {
+            return "";
+        }
+        String normalized = value.trim();
+        if (!normalized.startsWith("#")) {
+            normalized = "#" + normalized;
+        }
+        return normalized.matches("#[0-9a-fA-F]{6}")
+                ? normalized.toUpperCase(java.util.Locale.ROOT) : "";
     }
 
     public String snapshotJson() {

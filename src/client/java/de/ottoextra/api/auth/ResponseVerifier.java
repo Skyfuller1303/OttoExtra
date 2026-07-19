@@ -18,8 +18,7 @@ public final class ResponseVerifier {
     public static final String KEY_ID_HEADER = "X-OE-Key-Id";
 
     private static final Map<String, String> PUBLIC_KEYS = Map.of(
-            "k1", "MCowBQYDK2VwAyEA7+zdLKmnLJSdUCDUlOTHH9YN7ns5z/fKSwpedEqmJ1E=",
-            "k2", "MCowBQYDK2VwAyEAGyXZMtbMa108e2CWWOTizr8p4MnWipQBjOlzfWuKr/I=");
+            "k1", "MCowBQYDK2VwAyEAlsJDi7fJIJnSpmp6ztPP86GjAlxe/CcLAPuFqBlYnX0=");
 
     private final Map<String, String> keysById;
     private final BooleanSupplier requireSignatures;
@@ -33,6 +32,10 @@ public final class ResponseVerifier {
     public ResponseVerifier(Map<String, String> keysById, BooleanSupplier requireSignatures) {
         this.keysById = Map.copyOf(keysById);
         this.requireSignatures = requireSignatures;
+    }
+
+    static Map<String, String> productionKeys() {
+        return PUBLIC_KEYS;
     }
 
     public enum Result {

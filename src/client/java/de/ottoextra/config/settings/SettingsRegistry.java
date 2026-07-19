@@ -203,7 +203,7 @@ public final class SettingsRegistry {
     public static SettingsRegistry build(OttoExtraConfig c, Runnable openPeopleBook,
                                          Runnable openGroupColors, Runnable openBannerEdit,
                                          Runnable openLetterEditor, Runnable openRegionThemes,
-                                         Runnable openFollowing) {
+                                         Runnable openFollowing, Runnable openChatColors) {
         SettingsRegistry r = new SettingsRegistry();
 
         var rp = r.module("resourcepack", "ottoextra.module.resourcepack", "ottoextra.set.rp.desc");
@@ -257,7 +257,26 @@ public final class SettingsRegistry {
                         () -> c.chat.longChatMaxInput, v -> c.chat.longChatMaxInput = v, 256, 32500),
                 Option.string("ottoextra.config.chat.longchatMarker", "chat.longChatMarker",
                         () -> c.chat.longChatMarker, v -> c.chat.longChatMarker = v));
+        card(chatBase, "ottoextra.set.chat.rpformat", "ottoextra.set.chat.rpformat.desc",
+                Option.bool("ottoextra.config.chat.rpformat", "chat.rpFormattingEnabled",
+                        () -> c.chat.rpFormattingEnabled, v -> c.chat.rpFormattingEnabled = v)
+                        .tooltip("ottoextra.set.chat.rpformat.tip"),
+                Option.color("ottoextra.config.chat.emoteColor", "chat.rpEmoteColor",
+                        () -> c.chat.rpEmoteColor, v -> c.chat.rpEmoteColor = v)
+                        .tooltip("ottoextra.set.chat.emoteColor.tip"),
+                Option.color("ottoextra.config.chat.oocColor", "chat.rpOocColor",
+                        () -> c.chat.rpOocColor, v -> c.chat.rpOocColor = v)
+                        .tooltip("ottoextra.set.chat.oocColor.tip"),
+                Option.bool("ottoextra.config.chat.emoteItalic", "chat.rpEmoteItalic",
+                        () -> c.chat.rpEmoteItalic, v -> c.chat.rpEmoteItalic = v)
+                        .tooltip("ottoextra.set.chat.emoteItalic.tip"),
+                Option.bool("ottoextra.config.chat.oocItalic", "chat.rpOocItalic",
+                        () -> c.chat.rpOocItalic, v -> c.chat.rpOocItalic = v)
+                        .tooltip("ottoextra.set.chat.oocItalic.tip"));
         var chatAdv = tab(chat, "ottoextra.set.tab.advanced");
+        card(chatAdv, "ottoextra.set.chat.colors", "ottoextra.set.chat.colors.desc",
+                Option.action("ottoextra.config.chat.colors.open", "chat.channelColors",
+                        openChatColors));
         card(chatAdv, "ottoextra.set.chat.longchat", "ottoextra.set.chat.longchat.desc",
                 Option.intVal("ottoextra.config.chat.longchatDelayMs", "chat.longChatDelayMs",
                         () -> c.chat.longChatDelayMs, v -> c.chat.longChatDelayMs = v, 500, 1500)
@@ -494,6 +513,36 @@ public final class SettingsRegistry {
                 Option.bool("ottoextra.config.rpnames.proactiveMeet", "rpnames.proactiveMeet",
                         () -> c.rpnames.proactiveMeet, v -> c.rpnames.proactiveMeet = v)
                         .tooltip("ottoextra.set.rpn.meet.tip"));
+        card(rpnBase, "ottoextra.set.rpn.inspect", "ottoextra.set.rpn.inspect.desc",
+                Option.bool("ottoextra.config.rpnames.inspect", "rpnames.inspectEnabled",
+                        () -> c.rpnames.inspectEnabled, v -> c.rpnames.inspectEnabled = v)
+                        .tooltip("ottoextra.set.rpn.inspect.enabled.tip"),
+                Option.bool("ottoextra.config.rpnames.inspectPlayerHands", "rpnames.inspectShowPlayerHands",
+                        () -> c.rpnames.inspectShowPlayerHands,
+                        v -> c.rpnames.inspectShowPlayerHands = v)
+                        .tooltip("ottoextra.set.rpn.inspect.playerHands.tip"),
+                Option.bool("ottoextra.config.rpnames.inspectPlayerArmor", "rpnames.inspectShowPlayerArmor",
+                        () -> c.rpnames.inspectShowPlayerArmor,
+                        v -> c.rpnames.inspectShowPlayerArmor = v)
+                        .tooltip("ottoextra.set.rpn.inspect.playerArmor.tip"),
+                Option.bool("ottoextra.config.rpnames.inspectZoom", "rpnames.inspectZoomEnabled",
+                        () -> c.rpnames.inspectZoomEnabled, v -> c.rpnames.inspectZoomEnabled = v),
+                Option.doubleVal("ottoextra.config.rpnames.inspectZoomDegrees", "rpnames.inspectZoomDegrees",
+                        () -> c.rpnames.inspectZoomDegrees, v -> c.rpnames.inspectZoomDegrees = v,
+                        3.0, 18.0).tooltip("ottoextra.set.rpn.inspect.zoom.tip"),
+                Option.bool("ottoextra.config.rpnames.inspectBlur", "rpnames.inspectEdgeBlurEnabled",
+                        () -> c.rpnames.inspectEdgeBlurEnabled, v -> c.rpnames.inspectEdgeBlurEnabled = v),
+                Option.bool("ottoextra.config.rpnames.inspectRoleplayPhrases", "rpnames.inspectRoleplayPhrasesEnabled",
+                        () -> c.rpnames.inspectRoleplayPhrasesEnabled,
+                        v -> c.rpnames.inspectRoleplayPhrasesEnabled = v)
+                        .tooltip("ottoextra.set.rpn.inspect.phrases.tip"),
+                Option.doubleVal("ottoextra.config.rpnames.inspectRoleplayPhraseSeconds", "rpnames.inspectRoleplayPhraseSeconds",
+                        () -> c.rpnames.inspectRoleplayPhraseSeconds,
+                        v -> c.rpnames.inspectRoleplayPhraseSeconds = v,
+                        0.5, 2.0).tooltip("ottoextra.set.rpn.inspect.phraseSeconds.tip"),
+                Option.doubleVal("ottoextra.config.rpnames.inspectRevealSeconds", "rpnames.inspectRevealSeconds",
+                        () -> c.rpnames.inspectRevealSeconds, v -> c.rpnames.inspectRevealSeconds = v,
+                        0.5, 2.0).tooltip("ottoextra.set.rpn.inspect.reveal.tip"));
         card(rpnBase, "ottoextra.set.rpn.marker", "ottoextra.set.rpn.marker.desc",
                 Option.bool("ottoextra.config.rpnames.markerGlow", "rpnames.meetMarkerGlow",
                         () -> c.rpnames.meetMarkerGlow, v -> c.rpnames.meetMarkerGlow = v)
@@ -616,4 +665,5 @@ public final class SettingsRegistry {
 
         return r;
     }
+
 }

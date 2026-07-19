@@ -53,7 +53,7 @@ public final class ChatChannelButton {
                               int mouseX, int mouseY) {
         var channel = ChatChannelState.current();
         boolean hovered = contains(client, screenHeight, mouseX, mouseY);
-        int base = channelColor(channel);
+        int base = ChatChannelFormatter.configuredLabelColor(channel, originalColor(channel));
         int color = hovered ? brighten(base) : base;
         int x = x();
         int y = screenHeight - 12;
@@ -65,7 +65,7 @@ public final class ChatChannelButton {
         ctx.drawText(client.textRenderer, channel.label, x, y, color, true);
     }
 
-    private static int channelColor(ChatChannelState.ChatChannel channel) {
+    public static int originalColor(ChatChannelState.ChatChannel channel) {
         return switch (channel) {
             case SPRECHEN -> 0xFFDFC8A7;
             case FLUESTERN -> 0xFF768491;

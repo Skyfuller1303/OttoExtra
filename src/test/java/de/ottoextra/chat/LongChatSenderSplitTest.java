@@ -67,6 +67,32 @@ class LongChatSenderSplitTest {
     }
 
     @Test
+    void doppelteOocKlammernUndEmotesBleibenUeberAlleTeileFormatiert() {
+        String msg = "((Das ist ein langer OOC-Text *mit einem ebenfalls langen Emote darin* "
+                + "und anschließend noch weiterem Inhalt bis zum Ende.))";
+        List<String> parts = LongChatSender.split(msg, 34, " >");
+
+        assertTrue(parts.size() >= 3);
+        for (int index = 0; index < parts.size(); index++) {
+            String part = parts.get(index);
+            assertTrue(part.length() <= 34, "über Limit: " + part);
+            assertEquals(countChar(part, '('), countChar(part, ')'),
+                    "OOC-Klammern nicht ausgeglichen: " + part);
+            assertTrue(countChar(part, '*') % 2 == 0,
+                    "Emote-Markierung nicht ausgeglichen: " + part);
+            if (index < parts.size() - 1) {
+                assertTrue(part.endsWith(" >"), "Fortsetzungsmarker fehlt: " + part);
+                assertTrue(part.substring(0, part.length() - 2).endsWith("))"),
+                        "OOC muss vor dem Marker temporär geschlossen werden: " + part);
+            }
+            if (index > 0) {
+                assertTrue(part.startsWith("(("),
+                        "OOC muss in der Folgezeile wieder geöffnet werden: " + part);
+            }
+        }
+    }
+
+    @Test
     void limitBleibtTrotzSchliesserEingehalten() {
         String msg = "(x " + "wort ".repeat(30).strip() + ")";
         for (String p : LongChatSender.split(msg, 25, " >")) {

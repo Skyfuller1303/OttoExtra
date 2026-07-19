@@ -217,13 +217,26 @@ public final class TitleCatalogStore {
         if (e == null) {
             return raw;
         }
+        return displayForm(e, raw);
+    }
+
+    static String displayForm(Entry e, String raw) {
         String norm = TitleRegistry.normalize(raw);
 
-        // Der eigentliche Katalogtitel ist bereits die kanonische Anzeigeform.
-        // Ohne diese Prüfung würde z. B. "Vogt" über den gleichnamigen Alias
-        // fälschlich auf die erste benutzerdefinierte Variante "Vogt Test"
-        // umgeschrieben.
+        // Bleibt der Katalogtitel in den Varianten erhalten, ist er weiterhin die
+        // kanonische Anzeigeform. Wurde er dort bewusst entfernt, gilt die erste
+        // Variante als Ersatzanzeige (z. B. Soldenære -> Sölder).
         if (e.title != null && TitleRegistry.normalize(e.title).equals(norm)) {
+            boolean titleStillListed = e.variants != null && e.variants.stream()
+                    .anyMatch(v -> v != null
+                            && TitleRegistry.normalize(v).equals(norm));
+            if (!titleStillListed && e.variants != null) {
+                for (String variant : e.variants) {
+                    if (variant != null && !variant.isBlank()) {
+                        return variant;
+                    }
+                }
+            }
             return e.title;
         }
 

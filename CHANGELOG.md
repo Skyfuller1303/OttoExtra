@@ -1,32 +1,124 @@
 # Changelog
 
+## [0.1.15] – 2026-07-19
+
+### Hinzugefügt
+
+- Farbe und Kursivdarstellung lassen sich für `*Emotes*` und `(OOC)` jeweils
+  unabhängig konfigurieren.
+- Die kompakte Chatfarben-Verwaltung zeigt für jedes Hexfeld direkt daneben
+  eine Live-Farbvorschau und bietet Einzelreset sowie „Alle auf Original“.
+
+### Geändert
+
+- Die Chatkanal-Farbverwaltung verwendet nun das dunkle, halbtransparente
+  Design des RP-Personenbuchs.
+- Emote- und OOC-Farbe sowie die beiden Kursiv-Schalter befinden sich gemeinsam
+  mit den Kanaloptionen in der kompakten Farbverwaltung.
+- „Titel in der Tabliste“ gilt jetzt einheitlich für bekannte und unbekannte
+  Spieler; der separate Unbekannten-Schalter entfällt.
+
+### Behoben
+
+- Die im Untersuchungsmodus referenzierte Lupentextur ist wieder vollständig
+  in der OttoExtra-JAR enthalten und wird durch Asset-Tests abgesichert.
+- Der Button zum Öffnen der Chatkanal-Farbverwaltung besitzt wieder die
+  sichtbare Beschriftung „Öffnen…“.
+- Das Farbmenü löst keinen zweiten Screen-Blur mehr aus und crasht nicht mehr
+  mit „Can only blur once per frame“.
+
+## [0.1.14d] – 2026-07-19
+
+### Hinzugefügt
+
+- Für Sprechen, Flüstern, Murmeln, Rufen, Brüllen, Offtopic und Hilfe lassen
+  sich Kanalname und Nachrichtentext jeweils getrennt lokal einfärben.
+
+### Geändert
+
+- OttoExtra gibt RP-Chatfarben und -formatierung jetzt zentral vor; Addons wie
+  TranslateUtils verwenden dieselben Regeln auch für Hover-Lore und lokale Originalzeilen.
+- Die Kanalanzeige neben der Chat-Eingabe übernimmt die konfigurierte Farbe
+  des jeweiligen Chatnamens.
+
+## [0.1.14c] – 2026-07-19
+
+### Hinzugefügt
+
+- Authentifizierte API-Anbindung für geschützte Chat-Originaltexte mit
+  Besitzer- und Empfängerprüfung.
+- Addon-Hook zur verlustfreien Erweiterung eingehender Chatnachrichten, etwa
+  um freigegebene Originaltexte als Hover anzuzeigen.
+- API-Vertrag für die benötigten PHP-Endpunkte inklusive UUID-Allowlist, TTL,
+  Rate-Limits und sicherer Speicherung.
+
+### Geändert
+
+- Verschachtelte OOC- und Emote-Bereiche bleiben auch bei langen Nachrichten
+  und Kombinationen wie `(*...*)` vollständig ausgeglichen.
+- Die OOC-Standardfarbe der Chatformatierung entspricht `#B4BEC6`.
+- OttoExtra stellt geladenen Addons den bestehenden Mojang-verifizierten
+  API-Client zur Verfügung.
+- Bereits sichtbare Chatzeilen berücksichtigen beim Neuaufbau auch
+  nachträgliche Addon-Verarbeitung.
+
+## [0.1.14a] – 2026-07-18
+
+### Behoben
+
+- OttoExtra überschreibt die normale Chatfarbe nicht mehr automatisch.
+- Jeder RP-Kanal behält wieder seine vom Server vorgegebene Farbe.
+- Nach einem `*Emote*` oder `(OOC-Kommentar)` kehrt der Text zuverlässig zum
+  ursprünglichen Stil des jeweiligen Chatkanals zurück.
+- Die automatische RP-Formatierung bleibt auf Murmeln, Flüstern, Sprechen,
+  Rufen und Brüllen beschränkt; Offtopic und Hilfe bleiben unverändert.
+
+## [0.1.14] – 2026-07-17
+
+### Hinzugefügt
+
+- Neuer RP-Untersuchungsmodus über die frei belegbare, standardmäßig linke
+  Alt-Taste für Spieler, Gegenstände, Kreaturen und ausgewählte Blöcke.
+- Animierte Lupe mit sanftem Zoom, Randunschärfe, Fortschrittsring und
+  wechselnden RP-Gedanken.
+- Spieleruntersuchung mit RP-Name, Titel, sichtbaren Handgegenständen und
+  sichtbaren Rüstungsteilen; versteckte Inventarinhalte werden nicht gelesen.
+- Gegenstandsinformationen wie Custom-Name, sichtbare Lore, Stapelgröße,
+  Zustandsbeschreibung sowie Autor und Seitenzahl bei Büchern.
+- Sichtbare Informationen zu Schildern, Türen und Toren, Lichtquellen, Kerzen,
+  Bienenstöcken, Pflanzen, Lesepulten, Bannern, Rahmen und Rüstungsständern.
+- Automatische RP-Chatformatierung: `*Emotes*` hellgrau und kursiv sowie
+  `(OOC-Kommentare)` farblich hervorgehoben.
+
+### Geändert
+
+- Untersuchungsdauer, RP-Gedanken, Zoom, Randunschärfe, Accountname,
+  Handgegenstände und Rüstung sind getrennt konfigurierbar.
+- RP-Chatformatierung betrifft ausschließlich den Nachrichtentext in den
+  RP-Kanälen; Kanal, Titel, Name, Kopf sowie Klick- und Hoverdaten bleiben erhalten.
+- Lange Nachrichten werden automatisch geteilt. Offene Emote- und OOC-Bereiche
+  werden pro RP-Teilnachricht geschlossen und in der nächsten wieder geöffnet.
+- Offtopic und Hilfe verändern beim Aufteilen weder Sternchen noch Klammern.
+
 ## [0.1.13-2a] – 2026-07-15
 
 ### Hinzugefügt
 
 - Beim Öffnen der Xaero-Weltkarte wird sofort ein inkrementeller Regions-Sync ausgelöst.
-
-### Geändert
-
-- Die Regions-API wurde von `regions.skyfuller.de` auf `api.ottoextra.dev` umgestellt.
-- Bereits gespeicherte Konfigurationen mit der alten Regions-Domain werden automatisch migriert.
-- Parallele Regions-Syncs während eines laufenden Bootstraps oder Syncs werden vermieden.
-
-## [0.1.13.2-l] – 2026-07-15
-
-### Hinzugefügt
-
 - Bereits vorhandene Chatzeilen werden nach Änderungen im RP-Namensbuch neu aufgebaut.
 - Titelanzeige und automatische Titelaktualisierung der Tabliste sind getrennt schaltbar.
 - Gemeinsame Chat-Eingabefläche für Addons; TranslateUtils kann seinen Sprachschalter anzeigen, ohne den eingegebenen Text zu überdecken.
 
 ### Geändert
 
+- Die Regions-API wurde von `regions.skyfuller.de` auf `api.ottoextra.dev` umgestellt.
+- Bereits gespeicherte Konfigurationen mit der alten Regions-Domain werden automatisch migriert.
+- Parallele Regions-Syncs während eines laufenden Bootstraps oder Syncs werden vermieden.
 - RP-Name und Titel werden im Ottonien-Rich-Text-Chat ersetzt, ohne Wappen, Spielerkopf, Hover-Informationen oder Nachrichtenfarben zu verlieren.
 - Die eindeutige Accountzuordnung der Spieler-Kopfkomponente hat Vorrang vor gleichnamigen RP-Profilen.
 - Persönliche Farben aus dem RP-Namensbuch haben in Chat, Tabliste und Nametag Vorrang vor Katalog- und Standardfarben.
 - Bei aktiver Titelanzeige behalten unbekannte Spieler ihren originalen Servertitel in der Tabliste; bekannte Spieler erhalten den lokal angepassten Titel.
-- OttoExtra-Version auf `0.1.13.2-l` aktualisiert; kompatibel mit TranslateUtils `0.1.1`.
+- OttoExtra ist mit TranslateUtils `0.1.1` kompatibel.
 
 ### Behoben
 

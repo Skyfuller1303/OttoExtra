@@ -52,6 +52,9 @@ public final class ChatHistoryRefresh {
             ChatHudLine line = messages.get(index);
             Text original = ORIGINAL_MESSAGES.getOrDefault(line.content(), line.content());
             Text displayed = RpNamesServices.rewriteChatDisplay(original);
+            displayed = de.ottoextra.chat.ChatChannelFormatter.format(displayed);
+            displayed = de.ottoextra.chat.RpChatFormatter.format(displayed);
+            displayed = de.ottoextra.addon.OttoExtraAddons.processChatMessage(displayed);
             if (displayed == null || displayed.equals(line.content())) {
                 continue;
             }

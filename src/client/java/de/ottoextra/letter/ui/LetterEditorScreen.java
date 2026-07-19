@@ -36,6 +36,9 @@ import java.util.List;
 
 public final class LetterEditorScreen extends Screen {
 
+    private static final boolean IS_MACOS =
+            Util.getOperatingSystem() == Util.OperatingSystem.OSX;
+
     private static final int PAPER_COLOR = 0xFFC8AC8E;
     private static final int PAPER_DARK = 0xFFB18F69;
     private static final int PAPER_LINE = 0x88643C38;
@@ -519,18 +522,21 @@ public final class LetterEditorScreen extends Screen {
     public boolean keyPressed(KeyInput input) {
         int key = input.key();
 
+        int modifiers = input.modifiers();
         boolean ctrl = input.hasCtrlOrCmd();
-        boolean shift = (input.modifiers() & GLFW.GLFW_MOD_SHIFT) != 0;
-        boolean alt = (input.modifiers() & GLFW.GLFW_MOD_ALT) != 0;
-        boolean rawCtrl = (input.modifiers() & GLFW.GLFW_MOD_CONTROL) != 0;
-        boolean mac = Util.getOperatingSystem() == Util.OperatingSystem.OSX;
+        boolean shift = (modifiers & GLFW.GLFW_MOD_SHIFT) != 0;
+        boolean option = (modifiers & GLFW.GLFW_MOD_ALT) != 0;
+        boolean rawCtrl = (modifiers & GLFW.GLFW_MOD_CONTROL) != 0;
+        boolean command = IS_MACOS && (modifiers & GLFW.GLFW_MOD_SUPER) != 0;
 
-        boolean wordJump = mac ? (alt || rawCtrl) : ctrl;
+        boolean wordJump = IS_MACOS ? (option || rawCtrl) : ctrl;
+        boolean macLineJump = command;
+        boolean macDocumentJump = command
+                && (key == GLFW.GLFW_KEY_UP || key == GLFW.GLFW_KEY_DOWN);
 
-        boolean macLineJump = mac && ctrl;
         String t = text();
         java.util.List<String> sugg = suggestions();
-        if (!sugg.isEmpty()) {
+        if (!sugg.isEmpty() && !macDocumentJump) {
             suggestIndex = Math.min(suggestIndex, sugg.size() - 1);
             switch (key) {
                 case GLFW.GLFW_KEY_DOWN -> {
@@ -610,7 +616,11 @@ public final class LetterEditorScreen extends Screen {
                 return true;
             }
             case GLFW.GLFW_KEY_UP, GLFW.GLFW_KEY_DOWN -> {
-                moveVertical(key == GLFW.GLFW_KEY_DOWN ? 1 : -1, shift);
+                if (macDocumentJump) {
+                    moveCursor(key == GLFW.GLFW_KEY_DOWN ? t.length() : 0, shift);
+                } else {
+                    moveVertical(key == GLFW.GLFW_KEY_DOWN ? 1 : -1, shift);
+                }
                 return true;
             }
             case GLFW.GLFW_KEY_HOME -> {

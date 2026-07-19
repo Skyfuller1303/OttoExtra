@@ -63,7 +63,9 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
             builder.sslContext(pinned);
         }
         this.http = builder.build();
-        this.verifier = new ResponseVerifier(() -> apiConfig.requireSignatures);
+        // Backend-JSON wird ausschließlich mit dem fest eingebetteten,
+        // gemeinsamen Trust-Key akzeptiert. Der Server darf keinen Key liefern.
+        this.verifier = new ResponseVerifier(() -> true);
         this.auth = new ApiAuthService(
                 http,
                 requestTimeout,
@@ -74,6 +76,18 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
                 MinecraftSessionAuth.joiner(),
                 verifier,
                 Clock.systemUTC());
+    }
+
+    HttpOttoExtraApiClient(OttoExtraConfig config, ExecutorService executor,
+                           HttpClient http, ResponseVerifier verifier,
+                           ApiAuthService auth) {
+        this.apiConfig = config.api;
+        this.routes = new OttoExtraApiRoutes(apiConfig.baseUrl);
+        this.requestTimeout = Duration.ofMillis(Math.max(1_000, apiConfig.requestTimeoutMs));
+        this.executor = executor;
+        this.http = http;
+        this.verifier = verifier;
+        this.auth = auth;
     }
 
     private static ThreadFactory daemonThreads() {
@@ -152,6 +166,39 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
         URI legacy = routes.compactPlayers();
         return getString(routes.v2CompactPlayers(), legacy)
                 .thenApply(body -> parseCompactPlayers(legacy, body));
+    }
+
+    @Override
+    public CompletableFuture<String> createProtectedChatMessage(
+            String original, List<String> allowedUsernames) {
+        if (original == null || original.isBlank()) {
+            return CompletableFuture.failedFuture(
+                    ApiProblem.badRequest("Originaltext fehlt").toException());
+        }
+        JsonObject body = new JsonObject();
+        body.addProperty("original", original);
+        JsonArray allowed = new JsonArray();
+        if (allowedUsernames != null) {
+            allowedUsernames.stream()
+                    .filter(name -> name != null && !name.isBlank())
+                    .map(String::trim).distinct().limit(64).forEach(allowed::add);
+        }
+        body.addProperty("access", allowed.isEmpty() ? "all" : "allowlist");
+        body.add("allowedUsernames", allowed);
+        URI uri = routes.v2ProtectedChatMessages();
+        return authenticatedJson("POST", uri, body)
+                .thenApply(json -> requiredString(json, "id", uri));
+    }
+
+    @Override
+    public CompletableFuture<String> protectedChatMessage(String id) {
+        if (id == null || !id.matches("[A-Za-z0-9_-]{8,64}")) {
+            return CompletableFuture.failedFuture(
+                    ApiProblem.badRequest("Ungültige Chat-Referenz").toException());
+        }
+        URI uri = routes.v2ProtectedChatMessage(id);
+        return authenticatedJson("GET", uri, null)
+                .thenApply(json -> requiredString(json, "original", uri));
     }
 
     @Override
@@ -234,6 +281,61 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
                     return new String(raw == null ? new byte[0] : raw, StandardCharsets.UTF_8);
                 })
                 .exceptionallyCompose(t -> CompletableFuture.failedFuture(mapError(uri, t)));
+    }
+
+    private CompletableFuture<JsonObject> authenticatedJson(
+            String method, URI uri, JsonObject body) {
+        return auth.tokenAsync().thenCompose(token ->
+                sendAuthenticatedJson(method, uri, body, token.token())
+                        .exceptionallyCompose(t -> {
+                            if (!isHttpStatus(t, 401)) {
+                                return CompletableFuture.failedFuture(t);
+                            }
+                            auth.invalidate();
+                            return auth.tokenAsync().thenCompose(fresh ->
+                                    sendAuthenticatedJson(method, uri, body, fresh.token()));
+                        }));
+    }
+
+    private CompletableFuture<JsonObject> sendAuthenticatedJson(
+            String method, URI uri, JsonObject body, String bearerToken) {
+        HttpRequest.BodyPublisher publisher = body == null
+                ? HttpRequest.BodyPublishers.noBody()
+                : HttpRequest.BodyPublishers.ofString(body.toString(), StandardCharsets.UTF_8);
+        HttpRequest request = HttpRequest.newBuilder(uri)
+                .timeout(requestTimeout)
+                .header("Accept", "application/json")
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer " + bearerToken)
+                .header("User-Agent", USER_AGENT)
+                .method(method, publisher)
+                .build();
+        return http.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
+                .thenApply(response -> {
+                    if (response.statusCode() / 100 != 2) {
+                        throw ApiProblem.httpStatus(uri, response.statusCode()).toException();
+                    }
+                    byte[] raw = response.body();
+                    if (!verifier.accept(response.headers(), raw)) {
+                        throw ApiProblem.parse(uri, "Signatur ungültig").toException();
+                    }
+                    try {
+                        return com.google.gson.JsonParser.parseString(new String(
+                                raw == null ? new byte[0] : raw, StandardCharsets.UTF_8))
+                                .getAsJsonObject();
+                    } catch (Exception e) {
+                        throw ApiProblem.parse(uri, "Antwort kein JSON-Objekt").toException();
+                    }
+                })
+                .exceptionallyCompose(t -> CompletableFuture.failedFuture(mapError(uri, t)));
+    }
+
+    private static String requiredString(JsonObject json, String key, URI uri) {
+        if (json == null || !json.has(key) || !json.get(key).isJsonPrimitive()
+                || json.get(key).getAsString().isBlank()) {
+            throw ApiProblem.parse(uri, key + " fehlt").toException();
+        }
+        return json.get(key).getAsString();
     }
 
     private <T> CompletableFuture<T> getJson(URI v2Uri, URI legacyUri, Class<T> type) {

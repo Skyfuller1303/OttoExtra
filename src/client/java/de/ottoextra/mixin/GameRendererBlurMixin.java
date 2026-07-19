@@ -1,9 +1,9 @@
 package de.ottoextra.mixin;
 
+import de.ottoextra.rpnames.inspect.InspectMode;
 import de.ottoextra.tweaks.TweaksModule;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.PostEffectProcessor;
-import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.DefaultFramebufferSet;
 import net.minecraft.client.render.GameRenderer;
 import net.minecraft.client.render.RenderTickCounter;
@@ -16,30 +16,40 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import org.joml.Matrix4f;
 
-@Mixin(GameRenderer.class)
+@Mixin(value = GameRenderer.class, priority = 500)
 public abstract class GameRendererBlurMixin {
 
     @Shadow
     @Final
     private ObjectPool pool;
 
-    private static final Identifier OTTOEXTRA$EDGE_BLUR =
+    private static final Identifier OTTOEXTRA$LOW_HEALTH_EDGE_BLUR =
             Identifier.of("ottoextra", "low_health_edge_blur");
+    private static final Identifier OTTOEXTRA$INSPECT_LENS =
+            Identifier.of("ottoextra", "inspect_lens");
 
     @Inject(method = "render(Lnet/minecraft/client/render/RenderTickCounter;Z)V",
             at = @At(value = "INVOKE", shift = At.Shift.AFTER,
                     target = "Lnet/minecraft/client/render/GameRenderer;"
                             + "renderWorld(Lnet/minecraft/client/render/RenderTickCounter;)V"))
-    private void ottoextra$lowHealthWorldBlur(RenderTickCounter tickCounter, boolean tick,
-                                              CallbackInfo ci) {
-        int passes = TweaksModule.lowHealthBlurPasses();
-        if (passes <= 0) {
-            return;
-        }
+    private void ottoextra$worldPostEffects(RenderTickCounter tickCounter, boolean tick,
+                                            CallbackInfo ci) {
         MinecraftClient client = MinecraftClient.getInstance();
+
+        int lowHealthPasses = TweaksModule.lowHealthBlurPasses();
+        if (lowHealthPasses > 0) {
+            renderEffect(client, OTTOEXTRA$LOW_HEALTH_EDGE_BLUR, lowHealthPasses);
+        }
+        if (InspectMode.edgeBlurActive()) {
+            renderEffect(client, OTTOEXTRA$INSPECT_LENS, 1);
+        }
+    }
+
+    private void renderEffect(MinecraftClient client, Identifier id, int passes) {
         PostEffectProcessor effect = client.getShaderLoader()
-                .loadPostEffect(OTTOEXTRA$EDGE_BLUR, DefaultFramebufferSet.MAIN_ONLY);
+                .loadPostEffect(id, DefaultFramebufferSet.MAIN_ONLY);
         if (effect == null) {
             return;
         }
@@ -48,16 +58,43 @@ public abstract class GameRendererBlurMixin {
         }
     }
 
-    @Inject(method = "getFov(Lnet/minecraft/client/render/Camera;FZ)F",
-            at = @At("RETURN"), cancellable = true)
-    private void ottoextra$lowHealthFov(Camera camera, float tickProgress, boolean changingFov,
-                                        CallbackInfoReturnable<Float> cir) {
-        if (!changingFov) {
+    @Inject(method = "getProjectionMatrix(F)Lorg/joml/Matrix4f;", at = @At("RETURN"))
+    private void ottoextra$combinedProjectionEffects(float tickProgress,
+                                                       CallbackInfoReturnable<Matrix4f> cir) {
+        float inspectMultiplier = InspectMode.fovZoomMultiplier();
+        float lowHealthBoost = TweaksModule.lowHealthFovBoost();
+        if (inspectMultiplier >= 0.9999f && Math.abs(lowHealthBoost) < 0.001f) {
             return;
         }
-        float boost = TweaksModule.lowHealthFovBoost();
-        if (boost > 0.001f) {
-            cir.setReturnValue(cir.getReturnValue() + boost);
+
+        Matrix4f projection = cir.getReturnValue();
+        if (projection == null) {
+            return;
         }
+
+        float scale = projectionScaleForInspect(inspectMultiplier)
+                * projectionScaleForLowHealth(lowHealthBoost);
+        if (Math.abs(scale - 1.0f) < 0.0001f) {
+            return;
+        }
+        projection.m00(projection.m00() * scale);
+        projection.m11(projection.m11() * scale);
+    }
+
+    private static float projectionScaleForInspect(float multiplier) {
+        float clamped = Math.max(0.10f, Math.min(1.0f, multiplier));
+        if (clamped >= 0.9999f) return 1.0f;
+        double referenceFov = 70.0;
+        double targetFov = Math.max(1.0, referenceFov * clamped);
+        return (float) (Math.tan(Math.toRadians(referenceFov * 0.5))
+                / Math.tan(Math.toRadians(targetFov * 0.5)));
+    }
+
+    private static float projectionScaleForLowHealth(float boostDegrees) {
+        if (Math.abs(boostDegrees) < 0.001f) return 1.0f;
+        double referenceFov = 70.0;
+        double targetFov = Math.max(1.0, Math.min(170.0, referenceFov + boostDegrees));
+        return (float) (Math.tan(Math.toRadians(referenceFov * 0.5))
+                / Math.tan(Math.toRadians(targetFov * 0.5)));
     }
 }

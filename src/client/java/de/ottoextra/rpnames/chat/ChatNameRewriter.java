@@ -361,9 +361,14 @@ public final class ChatNameRewriter {
                     ? own.substring(localStart, localEnd) : si.visibleIdentity();
             out.append(Text.literal(visible));
         } else if (!known) {
-
-            out.append(Text.literal(de.ottoextra.rpnames.RpNamesServices
-                    .unknownChatDisplay(si.profile().accountName)));
+            String unknown = de.ottoextra.rpnames.RpNamesServices
+                    .unknownChatDisplay(si.profile().accountName);
+            String color = de.ottoextra.rpnames.RpNamesServices.unknownShowsAccount()
+                    ? de.ottoextra.rpnames.RpNamesServices.playerNameColor(
+                            si.profile().colors.chatNameColor, si.profile().title)
+                    : de.ottoextra.rpnames.RpNamesServices.rpNameColor(
+                            si.profile().colors.chatNameColor, si.profile().title);
+            out.append(colored(unknown, color));
         } else {
             out.append(displayName(si.profile(), Style.EMPTY, renderOurTitle));
         }
