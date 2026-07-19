@@ -2,7 +2,7 @@
 
 Zeitraum: 15. bis 19. Juli 2026. Zielversion: Minecraft 1.21.11.
 
-## 0.1.15 – Farbmenü, Formatierungsstile und Tablist-Titel
+## 0.1.15 – RP-Untersuchung, geschützte Originaltexte und Chatfarben
 
 - Chatfarben-Verwaltung im dunklen RP-Personenbuch-Design mit Hexfeldern,
   Live-Farbfeldern, Einzelreset und „Alle auf Original“.
@@ -18,18 +18,12 @@ Zeitraum: 15. bis 19. Juli 2026. Zielversion: Minecraft 1.21.11.
   vollständige Aufnahme in die JAR geprüft.
 - Fehlende Beschriftung des Öffnen-Buttons ergänzt.
 - Doppelten Screen-Blur und den Crash „Can only blur once per frame“ behoben.
-
-## 0.1.14d – Chatkanal-Farben
-
 - Chatname und Nachrichtentext lassen sich für Sprechen, Flüstern, Murmeln,
   Rufen, Brüllen, Offtopic und Hilfe getrennt einfärben.
 - OttoExtra gibt sämtliche Chatfarben zentral vor; TranslateUtils übernimmt
   dieselben Regeln für Übersetzungen, Hover-Lore und lokale Originalzeilen.
 - Die Kanalanzeige neben der Chat-Eingabe verwendet ebenfalls die jeweils
   konfigurierte Farbe des Chatnamens.
-
-## 0.1.14c – Geschützte Chat-Originaltexte
-
 - Mojang-authentifizierte API-Anbindung für zeitlich begrenzte,
   empfängergebundene Chat-Originaltexte.
 - Addon-Hook für Hover-Texte und lokal eingeblendete Originalnachrichten.
@@ -38,17 +32,11 @@ Zeitraum: 15. bis 19. Juli 2026. Zielversion: Minecraft 1.21.11.
 - Verschachtelte OOC-/Emote-Syntax bleibt auch über lange Teilnachrichten erhalten.
 - Bereits sichtbare Chatzeilen werden beim Neuaufbau erneut durch registrierte
   Addons verarbeitet, damit nachträgliche Hover- und Originaldaten erhalten bleiben.
-
-## 0.1.14a – Serverfarben wiederhergestellt
-
 - Normale Chatnachrichten behalten wieder die Farbe ihres Serverkanals.
 - Nur `*Emotes*` und `(OOC-Kommentare)` werden speziell formatiert.
 - Nach formatierten Passagen kehrt der Text zuverlässig zum vorherigen
   Kanal- beziehungsweise Emote-Stil zurück.
 - Offtopic und Hilfe bleiben von der automatischen RP-Formatierung ausgenommen.
-
-## 0.1.14 – RP-Untersuchung und Chatformatierung
-
 - Neuer, frei belegbarer Alt-Untersuchungsmodus mit Lupe, Zoom,
   Randunschärfe, Fortschrittsring und RP-Gedanken.
 - Sichtbare Informationen zu Spielern, Händen, Rüstung, Gegenständen,

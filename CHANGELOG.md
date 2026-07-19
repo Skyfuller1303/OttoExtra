@@ -4,79 +4,6 @@
 
 ### Hinzugefügt
 
-- Farbe und Kursivdarstellung lassen sich für `*Emotes*` und `(OOC)` jeweils
-  unabhängig konfigurieren.
-- Die kompakte Chatfarben-Verwaltung zeigt für jedes Hexfeld direkt daneben
-  eine Live-Farbvorschau und bietet Einzelreset sowie „Alle auf Original“.
-
-### Geändert
-
-- Die Chatkanal-Farbverwaltung verwendet nun das dunkle, halbtransparente
-  Design des RP-Personenbuchs.
-- Emote- und OOC-Farbe sowie die beiden Kursiv-Schalter befinden sich gemeinsam
-  mit den Kanaloptionen in der kompakten Farbverwaltung.
-- „Titel in der Tabliste“ gilt jetzt einheitlich für bekannte und unbekannte
-  Spieler; der separate Unbekannten-Schalter entfällt.
-
-### Behoben
-
-- Die im Untersuchungsmodus referenzierte Lupentextur ist wieder vollständig
-  in der OttoExtra-JAR enthalten und wird durch Asset-Tests abgesichert.
-- Der Button zum Öffnen der Chatkanal-Farbverwaltung besitzt wieder die
-  sichtbare Beschriftung „Öffnen…“.
-- Das Farbmenü löst keinen zweiten Screen-Blur mehr aus und crasht nicht mehr
-  mit „Can only blur once per frame“.
-
-## [0.1.14d] – 2026-07-19
-
-### Hinzugefügt
-
-- Für Sprechen, Flüstern, Murmeln, Rufen, Brüllen, Offtopic und Hilfe lassen
-  sich Kanalname und Nachrichtentext jeweils getrennt lokal einfärben.
-
-### Geändert
-
-- OttoExtra gibt RP-Chatfarben und -formatierung jetzt zentral vor; Addons wie
-  TranslateUtils verwenden dieselben Regeln auch für Hover-Lore und lokale Originalzeilen.
-- Die Kanalanzeige neben der Chat-Eingabe übernimmt die konfigurierte Farbe
-  des jeweiligen Chatnamens.
-
-## [0.1.14c] – 2026-07-19
-
-### Hinzugefügt
-
-- Authentifizierte API-Anbindung für geschützte Chat-Originaltexte mit
-  Besitzer- und Empfängerprüfung.
-- Addon-Hook zur verlustfreien Erweiterung eingehender Chatnachrichten, etwa
-  um freigegebene Originaltexte als Hover anzuzeigen.
-- API-Vertrag für die benötigten PHP-Endpunkte inklusive UUID-Allowlist, TTL,
-  Rate-Limits und sicherer Speicherung.
-
-### Geändert
-
-- Verschachtelte OOC- und Emote-Bereiche bleiben auch bei langen Nachrichten
-  und Kombinationen wie `(*...*)` vollständig ausgeglichen.
-- Die OOC-Standardfarbe der Chatformatierung entspricht `#B4BEC6`.
-- OttoExtra stellt geladenen Addons den bestehenden Mojang-verifizierten
-  API-Client zur Verfügung.
-- Bereits sichtbare Chatzeilen berücksichtigen beim Neuaufbau auch
-  nachträgliche Addon-Verarbeitung.
-
-## [0.1.14a] – 2026-07-18
-
-### Behoben
-
-- OttoExtra überschreibt die normale Chatfarbe nicht mehr automatisch.
-- Jeder RP-Kanal behält wieder seine vom Server vorgegebene Farbe.
-- Nach einem `*Emote*` oder `(OOC-Kommentar)` kehrt der Text zuverlässig zum
-  ursprünglichen Stil des jeweiligen Chatkanals zurück.
-- Die automatische RP-Formatierung bleibt auf Murmeln, Flüstern, Sprechen,
-  Rufen und Brüllen beschränkt; Offtopic und Hilfe bleiben unverändert.
-
-## [0.1.14] – 2026-07-17
-
-### Hinzugefügt
-
 - Neuer RP-Untersuchungsmodus über die frei belegbare, standardmäßig linke
   Alt-Taste für Spieler, Gegenstände, Kreaturen und ausgewählte Blöcke.
 - Animierte Lupe mit sanftem Zoom, Randunschärfe, Fortschrittsring und
@@ -87,8 +14,19 @@
   Zustandsbeschreibung sowie Autor und Seitenzahl bei Büchern.
 - Sichtbare Informationen zu Schildern, Türen und Toren, Lichtquellen, Kerzen,
   Bienenstöcken, Pflanzen, Lesepulten, Bannern, Rahmen und Rüstungsständern.
-- Automatische RP-Chatformatierung: `*Emotes*` hellgrau und kursiv sowie
-  `(OOC-Kommentare)` farblich hervorgehoben.
+- Automatische RP-Chatformatierung für `*Emotes*` und `(OOC-Kommentare)`.
+- Für Sprechen, Flüstern, Murmeln, Rufen, Brüllen, Offtopic und Hilfe lassen
+  sich Kanalname und Nachrichtentext jeweils getrennt lokal einfärben.
+- Farbe und Kursivdarstellung lassen sich für `*Emotes*` und `(OOC)` jeweils
+  unabhängig konfigurieren.
+- Die kompakte Chatfarben-Verwaltung zeigt für jedes Hexfeld direkt daneben
+  eine Live-Farbvorschau und bietet Einzelreset sowie „Alle auf Original“.
+- Authentifizierte API-Anbindung für geschützte Chat-Originaltexte mit
+  Besitzer- und Empfängerprüfung.
+- Addon-Hook zur verlustfreien Erweiterung eingehender Chatnachrichten, etwa
+  um freigegebene Originaltexte als Hover anzuzeigen.
+- API-Vertrag für die benötigten PHP-Endpunkte inklusive UUID-Allowlist, TTL,
+  Rate-Limits und sicherer Speicherung.
 
 ### Geändert
 
@@ -99,6 +37,38 @@
 - Lange Nachrichten werden automatisch geteilt. Offene Emote- und OOC-Bereiche
   werden pro RP-Teilnachricht geschlossen und in der nächsten wieder geöffnet.
 - Offtopic und Hilfe verändern beim Aufteilen weder Sternchen noch Klammern.
+- OttoExtra gibt RP-Chatfarben und -formatierung jetzt zentral vor; Addons wie
+  TranslateUtils verwenden dieselben Regeln auch für Hover-Lore und lokale Originalzeilen.
+- Die Kanalanzeige neben der Chat-Eingabe übernimmt die konfigurierte Farbe
+  des jeweiligen Chatnamens.
+- Die Chatkanal-Farbverwaltung verwendet nun das dunkle, halbtransparente
+  Design des RP-Personenbuchs.
+- Emote- und OOC-Farbe sowie die beiden Kursiv-Schalter befinden sich gemeinsam
+  mit den Kanaloptionen in der kompakten Farbverwaltung.
+- „Titel in der Tabliste“ gilt jetzt einheitlich für bekannte und unbekannte
+  Spieler; der separate Unbekannten-Schalter entfällt.
+- Verschachtelte OOC- und Emote-Bereiche bleiben auch bei langen Nachrichten
+  und Kombinationen wie `(*...*)` vollständig ausgeglichen.
+- Die OOC-Standardfarbe der Chatformatierung entspricht `#B4BEC6`.
+- OttoExtra stellt geladenen Addons den bestehenden Mojang-verifizierten
+  API-Client zur Verfügung.
+- Bereits sichtbare Chatzeilen berücksichtigen beim Neuaufbau auch
+  nachträgliche Addon-Verarbeitung.
+
+### Behoben
+
+- Die im Untersuchungsmodus referenzierte Lupentextur ist wieder vollständig
+  in der OttoExtra-JAR enthalten und wird durch Asset-Tests abgesichert.
+- Der Button zum Öffnen der Chatkanal-Farbverwaltung besitzt wieder die
+  sichtbare Beschriftung „Öffnen…“.
+- Das Farbmenü löst keinen zweiten Screen-Blur mehr aus und crasht nicht mehr
+  mit „Can only blur once per frame“.
+- OttoExtra überschreibt die normale Chatfarbe nicht mehr automatisch.
+- Jeder RP-Kanal behält wieder seine vom Server vorgegebene Farbe.
+- Nach einem `*Emote*` oder `(OOC-Kommentar)` kehrt der Text zuverlässig zum
+  ursprünglichen Stil des jeweiligen Chatkanals zurück.
+- Die automatische RP-Formatierung bleibt auf Murmeln, Flüstern, Sprechen,
+  Rufen und Brüllen beschränkt; Offtopic und Hilfe bleiben unverändert.
 
 ## [0.1.13-2a] – 2026-07-15
 
