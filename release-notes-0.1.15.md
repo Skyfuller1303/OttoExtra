@@ -15,6 +15,8 @@ Veröffentlicht am 19. Juli 2026 für Minecraft 1.21.11.
   eingestellt werden.
 - Authentifizierte API- und Addon-Schnittstelle für zeitlich begrenzte,
   empfängergebundene Chat-Originaltexte.
+- Markerlose Chat-Inbox für lokale Übersetzungs-Hover ohne Zusatzzeichen bei
+  Spielern ohne OttoExtra.
 
 ## Geändert
 
@@ -32,6 +34,8 @@ Veröffentlicht am 19. Juli 2026 für Minecraft 1.21.11.
   unabhängig vom Bekanntschaftsstatus. Chat und Nametags bleiben davon
   unberührt.
 - Die Standardfarbe für OOC-Text ist `#B4BEC6`.
+- Verkündungs-Auto-Optimize ist standardmäßig deaktiviert. Es lässt sich in
+  den erweiterten Briefeinstellungen mit deutlichem Fehlerhinweis aktivieren.
 
 ## Behoben
 
@@ -47,6 +51,8 @@ Veröffentlicht am 19. Juli 2026 für Minecraft 1.21.11.
   mit „Can only blur once per frame“.
 - Bereits sichtbare Chatzeilen behalten beim Neuaufbau nachträgliche
   Addon-Verarbeitung und geschützte Originaldaten.
+- Sichtbare Referenzmarker und als Kästchen gerenderte Unicode-Metadaten bei
+  geschützten Übersetzungen wurden durch die API-Inbox ersetzt.
 
 ## Kompatibilität
 

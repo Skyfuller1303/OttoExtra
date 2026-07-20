@@ -468,6 +468,8 @@ public final class OttoExtraConfig {
         public int announcementHardLinesPerPage = 12;
         public int announcementHardCharsPerLine = 18;
 
+        public boolean announcementAutoOptimizeEnabled = false;
+
         public int letterSendDelayMinMs = 500;
         public int letterSendDelayMaxMs = 1200;
         public int letterPageDelayMinMs = 3000;

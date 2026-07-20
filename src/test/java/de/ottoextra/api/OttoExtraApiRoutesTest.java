@@ -16,6 +16,8 @@ class OttoExtraApiRoutesTest {
                 routes.v2ProtectedChatMessages().toString());
         assertEquals("https://api.ottoextra.dev/v2/chat-translations/abc_123-X",
                 routes.v2ProtectedChatMessage("abc_123-X").toString());
+        assertEquals("https://api.ottoextra.dev/v2/chat-translations/inbox",
+                routes.v2ProtectedChatInbox().toString());
     }
 
     @Test

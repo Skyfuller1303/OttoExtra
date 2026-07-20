@@ -60,6 +60,12 @@ class ProtectedChatApiTest {
                 respond(exchange, 405, "{}");
             }
         });
+        server.createContext("/v2/chat-translations/inbox", exchange -> {
+            assertEquals("Bearer player-token",
+                    exchange.getRequestHeaders().getFirst("Authorization"));
+            respond(exchange, 200,
+                    "{\"entries\":[{\"id\":\"share_12345678\",\"translation\":\"Översatt text\",\"original\":\"Original auf Deutsch\",\"senderUuid\":\"069a79f4-44e9-4726-a5be-fca90e38aaf5\",\"createdAt\":\"2099-01-01T00:00:00Z\",\"expiresAt\":\"2099-01-01T01:00:00Z\"}]}" );
+        });
         server.createContext("/v2/chat-translations/share_12345678", exchange -> {
             assertEquals("Bearer player-token",
                     exchange.getRequestHeaders().getFirst("Authorization"));
@@ -93,12 +99,32 @@ class ProtectedChatApiTest {
     @Test
     void createsShareAndFetchesOriginalWithIndividualBearerToken() {
         String id = client.createProtectedChatMessage(
-                "Original auf Deutsch", List.of("Skyfuller1303")).join();
+                "Original auf Deutsch", List.of("Skyfuller1303"),
+                List.of("Översatt text")).join();
         assertEquals("share_12345678", id);
         assertTrue(postedBody.get().contains("\"access\":\"allowlist\""));
         assertTrue(postedBody.get().contains("Skyfuller1303"));
+        assertTrue(postedBody.get().contains("Översatt text"));
 
         assertEquals("Original auf Deutsch", client.protectedChatMessage(id).join());
+        assertEquals("Översatt text", client.protectedChatInbox().join().getFirst().translation());
+    }
+
+    @Test
+    void emptyAllowlistDoesNotBecomePublicAccess() {
+        client.createProtectedChatMessage(
+                "Original auf Deutsch", List.of(), List.of("Översatt text")).join();
+
+        assertTrue(postedBody.get().contains("\"access\":\"allowlist\""));
+        assertTrue(postedBody.get().contains("\"allowedUsernames\":[]"));
+    }
+
+    @Test
+    void nullRecipientListExplicitlyMeansAllVerifiedUsers() {
+        client.createProtectedChatMessage(
+                "Original auf Deutsch", null, List.of("Översatt text")).join();
+
+        assertTrue(postedBody.get().contains("\"access\":\"all\""));
     }
 
     private void respond(HttpExchange exchange, int status, String body) throws IOException {

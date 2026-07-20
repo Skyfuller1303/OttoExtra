@@ -15,6 +15,7 @@ import de.ottoextra.api.model.CompactPlayer;
 import de.ottoextra.api.model.FactionRecord;
 import de.ottoextra.api.model.PlayerRecord;
 import de.ottoextra.api.model.RegionRecord;
+import de.ottoextra.api.model.ProtectedChatInboxEntry;
 import de.ottoextra.config.OttoExtraConfig;
 
 import javax.net.ssl.SSLContext;
@@ -171,6 +172,12 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
     @Override
     public CompletableFuture<String> createProtectedChatMessage(
             String original, List<String> allowedUsernames) {
+        return createProtectedChatMessage(original, allowedUsernames, List.of());
+    }
+
+    @Override
+    public CompletableFuture<String> createProtectedChatMessage(
+            String original, List<String> allowedUsernames, List<String> translations) {
         if (original == null || original.isBlank()) {
             return CompletableFuture.failedFuture(
                     ApiProblem.badRequest("Originaltext fehlt").toException());
@@ -178,13 +185,23 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
         JsonObject body = new JsonObject();
         body.addProperty("original", original);
         JsonArray allowed = new JsonArray();
+        boolean allowAll = allowedUsernames == null;
         if (allowedUsernames != null) {
             allowedUsernames.stream()
                     .filter(name -> name != null && !name.isBlank())
                     .map(String::trim).distinct().limit(64).forEach(allowed::add);
         }
-        body.addProperty("access", allowed.isEmpty() ? "all" : "allowlist");
+        // null bedeutet explizit ALL; eine leere Liste bleibt eine leere
+        // Allowlist und darf niemals versehentlich zu ALL hochgestuft werden.
+        body.addProperty("access", allowAll ? "all" : "allowlist");
         body.add("allowedUsernames", allowed);
+        JsonArray translated = new JsonArray();
+        if (translations != null) {
+            translations.stream()
+                    .filter(value -> value != null && !value.isBlank())
+                    .limit(16).forEach(translated::add);
+        }
+        body.add("translations", translated);
         URI uri = routes.v2ProtectedChatMessages();
         return authenticatedJson("POST", uri, body)
                 .thenApply(json -> requiredString(json, "id", uri));
@@ -199,6 +216,18 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
         URI uri = routes.v2ProtectedChatMessage(id);
         return authenticatedJson("GET", uri, null)
                 .thenApply(json -> requiredString(json, "original", uri));
+    }
+
+    @Override
+    public CompletableFuture<List<ProtectedChatInboxEntry>> protectedChatInbox() {
+        URI uri = routes.v2ProtectedChatInbox();
+        return authenticatedJson("GET", uri, null).thenApply(json -> {
+            JsonElement entries = json.get("entries");
+            if (entries == null || !entries.isJsonArray()) return List.of();
+            List<ProtectedChatInboxEntry> parsed = gson.fromJson(entries,
+                    new TypeToken<List<ProtectedChatInboxEntry>>() { }.getType());
+            return parsed == null ? List.of() : List.copyOf(parsed);
+        });
     }
 
     @Override

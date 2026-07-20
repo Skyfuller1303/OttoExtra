@@ -2,7 +2,8 @@
 
 TranslateUtils kann den Originaltext einer übersetzten Chatnachricht für
 verifizierte OttoExtra-Nutzer als Hover freigeben. Der öffentliche Minecraft-
-Chat enthält ausschließlich die kurzlebige Referenz `[Ü:<id>]`.
+Chat enthält ausschließlich die normale Übersetzung. Die Zuordnung wird von
+berechtigten Clients über die API-Inbox geladen.
 
 ## Voraussetzungen
 
@@ -20,6 +21,7 @@ Request:
 ```json
 {
   "original": "Der nicht öffentlich sichtbare Originaltext",
+  "translations": ["Der öffentlich gesendete übersetzte Chattext"],
   "access": "all",
   "allowedUsernames": []
 }
@@ -63,3 +65,10 @@ Originaltext, Zugriffsmodus und Ablaufzeit sowie eine Kindtabelle mit den
 erlaubten Empfänger-UUIDs. Ein regelmäßiger Cleanup entfernt abgelaufene
 Datensätze. Verschlüsselung at rest ist empfohlen, da der Text absichtlich
 nicht im öffentlichen Minecraft-Chat steht.
+
+## `GET /v2/chat-translations/inbox`
+
+Liefert für den authentifizierten Nutzer ausschließlich freigegebene,
+markerlose Zuordnungen der letzten zehn Minuten. OttoExtra-Clients gleichen
+`translation` mit dem sichtbaren Minecraft-Chat ab und ergänzen den Hover nur
+lokal. Nicht-Mod-Clients erhalten keinerlei Referenzzeichen.

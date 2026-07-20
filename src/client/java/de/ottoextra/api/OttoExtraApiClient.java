@@ -5,6 +5,7 @@ import de.ottoextra.api.model.CompactPlayer;
 import de.ottoextra.api.model.FactionRecord;
 import de.ottoextra.api.model.PlayerRecord;
 import de.ottoextra.api.model.RegionRecord;
+import de.ottoextra.api.model.ProtectedChatInboxEntry;
 
 import java.net.URI;
 import java.util.List;
@@ -32,7 +33,12 @@ public interface OttoExtraApiClient {
     CompletableFuture<String> createProtectedChatMessage(
             String original, List<String> allowedUsernames);
 
+    CompletableFuture<String> createProtectedChatMessage(
+            String original, List<String> allowedUsernames, List<String> translations);
+
     CompletableFuture<String> protectedChatMessage(String id);
+
+    CompletableFuture<List<ProtectedChatInboxEntry>> protectedChatInbox();
 
     CompletableFuture<byte[]> downloadBinary(URI uri);
 

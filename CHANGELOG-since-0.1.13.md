@@ -26,6 +26,8 @@ Zeitraum: 15. bis 19. Juli 2026. Zielversion: Minecraft 1.21.11.
   konfigurierte Farbe des Chatnamens.
 - Mojang-authentifizierte API-Anbindung für zeitlich begrenzte,
   empfängergebundene Chat-Originaltexte.
+- Markerlose API-Inbox: Nur berechtigte OttoExtra-Nutzer laden die Zuordnung
+  zwischen Übersetzung und Original; Nicht-Mod-Nutzer sehen keine Zusatzzeichen.
 - Addon-Hook für Hover-Texte und lokal eingeblendete Originalnachrichten.
 - Signierte Backend-Antworten und gemeinsamer OttoExtra-API-Client für Addons.
 - OOC-Standardfarbe auf `#B4BEC6` angepasst.
@@ -45,6 +47,9 @@ Zeitraum: 15. bis 19. Juli 2026. Zielversion: Minecraft 1.21.11.
 - `*Emotes*` werden hellgrau und kursiv, `(OOC-Kommentare)` farblich dargestellt.
 - Lange RP-Nachrichten führen offene Emote- und OOC-Bereiche korrekt über
   mehrere Teilnachrichten fort.
+- Verkündungs-Auto-Optimize ist standardmäßig aus und nur über die erweiterten
+  Briefeinstellungen aktivierbar; ein Warnhinweis nennt mögliche Umbruch-,
+  Formatierungs- und Seitenlayoutfehler.
 
 ## 0.1.13-2a – RP-Namen, Tabliste und Regions-API
 
@@ -70,4 +75,5 @@ Zeitraum: 15. bis 19. Juli 2026. Zielversion: Minecraft 1.21.11.
 - `0.1.2`: Geschützte Originaltexte per Hover, Zugriff für alle oder Allowlist,
   Username-Liste mit Tab-Vervollständigung.
 - `0.1.3`: Datenschutzhinweis, signierte geschützte Chat-API, optionale lokale
-  Originalzeile und zentrale Formatierung durch OttoExtra.
+  Originalzeile, markerlose API-Inbox, Debug-Nutzung außerhalb Ottoniens und
+  zentrale Formatierung durch OttoExtra.

@@ -602,6 +602,11 @@ public final class SettingsRegistry {
                         v -> c.letter.announcementSubmitCommand = v)
                         .tooltip("ottoextra.set.letter.submitCommand.tip"));
         card(letterAdv, "ottoextra.set.letter.layout", "ottoextra.set.letter.layout.desc",
+                Option.bool("ottoextra.set.letter.autoOptimize",
+                        "letter.announcementAutoOptimizeEnabled",
+                        () -> c.letter.announcementAutoOptimizeEnabled,
+                        v -> c.letter.announcementAutoOptimizeEnabled = v)
+                        .tooltip("ottoextra.set.letter.autoOptimize.tip"),
                 Option.intVal("ottoextra.set.letter.safeLines", "letter.announcementSafeLinesPerPage",
                         () -> c.letter.announcementSafeLinesPerPage,
                         v -> c.letter.announcementSafeLinesPerPage = v, 4, 12),

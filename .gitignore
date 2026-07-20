@@ -5,6 +5,8 @@ run/
 run2/
 .vscode/
 .idea/
+.agents/
+.codex-plugins/
 *.iml
 
 # Minecraft/Fabric runtime

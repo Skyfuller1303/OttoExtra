@@ -27,6 +27,8 @@
   um freigegebene Originaltexte als Hover anzuzeigen.
 - API-Vertrag für die benötigten PHP-Endpunkte inklusive UUID-Allowlist, TTL,
   Rate-Limits und sicherer Speicherung.
+- Autorisierte Chat-Inbox zur markerlosen Zuordnung öffentlicher Übersetzungen
+  zu geschützten Originaltexten.
 
 ### Geändert
 
@@ -54,6 +56,10 @@
   API-Client zur Verfügung.
 - Bereits sichtbare Chatzeilen berücksichtigen beim Neuaufbau auch
   nachträgliche Addon-Verarbeitung.
+- „Automatisch optimieren“ für Verkündungen ist standardmäßig deaktiviert und
+  kann unter „Briefe → Erweitert → Layout & Timing“ bewusst aktiviert werden.
+  Der Einstellungshinweis warnt vor möglichen Umbruch-, Formatierungs- und
+  Seitenlayoutfehlern.
 
 ### Behoben
 
@@ -69,6 +75,8 @@
   ursprünglichen Stil des jeweiligen Chatkanals zurück.
 - Die automatische RP-Formatierung bleibt auf Murmeln, Flüstern, Sprechen,
   Rufen und Brüllen beschränkt; Offtopic und Hilfe bleiben unverändert.
+- Geschützte Übersetzungen benötigen keine sichtbaren `[Ü:…]`-Marker oder
+  unsichtbaren Unicode-Zeichen mehr im öffentlichen Chat.
 
 ## [0.1.13-2a] – 2026-07-15
 

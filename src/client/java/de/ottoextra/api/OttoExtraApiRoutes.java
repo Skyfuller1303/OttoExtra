@@ -144,6 +144,10 @@ public final class OttoExtraApiRoutes {
         return v2("chat-translations/" + enc(id));
     }
 
+    public URI v2ProtectedChatInbox() {
+        return v2("chat-translations/inbox");
+    }
+
     public URI resolveRelative(String relativePath) {
         if (relativePath == null || relativePath.isBlank()) {
             return null;

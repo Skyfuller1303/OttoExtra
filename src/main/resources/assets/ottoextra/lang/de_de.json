@@ -576,6 +576,8 @@
   "ottoextra.set.letter.submitCommand.tip": "Leer = die Mod sendet keinen Abschlussbefehl; du bekommst stattdessen einen Hinweis im Chat und führst ihn selbst aus.",
   "ottoextra.set.letter.layout": "Layout & Timing",
   "ottoextra.set.letter.layout.desc": "Sichere Seitengrenzen für Verkündungen und Sende-Verzögerungen (Anti-Spam).",
+  "ottoextra.set.letter.autoOptimize": "Automatische Optimierung erlauben",
+  "ottoextra.set.letter.autoOptimize.tip": "Standardmäßig aus. Blendet im Verkündungs-Preflight „Automatisch optimieren“ ein. Achtung: Die Optimierung kann fehlerhafte Umbrüche, verschobene Formatierungen oder ein verändertes Seitenlayout verursachen. Entwurf vor dem Versand vollständig prüfen.",
   "ottoextra.set.letter.safeLines": "Sichere Zeilen/Seite",
   "ottoextra.set.letter.safeChars": "Sichere Zeichen/Zeile",
   "ottoextra.set.letter.delayMin": "Zeilen-Delay min (ms)",

@@ -51,13 +51,15 @@ public final class AnnouncementPreflightScreen extends Screen {
                 }).dimensions(cx - 156, height - 30, 100, 20).build();
         send.active = result.canSend();
         addDrawableChild(send);
-        addDrawableChild(ButtonWidget.builder(
-                Text.translatable("ottoextra.letter.preflight.optimize"), b -> {
-                    draft.pages = new ArrayList<>(service().optimize(draft.pages));
+        if (config.letter.announcementAutoOptimizeEnabled) {
+            addDrawableChild(ButtonWidget.builder(
+                    Text.translatable("ottoextra.letter.preflight.optimize"), b -> {
+                        draft.pages = new ArrayList<>(service().optimize(draft.pages));
 
-                    recheck();
-                    clearAndInit();
-                }).dimensions(cx - 52, height - 30, 104, 20).build());
+                        recheck();
+                        clearAndInit();
+                    }).dimensions(cx - 52, height - 30, 104, 20).build());
+        }
         addDrawableChild(ButtonWidget.builder(Text.translatable("gui.back"), b -> close())
                 .dimensions(cx + 56, height - 30, 100, 20).build());
     }

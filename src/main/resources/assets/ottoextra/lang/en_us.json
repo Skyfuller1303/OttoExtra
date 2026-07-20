@@ -576,6 +576,8 @@
   "ottoextra.set.letter.submitCommand.tip": "Empty = the mod sends no submit command; you get a chat hint and run it yourself.",
   "ottoextra.set.letter.layout": "Layout & timing",
   "ottoextra.set.letter.layout.desc": "Safe page limits for announcements and send delays (anti-spam).",
+  "ottoextra.set.letter.autoOptimize": "Allow automatic optimization",
+  "ottoextra.set.letter.autoOptimize.tip": "Disabled by default. Shows “Automatically optimize” in announcement preflight. Warning: optimization can cause incorrect wrapping, shifted formatting, or changed page layout. Review the complete draft before sending.",
   "ottoextra.set.letter.safeLines": "Safe lines/page",
   "ottoextra.set.letter.safeChars": "Safe chars/line",
   "ottoextra.set.letter.delayMin": "Line delay min (ms)",
