@@ -2,6 +2,6 @@
   "name": "otto-extra",
   "private": true,
   "scripts": {
-    "client": "gradlew.bat runClient"
+    "client": ".\\gradlew.bat runClient"
   }
 }
