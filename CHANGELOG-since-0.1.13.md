@@ -1,6 +1,10 @@
-# OttoExtra 0.1.15.1 – Changelog seit 0.1.13
+# OttoExtra 0.1.15.2 – Changelog seit 0.1.13
 
 Zeitraum: 15. bis 21. Juli 2026. Zielversion: Minecraft 1.21.11.
+
+## 0.1.15.2 – Nametags bei ausgeblendetem HUD
+
+- F1 blendet OttoExtra-Nametags zusammen mit dem restlichen HUD aus.
 
 ## 0.1.15.1 – Worldmap-Daten und Tablisten-Sortierung
 

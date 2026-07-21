@@ -56,6 +56,9 @@ public final class NametagLabelRenderer {
             if (entity == null) {
                 return false;
             }
+            if (MinecraftClient.getInstance().options.hudHidden) {
+                return true; // F1 unterdrückt auch OttoExtra-Nametags
+            }
 
             // Sichtbarkeit auch auf diesem Pfad durchsetzen (EntityCulling
             // umgeht hasLabel teilweise)
