@@ -104,6 +104,8 @@ public final class BannerTextureService {
         }
         api.downloadBinary(uri).whenComplete((bytes, t) -> {
             if (t != null || bytes == null || !isPng(bytes)) {
+                OttoExtra.LOGGER.debug("[regions] Banner-Download fehlgeschlagen ({}): {}",
+                        uri, t != null ? t.toString() : "kein PNG");
                 inFlight.remove(uuid);
                 failed.add(uuid);
                 return;

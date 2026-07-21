@@ -107,17 +107,17 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
 
     @Override
     public CompletableFuture<ApiEnvelope> bootstrap() {
-        return getJson(routes.v2Bootstrap(), routes.bootstrap(), ApiEnvelope.class);
+        return getJson(routes.v2Bootstrap(), ApiEnvelope.class);
     }
 
     @Override
     public CompletableFuture<ApiEnvelope> sync(long cursor) {
-        return getJson(routes.v2Sync(cursor), routes.sync(cursor), ApiEnvelope.class);
+        return getJson(routes.v2Sync(cursor), ApiEnvelope.class);
     }
 
     @Override
     public CompletableFuture<List<RegionRecord>> regionList() {
-        return getJson(routes.v2RegionList(), routes.regionList(), ApiEnvelope.class)
+        return getJson(routes.v2RegionList(), ApiEnvelope.class)
                 .thenApply(env -> env.regions() == null ? List.of() : env.regions());
     }
 
@@ -126,7 +126,7 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
         if (name == null || name.isBlank()) {
             return CompletableFuture.failedFuture(ApiProblem.badRequest("Regionsname fehlt").toException());
         }
-        return getJson(routes.v2RegionByName(name), routes.regionByName(name), ApiEnvelope.class)
+        return getJson(routes.v2RegionByName(name), ApiEnvelope.class)
                 .thenApply(ApiEnvelope::region);
     }
 
@@ -135,7 +135,7 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
         if (uuid == null) {
             return CompletableFuture.failedFuture(ApiProblem.badRequest("Fraktions-UUID fehlt").toException());
         }
-        return getJson(routes.v2Faction(uuid.toString()), routes.faction(uuid.toString()), ApiEnvelope.class)
+        return getJson(routes.v2Faction(uuid.toString()), ApiEnvelope.class)
                 .thenApply(ApiEnvelope::faction);
     }
 
@@ -144,8 +144,7 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
         if (factionUuid == null) {
             return CompletableFuture.failedFuture(ApiProblem.badRequest("Fraktions-UUID fehlt").toException());
         }
-        return getJson(routes.v2FactionPlayers(factionUuid.toString()),
-                routes.factionPlayers(factionUuid.toString()), ApiEnvelope.class)
+        return getJson(routes.v2FactionPlayers(factionUuid.toString()), ApiEnvelope.class)
                 .thenApply(env -> {
                     if (env.players() != null) return env.players();
                     if (env.participants() != null) return env.participants();
@@ -158,15 +157,15 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
         if (uuid == null) {
             return CompletableFuture.failedFuture(ApiProblem.badRequest("Spieler-UUID fehlt").toException());
         }
-        return getJson(routes.v2Player(uuid.toString()), routes.player(uuid.toString()), ApiEnvelope.class)
+        return getJson(routes.v2Player(uuid.toString()), ApiEnvelope.class)
                 .thenApply(ApiEnvelope::profile);
     }
 
     @Override
     public CompletableFuture<List<CompactPlayer>> compactPlayers() {
-        URI legacy = routes.compactPlayers();
-        return getString(routes.v2CompactPlayers(), legacy)
-                .thenApply(body -> parseCompactPlayers(legacy, body));
+        URI uri = routes.v2CompactPlayers();
+        return getString(uri)
+                .thenApply(body -> parseCompactPlayers(uri, body));
     }
 
     @Override
@@ -235,9 +234,19 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
         if (uri == null) {
             return CompletableFuture.failedFuture(ApiProblem.badRequest("Download-URI fehlt").toException());
         }
-        HttpRequest request = baseRequest(uri).build();
+        if (!isTrustedAssetUri(uri)) {
+            return CompletableFuture.failedFuture(
+                    ApiProblem.badRequest("Nicht vertrauenswürdige Download-URI").toException());
+        }
+        HttpRequest request = baseRequest(uri)
+                .setHeader("Accept", "image/png")
+                .build();
         return http.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
                 .thenApply(resp -> {
+                    if (!isTrustedAssetUri(resp.uri())) {
+                        throw ApiProblem.badRequest("Nicht vertrauenswürdige Download-Weiterleitung")
+                                .toException();
+                    }
                     if (resp.statusCode() / 100 != 2) {
                         throw ApiProblem.httpStatus(uri, resp.statusCode()).toException();
                     }
@@ -245,7 +254,7 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
                     if (bytes != null && bytes.length > MAX_BINARY_BYTES) {
                         throw ApiProblem.parse(uri, "Download zu gross: " + bytes.length + " B").toException();
                     }
-                    if (!verifier.accept(resp.headers(), bytes)) {
+                    if (verifier.check(resp.headers(), bytes) == ResponseVerifier.Result.INVALID) {
                         throw ApiProblem.parse(uri, "Signatur ungültig").toException();
                     }
                     return bytes;
@@ -271,10 +280,26 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
                 .GET();
     }
 
-    private CompletableFuture<String> getString(URI v2Uri, URI legacyUri) {
-        if (!apiConfig.useV2Auth) {
-            return fetch(legacyUri, null);
+    private boolean isTrustedAssetUri(URI uri) {
+        if (uri == null || uri.getHost() == null || uri.getUserInfo() != null) {
+            return false;
         }
+        URI baseUri = URI.create(routes.baseUrl());
+        return uri.getScheme() != null
+                && uri.getScheme().equalsIgnoreCase(baseUri.getScheme())
+                && uri.getHost().equalsIgnoreCase(baseUri.getHost())
+                && effectivePort(uri) == effectivePort(baseUri);
+    }
+
+    private static int effectivePort(URI uri) {
+        if (uri.getPort() >= 0) {
+            return uri.getPort();
+        }
+        return "https".equalsIgnoreCase(uri.getScheme()) ? 443
+                : "http".equalsIgnoreCase(uri.getScheme()) ? 80 : -1;
+    }
+
+    private CompletableFuture<String> getString(URI v2Uri) {
         return auth.tokenAsync()
                 .thenCompose(token -> fetch(v2Uri, token.token())
                         .exceptionallyCompose(t -> {
@@ -285,11 +310,7 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
                                         .thenCompose(fresh -> fetch(v2Uri, fresh.token()));
                             }
                             return CompletableFuture.failedFuture(t);
-                        }))
-                .exceptionallyCompose(t -> {
-                    OttoExtra.LOGGER.debug("[api] v2 nicht nutzbar ({}) — Fallback public-*", summarize(t));
-                    return fetch(legacyUri, null);
-                });
+                        }));
     }
 
     private CompletableFuture<String> fetch(URI uri, String bearerToken) {
@@ -367,18 +388,18 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
         return json.get(key).getAsString();
     }
 
-    private <T> CompletableFuture<T> getJson(URI v2Uri, URI legacyUri, Class<T> type) {
-        return getString(v2Uri, legacyUri).thenApply(body -> {
+    private <T> CompletableFuture<T> getJson(URI uri, Class<T> type) {
+        return getString(uri).thenApply(body -> {
             try {
                 T value = gson.fromJson(body, type);
                 if (value == null) {
-                    throw ApiProblem.parse(legacyUri, "Leere Antwort").toException();
+                    throw ApiProblem.parse(uri, "Leere Antwort").toException();
                 }
                 return value;
             } catch (ApiProblem.ApiException e) {
                 throw e;
             } catch (Exception e) {
-                throw ApiProblem.parse(legacyUri, e.getMessage()).toException();
+                throw ApiProblem.parse(uri, e.getMessage()).toException();
             }
         });
     }
@@ -407,14 +428,6 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
     private static boolean isHttpStatus(Throwable t, int status) {
         Throwable cause = (t instanceof CompletionException && t.getCause() != null) ? t.getCause() : t;
         return cause instanceof ApiProblem.ApiException api && api.problem().isHttpStatus(status);
-    }
-
-    private static String summarize(Throwable t) {
-        Throwable cause = (t instanceof CompletionException && t.getCause() != null) ? t.getCause() : t;
-        if (cause instanceof ApiProblem.ApiException api) {
-            return api.problem().kind() + " " + api.problem().message();
-        }
-        return cause.getClass().getSimpleName();
     }
 
     private static Throwable mapError(URI uri, Throwable t) {

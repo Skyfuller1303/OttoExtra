@@ -118,10 +118,6 @@ public final class OttoExtraConfig {
         public int syncIntervalSeconds = 1_800;
         public int playerDirectoryIntervalSeconds = 300;
 
-        public boolean useV2Auth = false;
-
-        public boolean requireSignatures = false;
-
         public boolean tlsPinning = true;
     }
 
