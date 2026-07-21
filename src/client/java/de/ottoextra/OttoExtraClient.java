@@ -7,6 +7,7 @@ import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.letter.LetterModule;
 import de.ottoextra.map.MapModule;
 import de.ottoextra.nametags.NametagModule;
+import de.ottoextra.playerlist.PlayerListSortingModule;
 import de.ottoextra.regions.RegionsModule;
 import de.ottoextra.resourcepack.ResourcePackModule;
 import de.ottoextra.rpnames.RpNamesModule;
@@ -43,6 +44,7 @@ public final class OttoExtraClient implements ClientModInitializer {
                 new MapModule(),
                 new RegionsModule(),
                 new RpNamesModule(),
+                new PlayerListSortingModule(),
                 new NametagModule(),
                 new LetterModule(),
                 new ChatModule(),

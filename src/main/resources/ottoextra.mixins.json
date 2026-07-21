@@ -9,6 +9,8 @@
     "ChatHudAccessor",
     "PlayerListEntryMixin",
     "PlayerListEntryAccessor",
+    "PlayerListHudMixin",
+    "compat.bettertab.BetterTabToolsMixin",
     "PlayerEntityRendererMixin",
     "EntityRendererMixin",
     "ChatScreenMixin",

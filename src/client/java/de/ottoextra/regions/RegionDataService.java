@@ -27,6 +27,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 public final class RegionDataService {
 
@@ -44,10 +45,13 @@ public final class RegionDataService {
     private final Map<String, RegionRecord> regionsByKey = new ConcurrentHashMap<>();
     private final Map<String, Long> detailRequestedAt = new ConcurrentHashMap<>();
     private final Map<String, Integer> gatheringByKey = new ConcurrentHashMap<>();
-    private final AtomicBoolean bootstrapRunning = new AtomicBoolean(false);
+    private final AtomicLong bootstrapGeneration = new AtomicLong();
     private final AtomicBoolean syncRunning = new AtomicBoolean(false);
 
+    private volatile boolean bootstrapRunning;
     private volatile long syncCursor = -1;
+    private volatile CompletableFuture<Void> bootstrapCompletion =
+            CompletableFuture.completedFuture(null);
     private volatile ScheduledFuture<?> syncTask;
     private volatile ScheduledFuture<?> gatheringTask;
 
@@ -63,26 +67,42 @@ public final class RegionDataService {
     }
 
     public void onServerJoin() {
-        if (!bootstrapRunning.compareAndSet(false, true)) {
-            return;
-        }
+        long generation = bootstrapGeneration.incrementAndGet();
+        CompletableFuture<Void> completion = new CompletableFuture<>();
+        bootstrapCompletion = completion;
+        bootstrapRunning = true;
         api.bootstrap()
                 .whenComplete((env, t) -> {
-                    bootstrapRunning.set(false);
-                    if (t != null) {
-                        OttoExtra.LOGGER.info("[regions] Bootstrap nicht moeglich ({}) — nutze Snapshot.",
-                                rootMessage(t));
+                    if (bootstrapGeneration.get() != generation) {
+                        completion.complete(null);
                         return;
                     }
-                    applyEnvelope(env, true);
-                    OttoExtra.LOGGER.info("[regions] Bootstrap: {} Fraktionen, {} Regionen.",
-                            factionsByUuid.size(), regionsByKey.size());
+                    try {
+                        if (t != null) {
+                            OttoExtra.LOGGER.info("[regions] Bootstrap nicht moeglich ({}) — nutze Snapshot.",
+                                    rootMessage(t));
+                            return;
+                        }
+                        applyEnvelope(env, true);
+                        OttoExtra.LOGGER.info("[regions] Bootstrap: {} Fraktionen, {} Regionen.",
+                                factionsByUuid.size(), regionsByKey.size());
+                    } finally {
+                        bootstrapRunning = false;
+                        completion.complete(null);
+                    }
                 });
         startSyncLoop();
         startGatheringLoop();
     }
 
+    public CompletableFuture<Void> bootstrapCompletion() {
+        return bootstrapCompletion;
+    }
+
     public void onDisconnect() {
+        bootstrapGeneration.incrementAndGet();
+        bootstrapRunning = false;
+        bootstrapCompletion.complete(null);
         stopSyncLoop();
     }
 
@@ -98,7 +118,7 @@ public final class RegionDataService {
     }
 
     public void syncNow() {
-        if (bootstrapRunning.get() || !syncRunning.compareAndSet(false, true)) {
+        if (bootstrapRunning || !syncRunning.compareAndSet(false, true)) {
             return;
         }
 
@@ -215,6 +235,26 @@ public final class RegionDataService {
         return uuid == null ? Optional.empty() : Optional.ofNullable(factionsByUuid.get(uuid));
     }
 
+    public Optional<FactionRecord> factionByKey(String rawKey) {
+        if (rawKey == null || rawKey.isBlank()) {
+            return Optional.empty();
+        }
+        String key = rawKey.trim();
+        FactionRecord direct = factionsByUuid.get(key);
+        if (direct != null) {
+            return Optional.of(direct);
+        }
+        try {
+            direct = factionsByUuid.get(UUID.fromString(key).toString());
+            if (direct != null) {
+                return Optional.of(direct);
+            }
+        } catch (IllegalArgumentException ignored) {
+        }
+        String uuid = factionUuidByKey.get(RegionNameKeys.normalize(key));
+        return uuid == null ? Optional.empty() : Optional.ofNullable(factionsByUuid.get(uuid));
+    }
+
     public List<FactionRecord> allFactions() {
         return new ArrayList<>(factionsByUuid.values());
     }
@@ -311,7 +351,7 @@ public final class RegionDataService {
     private void putFactionKey(String raw, String uuid) {
         String key = RegionNameKeys.normalize(raw);
         if (!key.isEmpty() && uuid != null) {
-            factionUuidByKey.putIfAbsent(key, uuid);
+            factionUuidByKey.put(key, uuid);
         }
     }
 

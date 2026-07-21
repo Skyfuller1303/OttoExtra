@@ -35,7 +35,7 @@ public final class TitleRegistry {
         Map<String, Group> groups = new LinkedHashMap<>();
     }
 
-    public record ResolvedTitle(String title, String groupKey, Group group) {
+    public record ResolvedTitle(String title, String groupKey, Group group, int titleIndex) {
     }
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
@@ -82,14 +82,17 @@ public final class TitleRegistry {
         }
     }
 
-    private void apply(Map<String, Group> loaded) {
+    void apply(Map<String, Group> loaded) {
         Map<String, ResolvedTitle> index = new HashMap<>();
         for (Map.Entry<String, Group> e : loaded.entrySet()) {
-            for (String title : e.getValue().titles) {
+            List<String> titles = e.getValue().titles == null ? List.of() : e.getValue().titles;
+            for (int titleIndex = 0; titleIndex < titles.size(); titleIndex++) {
+                String title = titles.get(titleIndex);
                 if (title == null || title.isBlank()) {
                     continue;
                 }
-                index.putIfAbsent(normalize(title), new ResolvedTitle(title, e.getKey(), e.getValue()));
+                index.putIfAbsent(normalize(title),
+                        new ResolvedTitle(title, e.getKey(), e.getValue(), titleIndex));
             }
         }
         List<String> sorted = new ArrayList<>(index.keySet());

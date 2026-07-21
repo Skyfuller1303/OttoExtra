@@ -6,6 +6,7 @@ import de.ottoextra.api.auth.ApiAuthService;
 import de.ottoextra.api.auth.ResponseVerifier;
 import de.ottoextra.api.auth.SessionSnapshot;
 import de.ottoextra.api.model.ApiEnvelope;
+import de.ottoextra.api.model.CompactPlayer;
 import de.ottoextra.config.OttoExtraConfig;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -65,6 +66,14 @@ class HttpOttoExtraApiClientBootstrapTest {
             respond(exchange, 200, "{\"ok\":true,\"sync_cursor\":1,\"regions\":[]}",
                     signBootstrap.get());
         });
+        server.createContext("/v2/player-compact", exchange -> respond(exchange, 200,
+                "{\"players\":[{\"entity_key\":\"player|1\","
+                        + "\"uuid\":\"069a79f4-44e9-4726-a5be-fca90e38aaf5\","
+                        + "\"name\":\"Visible\",\"minecraft_name\":\"Account\","
+                        + "\"rp_name\":\"RP Name\",\"title\":\"Graf\","
+                        + "\"rank\":\"LEADER\",\"state\":\"Adliger\","
+                        + "\"faction\":\"faction-uuid\","
+                        + "\"faction_name\":\"Faction\"}]}", true));
         server.createContext("/uploads/banner.png", exchange ->
                 respond(exchange, 200, PNG_BYTES));
         server.createContext("/api/index.php", exchange -> {
@@ -102,6 +111,18 @@ class HttpOttoExtraApiClientBootstrapTest {
         assertTrue(envelope.ok());
         assertEquals("Bearer player-token", bootstrapAuthorization.get());
         assertEquals(0, legacyRequests.get());
+    }
+
+    @Test
+    void compactPlayersMapsSnakeCaseAffiliationFields() {
+        CompactPlayer player = client.compactPlayers().join().getFirst();
+
+        assertEquals("player|1", player.entityKey());
+        assertEquals("Account", player.minecraftName());
+        assertEquals("RP Name", player.rpName());
+        assertEquals("faction-uuid", player.faction());
+        assertEquals("Faction", player.factionName());
+        assertEquals("LEADER", player.rank());
     }
 
     @Test

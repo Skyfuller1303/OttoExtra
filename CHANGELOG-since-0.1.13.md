@@ -1,6 +1,19 @@
-# OttoExtra 0.1.15 – Changelog seit 0.1.13
+# OttoExtra 0.1.15.1 – Changelog seit 0.1.13
 
-Zeitraum: 15. bis 19. Juli 2026. Zielversion: Minecraft 1.21.11.
+Zeitraum: 15. bis 21. Juli 2026. Zielversion: Minecraft 1.21.11.
+
+## 0.1.15.1 – Worldmap-Daten und Tablisten-Sortierung
+
+- Frische Installationen laden Regions- und Lehensdaten über die signierte,
+  authentifizierte v2-API statt über den inkompatiblen Legacy-Fallback.
+- Wappen-PNGs werden vom vertrauenswürdigen API-Origin geladen; fremde Hosts,
+  Cross-Origin-Weiterleitungen und ungültige Signaturen bleiben blockiert.
+- Optionale Tablisten-Sortierung nach Lehen mit Leitung, Titelhierarchie und
+  sichtbarem Namen als Unterordnung.
+- BetterTab 2.1.5 wird direkt unterstützt; Server-Wappen, Badges und formatierte
+  Namen bleiben unverändert.
+- Regions-Bootstrap ignoriert verspätete Antworten alter Verbindungen und
+  aktualisiert Fraktions-Aliase nach Änderungen zuverlässig.
 
 ## 0.1.15 – RP-Untersuchung, geschützte Originaltexte und Chatfarben
 

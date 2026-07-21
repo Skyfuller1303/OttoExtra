@@ -559,6 +559,10 @@ public final class SettingsRegistry {
         card(rpnBase, "ottoextra.set.rpn.tablist", "ottoextra.set.rpn.tablist.desc",
                 Option.bool("ottoextra.config.rpnames.tablist", "rpnames.tablistEnabled",
                         () -> c.rpnames.tablistEnabled, v -> c.rpnames.tablistEnabled = v),
+                Option.bool("ottoextra.config.rpnames.tablistSortByRegion", "rpnames.tablistSortByRegion",
+                        () -> c.rpnames.tablistSortByRegion,
+                        v -> c.rpnames.tablistSortByRegion = v)
+                        .tooltip("ottoextra.set.rpn.tablistSortByRegion.tip"),
                 Option.bool("ottoextra.config.rpnames.tablistTitles", "rpnames.tablistShowTitle",
                         () -> c.rpnames.tablistShowTitle, v -> c.rpnames.tablistShowTitle = v)
                         .tooltip("ottoextra.set.rpn.tablistTitles.tip"),

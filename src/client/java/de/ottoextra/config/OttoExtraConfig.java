@@ -394,6 +394,7 @@ public final class OttoExtraConfig {
 
         public boolean tablistEnabled = true;
         public boolean tablistShowTitle = true;
+        public boolean tablistSortByRegion = false;
         /** Titel von noch unbekannten Personen nur optional in der Tabliste zeigen. */
         public boolean tablistTitlesAlways = true;
         public boolean tablistShowAccountForUnknown = true;

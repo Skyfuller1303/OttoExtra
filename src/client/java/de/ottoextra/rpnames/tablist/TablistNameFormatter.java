@@ -121,6 +121,44 @@ public final class TablistNameFormatter {
         return null;
     }
 
+    public static String visibleSortName(GameProfile gameProfile) {
+        if (gameProfile == null || gameProfile.name() == null) {
+            return "";
+        }
+        String account = gameProfile.name();
+        if (!RpNamesServices.isActive()) {
+            return account;
+        }
+        OttoExtraConfig.RpNames cfg = RpNamesServices.config();
+        LocalRpProfile profile = RpNamesServices.store()
+                .find(gameProfile.id() != null ? gameProfile.id().toString() : null, account)
+                .orElse(null);
+        if (profile != null && !profile.showInTablist) {
+            return account;
+        }
+        if (profile != null && cfg.tablistEnabled && RpNamesServices.isKnownForDisplay(profile)) {
+            return profile.rpName;
+        }
+        if (cfg.tablistEnabled) {
+            return RpNamesServices.unknownDisplay(account);
+        }
+        return account;
+    }
+
+    public static String visibleSortTitle(GameProfile gameProfile, String fallbackTitle) {
+        if (gameProfile == null || !RpNamesServices.isActive()) {
+            return fallbackTitle;
+        }
+        LocalRpProfile profile = RpNamesServices.store()
+                .find(gameProfile.id() != null ? gameProfile.id().toString() : null,
+                        gameProfile.name())
+                .orElse(null);
+        if (profile == null || !profile.showInTablist || !profile.hasTitle()) {
+            return fallbackTitle;
+        }
+        return RpNamesServices.displayTitle(profile);
+    }
+
     private static boolean hasRenderableTitle(LocalRpProfile profile) {
         if (profile == null || !profile.hasTitle()) {
             return false;
