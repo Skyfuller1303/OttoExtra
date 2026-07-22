@@ -16,6 +16,7 @@ import com.mojang.blaze3d.textures.GpuTextureView;
 import com.mojang.blaze3d.textures.TextureFormat;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import de.ottoextra.OttoExtra;
+import de.ottoextra.logging.DebugLog;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.gl.GpuSampler;
@@ -267,7 +268,7 @@ public final class PaintedMapRenderer {
             loadMapTexture(client, TEX_UPPER);
             loadMapTexture(client, TEX_UPPER_HIRES);
             texturesRegistered = true;
-            OttoExtra.LOGGER.info("[map] Gemalte-Karte-Texturen geladen.");
+            DebugLog.debug("[map] Gemalte-Karte-Texturen geladen.");
         }
         if (mapSampler == null) {
             mapSampler = RenderSystem.getDevice().createSampler(

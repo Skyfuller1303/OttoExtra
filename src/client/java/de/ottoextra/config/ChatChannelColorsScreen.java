@@ -37,6 +37,8 @@ public final class ChatChannelColorsScreen extends Screen {
     private final OttoExtraConfig config;
     private final List<TextFieldWidget> labelFields = new ArrayList<>();
     private final List<TextFieldWidget> messageFields = new ArrayList<>();
+    private TextFieldWidget npcNameColorField;
+    private TextFieldWidget npcMessageColorField;
     private TextFieldWidget emoteColorField;
     private TextFieldWidget oocColorField;
     private ButtonWidget emoteItalicButton;
@@ -76,8 +78,12 @@ public final class ChatChannelColorsScreen extends Screen {
             addDrawableChild(label);
 
             TextFieldWidget message = colorField(messageFieldX(), y, colors.messageColor,
-                    Text.translatable("ottoextra.chatColors.server").getString());
-            message.setChangedListener(value -> colors.messageColor = normalized(value));
+                    OttoExtraConfig.Chat.defaultMessageColor(key(channel)));
+            message.setChangedListener(value -> {
+                String color = normalized(value);
+                colors.messageColor = color.isEmpty()
+                        ? OttoExtraConfig.Chat.defaultMessageColor(key(channel)) : color;
+            });
             messageFields.add(message);
             addDrawableChild(message);
 
@@ -86,29 +92,51 @@ public final class ChatChannelColorsScreen extends Screen {
                     .dimensions(resetX(), y, 24, 14).build());
         }
 
-        emoteColorField = colorField(labelFieldX(), styleRowTop(), config.chat.rpEmoteColor,
+        npcNameColorField = colorField(labelFieldX(), styleRowTop(),
+                config.chat.npcNameColor, OttoExtraConfig.Chat.DEFAULT_NPC_NAME_COLOR);
+        npcNameColorField.setChangedListener(value -> {
+            String color = normalized(value);
+            config.chat.npcNameColor = color.isEmpty()
+                    ? OttoExtraConfig.Chat.DEFAULT_NPC_NAME_COLOR : color;
+        });
+        addDrawableChild(npcNameColorField);
+
+        npcMessageColorField = colorField(messageFieldX(), styleRowTop(),
+                config.chat.npcMessageColor, OttoExtraConfig.Chat.DEFAULT_NPC_MESSAGE_COLOR);
+        npcMessageColorField.setChangedListener(value -> {
+            String color = normalized(value);
+            config.chat.npcMessageColor = color.isEmpty()
+                    ? OttoExtraConfig.Chat.DEFAULT_NPC_MESSAGE_COLOR : color;
+        });
+        addDrawableChild(npcMessageColorField);
+        addDrawableChild(ButtonWidget.builder(Text.literal("↺"), button -> resetNpcColors())
+                .dimensions(resetX(), styleRowTop(), 24, 14).build());
+
+        int emoteY = styleRowTop() + ROW_H;
+        emoteColorField = colorField(labelFieldX(), emoteY, config.chat.rpEmoteColor,
                 "#C6C6C6");
         emoteColorField.setChangedListener(value -> {
             String color = normalized(value);
             config.chat.rpEmoteColor = color.isEmpty() ? "#C6C6C6" : color;
         });
         addDrawableChild(emoteColorField);
-        emoteItalicButton = italicButton(messageFieldX(), styleRowTop(), true);
+        emoteItalicButton = italicButton(messageFieldX(), emoteY, true);
         addDrawableChild(emoteItalicButton);
         addDrawableChild(ButtonWidget.builder(Text.literal("↺"), button -> resetStyle(true))
-                .dimensions(resetX(), styleRowTop(), 24, 14).build());
+                .dimensions(resetX(), emoteY, 24, 14).build());
 
-        oocColorField = colorField(labelFieldX(), styleRowTop() + ROW_H,
+        int oocY = styleRowTop() + 2 * ROW_H;
+        oocColorField = colorField(labelFieldX(), oocY,
                 config.chat.rpOocColor, "#B4BEC6");
         oocColorField.setChangedListener(value -> {
             String color = normalized(value);
             config.chat.rpOocColor = color.isEmpty() ? "#B4BEC6" : color;
         });
         addDrawableChild(oocColorField);
-        oocItalicButton = italicButton(messageFieldX(), styleRowTop() + ROW_H, false);
+        oocItalicButton = italicButton(messageFieldX(), oocY, false);
         addDrawableChild(oocItalicButton);
         addDrawableChild(ButtonWidget.builder(Text.literal("↺"), button -> resetStyle(false))
-                .dimensions(resetX(), styleRowTop() + ROW_H, 24, 14).build());
+                .dimensions(resetX(), oocY, 24, 14).build());
 
         int footerY = panelY() + panelH() - 24;
         addDrawableChild(ButtonWidget.builder(
@@ -144,14 +172,20 @@ public final class ChatChannelColorsScreen extends Screen {
         ChatChannelState.ChatChannel channel = CHANNELS[index];
         OttoExtraConfig.ChannelColors colors = config.chat.channelColors(key(channel));
         colors.labelColor = "";
-        colors.messageColor = "";
+        colors.messageColor = OttoExtraConfig.Chat.defaultMessageColor(key(channel));
         setFieldDefault(labelFields.get(index), originalHex(channel));
-        setFieldDefault(messageFields.get(index),
-                Text.translatable("ottoextra.chatColors.server").getString());
+        messageFields.get(index).setText(colors.messageColor);
     }
 
     private void resetChannels() {
         for (int index = 0; index < CHANNELS.length; index++) resetChannel(index);
+    }
+
+    private void resetNpcColors() {
+        config.chat.npcNameColor = OttoExtraConfig.Chat.DEFAULT_NPC_NAME_COLOR;
+        config.chat.npcMessageColor = OttoExtraConfig.Chat.DEFAULT_NPC_MESSAGE_COLOR;
+        npcNameColorField.setText(config.chat.npcNameColor);
+        npcMessageColorField.setText(config.chat.npcMessageColor);
     }
 
     private void resetStyle(boolean emote) {
@@ -208,10 +242,17 @@ public final class ChatChannelColorsScreen extends Screen {
 
         context.drawText(textRenderer, Text.translatable("ottoextra.chatColors.rpFormatting"),
                 px + 9, styleHeaderY(), COL_TITLE, false);
+        int npcY = styleRowTop();
+        int emoteY = npcY + ROW_H;
+        int oocY = npcY + 2 * ROW_H;
+        drawStyleLabel(context, Text.translatable("ottoextra.chatColors.npcName").getString(),
+                npcNameColorField, false, 0xFFC7A87F, npcY);
         drawStyleLabel(context, "*Emotes*", emoteColorField, config.chat.rpEmoteItalic,
-                0xFFC6C6C6, styleRowTop());
+                0xFFC6C6C6, emoteY);
         drawStyleLabel(context, "(OOC)", oocColorField, config.chat.rpOocItalic,
-                0xFFB4BEC6, styleRowTop() + ROW_H);
+                0xFFB4BEC6, oocY);
+        drawSwatch(context, npcNameColorField, 0xFFC7A87F);
+        drawSwatch(context, npcMessageColorField, 0xFFDFC8A7);
         drawSwatch(context, emoteColorField, 0xFFC6C6C6);
         drawSwatch(context, oocColorField, 0xFFB4BEC6);
 
@@ -252,7 +293,7 @@ public final class ChatChannelColorsScreen extends Screen {
     }
 
     private static String originalHex(ChatChannelState.ChatChannel channel) {
-        return String.format(Locale.ROOT, "#%06X", ChatChannelButton.originalColor(channel) & 0xFFFFFF);
+        return ChatChannelButton.originalHex(channel);
     }
 
     private static String key(ChatChannelState.ChatChannel channel) {
@@ -269,6 +310,7 @@ public final class ChatChannelColorsScreen extends Screen {
 
     @Override
     public void close() {
+        config.repair();
         config.save();
         de.ottoextra.rpnames.chat.ChatHistoryRefresh.request();
         MinecraftClient.getInstance().setScreen(parent);

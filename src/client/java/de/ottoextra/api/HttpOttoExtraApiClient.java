@@ -17,6 +17,7 @@ import de.ottoextra.api.model.PlayerRecord;
 import de.ottoextra.api.model.RegionRecord;
 import de.ottoextra.api.model.ProtectedChatInboxEntry;
 import de.ottoextra.config.OttoExtraConfig;
+import de.ottoextra.logging.DebugLog;
 
 import javax.net.ssl.SSLContext;
 import java.net.URI;
@@ -33,6 +34,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
@@ -49,6 +51,7 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
     private final HttpClient http;
     private final ResponseVerifier verifier;
     private final ApiAuthService auth;
+    private final AtomicBoolean warnedInvalidSignature = new AtomicBoolean();
 
     public HttpOttoExtraApiClient(OttoExtraConfig config) {
         this.apiConfig = config.api;
@@ -325,7 +328,7 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
                     }
                     byte[] raw = resp.body();
                     if (!verifier.accept(resp.headers(), raw)) {
-                        OttoExtra.LOGGER.warn("[api] Signatur ungültig — Antwort verworfen ({})", uri.getPath());
+                        warnInvalidSignature(uri);
                         throw ApiProblem.parse(uri, "Signatur ungültig").toException();
                     }
                     return new String(raw == null ? new byte[0] : raw, StandardCharsets.UTF_8);
@@ -367,6 +370,7 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
                     }
                     byte[] raw = response.body();
                     if (!verifier.accept(response.headers(), raw)) {
+                        warnInvalidSignature(uri);
                         throw ApiProblem.parse(uri, "Signatur ungültig").toException();
                     }
                     try {
@@ -430,12 +434,19 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
         return cause instanceof ApiProblem.ApiException api && api.problem().isHttpStatus(status);
     }
 
+    private void warnInvalidSignature(URI uri) {
+        if (warnedInvalidSignature.compareAndSet(false, true)) {
+            OttoExtra.LOGGER.warn(
+                    "[api] Signatur ungültig — Antwort verworfen ({})", uri.getPath());
+        }
+    }
+
     private static Throwable mapError(URI uri, Throwable t) {
         Throwable cause = (t instanceof CompletionException && t.getCause() != null) ? t.getCause() : t;
         if (cause instanceof ApiProblem.ApiException) {
             return cause;
         }
-        OttoExtra.LOGGER.debug("API-Fehler {}: {}", uri, cause.toString());
+        DebugLog.debug("API-Fehler {}: {}", uri, cause.toString());
         return ApiProblem.offline(uri, cause.getClass().getSimpleName()).toException();
     }
 }

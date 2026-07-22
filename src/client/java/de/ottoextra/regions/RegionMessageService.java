@@ -2,6 +2,7 @@ package de.ottoextra.regions;
 
 import de.ottoextra.OttoExtra;
 import de.ottoextra.config.OttoExtraConfig;
+import de.ottoextra.logging.DebugLog;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.sound.PositionedSoundInstance;
 import net.minecraft.sound.SoundEvents;
@@ -84,7 +85,7 @@ public final class RegionMessageService {
         lastRaw = plain;
         current = new RegionState(info.regionName(), info.hierarchyLine(), plain, now);
 
-        OttoExtra.LOGGER.info("[regions] Betreten: {}{} (Quelle: {})",
+        DebugLog.debug("[regions] Betreten: {}{} (Quelle: {})",
                 info.regionName(),
                 info.hierarchyLine().isBlank() ? "" : " (" + info.hierarchyLine() + ")",
                 sourceTag);

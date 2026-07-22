@@ -4,6 +4,7 @@ import de.ottoextra.OttoExtra;
 import de.ottoextra.api.OttoExtraApiClient;
 import de.ottoextra.api.model.FactionRecord;
 import de.ottoextra.config.OttoExtraPaths;
+import de.ottoextra.logging.DebugLog;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.texture.NativeImage;
 import net.minecraft.client.texture.NativeImageBackedTexture;
@@ -104,7 +105,7 @@ public final class BannerTextureService {
         }
         api.downloadBinary(uri).whenComplete((bytes, t) -> {
             if (t != null || bytes == null || !isPng(bytes)) {
-                OttoExtra.LOGGER.debug("[regions] Banner-Download fehlgeschlagen ({}): {}",
+                DebugLog.debug("[regions] Banner-Download fehlgeschlagen ({}): {}",
                         uri, t != null ? t.toString() : "kein PNG");
                 inFlight.remove(uuid);
                 failed.add(uuid);
@@ -120,7 +121,7 @@ public final class BannerTextureService {
                     Files.move(tmp, cached, StandardCopyOption.REPLACE_EXISTING);
                 }
             } catch (Exception e) {
-                OttoExtra.LOGGER.debug("[regions] Banner-Cache schreiben fehlgeschlagen: {}", e.getMessage());
+                DebugLog.debug("[regions] Banner-Cache schreiben fehlgeschlagen: {}", e.getMessage());
             }
             writeSourceMarker(uuid, relative);
             refreshedThisSession.add(uuid);
@@ -154,7 +155,7 @@ public final class BannerTextureService {
                 }
                 writeSourceMarker(key, relativePath);
             } catch (Exception e) {
-                OttoExtra.LOGGER.debug("[regions] Banner-Refresh schreiben fehlgeschlagen: {}", e.getMessage());
+                DebugLog.debug("[regions] Banner-Refresh schreiben fehlgeschlagen: {}", e.getMessage());
             }
             inFlight.add(key);
             registerBytes(key, bytes);
@@ -210,7 +211,7 @@ public final class BannerTextureService {
                 texturesByUuid.put(uuid, id);
             } catch (Throwable t) {
                 failed.add(uuid);
-                OttoExtra.LOGGER.debug("[regions] Banner-Textur fehlgeschlagen ({}): {}", uuid, t.toString());
+                DebugLog.debug("[regions] Banner-Textur fehlgeschlagen ({}): {}", uuid, t.toString());
             } finally {
                 inFlight.remove(uuid);
             }

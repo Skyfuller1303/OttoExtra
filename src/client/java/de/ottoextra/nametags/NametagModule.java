@@ -1,9 +1,9 @@
 package de.ottoextra.nametags;
 
-import de.ottoextra.OttoExtra;
 import de.ottoextra.OttoExtraContext;
 import de.ottoextra.OttoExtraModule;
 import de.ottoextra.config.OttoExtraConfig;
+import de.ottoextra.logging.DebugLog;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.client.option.KeyBinding;
@@ -48,7 +48,7 @@ public final class NametagModule implements OttoExtraModule {
             }
         });
 
-        OttoExtra.LOGGER.info("[nametags] initialisiert — Modus {}.", config.nametags.mode);
+        DebugLog.debug("[nametags] initialisiert — Modus {}.", config.nametags.mode);
     }
 
     private static int keyCode(String name, int fallback) {

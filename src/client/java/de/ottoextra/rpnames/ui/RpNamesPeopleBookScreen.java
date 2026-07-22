@@ -104,6 +104,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
 
     private net.minecraft.client.network.AbstractClientPlayerEntity previewEntity;
     private String previewEntityKey;
+    private String previewFailureKey;
 
     private static final java.util.UUID FALLBACK_SKIN_UUID =
             new java.util.UUID(0L, 0L);
@@ -1891,11 +1892,13 @@ public final class RpNamesPeopleBookScreen extends Screen {
             previewEntity = null;
             return;
         }
-        if (key.equals(previewEntityKey) && previewEntity != null) {
+        if (key.equals(previewEntityKey)
+                && (previewEntity != null || key.equals(previewFailureKey))) {
             return;
         }
         previewEntityKey = key;
         previewEntity = null;
+        previewFailureKey = null;
         try {
 
             com.mojang.authlib.GameProfile profile = serverProfile(client, key);
@@ -1937,8 +1940,9 @@ public final class RpNamesPeopleBookScreen extends Screen {
             previewEntity = entity;
         } catch (Throwable t) {
             previewEntity = null;
-            de.ottoextra.OttoExtra.LOGGER.warn("[rpnames] 3D-Vorschau fuer {} fehlgeschlagen: {}",
-                    key, t.toString());
+            previewFailureKey = key;
+            de.ottoextra.OttoExtra.LOGGER.warn(
+                    "[rpnames] 3D-Vorschau konnte nicht erstellt werden: {}", t.toString());
         }
     }
 

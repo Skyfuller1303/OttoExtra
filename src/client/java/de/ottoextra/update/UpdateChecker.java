@@ -3,6 +3,7 @@ package de.ottoextra.update;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import de.ottoextra.OttoExtra;
+import de.ottoextra.logging.DebugLog;
 import de.ottoextra.welcome.WelcomeScreenManager;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.loader.api.FabricLoader;
@@ -65,21 +66,21 @@ public final class UpdateChecker {
         HTTP.sendAsync(request, HttpResponse.BodyHandlers.ofString())
                 .thenAccept(response -> handleResponse(currentVersion, response))
                 .exceptionally(error -> {
-                    OttoExtra.LOGGER.debug("Update-Pruefung nicht moeglich: {}", rootMessage(error));
+                    DebugLog.debug("Update-Pruefung nicht moeglich: {}", rootMessage(error));
                     return null;
                 });
     }
 
     private static void handleResponse(String currentVersion, HttpResponse<String> response) {
         if (response.statusCode() != 200) {
-            OttoExtra.LOGGER.debug("GitHub-Update-Pruefung antwortete mit HTTP {}.",
+            DebugLog.debug("GitHub-Update-Pruefung antwortete mit HTTP {}.",
                     response.statusCode());
             return;
         }
 
         String body = response.body();
         if (body == null || body.isBlank() || body.length() > MAX_RESPONSE_CHARS) {
-            OttoExtra.LOGGER.debug("GitHub-Update-Antwort war leer oder unerwartet gross.");
+            DebugLog.debug("GitHub-Update-Antwort war leer oder unerwartet gross.");
             return;
         }
 
@@ -93,7 +94,7 @@ public final class UpdateChecker {
             VersionNumber local = VersionNumber.parse(currentVersion);
             VersionNumber remote = VersionNumber.parse(tag);
             if (!remote.isNewerThan(local)) {
-                OttoExtra.LOGGER.debug("OttoExtra ist aktuell (lokal {}, GitHub {}).",
+                DebugLog.debug("OttoExtra ist aktuell (lokal {}, GitHub {}).",
                         local.normalized(), remote.normalized());
                 return;
             }
@@ -113,7 +114,7 @@ public final class UpdateChecker {
             OttoExtra.LOGGER.info("Neue OttoExtra-Version verfuegbar: {} (installiert: {}).",
                     info.latestVersion(), info.currentVersion());
         } catch (RuntimeException error) {
-            OttoExtra.LOGGER.debug("GitHub-Update-Antwort konnte nicht gelesen werden: {}",
+            DebugLog.debug("GitHub-Update-Antwort konnte nicht gelesen werden: {}",
                     rootMessage(error));
         }
     }

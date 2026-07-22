@@ -4,6 +4,7 @@ import de.ottoextra.OttoExtra;
 import de.ottoextra.OttoExtraContext;
 import de.ottoextra.OttoExtraModule;
 import de.ottoextra.config.OttoExtraConfig;
+import de.ottoextra.logging.DebugLog;
 import de.ottoextra.regions.RegionDataService;
 import de.ottoextra.regions.RegionsServices;
 import de.ottoextra.rpnames.RpNamesServices;
@@ -35,7 +36,7 @@ public final class PlayerListSortingModule implements OttoExtraModule {
         }
         service = new PlayerListSortingService(context.api(), regions, titles,
                 context.config().rpnames);
-        OttoExtra.LOGGER.info("[playerlist] Lehen-/Titel-Sortierung initialisiert.");
+        DebugLog.debug("[playerlist] Lehen-/Titel-Sortierung initialisiert.");
     }
 
     @Override

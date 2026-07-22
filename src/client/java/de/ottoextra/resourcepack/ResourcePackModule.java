@@ -1,9 +1,9 @@
 package de.ottoextra.resourcepack;
 
-import de.ottoextra.OttoExtra;
 import de.ottoextra.OttoExtraContext;
 import de.ottoextra.OttoExtraModule;
 import de.ottoextra.config.OttoExtraConfig;
+import de.ottoextra.logging.DebugLog;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 
 public final class ResourcePackModule implements OttoExtraModule {
@@ -22,7 +22,7 @@ public final class ResourcePackModule implements OttoExtraModule {
 
     @Override
     public void onInitializeClient(OttoExtraContext context) {
-        OttoExtra.LOGGER.info("[resourcepack] initialisiert — pruefe auf Update.");
+        DebugLog.debug("[resourcepack] initialisiert — pruefe auf Update.");
         this.updater = new ResourcePackUpdater(context.config());
 
         ClientTickEvents.END_CLIENT_TICK.register(PackInstaller::tick);

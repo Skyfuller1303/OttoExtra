@@ -1,6 +1,7 @@
 package de.ottoextra.welcome;
 
 import de.ottoextra.OttoExtra;
+import de.ottoextra.logging.DebugLog;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
@@ -45,7 +46,7 @@ public final class WelcomeScreenManager {
         String version = installedVersion();
         WelcomeState.markAccepted(version);
         ACCEPTED.set(true);
-        OttoExtra.LOGGER.info("OttoExtra-Willkommensbildschirm bestaetigt (Version {}).", version);
+        DebugLog.debug("OttoExtra-Willkommensbildschirm bestaetigt (Version {}).", version);
     }
 
     /**

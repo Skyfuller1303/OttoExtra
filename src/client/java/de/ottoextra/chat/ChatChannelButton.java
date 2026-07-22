@@ -3,6 +3,8 @@ package de.ottoextra.chat;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 
+import java.util.Locale;
+
 public final class ChatChannelButton {
 
     public static final int MARGIN_LEFT = 4;
@@ -75,6 +77,10 @@ public final class ChatChannelButton {
             case OFFTOPIC -> 0xFFB4BEC6;
             case HILFE -> 0xFFB53764;
         };
+    }
+
+    public static String originalHex(ChatChannelState.ChatChannel channel) {
+        return String.format(Locale.ROOT, "#%06X", originalColor(channel) & 0xFFFFFF);
     }
 
     private static int brighten(int argb) {

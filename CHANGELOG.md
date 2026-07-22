@@ -1,5 +1,67 @@
 # Changelog
 
+## [0.1.15.3] – 2026-07-22
+
+### Hinzugefügt
+
+- Sitzungsbezogene Debug-Steuerung über `/ottoextra debug on`,
+  `/ottoextra debug off` und `/ottoextra debug status`. Debug ist nach jedem
+  Clientstart standardmäßig deaktiviert.
+- NPC-Namensfarbe und NPC-Nachrichtenfarbe lassen sich getrennt in der
+  Chatfarben-Verwaltung konfigurieren. Standardwerte sind `#C7A87F` für Namen
+  und `#DFC8A7` für Nachrichten.
+- Betreten-Einblendungen können beim Lehnsherrn den lokal vorhandenen RP-Namen
+  anzeigen. Die Option ist standardmäßig aktiv; ohne RP-Namen bleibt der
+  Accountname sichtbar.
+
+### Geändert
+
+- Nachrichtenfarben aller Chatkanäle sind als konkrete Hexwerte vorausgefüllt:
+  Sprechen `#DFC8A7`, Flüstern `#768491`, Murmeln `#58666F`, Rufen `#D2BF6A`,
+  Brüllen `#FCF47E`, Offtopic `#B4BEC6` und Hilfe `#B53764`.
+- Bestehende Konfigurationen mit leeren oder ungültigen Nachrichtenfarben werden
+  automatisch auf den jeweiligen Kanalstandard migriert. Eigene gültige Farben
+  bleiben erhalten.
+- Beim Öffnen der echten Xaero-Weltkarte wird sofort ein inkrementeller
+  Ottonien-Regionssync angestoßen. Nur dieser Karten-Trigger besitzt einen
+  Cooldown von einer Minute; Join- und periodische Synchronisierung bleiben
+  unverändert.
+- Änderungen an Chatkanal-, NPC-, Emote- und OOC-Farben werden auch auf bereits
+  sichtbare Chatzeilen angewendet.
+- Normale Logs wurden entschlackt. Detaillierte Diagnoseausgaben erscheinen nur
+  bei aktivierter Debug-Sitzung in Fabrics `logs/debug.log`; wiederholte Render-,
+  Chat-, Download- und API-Fehler werden gedrosselt.
+- Chat-, Account-, UUID-, RP-Namens- und API-Nutzdaten werden nicht mehr in
+  OttoExtras normalen Diagnosemeldungen ausgegeben.
+
+### Behoben
+
+- Shift-Rechtsklick auf Spieler öffnet bei einer aktiven Bossbar mit `IM KAMPF`
+  weder Personenbuch noch Kennenlernfenster. Prüfung ignoriert Groß-/Kleinschreibung
+  und wird direkt vor verzögerten Screen-Öffnungen wiederholt.
+- Kann der aktuelle Spielerstand beim Kennenlernen nicht über die API geladen
+  werden, öffnet das Kennenlernfenster mit lokal gecachten oder im Chat gesehenen
+  RP-Daten statt mit einer Fehlermeldung. Vorhandene lokale Namen vermeiden die
+  unnötige Einzelabfrage vollständig.
+- NPCs in Sprechen, Reden und weiteren RP-Sprechkanälen bleiben nicht länger in
+  grauer Serverfarbe. Erkennung funktioniert generisch ohne hardcodierte
+  NPC-Namensliste.
+- Strukturierte Minecraft-Textkomponenten und alte `§`-Farbcodes werden bei der
+  NPC-Einfärbung korrekt verarbeitet, ohne sichtbare Steuerzeichen oder
+  verschobene Textbereiche.
+- Hover-, Klick-, Einfüge-, Schrift-/Sprite- und Formatierungsinformationen der
+  ursprünglichen Chatzeile bleiben beim Umfärben erhalten.
+- NPCs durchlaufen weder Spieler-Kennenlernen noch RP-Namensspeicherung oder
+  API-Upload.
+- NPC-Nachrichtenfarbe überschreibt die jeweilige Kanal-Nachrichtenfarbe;
+  `*Emotes*` und `(OOC)` behalten weiterhin ihre eigenen, höher priorisierten
+  Farben.
+- Lehnsherr-RP-Namen aus dem lokalen API-Abgleich werden im Betreten-Toast nicht
+  mehr durch den Kennenlernstatus ausgeblendet. Chat, Tabliste und Nametags
+  behalten ihre bestehenden Sichtbarkeitsregeln.
+- Politische `lord_name`-Daten werden nicht mehr fälschlich als Spielerfallback
+  für den Lehnsherrn verwendet.
+
 ## [0.1.15] – 2026-07-19
 
 ### Hinzugefügt

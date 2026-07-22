@@ -1,7 +1,8 @@
 package de.ottoextra.rpnames.chat;
 
+import de.ottoextra.logging.DebugLog;
+import de.ottoextra.chat.ChatMessagePipeline;
 import de.ottoextra.mixin.ChatHudAccessor;
-import de.ottoextra.rpnames.RpNamesServices;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.hud.ChatHud;
 import net.minecraft.client.gui.hud.ChatHudLine;
@@ -51,10 +52,8 @@ public final class ChatHistoryRefresh {
         for (int index = 0; index < messages.size(); index++) {
             ChatHudLine line = messages.get(index);
             Text original = ORIGINAL_MESSAGES.getOrDefault(line.content(), line.content());
-            Text displayed = RpNamesServices.rewriteChatDisplay(original);
-            displayed = de.ottoextra.chat.ChatChannelFormatter.format(displayed);
-            displayed = de.ottoextra.chat.RpChatFormatter.format(displayed);
-            displayed = de.ottoextra.addon.OttoExtraAddons.processChatMessage(displayed);
+            Text displayed = ChatMessagePipeline.formatHistory(
+                    original, line.signature(), line.indicator());
             if (displayed == null || displayed.equals(line.content())) {
                 continue;
             }
@@ -70,7 +69,7 @@ public final class ChatHistoryRefresh {
 
         if (changed > 0) {
             accessor.ottoextra$refresh();
-            de.ottoextra.OttoExtra.LOGGER.info(
+            DebugLog.debug(
                     "[rpnames] {} bestehende Chatzeile(n) aktualisiert.", changed);
         }
     }

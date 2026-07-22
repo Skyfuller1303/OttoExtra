@@ -2,6 +2,8 @@ package de.ottoextra.map.xaero;
 
 import de.ottoextra.OttoExtra;
 import de.ottoextra.config.OttoExtraConfig;
+import de.ottoextra.logging.DebugLog;
+import de.ottoextra.logging.FailureLogGate;
 import de.ottoextra.map.LehenPolygonStore;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.VertexConsumerProvider;
@@ -67,6 +69,7 @@ public final class XaeroMinimapBorders extends MinimapElementRenderer<XaeroMinim
     private Field fCircle;
     private boolean fieldsResolved = false;
     private boolean fieldsFailed = false;
+    private final FailureLogGate renderFailureLog = new FailureLogGate();
 
     private XaeroMinimapBorders(OttoExtraConfig.Map cfg, BooleanSupplier visible,
                                 MinimapElementOverMapRendererHandler handler) {
@@ -92,7 +95,7 @@ public final class XaeroMinimapBorders extends MinimapElementRenderer<XaeroMinim
             }
             over.add(new XaeroMinimapBorders(cfg, visible, over));
             registered = true;
-            OttoExtra.LOGGER.info("[map] Minimap-Grenzen registriert (Xaero Element-Pipeline).");
+            DebugLog.debug("[map] Minimap-Grenzen registriert (Xaero Element-Pipeline).");
             return true;
         } catch (Throwable t) {
             OttoExtra.LOGGER.warn("[map] Minimap-Registrierung fehlgeschlagen: {}", t.toString());
@@ -203,8 +206,13 @@ public final class XaeroMinimapBorders extends MinimapElementRenderer<XaeroMinim
                 double y2 = (pc * ox2 + ps * oy2) * zoom;
                 drawClippedSegment(graphics, pose, x1, y1, x2, y2, halfView, circle, color, width, cfg);
             }
+            if (renderFailureLog.onSuccess()) {
+                DebugLog.debug("[map] Minimap-Grenzen nach Renderfehler wieder aktiv.");
+            }
         } catch (Throwable t) {
-            OttoExtra.LOGGER.debug("[map] Minimap-Grenzen Renderfehler: {}", t.toString());
+            if (renderFailureLog.onFailure()) {
+                DebugLog.debug("[map] Minimap-Grenzen Renderfehler: {}", t.toString());
+            }
         }
         return false;
     }

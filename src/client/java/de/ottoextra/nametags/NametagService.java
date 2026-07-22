@@ -1,6 +1,7 @@
 package de.ottoextra.nametags;
 
 import de.ottoextra.config.OttoExtraConfig;
+import de.ottoextra.logging.DebugLog;
 import de.ottoextra.rpnames.RpNamesServices;
 import de.ottoextra.rpnames.chat.ChatNameRewriter;
 import de.ottoextra.rpnames.model.LocalRpProfile;
@@ -307,7 +308,7 @@ public final class NametagService {
 
     private static void debugOnce(String key, String reason) {
         if (DEBUG_LOGGED.add(key)) {
-            de.ottoextra.OttoExtra.LOGGER.info("[nametags] {} -> Vanilla ({})", key, reason);
+            DebugLog.debug("[nametags] {} -> Vanilla ({})", key, reason);
         }
     }
 
