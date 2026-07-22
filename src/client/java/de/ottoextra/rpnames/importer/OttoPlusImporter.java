@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import de.ottoextra.OttoExtra;
 import de.ottoextra.config.OttoExtraPaths;
+import de.ottoextra.logging.DebugLog;
 import de.ottoextra.rpnames.model.KnowledgeState;
 import de.ottoextra.rpnames.model.LocalRpProfile;
 import de.ottoextra.rpnames.model.RpNameSource;
@@ -118,7 +119,7 @@ public final class OttoPlusImporter {
             }
         }
         store.saveNow();
-        OttoExtra.LOGGER.info("[rpnames] OttoPlus-Import: {} Einträge, {} aktualisiert, "
+        DebugLog.debug("[rpnames] OttoPlus-Import: {} Einträge, {} aktualisiert, "
                 + "{} angelegt, {} gesperrt übersprungen.",
                 players.size(), updated, created, skippedLocked);
         return new Result(players.size(), updated, created, skippedLocked, null);

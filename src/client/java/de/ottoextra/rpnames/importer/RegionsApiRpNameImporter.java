@@ -3,6 +3,7 @@ package de.ottoextra.rpnames.importer;
 import com.google.gson.Gson;
 import com.google.gson.annotations.SerializedName;
 import de.ottoextra.OttoExtra;
+import de.ottoextra.logging.DebugLog;
 import de.ottoextra.rpnames.model.KnowledgeState;
 import de.ottoextra.rpnames.model.LocalRpProfile;
 import de.ottoextra.rpnames.model.RpNameSource;
@@ -145,7 +146,7 @@ public final class RegionsApiRpNameImporter {
             }
         }
         store.saveNow();
-        OttoExtra.LOGGER.info("[rpnames] API-Import: {} Spieler, {} ergänzt, {} angelegt, {} Konflikte.",
+        DebugLog.debug("[rpnames] API-Import: {} Spieler, {} ergänzt, {} angelegt, {} Konflikte.",
                 env.players.size(), updated, created, conflicts);
         return new Result(env.players.size(), updated, created, conflicts, null);
     }

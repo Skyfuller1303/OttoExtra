@@ -1,10 +1,10 @@
 package de.ottoextra.tweaks;
 
 import com.mojang.brigadier.arguments.FloatArgumentType;
-import de.ottoextra.OttoExtra;
 import de.ottoextra.OttoExtraContext;
 import de.ottoextra.OttoExtraModule;
 import de.ottoextra.config.OttoExtraConfig;
+import de.ottoextra.logging.DebugLog;
 import de.ottoextra.tweaks.lowhealth.LowHealthHudOverlay;
 import de.ottoextra.tweaks.lowhealth.LowHealthMath;
 import de.ottoextra.tweaks.lowhealth.LowHealthSoundController;
@@ -50,7 +50,7 @@ public final class TweaksModule implements OttoExtraModule {
 
         registerCommands(config);
 
-        OttoExtra.LOGGER.info("[tweaks] initialisiert (Low-Health-Effekt + Werkzeugschutz + Test-Commands).");
+        DebugLog.debug("[tweaks] initialisiert (Low-Health-Effekt + Werkzeugschutz + Test-Commands).");
     }
 
     private void registerCommands(OttoExtraConfig config) {

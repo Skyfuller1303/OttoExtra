@@ -1,9 +1,6 @@
 package de.ottoextra.rpnames.upload;
 
-import com.google.gson.JsonObject;
 import org.junit.jupiter.api.Test;
-
-import java.net.URI;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -79,25 +76,5 @@ final class RpNameUploadServiceTest {
         String result = data.toJson().get("rp_name").getAsString();
         assertEquals(120, result.codePointCount(0, result.length()));
         assertTrue(result.endsWith("𐍈"));
-    }
-
-    @Test
-    void requestLogContainsOnlySupportedApiFields() {
-        JsonObject json = new JsonObject();
-        json.addProperty("uuid", ACTOR_UUID);
-        json.addProperty("target_uuid", TARGET_UUID);
-        json.addProperty("rp_name", "Roman von Marienburg");
-
-        String log = RpNameUploadService.formatRequestForLog(
-                URI.create("https://api.ottoextra.dev/api/index.php?action=community-participant-rp-name"),
-                "OttoExtra/0.1.23",
-                json);
-
-        assertTrue(log.startsWith("POST https://api.ottoextra.dev/api/index.php?action=community-participant-rp-name\n"));
-        assertTrue(log.contains("Content-Type: application/json; charset=UTF-8"));
-        assertTrue(log.contains("Accept: application/json"));
-        assertTrue(log.contains("User-Agent: OttoExtra/0.1.23"));
-        assertTrue(log.endsWith("Body: " + json));
-        assertFalse(log.contains("\"title\""));
     }
 }

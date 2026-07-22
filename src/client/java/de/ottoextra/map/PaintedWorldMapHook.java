@@ -2,11 +2,15 @@ package de.ottoextra.map;
 
 import de.ottoextra.OttoExtra;
 import de.ottoextra.config.OttoExtraConfig;
+import de.ottoextra.logging.DebugLog;
+import de.ottoextra.logging.FailureLogGate;
 import net.minecraft.client.gui.screen.Screen;
 
 import java.util.function.BooleanSupplier;
 
 public final class PaintedWorldMapHook {
+
+    private static final FailureLogGate FAILURE_LOG = new FailureLogGate();
 
     private static volatile OttoExtraConfig.Map cfg;
     private static volatile BooleanSupplier visible;
@@ -35,8 +39,13 @@ public final class PaintedWorldMapHook {
             }
             PaintedMapRenderer.setUserOffset(c.paintedMapOffsetX, c.paintedMapOffsetZ);
             PaintedMapRenderer.render(view, screen.width, screen.height);
+            if (FAILURE_LOG.onSuccess()) {
+                DebugLog.debug("[map] PaintedMap-Hook wieder aktiv.");
+            }
         } catch (Throwable t) {
-            OttoExtra.LOGGER.warn("[map] PaintedMap-Hook-Fehler: {}", t.toString());
+            if (FAILURE_LOG.onFailure()) {
+                OttoExtra.LOGGER.warn("[map] PaintedMap-Hook-Fehler: {}", t.toString());
+            }
         }
     }
 }

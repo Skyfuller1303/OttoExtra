@@ -4,6 +4,8 @@ import de.ottoextra.OttoExtra;
 import de.ottoextra.OttoExtraContext;
 import de.ottoextra.OttoExtraModule;
 import de.ottoextra.config.OttoExtraConfig;
+import de.ottoextra.logging.DebugLog;
+import de.ottoextra.logging.FailureLogGate;
 import de.ottoextra.regions.RegionsServices;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
@@ -15,6 +17,8 @@ import org.lwjgl.glfw.GLFW;
 public final class MapModule implements OttoExtraModule {
 
     private static volatile boolean overlayVisible = true;
+    private final FailureLogGate overlayFailureLog = new FailureLogGate();
+    private final MapOpenSyncGate mapOpenSyncGate = new MapOpenSyncGate();
     private boolean minimapHooked = false;
 
     private KeyBinding toggleKey;
@@ -34,7 +38,7 @@ public final class MapModule implements OttoExtraModule {
         OttoExtraConfig.Map cfg = context.config().map;
 
         if (!XaeroMapBridge.isWorldmapInstalled()) {
-            OttoExtra.LOGGER.info("[map] Xaero World Map nicht installiert — Overlay inaktiv.");
+            DebugLog.debug("[map] Xaero World Map nicht installiert — Overlay inaktiv.");
         }
 
         PoliticalOverlay.setUserGroupColors(cfg.groupColors);
@@ -64,8 +68,10 @@ public final class MapModule implements OttoExtraModule {
             if (!XaeroMapBridge.isWorldmapScreen(screen)) {
                 return;
             }
-            if (context.isOnOttonien() && RegionsServices.data() != null) {
-                RegionsServices.data().syncNow();
+            var regionData = RegionsServices.data();
+            if (context.isOnOttonien() && regionData != null
+                    && mapOpenSyncGate.tryAcquire()) {
+                regionData.syncNow();
             }
             LehenPolygonStore.ensureLoaded();
             PoliticalOverlay.clearSelection();
@@ -104,7 +110,7 @@ public final class MapModule implements OttoExtraModule {
                     return msg.matches("(?i).*switch to (the )?(nether|overworld|end).*");
                 });
             } catch (Throwable t) {
-                OttoExtra.LOGGER.debug("[map] Politik-Button nicht einfuegbar: {}", t.toString());
+                DebugLog.debug("[map] Politik-Button nicht einfuegbar: {}", t.toString());
             }
 
             double[] press = {Double.NaN, Double.NaN};
@@ -141,7 +147,7 @@ public final class MapModule implements OttoExtraModule {
                                 return true;
                             }
                         } catch (Throwable t) {
-                            OttoExtra.LOGGER.debug("[map] Klick-Fokus-Fehler: {}", t.toString());
+                            DebugLog.debug("[map] Klick-Fokus-Fehler: {}", t.toString());
                         }
                         return handled;
                     });
@@ -159,10 +165,14 @@ public final class MapModule implements OttoExtraModule {
                         MapOverlayRenderer.render(drawContext, view, cfg, mouseX, mouseY);
                         ParchmentMapOverlay.render(drawContext, view, cfg);
                         MapSelectionPanel.render(drawContext, view, cfg);
+                        if (overlayFailureLog.onSuccess()) {
+                            DebugLog.debug("[map] Overlay nach Renderfehler wieder aktiv.");
+                        }
                     }
                 } catch (Throwable t) {
-
-                    OttoExtra.LOGGER.warn("[map] Overlay-Fehler: {}", t.toString());
+                    if (overlayFailureLog.onFailure()) {
+                        OttoExtra.LOGGER.warn("[map] Overlay-Fehler: {}", t.toString());
+                    }
                 }
             });
         });
@@ -184,7 +194,7 @@ public final class MapModule implements OttoExtraModule {
                         de.ottoextra.map.xaero.MinimapBannerOverlay.render(drawContext, cfg);
                     });
         } else {
-            OttoExtra.LOGGER.info("[map] Xaero Minimap nicht installiert — Minimap-Grenzen inaktiv.");
+            DebugLog.debug("[map] Xaero Minimap nicht installiert — Minimap-Grenzen inaktiv.");
         }
 
         toggleKey = new KeyBinding(
@@ -200,7 +210,7 @@ public final class MapModule implements OttoExtraModule {
                     continue;
                 }
                 overlayVisible = !overlayVisible;
-                OttoExtra.LOGGER.info("[map] Overlay {}", overlayVisible ? "an" : "aus");
+                DebugLog.debug("[map] Overlay {}", overlayVisible ? "an" : "aus");
                 if (client.player != null) {
                     client.player.sendMessage(net.minecraft.text.Text.translatable(
                             overlayVisible ? "ottoextra.map.overlayOn" : "ottoextra.map.overlayOff"), true);
@@ -208,7 +218,7 @@ public final class MapModule implements OttoExtraModule {
             }
         });
 
-        OttoExtra.LOGGER.info("[map] initialisiert (Xaero-Overlay: Grenzen/Namen/Wappen).");
+        DebugLog.debug("[map] initialisiert (Xaero-Overlay: Grenzen/Namen/Wappen).");
     }
 
     private static boolean isOverButton(net.minecraft.client.gui.screen.Screen screen,

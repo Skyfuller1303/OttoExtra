@@ -3,6 +3,7 @@ package de.ottoextra.resourcepack;
 import de.ottoextra.OttoExtra;
 import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.config.OttoExtraPaths;
+import de.ottoextra.logging.DebugLog;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -51,7 +52,7 @@ public final class ResourcePackUpdater {
     public void runAsync() {
         String source = cfg.effectiveSource();
         if (source.isBlank()) {
-            OttoExtra.LOGGER.info("[resourcepack] Keine Quelle konfiguriert — uebersprungen.");
+            DebugLog.debug("[resourcepack] Keine Quelle konfiguriert — uebersprungen.");
             return;
         }
         if (!source.startsWith("https://")) {
@@ -59,7 +60,7 @@ public final class ResourcePackUpdater {
             return;
         }
         if (!cfg.checkOnStartup) {
-            OttoExtra.LOGGER.info("[resourcepack] checkOnStartup=false — kein Update-Check.");
+            DebugLog.debug("[resourcepack] checkOnStartup=false — kein Update-Check.");
             return;
         }
 
@@ -84,7 +85,7 @@ public final class ResourcePackUpdater {
                     ? state.matchesSha(manifest.sha256())
                     : (manifest.version() != null && manifest.version().equals(state.version));
             if (upToDate) {
-                OttoExtra.LOGGER.info("[resourcepack] Aktuell (Version {}) — kein Download.", state.version);
+                DebugLog.debug("[resourcepack] Aktuell (Version {}) — kein Download.", state.version);
                 markChecked(state, manifest.version());
                 ensureActivation(state);
                 return CompletableFuture.completedFuture(null);
@@ -110,7 +111,7 @@ public final class ResourcePackUpdater {
 
     private CompletableFuture<Void> directZipFlow(URI zipUri, PackState state) {
         if (Files.exists(OttoExtraPaths.serverPackFile())) {
-            OttoExtra.LOGGER.info("[resourcepack] Direkt-Modus: Pack vorhanden, kein erneuter Download (ETag-Check folgt).");
+            DebugLog.debug("[resourcepack] Direkt-Modus: Pack vorhanden, kein erneuter Download (ETag-Check folgt).");
             ensureActivation(state);
             return CompletableFuture.completedFuture(null);
         }
@@ -142,15 +143,15 @@ public final class ResourcePackUpdater {
         if (cfg.autoEnable && !userDisabled) {
 
             PackInstaller.requestActivation(cfg.priorityTop);
-            OttoExtra.LOGGER.info("[resourcepack] Aktivierung vorgemerkt (greift am Titelscreen).");
+            DebugLog.debug("[resourcepack] Aktivierung vorgemerkt (greift am Titelscreen).");
         } else {
-            OttoExtra.LOGGER.info("[resourcepack] Geladen, aber nicht automatisch aktiviert (Config/Spielerwunsch).");
+            DebugLog.debug("[resourcepack] Geladen, aber nicht automatisch aktiviert (Config/Spielerwunsch).");
         }
     }
 
     private void handleFailure(Throwable t, PackState state) {
         Throwable cause = (t.getCause() != null) ? t.getCause() : t;
-        OttoExtra.LOGGER.info("[resourcepack] Update nicht moeglich ({}). Gecachter Pack bleibt aktiv.",
+        DebugLog.debug("[resourcepack] Update nicht moeglich ({}). Gecachter Pack bleibt aktiv.",
                 cause.getMessage());
         markChecked(state, null);
     }

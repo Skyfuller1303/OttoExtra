@@ -1,6 +1,7 @@
 package de.ottoextra.regions;
 
 import de.ottoextra.api.model.FactionRecord;
+import de.ottoextra.rpnames.RpNamesServices;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gl.RenderPipelines;
@@ -242,8 +243,12 @@ public final class RegionNotificationOverlay {
         }
         String factionLine = currentFaction != null && currentFaction.name() != null
                 ? currentFaction.name() : "";
-        String leaderLine = currentFaction != null
-                ? firstNonBlank(currentFaction.leader_name(), currentFaction.lord_name()) : "";
+        String leaderAccount = currentFaction != null
+                && currentFaction.leader_name() != null
+                ? currentFaction.leader_name() : "";
+        String leaderLine = leaderDisplayName(leaderAccount,
+                regionCfg == null || regionCfg.showLeaderRpName,
+                RpNamesServices::knownRpNameForDisplay);
         MinecraftClient mc = MinecraftClient.getInstance();
         String coordinateLine = mc.player != null
                 ? Math.round(mc.player.getX()) + " / " + Math.round(mc.player.getZ()) : "";
@@ -274,7 +279,8 @@ public final class RegionNotificationOverlay {
                     hierarchyScale, pal.hierarchy()));
         }
         if (regionCfg != null && regionCfg.showLeader && !leaderLine.isBlank()) {
-            lines.add(new ScaledLine(Text.literal("Lehnsherr: " + leaderLine).asOrderedText(),
+            lines.add(new ScaledLine(Text.translatable(
+                            "ottoextra.regions.toast.leader", leaderLine).asOrderedText(),
                     hierarchyScale, pal.hierarchy()));
         }
         if (regionCfg != null && regionCfg.showCoordinates && !coordinateLine.isBlank()) {
@@ -367,11 +373,21 @@ public final class RegionNotificationOverlay {
         return faction.flatMap(banners::bannerFor).orElse(null);
     }
 
-    private static String firstNonBlank(String a, String b) {
-        if (a != null && !a.isBlank()) {
-            return a;
+    static String leaderDisplayName(
+            String accountName,
+            boolean useRpName,
+            java.util.function.Function<String, Optional<String>> resolver) {
+        if (accountName == null || accountName.isBlank()) {
+            return "";
         }
-        return b == null ? "" : b;
+        String account = accountName.trim();
+        if (!useRpName || resolver == null) {
+            return account;
+        }
+        return resolver.apply(account)
+                .filter(value -> !value.isBlank())
+                .map(String::trim)
+                .orElse(account);
     }
 
     private static int withAlpha(int argb, float a) {

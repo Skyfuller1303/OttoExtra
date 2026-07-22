@@ -6,6 +6,7 @@ import de.ottoextra.api.OttoExtraApiClient;
 import de.ottoextra.api.model.CompactPlayer;
 import de.ottoextra.api.model.FactionRecord;
 import de.ottoextra.config.OttoExtraConfig;
+import de.ottoextra.logging.DebugLog;
 import de.ottoextra.regions.RegionDataService;
 import de.ottoextra.rpnames.tablist.TablistNameFormatter;
 import de.ottoextra.rpnames.title.TitleRegistry;
@@ -56,13 +57,13 @@ final class PlayerListSortingService {
                         return;
                     }
                     if (error != null) {
-                        OttoExtra.LOGGER.debug("[playerlist] Sortierdaten nicht verfügbar: {}",
+                        DebugLog.debug("[playerlist] Sortierdaten nicht verfügbar: {}",
                                 rootMessage(error));
                         return;
                     }
                     Map<UUID, PlayerData> indexed = index(players);
                     snapshot = new Snapshot(true, indexed);
-                    OttoExtra.LOGGER.info("[playerlist] {} Spieler für Lehen-Sortierung geladen.",
+                    DebugLog.debug("[playerlist] {} Spieler für Lehen-Sortierung geladen.",
                             indexed.size());
                 });
     }
@@ -79,7 +80,7 @@ final class PlayerListSortingService {
             return vanilla;
         }
         if (activationLogged.compareAndSet(false, true)) {
-            OttoExtra.LOGGER.info("[playerlist] Lehen-Sortierung aktiv; Server-listOrder wird ersetzt.");
+            DebugLog.debug("[playerlist] Lehen-Sortierung aktiv; Server-listOrder wird ersetzt.");
         }
         Map<PlayerListEntry, PlayerListSortKey> keys = new IdentityHashMap<>();
         return (left, right) -> {

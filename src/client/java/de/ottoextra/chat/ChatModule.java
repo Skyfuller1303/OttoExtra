@@ -1,9 +1,9 @@
 package de.ottoextra.chat;
 
-import de.ottoextra.OttoExtra;
 import de.ottoextra.OttoExtraContext;
 import de.ottoextra.OttoExtraModule;
 import de.ottoextra.config.OttoExtraConfig;
+import de.ottoextra.logging.DebugLog;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents;
@@ -91,7 +91,7 @@ public final class ChatModule implements OttoExtraModule {
                     }
                 });
 
-        OttoExtra.LOGGER.info("[chat] initialisiert (Kanal-Button: Sprechen/Flüstern/Rufen + OOC).");
+        DebugLog.debug("[chat] initialisiert (Kanal-Button: Sprechen/Flüstern/Rufen + OOC).");
     }
 
     private void handleChannelHotkeys() {

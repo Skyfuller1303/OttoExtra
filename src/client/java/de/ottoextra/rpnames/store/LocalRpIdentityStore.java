@@ -4,6 +4,8 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import de.ottoextra.OttoExtra;
 import de.ottoextra.config.OttoExtraPaths;
+import de.ottoextra.logging.DebugLog;
+import de.ottoextra.logging.FailureLogGate;
 import de.ottoextra.rpnames.model.KnowledgeState;
 import de.ottoextra.rpnames.model.LocalRpProfile;
 import de.ottoextra.rpnames.model.RpNameSource;
@@ -39,6 +41,7 @@ public final class LocalRpIdentityStore {
 
     private final Map<String, LocalRpProfile> byUuid = new ConcurrentHashMap<>();
     private final Map<String, LocalRpProfile> byNameLower = new ConcurrentHashMap<>();
+    private final FailureLogGate saveFailureLog = new FailureLogGate();
     private final ScheduledExecutorService scheduler;
     private volatile ScheduledFuture<?> pendingSave;
     private volatile boolean dirty = false;
@@ -71,7 +74,7 @@ public final class LocalRpIdentityStore {
                 p.repair();
                 index(p);
             }
-            OttoExtra.LOGGER.info("[rpnames] {} bekannte Personen geladen.", byNameLower.size());
+            DebugLog.debug("[rpnames] {} bekannte Personen geladen.", byNameLower.size());
         } catch (Exception e) {
 
             try {
@@ -115,8 +118,13 @@ public final class LocalRpIdentityStore {
                 Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING);
             }
             dirty = false;
+            if (saveFailureLog.onSuccess()) {
+                DebugLog.debug("[rpnames] Speichern nach Fehler wieder möglich.");
+            }
         } catch (Exception e) {
-            OttoExtra.LOGGER.warn("[rpnames] Speichern fehlgeschlagen: {}", e.toString());
+            if (saveFailureLog.onFailure()) {
+                OttoExtra.LOGGER.warn("[rpnames] Speichern fehlgeschlagen: {}", e.toString());
+            }
         }
     }
 

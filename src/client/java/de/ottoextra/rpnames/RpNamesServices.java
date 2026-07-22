@@ -234,6 +234,29 @@ public final class RpNamesServices {
                 && profile.source != RpNameSource.API_IMPORTED;
     }
 
+    public static java.util.Optional<String> knownRpNameForDisplay(String accountName) {
+        LocalRpIdentityStore currentStore = store;
+        if (!isActive() || currentStore == null
+                || accountName == null || accountName.isBlank()) {
+            return java.util.Optional.empty();
+        }
+
+        LocalRpProfile profile = currentStore.findByName(accountName).orElse(null);
+        return localRpNameForLeader(profile);
+    }
+
+    /**
+     * Lehnsherr-Einblendungen dürfen vorhandene lokale RP-Namen auch dann nutzen,
+     * wenn sie aus dem API-Abgleich stammen. Die Kennenlern-Sichtbarkeit anderer
+     * Anzeigen bleibt davon unberührt.
+     */
+    static java.util.Optional<String> localRpNameForLeader(LocalRpProfile profile) {
+        if (profile == null || !profile.hasRpName()) {
+            return java.util.Optional.empty();
+        }
+        return java.util.Optional.of(profile.rpName.trim());
+    }
+
     private static boolean isLocalPlayer(LocalRpProfile profile) {
         if (profile == null) {
             return false;
@@ -1049,14 +1072,6 @@ public final class RpNamesServices {
                                 visibleSpeaker.uuid(),
                                 visibleSpeaker.rpName(),
                                 serverTitleFor(visibleSpeaker.accountName())
-                        );
-
-                        de.ottoextra.OttoExtra.LOGGER.info(
-                                "[rpnames] Chatsprecher für API erkannt: "
-                                        + "account={}, uuid={}, rpName={}",
-                                visibleSpeaker.accountName(),
-                                visibleSpeaker.uuid(),
-                                visibleSpeaker.rpName()
                         );
 
                         de.ottoextra.rpnames.upload.RpNameUploadService

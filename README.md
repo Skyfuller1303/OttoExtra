@@ -18,7 +18,7 @@ Die Mod ist als clientseitige Community-Erweiterung für Ottonien gedacht und er
 | Fabric Loader | `>= 0.18.1` |
 | Fabric API | erforderlich |
 | Seite | clientseitig |
-| Version | `0.2.2` |
+| Version | `0.1.15.3` |
 | Server-Gate | Funktionen werden nur auf Ottonien aktiv |
 | Server-Interaktion | ausschließlich über normale Chat-Befehle und öffentliche APIs |
 
@@ -61,6 +61,22 @@ Geplant beziehungsweise enthalten:
 - Backup-Erstellung vor größeren Änderungen
 - Wiederherstellung lokaler Backups
 - übersichtliche Gruppierung pro Funktionsbereich
+
+## Diagnose-Logs
+
+OttoExtra-Diagnosen sind nach jedem Start deaktiviert. Bei Bedarf lassen sie sich
+für die laufende Sitzung einschalten:
+
+```text
+/ottoextra debug on
+/ottoextra debug status
+/ottoextra debug off
+```
+
+Aktive Diagnosemeldungen stehen in `logs/debug.log`. Sie können Chat-, Account-
+und RP-Identitätsdaten enthalten und sollten nur gezielt zur Fehlersuche aktiviert
+werden. Ein Neustart setzt den Schalter automatisch auf `off`. Wichtige,
+gedrosselte Warnungen und Fehler bleiben unabhängig davon in `latest.log` sichtbar.
 
 ## RP-Namen
 

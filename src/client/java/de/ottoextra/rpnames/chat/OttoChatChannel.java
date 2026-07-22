@@ -1,6 +1,7 @@
 package de.ottoextra.rpnames.chat;
 
 import de.ottoextra.config.OttoExtraConfig;
+import net.minecraft.util.Formatting;
 
 public enum OttoChatChannel {
     SPRECHEN,
@@ -16,6 +17,7 @@ public enum OttoChatChannel {
     OTHER;
 
     public static OttoChatChannel fromMessage(String plain) {
+        plain = Formatting.strip(plain);
         if (plain == null || plain.isEmpty() || plain.charAt(0) != '[') {
             return OTHER;
         }

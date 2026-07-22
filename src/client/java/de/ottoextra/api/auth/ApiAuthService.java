@@ -2,8 +2,8 @@ package de.ottoextra.api.auth;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import de.ottoextra.OttoExtra;
 import de.ottoextra.api.ApiProblem;
+import de.ottoextra.logging.DebugLog;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -82,12 +82,12 @@ public final class ApiAuthService {
                     pending.set(null);
                     if (error != null) {
                         backoffUntil = clock.instant().plus(backoffFor(error));
-                        OttoExtra.LOGGER.info("[api/auth] Handshake fehlgeschlagen ({}) — Backoff bis {}",
+                        DebugLog.debug("[api/auth] Handshake fehlgeschlagen ({}) — Backoff bis {}",
                                 summarize(error), backoffUntil);
                         attempt.completeExceptionally(error);
                     } else {
                         token = result;
-                        OttoExtra.LOGGER.info("[api/auth] ANON→VERIFIED, Token gültig bis {}", result.expiresAt());
+                        DebugLog.debug("[api/auth] ANON→VERIFIED, Token gültig bis {}", result.expiresAt());
                         attempt.complete(result);
                     }
                 });
@@ -120,7 +120,7 @@ public final class ApiAuthService {
         SessionSnapshot session = sessionSupplier.get();
         if (session == null || !session.valid()) {
 
-            OttoExtra.LOGGER.info("[api/auth] keine gültige Session — Offline-Modus");
+            DebugLog.debug("[api/auth] keine gültige Session — Offline-Modus");
             throw ApiProblem.badRequest("Keine gültige Minecraft-Session").toException();
         }
 
@@ -145,7 +145,7 @@ public final class ApiAuthService {
             joiner.joinServer(session.uuid(), session.accessToken(), serverId);
         } catch (Exception e) {
             String detail = safeExceptionDetail(e);
-            OttoExtra.LOGGER.info("[api/auth] Mojang joinServer fehlgeschlagen ({})", detail);
+            DebugLog.debug("[api/auth] Mojang joinServer fehlgeschlagen ({})", detail);
             throw ApiProblem.offline(challengeUri, "joinServer: " + detail).toException();
         }
 

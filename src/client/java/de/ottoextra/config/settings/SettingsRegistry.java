@@ -297,6 +297,9 @@ public final class SettingsRegistry {
                         () -> c.regions.showFaction, v -> c.regions.showFaction = v),
                 Option.bool("ottoextra.config.regions.showLeader", "regions.showLeader",
                         () -> c.regions.showLeader, v -> c.regions.showLeader = v),
+                Option.bool("ottoextra.config.regions.showLeaderRpName", "regions.showLeaderRpName",
+                        () -> c.regions.showLeaderRpName, v -> c.regions.showLeaderRpName = v)
+                        .tooltip("ottoextra.set.regions.showLeaderRpName.tip"),
                 Option.bool("ottoextra.config.regions.showCoordinates", "regions.showCoordinates",
                         () -> c.regions.showCoordinates, v -> c.regions.showCoordinates = v),
                 Option.cycle("ottoextra.config.regions.position", "regions.overlayPosition",

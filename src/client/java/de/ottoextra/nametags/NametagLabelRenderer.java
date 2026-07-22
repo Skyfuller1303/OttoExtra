@@ -1,6 +1,7 @@
 package de.ottoextra.nametags;
 
 import de.ottoextra.OttoExtra;
+import de.ottoextra.logging.DebugLog;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.command.OrderedRenderCommandQueue;
 import net.minecraft.client.render.entity.state.EntityRenderState;
@@ -87,7 +88,7 @@ public final class NametagLabelRenderer {
                 scaledLabel(matrices, queue, camera, state, lines.account(), base + spacing, accountScale);
             }
             if (DEBUG_DRAWN.add(account + "@" + source)) {
-                OttoExtra.LOGGER.info("[nametags] zeichne {} via {}", account, source);
+                DebugLog.debug("[nametags] zeichne {} via {}", account, source);
             }
             return true;
         } catch (Throwable t) {

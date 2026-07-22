@@ -2,6 +2,7 @@ package de.ottoextra.resourcepack;
 
 import de.ottoextra.OttoExtra;
 import de.ottoextra.config.OttoExtraPaths;
+import de.ottoextra.logging.DebugLog;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.resource.ResourcePackManager;
 
@@ -72,7 +73,7 @@ public final class PackInstaller {
             boolean inManager = rpm.getEnabledIds().contains(id);
             boolean inOptions = client.options.resourcePacks.contains(id);
             if (inManager && inOptions) {
-                OttoExtra.LOGGER.info("[resourcepack] Bereits aktiv: {} (kein Reload).", id);
+                DebugLog.debug("[resourcepack] Bereits aktiv: {} (kein Reload).", id);
                 return;
             }
 

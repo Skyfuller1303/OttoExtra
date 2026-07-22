@@ -9,6 +9,7 @@ import de.ottoextra.api.model.FactionRecord;
 import de.ottoextra.api.model.PlayerRecord;
 import de.ottoextra.api.model.RegionRecord;
 import de.ottoextra.config.OttoExtraPaths;
+import de.ottoextra.logging.DebugLog;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -79,12 +80,12 @@ public final class RegionDataService {
                     }
                     try {
                         if (t != null) {
-                            OttoExtra.LOGGER.info("[regions] Bootstrap nicht moeglich ({}) — nutze Snapshot.",
+                            DebugLog.debug("[regions] Bootstrap nicht moeglich ({}) — nutze Snapshot.",
                                     rootMessage(t));
                             return;
                         }
                         applyEnvelope(env, true);
-                        OttoExtra.LOGGER.info("[regions] Bootstrap: {} Fraktionen, {} Regionen.",
+                        DebugLog.debug("[regions] Bootstrap: {} Fraktionen, {} Regionen.",
                                 factionsByUuid.size(), regionsByKey.size());
                     } finally {
                         bootstrapRunning = false;
@@ -126,7 +127,7 @@ public final class RegionDataService {
         api.sync(Math.max(0, cursor)).whenComplete((env, t) -> {
             try {
                 if (t != null) {
-                    OttoExtra.LOGGER.debug("[regions] Sync uebersprungen: {}", rootMessage(t));
+                    DebugLog.debug("[regions] Sync uebersprungen: {}", rootMessage(t));
                     return;
                 }
                 applyEnvelope(env, false);
@@ -382,7 +383,7 @@ public final class RegionDataService {
             if (snap.regions != null) {
                 snap.regions.forEach(this::indexRegion);
             }
-            OttoExtra.LOGGER.info("[regions] Snapshot geladen: {} Fraktionen, {} Regionen.",
+            DebugLog.debug("[regions] Snapshot geladen: {} Fraktionen, {} Regionen.",
                     factionsByUuid.size(), regionsByKey.size());
         } catch (Exception e) {
             OttoExtra.LOGGER.warn("[regions] Snapshot unlesbar — wird neu aufgebaut. ({})", e.getMessage());
@@ -410,7 +411,7 @@ public final class RegionDataService {
                     Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING);
                 }
             } catch (Exception e) {
-                OttoExtra.LOGGER.debug("[regions] Snapshot speichern fehlgeschlagen: {}", e.getMessage());
+                DebugLog.debug("[regions] Snapshot speichern fehlgeschlagen: {}", e.getMessage());
             }
         });
     }

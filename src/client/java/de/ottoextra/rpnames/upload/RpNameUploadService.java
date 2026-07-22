@@ -6,6 +6,8 @@ import com.google.gson.JsonParser;
 import de.ottoextra.OttoExtra;
 import de.ottoextra.api.OttoExtraApiRoutes;
 import de.ottoextra.config.OttoExtraConfig;
+import de.ottoextra.logging.DebugLog;
+import de.ottoextra.logging.FailureLogGate;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
 
@@ -32,6 +34,7 @@ public final class RpNameUploadService {
 
     private static final ConcurrentHashMap<String, String> OBSERVED_IDENTITIES =
             new ConcurrentHashMap<>();
+    private static final FailureLogGate FAILURE_LOG = new FailureLogGate();
 
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
@@ -88,8 +91,11 @@ public final class RpNameUploadService {
                 .exceptionally(error -> {
                     OBSERVED_IDENTITIES.remove(key, value);
                     Throwable cause = unwrap(error);
-                    OttoExtra.LOGGER.warn("[rpnames] Im Chat erkannter RP-Name konnte nicht übertragen werden: {}",
-                            cause.toString());
+                    if (FAILURE_LOG.onFailure()) {
+                        OttoExtra.LOGGER.warn(
+                                "[rpnames] RP-Namen-Übertragung unerwartet fehlgeschlagen: {}",
+                                cause.getClass().getSimpleName());
+                    }
                     return Result.failed(cause.getMessage());
                 });
     }
@@ -165,12 +171,6 @@ public final class RpNameUploadService {
                 .POST(HttpRequest.BodyPublishers.ofString(json.toString(), StandardCharsets.UTF_8))
                 .build();
 
-        // Intentionally logged at INFO so the exact outgoing request is visible
-        // in latest.log without enabling debug logging. UUIDs and RP name are
-        // part of the payload; passwords or tokens are never included.
-        OttoExtra.LOGGER.info("[rpnames] Ausgehender RP-Namen-Upload:\n{}",
-                formatRequestForLog(uri, requestUserAgent, json));
-
         try {
             HttpResponse<String> response = HTTP.send(
                     request,
@@ -180,52 +180,38 @@ public final class RpNameUploadService {
                 body = body.substring(0, MAX_RESPONSE_CHARS);
             }
 
-            OttoExtra.LOGGER.info("[rpnames] Antwort auf RP-Namen-Upload: HTTP {} | Body: {}",
-                    response.statusCode(), responseBodyForLog(body));
-
             String apiMessage = responseMessage(body);
             boolean httpSuccess = response.statusCode() >= 200 && response.statusCode() < 300;
             boolean apiSuccess = !explicitApiFailure(body);
             if (httpSuccess && apiSuccess) {
-                OttoExtra.LOGGER.info("[rpnames] Im RP-Chat erkannten RP-Namen für {} an API übertragen.",
-                        data.targetDescription());
+                if (FAILURE_LOG.onSuccess()) {
+                    DebugLog.debug("[rpnames] RP-Namen-Übertragung nach Fehler wieder möglich.");
+                }
                 return new Result(true, true, response.statusCode(), apiMessage);
             }
 
             String message = !apiMessage.isBlank()
                     ? apiMessage
                     : "HTTP " + response.statusCode();
-            OttoExtra.LOGGER.warn("[rpnames] RP-Namen-Upload abgelehnt ({}): {}",
-                    response.statusCode(), message);
+            if (FAILURE_LOG.onFailure()) {
+                OttoExtra.LOGGER.warn("[rpnames] RP-Namen-Upload abgelehnt (HTTP {}).",
+                        response.statusCode());
+            }
             return new Result(true, false, response.statusCode(), message);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            OttoExtra.LOGGER.warn("[rpnames] RP-Namen-Upload wurde unterbrochen.");
+            if (FAILURE_LOG.onFailure()) {
+                OttoExtra.LOGGER.warn("[rpnames] RP-Namen-Upload wurde unterbrochen.");
+            }
             return Result.failed("Übertragung wurde unterbrochen");
         } catch (Exception e) {
-            OttoExtra.LOGGER.warn("[rpnames] HTTP-Fehler beim RP-Namen-Upload: {}",
-                    e.toString());
+            if (FAILURE_LOG.onFailure()) {
+                OttoExtra.LOGGER.warn("[rpnames] HTTP-Fehler beim RP-Namen-Upload: {}",
+                        e.getClass().getSimpleName());
+            }
             return Result.failed(e.getClass().getSimpleName() + ": " + safeMessage(e.getMessage()));
         }
     }
-
-
-    static String formatRequestForLog(URI uri, String requestUserAgent, JsonObject json) {
-        return "POST " + uri + "\n"
-                + "Content-Type: application/json; charset=UTF-8\n"
-                + "Accept: application/json\n"
-                + "User-Agent: " + requestUserAgent + "\n"
-                + "Body: " + json;
-    }
-
-    private static String responseBodyForLog(String body) {
-        if (body == null || body.isBlank()) {
-            return "<leer>";
-        }
-        String cleaned = body.replace('\r', ' ').replace('\n', ' ').trim();
-        return cleaned.length() > 2_000 ? cleaned.substring(0, 2_000) + "…" : cleaned;
-    }
-
     private static boolean explicitApiFailure(String body) {
         try {
             JsonElement parsed = JsonParser.parseString(body);

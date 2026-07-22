@@ -302,6 +302,7 @@ public final class OttoExtraConfig {
 
         public boolean showFaction = true;
         public boolean showLeader = true;
+        public boolean showLeaderRpName = true;
         public boolean showCoordinates = false;
 
         public int displayDurationMs = 5_200;
@@ -482,6 +483,9 @@ public final class OttoExtraConfig {
     }
 
     public static final class Chat {
+        public static final String DEFAULT_NPC_NAME_COLOR = "#C7A87F";
+        public static final String DEFAULT_NPC_MESSAGE_COLOR = "#DFC8A7";
+
         public boolean enabled = true;
 
         public boolean offtopicBangEnabled = false;
@@ -495,6 +499,8 @@ public final class OttoExtraConfig {
         public boolean longChatEnabled = true;
 
         public boolean rpFormattingEnabled = true;
+        public String npcNameColor = DEFAULT_NPC_NAME_COLOR;
+        public String npcMessageColor = DEFAULT_NPC_MESSAGE_COLOR;
         public String rpEmoteColor = "#C6C6C6";
         public String rpOocColor = "#B4BEC6";
         public boolean rpEmoteItalic = true;
@@ -519,7 +525,27 @@ public final class OttoExtraConfig {
                 channelColors = defaultChannelColors();
             }
             return channelColors.computeIfAbsent(channel,
-                    ignored -> new ChannelColors());
+                    key -> new ChannelColors(defaultMessageColor(key)));
+        }
+
+        public static String defaultMessageColor(String channel) {
+            return switch (channel == null ? "" : channel) {
+                case "sprechen" -> de.ottoextra.chat.ChatChannelButton.originalHex(
+                        de.ottoextra.chat.ChatChannelState.ChatChannel.SPRECHEN);
+                case "fluestern" -> de.ottoextra.chat.ChatChannelButton.originalHex(
+                        de.ottoextra.chat.ChatChannelState.ChatChannel.FLUESTERN);
+                case "murmeln" -> de.ottoextra.chat.ChatChannelButton.originalHex(
+                        de.ottoextra.chat.ChatChannelState.ChatChannel.MURMELN);
+                case "rufen" -> de.ottoextra.chat.ChatChannelButton.originalHex(
+                        de.ottoextra.chat.ChatChannelState.ChatChannel.RUFEN);
+                case "bruellen" -> de.ottoextra.chat.ChatChannelButton.originalHex(
+                        de.ottoextra.chat.ChatChannelState.ChatChannel.BRUELLEN);
+                case "offtopic" -> de.ottoextra.chat.ChatChannelButton.originalHex(
+                        de.ottoextra.chat.ChatChannelState.ChatChannel.OFFTOPIC);
+                case "hilfe" -> de.ottoextra.chat.ChatChannelButton.originalHex(
+                        de.ottoextra.chat.ChatChannelState.ChatChannel.HILFE);
+                default -> "#FFFFFF";
+            };
         }
 
         private static java.util.Map<String, ChannelColors> defaultChannelColors() {
@@ -527,7 +553,7 @@ public final class OttoExtraConfig {
             for (String channel : java.util.List.of(
                     "sprechen", "fluestern", "murmeln", "rufen", "bruellen",
                     "offtopic", "hilfe")) {
-                colors.put(channel, new ChannelColors());
+                colors.put(channel, new ChannelColors(defaultMessageColor(channel)));
             }
             return colors;
         }
@@ -536,8 +562,15 @@ public final class OttoExtraConfig {
     public static final class ChannelColors {
         /** Farbe von [Kanalname], leer behaelt den Serverstil. */
         public String labelColor = "";
-        /** Farbe des Nachrichtentextes nach dem Sprecher, leer behaelt den Serverstil. */
+        /** Lokale Standardfarbe des Nachrichtentextes nach dem Sprecher. */
         public String messageColor = "";
+
+        public ChannelColors() {
+        }
+
+        private ChannelColors(String messageColor) {
+            this.messageColor = messageColor;
+        }
     }
 
     public static final class ResourcePack {
@@ -660,6 +693,9 @@ public final class OttoExtraConfig {
             rpnames.inspectRoleplayPhraseSeconds = rpn.inspectRoleplayPhraseSeconds;
         }
         Chat cd = new Chat();
+        chat.npcNameColor = requiredHexColor(chat.npcNameColor, cd.npcNameColor);
+        chat.npcMessageColor = requiredHexColor(
+                chat.npcMessageColor, cd.npcMessageColor);
         if (chat.rpEmoteColor == null || chat.rpEmoteColor.isBlank()) {
             chat.rpEmoteColor = cd.rpEmoteColor;
         }
@@ -672,7 +708,8 @@ public final class OttoExtraConfig {
             for (String channel : cd.channelColors.keySet()) {
                 ChannelColors colors = chat.channelColors(channel);
                 colors.labelColor = optionalHexColor(colors.labelColor);
-                colors.messageColor = optionalHexColor(colors.messageColor);
+                colors.messageColor = requiredHexColor(
+                        colors.messageColor, Chat.defaultMessageColor(channel));
             }
         }
 
@@ -686,6 +723,11 @@ public final class OttoExtraConfig {
                 || api.baseUrl.equalsIgnoreCase("https://regions.skyfuller.de/")) {
             api.baseUrl = new Api().baseUrl;
         }
+    }
+
+    private static String requiredHexColor(String value, String fallback) {
+        String normalized = optionalHexColor(value);
+        return normalized.isEmpty() ? fallback : normalized;
     }
 
     private static String optionalHexColor(String value) {

@@ -10,6 +10,7 @@ import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
 
 public final class ResponseVerifier {
@@ -23,6 +24,7 @@ public final class ResponseVerifier {
     private final Map<String, String> keysById;
     private final BooleanSupplier requireSignatures;
     private final Map<String, PublicKey> keyCache = new ConcurrentHashMap<>();
+    private final AtomicBoolean warnedUnknownKey = new AtomicBoolean();
     private volatile boolean warnedNoKeys;
 
     public ResponseVerifier(BooleanSupplier requireSignatures) {
@@ -55,7 +57,10 @@ public final class ResponseVerifier {
         }
         String publicKeyB64 = keysById.get(keyId);
         if (publicKeyB64 == null) {
-            OttoExtra.LOGGER.warn("[api] unbekannte Signatur-Key-Id '{}' — Mod-Update nötig?", keyId);
+            if (warnedUnknownKey.compareAndSet(false, true)) {
+                OttoExtra.LOGGER.warn(
+                        "[api] unbekannte Signatur-Key-ID — Mod-Update nötig?");
+            }
             return Result.INVALID;
         }
         try {

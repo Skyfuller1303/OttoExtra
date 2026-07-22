@@ -8,6 +8,7 @@ import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
 import de.ottoextra.OttoExtra;
 import de.ottoextra.config.OttoExtraPaths;
+import de.ottoextra.logging.DebugLog;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -40,6 +41,8 @@ public final class SkinCache {
     private static volatile boolean dirty;
 
     private static final Set<UUID> PNG_DONE = ConcurrentHashMap.newKeySet();
+    private static final Set<UUID> PNG_DOWNLOAD_FAILURES = ConcurrentHashMap.newKeySet();
+    private static final Set<UUID> PNG_LOAD_FAILURES = ConcurrentHashMap.newKeySet();
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10)).build();
 
@@ -70,7 +73,7 @@ public final class SkinCache {
                     }
                 });
             }
-            OttoExtra.LOGGER.info("[skins] {} Skins aus Cache geladen.", MAP.size());
+            DebugLog.debug("[skins] {} Skins aus Cache geladen.", MAP.size());
 
             MAP.forEach((uuid, c) -> ensurePng(uuid, c.value, false));
         } catch (Exception e) {
@@ -105,6 +108,10 @@ public final class SkinCache {
             return;
         }
         Path png = pngDir().resolve(uuid + ".png");
+        if (changed) {
+            PNG_DOWNLOAD_FAILURES.remove(uuid);
+            PNG_LOAD_FAILURES.remove(uuid);
+        }
         if (!changed && (PNG_DONE.contains(uuid) || Files.exists(png))) {
             return;
         }
@@ -125,10 +132,13 @@ public final class SkinCache {
                     Path tmp = png.resolveSibling(uuid + ".png.tmp");
                     Files.write(tmp, resp.body());
                     Files.move(tmp, png, StandardCopyOption.REPLACE_EXISTING);
+                    PNG_DOWNLOAD_FAILURES.remove(uuid);
                 }
             } catch (Throwable t) {
                 PNG_DONE.remove(uuid);
-                OttoExtra.LOGGER.debug("[skins] PNG-Download fehlgeschlagen ({}): {}", uuid, t.toString());
+                if (PNG_DOWNLOAD_FAILURES.add(uuid)) {
+                    DebugLog.debug("[skins] PNG-Download fehlgeschlagen: {}", t.toString());
+                }
             }
         });
     }
@@ -176,9 +186,12 @@ public final class SkinCache {
             net.minecraft.entity.player.SkinTextures st = new net.minecraft.entity.player.SkinTextures(
                     new net.minecraft.util.AssetInfo.TextureAssetInfo(id, id), null, null, modelFor(uuid), true);
             LOADED.put(uuid, st);
+            PNG_LOAD_FAILURES.remove(uuid);
             return st;
         } catch (Throwable t) {
-            OttoExtra.LOGGER.debug("[skins] lokales PNG laden fehlgeschlagen ({}): {}", uuid, t.toString());
+            if (PNG_LOAD_FAILURES.add(uuid)) {
+                DebugLog.debug("[skins] Lokales PNG konnte nicht geladen werden: {}", t.toString());
+            }
             return null;
         }
     }

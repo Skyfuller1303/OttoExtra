@@ -3,6 +3,7 @@ package de.ottoextra.config;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import de.ottoextra.OttoExtra;
+import de.ottoextra.logging.DebugLog;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -131,7 +132,7 @@ public final class OttoExtraBackupService {
                 Files.createDirectories(target.getParent());
                 Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
                 addManifest(manifest, source, rel);
-                OttoExtra.LOGGER.info("[Backup] Copied {}", rel);
+                DebugLog.debug("[Backup] Copied {}", rel);
             }
         }
         Files.writeString(dir.resolve("backup-manifest.json"), GSON.toJson(manifest),

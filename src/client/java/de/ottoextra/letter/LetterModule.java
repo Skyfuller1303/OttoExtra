@@ -1,6 +1,5 @@
 package de.ottoextra.letter;
 
-import de.ottoextra.OttoExtra;
 import de.ottoextra.OttoExtraContext;
 import de.ottoextra.OttoExtraModule;
 import de.ottoextra.config.OttoExtraConfig;
@@ -10,6 +9,7 @@ import de.ottoextra.letter.ui.LetterActionPrompt;
 import de.ottoextra.letter.ui.LetterEditorScreen;
 import de.ottoextra.letter.ui.RecoveryPromptScreen;
 import de.ottoextra.letter.ui.WrittenLetterImport;
+import de.ottoextra.logging.DebugLog;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -141,7 +141,7 @@ public final class LetterModule implements OttoExtraModule {
         net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents.ALLOW_GAME
                 .register((message, overlay) -> !isHiddenLetterHint(message.getString()));
 
-        OttoExtra.LOGGER.info("[letter] initialisiert (Editor + Brief/Verkündung + Recovery).");
+        DebugLog.debug("[letter] initialisiert (Editor + Brief/Verkündung + Recovery).");
     }
 
     private static void openComposeEditor(OttoExtraConfig config) {

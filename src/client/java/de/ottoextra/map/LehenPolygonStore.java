@@ -5,6 +5,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import de.ottoextra.OttoExtra;
+import de.ottoextra.logging.DebugLog;
 
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -92,7 +93,7 @@ public final class LehenPolygonStore {
                 groupColors = java.util.Map.copyOf(colors);
             }
             loaded = true;
-            OttoExtra.LOGGER.info("[map] {} Lehen-Polygone geladen ({} eindeutige Grenzsegmente).",
+            DebugLog.debug("[map] {} Lehen-Polygone geladen ({} eindeutige Grenzsegmente).",
                     result.size(), segments.size());
         } catch (Exception e) {
             OttoExtra.LOGGER.warn("[map] Polygon-Laden fehlgeschlagen: {}", e.toString());
@@ -360,7 +361,7 @@ public final class LehenPolygonStore {
             }
             return new LehenPolygon(key, xs, zs, anchorX, anchorZ, minX, minZ, maxX, maxZ, labelOwner);
         } catch (Exception e) {
-            OttoExtra.LOGGER.debug("[map] Polygon '{}' uebersprungen: {}", rawKey, e.toString());
+            DebugLog.debug("[map] Polygon '{}' uebersprungen: {}", rawKey, e.toString());
             return null;
         }
     }

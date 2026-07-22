@@ -1,6 +1,7 @@
 package de.ottoextra.map;
 
 import de.ottoextra.OttoExtra;
+import de.ottoextra.logging.DebugLog;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.gui.screen.Screen;
 
@@ -90,7 +91,7 @@ public final class XaeroMapBridge {
             }
             if (failed) {
                 failed = false;
-                OttoExtra.LOGGER.info("[map] Xaero-Bridge wieder aktiv.");
+                DebugLog.debug("[map] Xaero-Bridge wieder aktiv.");
             }
             return new View(cameraX, cameraZ, effScale, screen.width, screen.height);
         } catch (Throwable t) {
@@ -132,7 +133,7 @@ public final class XaeroMapBridge {
             coordScaleMethod = null;
         }
         resolved = true;
-        OttoExtra.LOGGER.info("[map] Xaero-Bridge aktiv (GuiMap-Felder aufgeloest).");
+        DebugLog.debug("[map] Xaero-Bridge aktiv (GuiMap-Felder aufgeloest).");
     }
 
     private static void invalidate(Throwable t) {

@@ -3,6 +3,7 @@ package de.ottoextra.letter;
 import de.ottoextra.OttoExtra;
 import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.config.OttoExtraPaths;
+import de.ottoextra.logging.DebugLog;
 import de.ottoextra.letter.model.AnnouncementSendProgress;
 import de.ottoextra.letter.model.LetterSendProgress;
 import de.ottoextra.letter.paste.PageSplitter;
@@ -240,14 +241,14 @@ public final class LetterServices {
         }, () -> {
             sending = false;
             letterStore().clear();
-            OttoExtra.LOGGER.info("[letter] Brief {} geschrieben ({} Befehle).",
+            DebugLog.debug("[letter] Brief {} geschrieben ({} Befehle).",
                     progress.draftId, progress.pendingCommands.size());
         }).withDelays(delays).start(0);
     }
 
     public static void sendPost(OttoExtraConfig config, String recipient) {
         sendCommand(config.letter.postCommand + " " + recipient);
-        OttoExtra.LOGGER.info("[letter] Brief an {} zugestellt.", recipient);
+        DebugLog.debug("[letter] Brief an {} zugestellt.", recipient);
     }
 
     public static boolean sendAnnounceSubmit(OttoExtraConfig config) {
@@ -256,7 +257,7 @@ public final class LetterServices {
             return false;
         }
         sendCommand(config.letter.announcementSubmitCommand.trim());
-        OttoExtra.LOGGER.info("[letter] Verkündung ausgelöst.");
+        DebugLog.debug("[letter] Verkündung ausgelöst.");
         return true;
     }
 
@@ -318,7 +319,7 @@ public final class LetterServices {
         }, () -> {
             sending = false;
             letterStore().clear();
-            OttoExtra.LOGGER.info("[letter] Brief an {} vollständig gesendet.",
+            DebugLog.debug("[letter] Brief an {} vollständig gesendet.",
                     progress.recipient);
         }).withDelays(delays).start(startIndex);
     }
@@ -364,7 +365,7 @@ public final class LetterServices {
             if (manualSubmit) {
                 hint("ottoextra.letter.announcement.manualSubmit");
             }
-            OttoExtra.LOGGER.info("[letter] Verkündung {} geschrieben ({} Seiten).",
+            DebugLog.debug("[letter] Verkündung {} geschrieben ({} Seiten).",
                     progress.draftId, progress.pageCount);
         }).withDelays(delays).start(startIndex);
     }

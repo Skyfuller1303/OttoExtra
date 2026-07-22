@@ -5,6 +5,7 @@ import de.ottoextra.api.OttoExtraApiClient;
 import de.ottoextra.chat.ChatModule;
 import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.letter.LetterModule;
+import de.ottoextra.logging.DebugLog;
 import de.ottoextra.map.MapModule;
 import de.ottoextra.nametags.NametagModule;
 import de.ottoextra.playerlist.PlayerListSortingModule;
@@ -30,7 +31,8 @@ public final class OttoExtraClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        OttoExtra.LOGGER.info("Initialisiere {} ...", OttoExtra.MOD_NAME);
+        DebugLog.registerCommand();
+        DebugLog.debug("Initialisiere {} ...", OttoExtra.MOD_NAME);
 
         de.ottoextra.config.OttoExtraBackupService.ensurePreMigrationBackup();
         OttoExtraConfig config = OttoExtraConfig.load();
@@ -57,7 +59,7 @@ public final class OttoExtraClient implements ClientModInitializer {
         }
         for (OttoExtraModule module : modules) {
             if (!module.enabled(config)) {
-                OttoExtra.LOGGER.info("Modul '{}' ist per Config deaktiviert.", module.id());
+                DebugLog.debug("Modul '{}' ist per Config deaktiviert.", module.id());
             }
         }
 
@@ -86,10 +88,10 @@ public final class OttoExtraClient implements ClientModInitializer {
             boolean onOttonien = OttoExtraGate.isOnOttonien(client);
             context.setOnOttonien(onOttonien);
             if (!onOttonien) {
-                OttoExtra.LOGGER.info("Kein Ottonien-Server erkannt — Online-Features ruhen.");
+                DebugLog.debug("Kein Ottonien-Server erkannt — Online-Features ruhen.");
                 return;
             }
-            OttoExtra.LOGGER.info("Ottonien-Server beigetreten — aktiviere Module.");
+            DebugLog.debug("Ottonien-Server beigetreten — aktiviere Module.");
             for (OttoExtraModule module : context.activeModules()) {
                 runSafe(module, () -> module.onServerJoin(context), "join");
             }
