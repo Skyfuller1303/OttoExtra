@@ -1,21 +1,141 @@
-MIT License
+SKYFULLER NON-COMMERCIAL SOURCE LICENSE
+Version 1.0, 2026
 
 Copyright (c) 2026 Skyfuller1303
+All rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+1. DEFINITIONS
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+"Software" means the original source code, documentation, and other materials expressly covered by this License.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+"Licensor" means Skyfuller1303 or any other copyright holder who expressly applies this License to their work.
+
+"Modification" means any change, adaptation, translation, extension, or derivative work based on the Software.
+
+"Commercial Purpose" means any use that is connected with revenue, paid products or services, advertising, business operations, commercial advantage, or monetary compensation, whether directly or indirectly.
+
+"Distribute" means to provide, transmit, publish, sublicense, sell, transfer, upload, mirror, host for download, or otherwise make a copy available to another person or organization.
+
+2. LIMITED LICENSE GRANT
+
+Subject to the terms of this License, the Licensor grants you a limited, revocable, non-exclusive, non-transferable, and non-sublicensable permission to:
+
+a. access and inspect the Software;
+
+b. run the Software solely for personal, educational, research, testing, or other strictly non-commercial purposes; and
+
+c. create Modifications solely for non-commercial purposes.
+
+No rights are granted except those expressly stated in this License.
+
+3. COMMERCIAL USE PROHIBITED
+
+You may not use the Software or any Modification for a Commercial Purpose without prior written permission from the Licensor.
+
+This prohibition includes, without limitation:
+
+a. use by or for a commercial product or paid service;
+
+b. use to generate revenue or commercial advantage;
+
+c. use in advertising-supported services;
+
+d. use as part of paid consulting, hosting, support, or development services; and
+
+e. internal operational use by a for-profit organization.
+
+Commercial licenses may be available separately from the Licensor.
+
+4. REDISTRIBUTION PROHIBITED
+
+Except for the limited publication permitted under Section 5, you may not Distribute:
+
+a. the original Software;
+
+b. an unmodified copy of the Software;
+
+c. a compiled, packaged, executable, or binary version of the Software;
+
+d. a mirror, archive, fork, or downloadable copy of the Software; or
+
+e. any Modification.
+
+You may not sublicense, sell, rent, lease, assign, transfer, or otherwise provide rights in the Software to another person or organization.
+
+5. MODIFICATIONS AND SOURCE PUBLICATION
+
+You may create and use Modifications solely for non-commercial purposes.
+
+If you make a Modification available to another person, make it publicly accessible, or use it to provide functionality to users over a network, you must:
+
+a. publish the complete corresponding source code of the Modification in a publicly accessible source-code repository;
+
+b. clearly identify and document all changes you made;
+
+c. retain all copyright, attribution, and license notices;
+
+d. include a complete copy of this License;
+
+e. license the entire Modification under this same License, without additional restrictions; and
+
+f. provide the Licensor with a link to the published source code.
+
+This Section permits publication only of the modified source code necessary to comply with these requirements. It does not permit commercial use, binary distribution, sublicensing, sale, or redistribution of an unmodified version of the Software.
+
+6. CONTRIBUTIONS
+
+Unless a separate written agreement states otherwise, any code, patch, pull request, documentation, or other contribution intentionally submitted to the Licensor for inclusion in the Software is licensed to the Licensor under a worldwide, perpetual, irrevocable, royalty-free, transferable, and sublicensable license to use, reproduce, modify, publish, distribute, relicense, and otherwise exploit that contribution.
+
+You represent that you have the necessary rights to submit the contribution.
+
+7. NO TRADEMARK LICENSE
+
+This License does not grant permission to use the Licensor's names, usernames, project names, logos, trademarks, or branding, except as reasonably necessary to provide legally required attribution.
+
+8. THIRD-PARTY MATERIALS AND DATA
+
+This License applies only to material for which the Licensor has the authority to grant rights.
+
+Third-party datasets, databases, images, texts, models, libraries, media, and other third-party materials are not licensed under this License unless expressly stated otherwise.
+
+Such third-party materials remain subject to their respective copyright notices, licenses, terms of use, contractual restrictions, and other applicable rights.
+
+Nothing in this License grants permission to copy, modify, distribute, publish, or commercially use third-party materials or data.
+
+9. COMPLIANCE WITH OTHER LICENSES
+
+You are responsible for identifying and complying with all licenses and legal restrictions applicable to dependencies, data, content, and other third-party materials used with the Software.
+
+If another applicable license or legal restriction conflicts with this License, you may not use or distribute the affected material unless you have obtained all required permissions.
+
+10. TERMINATION
+
+Your rights under this License terminate automatically and immediately if you violate any term of this License.
+
+Upon termination, you must stop using the Software and destroy all copies in your possession or control, except where retention is required by applicable law.
+
+Termination does not limit any other rights or remedies available to the Licensor.
+
+11. DISCLAIMER OF WARRANTY
+
+THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE," WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING, WITHOUT LIMITATION, WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, ACCURACY, SECURITY, AND NON-INFRINGEMENT.
+
+THE LICENSOR DOES NOT WARRANT THAT THE SOFTWARE WILL BE ERROR-FREE, SECURE, AVAILABLE, OR SUITABLE FOR ANY PARTICULAR PURPOSE.
+
+12. LIMITATION OF LIABILITY
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE LICENSOR SHALL NOT BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, EXEMPLARY, OR PUNITIVE DAMAGES, OR FOR ANY LOSS OF DATA, PROFITS, REVENUE, BUSINESS, OR GOODWILL, ARISING FROM OR RELATED TO THE SOFTWARE OR THIS LICENSE.
+
+13. NO IMPLIED RIGHTS
+
+All rights not expressly granted under this License are reserved by the Licensor.
+
+14. SEVERABILITY
+
+If any provision of this License is held to be invalid or unenforceable, the remaining provisions shall remain in effect to the fullest extent permitted by law.
+
+15. ENTIRE LICENSE
+
+This License constitutes the complete licensing terms for the Software unless the Licensor and the licensee enter into a separate written agreement.
+
+For commercial licensing or additional permissions, contact the Licensor through the official project repository.
