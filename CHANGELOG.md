@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.17-k – Alpha – 2026-09-08
+
+- Automatisches lokales TXT-Archiv nach bestätigtem Briefversand, auch über
+  manuelles `/post Spielername`. Abgelehnte Sendungen erzeugen kein Archiv.
+- TXT-Export im geöffneten Brief, auch für empfangene Briefe; Dateinamen mit
+  Autor beziehungsweise `letter`, Datum und Uhrzeit, ohne Dateien zu überschreiben.
+- Import aus `config/ottoextra/letters` über die gespeicherten Entwürfe.
+  Vorhandener Entwurf wird gesichert; importierte Briefe sind vollständig editierbar.
+- UTF-8, Farben, Schriftstile und Seitenwechsel bleiben in den TXT-Dateien erhalten.
+  Alle Funktionen aus Alpha J einschließlich des lokalen 14-Tage-Tiercaches enthalten.
+- [Bedienung](docs/briefmod/txt-archiv.md), [Installation](release-notes-0.1.17-k.md).
+
 ## 0.1.17-g – Alpha – 2026-09-08
 
 - Im Minimap-Layouteditor verändert der Eckgriff Breite und Höhe der Textfelder
