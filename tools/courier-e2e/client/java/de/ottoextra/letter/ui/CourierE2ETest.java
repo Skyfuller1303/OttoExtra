@@ -57,10 +57,17 @@ public final class CourierE2ETest implements FabricClientGameTest {
             test("G02", "Mehrere Schreibmaterialien", () -> guard(2));
             test("G03", "Aktiven Slot während Schreiben wechseln", this::slotInterruption);
             test("G04", "Server lehnt Schreibbefehl ab", this::permissionFailure);
-            test("G05", "Zusätzliches Material in anderem Slot", () -> {
+            test("G05", "Zusätzliches Material rechts vom aktiven Slot bleibt erhalten", () -> {
                 api("POST", "/supply&slot=5&amount=1", null); pause(300);
-                editor("Extra Material"); click("ottoextra.letter.send"); pause(600);
-                check(commands().isEmpty(), "Extra inventory supply bypassed guard");
+                LetterDraft draft = editor("Einzelnes Pergament trotz Vorrat");
+                List<String> expected = preview();
+                click("ottoextra.letter.send"); written(draft, expected);
+                JsonArray inventory = api("GET", "/state", null).getAsJsonArray("inventory");
+                check(java.util.stream.StreamSupport.stream(inventory.spliterator(), false)
+                        .map(JsonElement::getAsJsonObject)
+                        .anyMatch(item -> item.get("slot").getAsInt() == 5
+                                && item.get("type").getAsString().equals("PAPER")
+                                && item.get("amount").getAsInt() == 1), "Spare supply was consumed");
             });
             test("G06", "Paralleler Schreibstart wird abgewiesen", () -> {
                 LetterDraft draft = editor("Nur ein Brief");
@@ -72,6 +79,36 @@ public final class CourierE2ETest implements FabricClientGameTest {
                     check(!LetterServices.startWrite(config, second), "Concurrent write accepted");
                 });
                 written(draft, List.of("Nur ein Brief")); check(commands().size() == 1, "Duplicate write");
+            });
+            test("G07", "Vorrat im Hauptinventar erlaubt Mehrseitenbrief", () -> writeWithReserve(2, 12, ""));
+            test("G08", "Vorrat in Nebenhand erlaubt Schreiben aus letztem Hotbar-Slot", () -> writeWithReserve(8, 40, ""));
+            test("G09", "Früheres Material: genauer Hinweis und Schreiben nach Slotwahl", () -> {
+                arrangeReserve(2, 0, 1, "");
+                LetterDraft draft = editor("Einzelnes Pergament und Vorrat weiter links");
+                List<String> expected = preview(); click("ottoextra.letter.send"); pause(400);
+                assertGuardStatus("ottoextra.letter.write.earlierSupply");
+                screenshot("courier-earlier-supply-hint");
+                api("POST", "/slot&slot=0", null); pause(300);
+                click("ottoextra.letter.send"); written(draft, expected);
+                check(inventoryItem(2).get("amount").getAsInt() == 1, "Other supply was consumed");
+            });
+            test("G10", "Courier entfernt früheres Material auch bei anderem Modell", () -> {
+                arrangeReserve(2, 0, 1, "model");
+                editor("Modellabweichung"); click("ottoextra.letter.send"); pause(400);
+                assertGuardStatus("ottoextra.letter.write.earlierSupply");
+                // Test-only oracle: bypass OttoExtra to confirm why this order is unsafe.
+                ctx.runOnClient(c -> c.getNetworkHandler().sendChatCommand("letter Serverreferenz"));
+                await(() -> !commands().isEmpty(), 5000, "Reference command did not arrive"); pause(300);
+                JsonObject state = api("GET", "/state", null);
+                check(state.getAsJsonObject("hand").get("type").getAsString().equals("PAPER"), "Courier unexpectedly consumed the held supply");
+                check(inventoryItem(0).get("type").getAsString().equals("WRITTEN_BOOK"), "Earlier-slot diversion was not reproduced");
+            });
+            test("G11", "Andere Lore weiter links blockiert nicht", () -> writeWithReserve(2, 0, "lore"));
+            test("G12", "Anderer Name weiter links blockiert nicht", () -> writeWithReserve(2, 0, "name"));
+            test("G13", "Leere Hand leiht kein Schreibmaterial aus dem Inventar", () -> {
+                api("POST", "/slot&slot=2", null); pause(300);
+                editor("Kein Material in der Hand"); click("ottoextra.letter.send"); pause(400);
+                assertGuardStatus("ottoextra.letter.write.holdSupply", config.letter.triggerItemName);
             });
             test("I01", "Import, gesperrter Alttext, Unicode, Scrollen, Weiterführen", this::importAppend);
             test("R01-runtime", "Disconnect und echte Wiederaufnahme ohne doppelte Befehle", this::recovery);
@@ -330,8 +367,46 @@ public final class CourierE2ETest implements FabricClientGameTest {
 
     private void guard(int count) {
         reset(count); editor("Dieser Brief darf nicht starten."); click("ottoextra.letter.send"); pause(700);
+        assertGuardStatus(count == 0 ? "ottoextra.letter.write.holdSupply" : "ottoextra.letter.write.extraSupplies",
+                config.letter.triggerItemName);
+    }
+
+    private void assertGuardStatus(String key, Object... args) {
         check(commands().isEmpty(), "Guard emitted command");
         check(!ctx.computeOnClient(c -> LetterServices.isSending()), "Guard left queue active");
+        ctx.runOnClient(c -> {
+            check(c.currentScreen instanceof LetterEditorScreen, "Guard closed editor");
+            String message = field(c.currentScreen, "status");
+            check(Text.translatable(key, args).getString().equals(message), "Wrong editor rejection: " + message);
+            check(c.textRenderer.getWidth(message) <= c.currentScreen.width - 8, "Rejection is clipped horizontally");
+        });
+    }
+
+    private JsonObject inventoryItem(int slot) {
+        return java.util.stream.StreamSupport.stream(api("GET", "/state", null)
+                        .getAsJsonArray("inventory").spliterator(), false)
+                .map(JsonElement::getAsJsonObject).filter(item -> item.get("slot").getAsInt() == slot)
+                .findFirst().orElseThrow(() -> new AssertionError("Inventory slot is empty: " + slot));
+    }
+
+    private void arrangeReserve(int selectedSlot, int reserveSlot, int amount, String variant) {
+        api("POST", "/reset&supplies=1&slot=" + selectedSlot, null);
+        api("POST", "/supply&slot=" + reserveSlot + "&amount=" + amount + "&variant=" + variant, null);
+        pause(500);
+        ctx.runOnClient(c -> {
+            check(c.player.getInventory().getSelectedSlot() == selectedSlot, "Wrong held slot");
+            check(c.player.getMainHandStack().getCount() == 1, "Main hand must contain exactly one supply");
+        });
+    }
+
+    private void writeWithReserve(int selectedSlot, int reserveSlot, String variant) {
+        arrangeReserve(selectedSlot, reserveSlot, 16, variant);
+        JsonObject before = inventoryItem(reserveSlot).deepCopy();
+        LetterDraft draft = editor(LetterCalibrationCorpus.byId("V207").pages().getFirst());
+        List<String> expected = preview();
+        click("ottoextra.letter.send"); written(draft, expected);
+        check(before.equals(inventoryItem(reserveSlot)), "Writing changed reserve material");
+        check(api("GET", "/state", null).get("slot").getAsInt() == selectedSlot, "Writing switched the active slot");
     }
 
     private void slotInterruption() {

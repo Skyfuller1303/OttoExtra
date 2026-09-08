@@ -10,6 +10,8 @@ import de.ottoextra.letter.recovery.LetterSendContext;
 import java.util.ArrayList;
 
 import java.util.Locale;
+import java.util.List;
+import java.util.Objects;
 
 /** Verhindert, dass CourierNew beim Schreiben auf anderes Briefmaterial ausweicht. */
 public final class LetterWriteItemGuard {
@@ -18,7 +20,8 @@ public final class LetterWriteItemGuard {
         ALLOW,
         HOLD_STARTED_LETTER,
         HOLD_SINGLE_SUPPLY,
-        REMOVE_EXTRA_SUPPLIES
+        REMOVE_EXTRA_SUPPLIES,
+        HOLD_FIRST_SUPPLY
     }
 
     private LetterWriteItemGuard() {
@@ -31,28 +34,54 @@ public final class LetterWriteItemGuard {
         }
 
         ItemStack mainHand = client.player.getMainHandStack();
-        String triggerName = config.letter.triggerItemName;
-        boolean heldSupply = matchesTrigger(mainHand, triggerName);
-        int heldSupplyCount = heldSupply ? mainHand.getCount() : 0;
-        int matchingSupplyCount = 0;
-        if (heldSupply) {
-            var inventory = client.player.getInventory();
-            for (int slot = 0; slot < inventory.size(); slot++) {
-                ItemStack candidate = inventory.getStack(slot);
-                if (ItemStack.areItemsAndComponentsEqual(candidate, mainHand)) {
-                    matchingSupplyCount += candidate.getCount();
-                }
-            }
-        }
 
         boolean continuation = draft.meta.importedFromBook
                 || draft.meta.lockedPages > 0 || draft.meta.lockedOffset > 0;
         if (continuation) {
             boolean matchingStartedLetter = isWritableLetter(mainHand) && WrittenLetterImport.hasPages(
                     mainHand, draft.meta.courierInitialPages);
-            return decide(true, matchingStartedLetter, heldSupplyCount);
+            return decide(true, matchingStartedLetter, 0);
         }
-        return decide(false, false, heldSupplyCount, matchingSupplyCount);
+        return checkFreshSupply(client, config.letter.triggerItemName);
+    }
+
+    private static Result checkFreshSupply(MinecraftClient client, String triggerName) {
+        var inventory = client.player.getInventory();
+        ItemStack held = client.player.getMainHandStack();
+        int count = matchesTrigger(held, triggerName) ? held.getCount() : 0;
+        boolean earlierSupply = false;
+        if (count == 1) {
+            // Courier removes the first matching item starting at slot 0. Since
+            // the held slot is in the hotbar, later inventory/offhand slots cannot
+            // divert consumption. Only earlier hotbar slots can keep the hand full.
+            for (int slot = 0; slot < inventory.getSelectedSlot(); slot++) {
+                if (sameCourierSupply(inventory.getStack(slot), held)) {
+                    earlierSupply = true;
+                    break;
+                }
+            }
+        }
+        return decide(false, false, count, earlierSupply);
+    }
+
+    private static boolean sameCourierSupply(ItemStack candidate, ItemStack held) {
+        // The bundled ItemUtil.isEqual(..., false) compares type, damage, legacy
+        // display name and lore, but ignores item model, PDC and other components.
+        return !candidate.isEmpty() && candidate.isOf(held.getItem())
+                && candidate.getDamage() == held.getDamage()
+                && Objects.equals(customName(candidate), customName(held))
+                && lore(candidate).equals(lore(held));
+    }
+
+    private static String customName(ItemStack stack) {
+        var name = stack.get(DataComponentTypes.CUSTOM_NAME);
+        return name == null ? null : WrittenLetterImport.toSection(name);
+    }
+
+    private static List<String> lore(ItemStack stack) {
+        var lore = stack.get(DataComponentTypes.LORE);
+        return lore == null ? List.of()
+                : lore.lines().stream().map(WrittenLetterImport::toSection).toList();
     }
 
     /** Courier identifies writable letters by their title and absence of the sent marker. */
@@ -99,7 +128,7 @@ public final class LetterWriteItemGuard {
         }
         ItemStack held = client.player.getMainHandStack();
         if (!context.writtenExpected) {
-            return held.getCount() == 1 && matchesTrigger(held, config.letter.triggerItemName);
+            return checkFreshSupply(client, config.letter.triggerItemName) == Result.ALLOW;
         }
         return isWritableLetter(held) && context.matchesPages(WrittenLetterImport.toSectionPages(
                 held.get(DataComponentTypes.WRITTEN_BOOK_CONTENT)));
@@ -111,11 +140,11 @@ public final class LetterWriteItemGuard {
 
     static Result decide(boolean continuation, boolean matchingStartedLetter,
                           int heldSupplyCount) {
-        return decide(continuation, matchingStartedLetter, heldSupplyCount, heldSupplyCount);
+        return decide(continuation, matchingStartedLetter, heldSupplyCount, false);
     }
 
     static Result decide(boolean continuation, boolean matchingStartedLetter,
-                         int heldSupplyCount, int matchingSupplyCount) {
+                         int heldSupplyCount, boolean earlierSupply) {
         if (continuation) {
             return matchingStartedLetter
                     ? Result.ALLOW : Result.HOLD_STARTED_LETTER;
@@ -123,8 +152,10 @@ public final class LetterWriteItemGuard {
         if (heldSupplyCount < 1) {
             return Result.HOLD_SINGLE_SUPPLY;
         }
-        return heldSupplyCount > 1 || matchingSupplyCount > 1
-                ? Result.REMOVE_EXTRA_SUPPLIES : Result.ALLOW;
+        if (heldSupplyCount > 1) {
+            return Result.REMOVE_EXTRA_SUPPLIES;
+        }
+        return earlierSupply ? Result.HOLD_FIRST_SUPPLY : Result.ALLOW;
     }
 
     private static boolean matchesTrigger(ItemStack stack, String triggerName) {

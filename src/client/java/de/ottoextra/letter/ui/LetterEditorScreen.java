@@ -1282,7 +1282,10 @@ public final class LetterEditorScreen extends Screen {
                         LetterServices.setPending(draft);
                         client.setScreen(null);
                     } else {
-                        status = Text.translatable("ottoextra.letter.write.failed").getString();
+                        Text problem = LetterServices.writeItemProblem(config, draft);
+                        status = problem == null
+                                ? Text.translatable("ottoextra.letter.write.failed").getString()
+                                : problem.getString();
                     }
                 })
                 .dimensions(px + PANEL_W - 64, py + ph - 26, 56, 18).build());

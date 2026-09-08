@@ -63,15 +63,23 @@ public final class LetterServices {
     }
 
     private static boolean checkWriteItem(OttoExtraConfig config, LetterDraft draft) {
-        draft.repair();
-        LetterWriteItemGuard.Result result = LetterWriteItemGuard.check(config, draft);
-        switch (result) {
-            case HOLD_STARTED_LETTER -> hint("ottoextra.letter.write.holdStarted");
-            case HOLD_SINGLE_SUPPLY -> hint("ottoextra.letter.write.holdSupply", config.letter.triggerItemName);
-            case REMOVE_EXTRA_SUPPLIES -> hint("ottoextra.letter.write.extraSupplies", config.letter.triggerItemName);
-            default -> { }
+        var problem = writeItemProblem(config, draft);
+        if (problem != null) {
+            hint(problem);
         }
-        return result == LetterWriteItemGuard.Result.ALLOW;
+        return problem == null;
+    }
+
+    /** Same concrete rejection reason for chat feedback and the still-open editor. */
+    public static net.minecraft.text.Text writeItemProblem(OttoExtraConfig config, LetterDraft draft) {
+        draft.repair();
+        return switch (LetterWriteItemGuard.check(config, draft)) {
+            case HOLD_STARTED_LETTER -> net.minecraft.text.Text.translatable("ottoextra.letter.write.holdStarted");
+            case HOLD_SINGLE_SUPPLY -> net.minecraft.text.Text.translatable("ottoextra.letter.write.holdSupply", config.letter.triggerItemName);
+            case REMOVE_EXTRA_SUPPLIES -> net.minecraft.text.Text.translatable("ottoextra.letter.write.extraSupplies", config.letter.triggerItemName);
+            case HOLD_FIRST_SUPPLY -> net.minecraft.text.Text.translatable("ottoextra.letter.write.earlierSupply");
+            case ALLOW -> null;
+        };
     }
 
     private static boolean canContinue(OttoExtraConfig config, LetterSendContext context) {
@@ -631,9 +639,13 @@ public final class LetterServices {
     }
 
     private static void hint(String key, Object... args) {
+        hint(net.minecraft.text.Text.translatable(key, args));
+    }
+
+    private static void hint(net.minecraft.text.Text message) {
         var client = net.minecraft.client.MinecraftClient.getInstance();
         if (client.player != null) {
-            client.player.sendMessage(net.minecraft.text.Text.translatable(key, args), false);
+            client.player.sendMessage(message, false);
         }
     }
 

@@ -268,7 +268,17 @@ public final class CourierE2EServer extends JavaPlugin implements Listener {
             }
             case "/supply" -> {
                 int slot = bounded(query, "slot", player.getInventory().getHeldItemSlot(), 0, 40);
-                player.getInventory().setItem(slot, supply(bounded(query, "amount", 1, 1, 64)));
+                ItemStack item = supply(bounded(query, "amount", 1, 1, 64));
+                var meta = item.getItemMeta();
+                switch (query.getOrDefault("variant", "")) {
+                    case "" -> { }
+                    case "model" -> meta.setCustomModelData(123);
+                    case "lore" -> meta.setLore(List.of("Anderes Schreibmaterial"));
+                    case "name" -> meta.setDisplayName("Anderes Pergament");
+                    default -> throw new IllegalArgumentException("Unknown supply variant");
+                }
+                item.setItemMeta(meta);
+                player.getInventory().setItem(slot, item);
                 player.updateInventory();
                 yield state(player);
             }

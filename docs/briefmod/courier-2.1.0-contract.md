@@ -49,9 +49,15 @@ gebündelten `CustomModelUtil`.
 Neuanlage erfordert ein zur Serverkonfiguration `isSimilar` passendes Material in
 der Haupthand. `ItemUtil.removeItem` entfernt allerdings das erste passende Exemplar
 im Inventar ab Slot 0. Gibt es weiteres Material, kann dadurch die Haupthand belegt
-bleiben und das erzeugte Buch in einem anderen Slot landen. OttoExtra verlangt
-deshalb für einen neuen automatischen Schreibvorgang genau ein entsprechendes
-Materialexemplar im Inventar. Der Materialname im Client ist eine Vorprüfung;
+bleiben und das erzeugte Buch in einem anderen Slot landen. Seit **0.1.17-b**
+verlangt OttoExtra genau ein Exemplar im aktiven Hotbar-Slot und prüft nur die
+davorliegenden Hotbar-Slots auf konkurrierendes Material. Vorrat weiter rechts,
+im Hauptinventar oder in der Nebenhand stört diesen Ablauf nicht.
+Der Vergleich folgt `ItemUtil.isEqual(..., false)`: Materialtyp, Schaden,
+formatierter Anzeigename und Lore; Modell/PDC werden dort nicht berücksichtigt.
+Die ältere inventarweite Sperre aus 0.1.17-a war unnötig streng und ihre Meldung
+zum aktiven Slot irreführend. [Korrektur und Regressionen](pergament-slot-fix-0.1.17-b.md).
+Der Materialname im Client ist eine Vorprüfung;
 die verbindliche MythicItem-Identität besitzt nur der Server.
 
 Quellen: [LetterChecker.java](../../../input/Courier-main/Courier-main/src/main/java/de/ottonien/courier/letter/LetterChecker.java)
