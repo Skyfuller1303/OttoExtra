@@ -40,7 +40,7 @@ public final class SavedDraftsScreen extends Screen {
     }
 
     private int listTop() {
-        return 70;
+        return 92;
     }
 
     private int listBottom() {
@@ -59,6 +59,10 @@ public final class SavedDraftsScreen extends Screen {
         addDrawableChild(ButtonWidget.builder(
                 Text.translatable("ottoextra.letter.drafts.save"), b -> saveCurrent())
                 .dimensions(listX() + 136, 36, 64, 18).build());
+
+        addDrawableChild(ButtonWidget.builder(Text.translatable("ottoextra.letter.txt.title"),
+                b -> client.setScreen(new LetterFilesScreen(this, config, current)))
+                .dimensions(listX(), 60, 200, 20).build());
 
         addDrawableChild(ButtonWidget.builder(
                 Text.translatable("ottoextra.letter.drafts.load"), b -> loadSelected())

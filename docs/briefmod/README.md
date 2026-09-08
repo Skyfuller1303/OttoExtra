@@ -11,6 +11,7 @@ zusätzlich fremde Vorarbeiten enthalten.
 - [Automatisierter V2-Lauf mit lokalem Server und Client](e2e-v2-2026-09-08.md)
 - [0.1.17-b: Schreiben mit einzelnem Pergament und weiterem Vorrat](pergament-slot-fix-0.1.17-b.md)
 - [0.1.17-c: Versand eines geschriebenen Briefs erneut öffnen](versand-erneut-oeffnen-0.1.17-c.md)
+- [TXT-Archiv: Versand sichern, empfangene Briefe exportieren und erneut importieren](txt-archiv.md)
 - [Nachfolgende Auditfixes: Seitenbeschriftung, Buchseitenzähler und erneute Clienttests](../audit-2026-09-08/UMSETZUNG.md)
 
 Der zentrale Befund: Die bisher nachgebildete CourierNew-1.3.6-Logik passt nicht zur

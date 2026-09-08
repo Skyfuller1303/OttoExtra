@@ -198,6 +198,69 @@ public final class CourierE2ETest implements FabricClientGameTest {
                 de.ottoextra.horses.AnimalGlowUiChecks.run(ctx);
                 check(commands().isEmpty(), "Animal glow emitted server commands");
             });
+            test("TXT01", "Versand archivieren, empfangenen Brief exportieren und als neuen Brief importieren", this::textArchiveRoundTrip);
+            test("TXT02", "Abgelehnter Versand erzeugt kein TXT-Archiv", () -> {
+                var before = textFiles();
+                submitDenied(false, false);
+                check(textFiles().equals(before), "Denied post was archived");
+                // Replace the rejected book to detect a stale snapshot surviving its error reply.
+                api("POST", "/permissions&post=true", null);
+                installUnsentBook(List.of("Neuer Brief nach Ablehnung"));
+                openBookRecipients(); submitReopenedPost();
+                var added = new HashSet<>(textFiles()); added.removeAll(before);
+                check(added.size() == 1, "Successful retry did not archive exactly once");
+                equalPages(List.of("Neuer Brief nach Ablehnung"), readText(added.iterator().next()));
+            });
+            test("TXT03", "Geldfehler und Lesen normaler Bücher erzeugen keine TXT-Datei", () -> {
+                var before = textFiles();
+                submitDenied(false, true);
+                check(textFiles().equals(before), "Unpaid letter was archived");
+                api("POST", "/book", Map.of("pages", List.of("Buch"), "title", "Tagebuch"));
+                pause(300); openHeldBook();
+                check(!hasButton("ottoextra.letter.txt.export"), "Ordinary book gained letter export");
+            });
+            test("TXT04", "Manuelles /post wird archiviert; fremde Bestätigung und Disconnect verwerfen keinen falschen Brief", () -> {
+                var before = textFiles();
+                installUnsentBook(List.of("Manuell versendet"));
+                ctx.runOnClient(c -> {
+                    de.ottoextra.letter.archive.LetterArchiveService.onGameMessage(Text.literal("[Courier] Der Brief wurde CourierAudit gesendet."), false);
+                    check(textFiles().equals(before), "Unsolicited acknowledgement wrote a file");
+                    c.getNetworkHandler().sendChatCommand("post CourierAudit");
+                });
+                await(() -> textFiles().size() == before.size() + 1, 5000, "Manual post was not archived");
+                var added = new HashSet<>(textFiles()); added.removeAll(before);
+                equalPages(List.of("Manuell versendet"), readText(added.iterator().next()));
+                installUnsentBook(List.of("Nicht bestätigt"));
+                ctx.runOnClient(c -> {
+                    de.ottoextra.letter.archive.LetterArchiveService.onCommand("post CourierAudit", "post");
+                    de.ottoextra.letter.archive.LetterArchiveService.onGameMessage(Text.literal("[Courier] Der Brief wurde OtherPlayer gesendet."), false);
+                    de.ottoextra.letter.archive.LetterArchiveService.onGameMessage(Text.literal("[Courier] Der Brief wurde CourierAudit gesendet."), true);
+                    c.disconnect(new TitleScreen(), false); c.setScreen(new TitleScreen());
+                    de.ottoextra.letter.archive.LetterArchiveService.onGameMessage(Text.literal("[Courier] Der Brief wurde CourierAudit gesendet."), false);
+                });
+                check(textFiles().size() == before.size() + 1, "Unconfirmed letter was archived");
+                ctx.waitFor(c -> c.world == null); join();
+            });
+            test("TXT05", "Defekte TXT-Datei bewahrt Entwurf und alter Exportbutton übernimmt kein anderes Buch", () -> {
+                var before = textFiles();
+                Path invalid = de.ottoextra.config.OttoExtraPaths.lettersDir().resolve("invalid-" + UUID.randomUUID() + ".txt");
+                try {
+                    Files.createDirectories(invalid.getParent());
+                    Files.writeString(invalid, "# OttoExtra Letter TXT 99\n\nKaputt", StandardOpenOption.CREATE_NEW);
+                    LetterDraft original = editor("Diesen Entwurf behalten");
+                    click("ottoextra.letter.drafts"); click("ottoextra.letter.txt.title");
+                    selectTextFile(invalid); click("ottoextra.letter.txt.import");
+                    check(ctx.computeOnClient(c -> c.currentScreen instanceof LetterFilesScreen), "Malformed TXT replaced editor");
+                    check(ctx.computeOnClient(c -> LetterDraftCache.load().meta.draftId.equals(original.meta.draftId)), "Malformed TXT displaced draft cache");
+                    click("gui.back"); click("gui.back");
+                    check(ctx.computeOnClient(c -> CourierE2ETest.<LetterDraft>field(c.currentScreen, "draft").pages.equals(original.pages)), "Back lost the draft");
+                } catch (Exception e) { throw new RuntimeException(e); }
+                finally { try { Files.deleteIfExists(invalid); } catch (Exception e) { throw new RuntimeException(e); } }
+                api("POST", "/book", Map.of("pages", List.of("Empfangen"), "sent", true)); pause(300); openHeldBook();
+                installUnsentBook(List.of("Anderer Brief"));
+                click("ottoextra.letter.txt.export");
+                check(textFiles().equals(before), "Stale export action adopted a different book");
+            });
             check(!results.isEmpty(), "No tests selected");
             String requested = System.getProperty("courier.e2e.filter", "");
             if (!requested.isBlank()) for (String id : requested.split(","))
@@ -494,7 +557,11 @@ public final class CourierE2ETest implements FabricClientGameTest {
     }
 
     private void post() {
-        LetterDraft draft = editor("§6E2E Post§r\nGrüße an mich selbst.");
+        post("§6E2E Post§r\nGrüße an mich selbst.");
+    }
+
+    private void post(String text) {
+        LetterDraft draft = editor(text);
         List<String> predicted = preview(); click("ottoextra.letter.send"); written(draft, predicted);
         check(ctx.computeOnClient(c -> c.currentScreen instanceof RecipientScreen), "Recipient dialog missing");
         ctx.runOnClient(c -> setField(c.currentScreen, "selected", "CourierAudit"));
@@ -510,6 +577,75 @@ public final class CourierE2ETest implements FabricClientGameTest {
         equalPages(predicted, LetterV2Planner.displayPages(rawPages()));
         check(api("GET", "/state", null).getAsJsonArray("outgoing").isEmpty(), "Received book remained queued");
         check(!ctx.computeOnClient(c -> WrittenLetterImport.isOwn(c.player.getMainHandStack())), "Delivered letter remains editable");
+    }
+
+    private Set<Path> textFiles() {
+        Path directory = de.ottoextra.config.OttoExtraPaths.lettersDir();
+        if (!Files.isDirectory(directory)) return Set.of();
+        try (var files = Files.list(directory)) {
+            return files.filter(path -> path.toString().endsWith(".txt")).collect(java.util.stream.Collectors.toSet());
+        } catch (Exception e) { throw new RuntimeException(e); }
+    }
+
+    private List<String> readText(Path file) {
+        try { return de.ottoextra.letter.archive.LetterTextArchive.read(file); }
+        catch (Exception e) { throw new RuntimeException(e); }
+    }
+
+    private boolean hasButton(String key) {
+        return ctx.computeOnClient(c -> c.currentScreen.children().stream()
+                .filter(child -> child instanceof ButtonWidget).map(child -> (ButtonWidget) child)
+                .anyMatch(button -> button.getMessage().getString().equals(Text.translatable(key).getString())));
+    }
+
+    private void textArchiveRoundTrip() {
+        var before = textFiles();
+        post("§6Archivbrief§r\nGrüße 😀\n" + "Ein Brief mit mehreren Seiten. ".repeat(12) + "§cEnde§r");
+        List<String> expected = ctx.computeOnClient(c -> WrittenLetterImport.toSectionPages(
+                c.player.getMainHandStack().get(DataComponentTypes.WRITTEN_BOOK_CONTENT)));
+        var added = new HashSet<>(textFiles()); added.removeAll(before);
+        check(added.size() == 1, "Post did not create exactly one TXT file");
+        Path sent = added.iterator().next();
+        check(sent.getFileName().toString().startsWith("letter_"), "Unexpected sent filename");
+        equalPages(expected, readText(sent));
+        openHeldBook();
+        check(!hasBookSendButton() && hasButton("ottoextra.letter.txt.export"), "Received letter export or send guard wrong");
+        screenshot("letter-txt-received-export");
+        click("ottoextra.letter.txt.export");
+        var received = new HashSet<>(textFiles()); received.removeAll(before); received.remove(sent);
+        check(received.size() == 1, "Received export missing");
+        Path exported = received.iterator().next();
+        check(exported.getFileName().toString().startsWith("CourierAudit_"), "Received filename lacks author");
+        equalPages(expected, readText(exported));
+        LetterDraft oldDraft = editor("Vor dem Import sichern");
+        click("ottoextra.letter.drafts"); click("ottoextra.letter.txt.title");
+        selectTextFile(exported);
+        screenshot("letter-txt-import-browser");
+        click("ottoextra.letter.txt.import");
+        LetterDraft imported = ctx.computeOnClient(c -> field(c.currentScreen, "draft"));
+        check(!imported.meta.importedFromBook && imported.meta.lockedPages == 0 && imported.meta.lockedOffset == 0,
+                "TXT import incorrectly requires the old book");
+        check(!imported.meta.draftId.equals(oldDraft.meta.draftId), "Import reused the old draft identity");
+        check(ctx.computeOnClient(c -> SavedDraftStore.load(oldDraft.meta.draftId).pages.equals(oldDraft.pages)), "Prior draft was not backed up");
+        // The existing V2 editor trims Courier's trailing line spaces; the archive itself above stays exact.
+        equalPages(expected.stream().map(LetterV2Planner::normalizeDocument).toList(),
+                V2DraftFlow.sourcePages(imported).stream().map(LetterV2Planner::normalizeDocument).toList());
+        screenshot("letter-txt-imported-editor");
+        // Exported pages must still produce a valid fresh V2 write.
+        api("POST", "/supply&slot=1&amount=1", null); api("POST", "/slot&slot=1", null); pause(300);
+        List<String> predicted = preview(); click("ottoextra.letter.send"); written(imported, predicted);
+    }
+
+    private void selectTextFile(Path selected) {
+        ctx.runOnClient(c -> {
+            LetterFilesScreen screen = (LetterFilesScreen) c.currentScreen;
+            List<Path> files = field(screen, "files");
+            int index = files.indexOf(selected);
+            check(index >= 0, "TXT file not listed in import browser");
+            setField(screen, "scroll", index);
+            screen.mouseClicked(new net.minecraft.client.gui.Click(screen.width / 2.0, 68,
+                    new net.minecraft.client.input.MouseInput(0, 0)), false);
+        });
     }
 
     private void openHeldBook() {
