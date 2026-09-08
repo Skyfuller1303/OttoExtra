@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.1.17-f – Alpha – 2026-09-08
+
+- Tierübersicht mit wechselbaren Filtern Alle, Pferde und Esel. Rinder, Brakel,
+  Hausschweine, Ziegen und Zaupel lassen sich unter Tierinfo → Erweitert einzeln
+  zuschalten und erhalten eigene Filter.
+- „Tier eintragen…“ öffnet die Akte des zuvor anvisierten Tiers, auch für Esel.
+- Namenlose Tiere zeigen ??? und darunter ihre vollständige UUID. Hofnamen und
+  Herkunft sind kleiner; die Übersicht zeigt Icons mit 8 × 8 GUI-Pixeln.
+- Tierartgerechte Vorschauen für nicht geladene Tiere und passende Fensterränder
+  bei kleiner Auflösung.
+- „Auch ungespeicherte Tiere“ erweitert Geschlechtssymbol und Namensfarbe auf
+  Tiere mit bekannter Toast-Beobachtung. Der lokale RAM-Cache hält bis zu 1.024
+  UUIDs pro Verbindung, aktualisiert bekannte Werte und wird beim Disconnect
+  geleert. Keine automatische Eintragung und keine zusätzlichen Abfragen.
+- [Tierübersicht](docs/animal-overview.md), [Nametags](docs/animal-nametags.md),
+  [Installation und Tests](release-notes-0.1.17-f.md).
+
 ## 0.1.17-e – Alpha – 2026-09-08
 
 - Zwei getrennte Schalter unter Tierinfo → Grundlagen → Tier-Nametag:
