@@ -491,7 +491,7 @@
   "ottoextra.config.map.bannerState": "Banner: rank/hierarchy",
   "ottoextra.config.map.bannerEdit": "Banner position (drag & drop)…",
   "ottoextra.map.bannerEdit.title": "Banner position",
-  "ottoextra.map.bannerEdit.hint": "Drag the block with the mouse — release to save.",
+  "ottoextra.map.bannerEdit.hint": "Drag: position · Corner: width/height",
   "ottoextra.map.bannerEdit.reset": "Reset",
   "ottoextra.map.bannerEdit.noRegion": "No region detected — enter a region to see the block.",
   "ottoextra.adv.nameHudWidth": "HUD name: width",
@@ -682,7 +682,7 @@
   "ottoextra.set.map.style": "Appearance",
   "ottoextra.set.map.style.desc": "Colors, lines and zoom thresholds of map elements.",
   "ottoextra.set.map.hudAdv": "HUD fine-tuning",
-  "ottoextra.set.map.hudAdv.desc": "Width, scale and colors of the HUD texts.",
+  "ottoextra.set.map.hudAdv.desc": "Width, height, font size and colors of the HUD texts.",
   "ottoextra.set.rpn.desc": "Local RP name system: chat, tablist and people book.",
   "ottoextra.set.rpn.chat": "Chat",
   "ottoextra.set.rpn.chat.desc": "RP names in chat; unknowns as placeholder or account name.",
@@ -1224,5 +1224,10 @@
   "ottoextra.config.tweaks.combatModeHud": "Show combat mode icon",
   "ottoextra.set.tweaks.combatMode.tip": "Reads the combat mode from the actionbar on Ottonien. Until a mode is detected, shows the weapon category with a question mark. Hidden with an empty hand.",
   "ottoextra.letter.preview.overflow": "%s lines: only %s are visible in the book.",
-  "ottoextra.letter.editor.visibleLines": "Lines %s–%s/%s · Scroll"
+  "ottoextra.letter.editor.visibleLines": "Lines %s–%s/%s · Scroll",
+  "ottoextra.map.bannerEdit.scaleHint": "Scroll: font size · Release to save",
+  "ottoextra.adv.nameHudHeight": "HUD name: height",
+  "ottoextra.adv.stateHudHeight": "HUD status: height",
+  "ottoextra.adv.factionHudHeight": "HUD faction: height",
+  "ottoextra.adv.hudHeight.tip": "Height in GUI pixels. 0 keeps one line. More height allows automatic line wrapping."
 }

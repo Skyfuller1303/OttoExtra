@@ -147,6 +147,12 @@ public final class OttoExtraAdvancedScreen extends Screen {
                 () -> c.map.nameHudWidth, v -> c.map.nameHudWidth = v, 20, 400));
         f.add(intField("ottoextra.adv.stateHudWidth",
                 () -> c.map.stateHudWidth, v -> c.map.stateHudWidth = v, 20, 400));
+        f.add(intField("ottoextra.adv.nameHudHeight",
+                () -> c.map.nameHudHeight, v -> c.map.nameHudHeight = v, 0, 160));
+        f.add(intField("ottoextra.adv.stateHudHeight",
+                () -> c.map.stateHudHeight, v -> c.map.stateHudHeight = v, 0, 160));
+        f.add(intField("ottoextra.adv.factionHudHeight",
+                () -> c.map.factionHudHeight, v -> c.map.factionHudHeight = v, 0, 160));
         f.add(floatField("ottoextra.adv.nameHudScale",
                 () -> c.map.nameHudScale, v -> c.map.nameHudScale = v));
         f.add(floatField("ottoextra.adv.stateHudScale",

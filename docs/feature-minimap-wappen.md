@@ -20,6 +20,49 @@ wie ein Hoheitszeichen am Grenzpfahl.
 - Sichtbarkeit: gleiche Gates wie die Minimap-Grenzen (Overlay-Hotkey,
   "Nur auf Ottonien", Modul aktiv); zusätzlich eigener Config-Toggle.
 
+## Mehrzeilige Textfelder und Größenänderung (Alpha G)
+
+Unter **Einstellungen → Karte → Minimap → Wappen-Position (Drag&Drop)…** lassen
+sich Name, Stand/Hierarchie und Gefolge als Textfelder bearbeiten:
+
+- Im Feld ziehen verschiebt den gesamten Block.
+- Den Griff unten rechts ziehen ändert **Breite und Höhe**. Vertikales Ziehen
+  erhöht die verfügbare Zeilenzahl; es verändert die Schriftgröße nicht.
+- Das Mausrad über einem Textfeld ändert die **Schriftgröße** separat.
+- Loslassen speichert Position beziehungsweise Größe; das Mausrad speichert
+  die Skalierung direkt. Beim Vergrößern bleibt die linke obere Ecke stehen,
+  auch bei rechts oder unten verankerten Feldern.
+- Das Wappen bleibt quadratisch und verwendet weiterhin seine eigene Größe.
+
+Längere Texte brechen an Wortgrenzen um, sobald genug Höhe für weitere Zeilen
+vorhanden ist. Beispiel bei Schriftgröße 1, Breite 91 und Höhe 20 GUI-Pixeln:
+
+```text
+Gefolge in
+Gefolge XYZ
+```
+
+Die Zeilenhöhe beträgt 10 × Schriftgröße; nur vollständig verfügbare Zeilen
+werden verwendet. Reicht das Textfeld insgesamt nicht aus, bleibt überschüssiger
+Text ausgeblendet. Die Darstellung verwendet dieselben Grenzen im Editor und
+im laufenden HUD. Automatisch angedockte Folgeelemente berücksichtigen die
+vergrößerte Höhe.
+
+Unter **Karte → Erweitert → HUD-Feinjustierung** sind die drei Höhen auch numerisch
+einstellbar. Gespeichert werden `map.nameHudHeight`, `map.stateHudHeight` und
+`map.factionHudHeight`. **0** erhält die bisherige einzeilige Höhe passend zur
+Schriftgröße. Vorhandene Konfigurationen bleiben dadurch einzeilig. Der obere
+Grenzwert beträgt 160 GUI-Pixel. „Zurücksetzen“ im Editor setzt weiterhin nur
+die Positionen auf automatische Andockung zurück.
+
+`UI-MINIMAP-HEIGHT` prüft im echten Minecraft-Client den Eckgriff, zweizeiligen
+Text ohne Wortverlust, unabhängige Schriftgröße, Verschieben, erneutes Öffnen
+und eine kleinere Fenstergröße. Die Region ist eine isolierte lokale Testvorgabe;
+es werden keine produktiven Serverdaten geändert. Unit-Tests prüfen die
+Zeilengrenzen, Skalierung und Konfigurationsspeicherung.
+
+[Release-Validierung](releases/0.1.17-g.md).
+
 ## Architektur
 
 | Baustein | Aufgabe |

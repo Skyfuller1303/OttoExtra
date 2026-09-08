@@ -186,6 +186,10 @@ public final class CourierE2ETest implements FabricClientGameTest {
                 de.ottoextra.horses.AnimalOverviewUiChecks.run(ctx);
                 check(commands().isEmpty(), "Overview emitted server commands");
             });
+            test("UI-MINIMAP-HEIGHT", "Minimap: Texthöhe, Zeilenumbruch und Größenänderung per Maus", () -> {
+                de.ottoextra.map.MinimapHeightUiChecks.run(ctx);
+                check(commands().isEmpty(), "Minimap layout emitted server commands");
+            });
             check(!results.isEmpty(), "No tests selected");
             String requested = System.getProperty("courier.e2e.filter", "");
             if (!requested.isBlank()) for (String id : requested.split(","))

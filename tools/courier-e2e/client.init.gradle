@@ -25,6 +25,7 @@ allprojects {
                     configFile.text = '{"consent":{"onboardingVersion":2},"letter":{"sendMode":"V2"}}'
                 }
                 copy { from 'libs/xaerolib-fabric-1.21.11-1.1.15.jar'; into new File(profile, 'mods') }
+                copy { from 'libs/xaerominimap-fabric-1.21.11-25.3.12.jar'; into new File(profile, 'mods') }
                 setJvmArgs(getJvmArgs().findAll { !it.startsWith('-Ddevauth.') && !it.startsWith('-Xmx') })
                 jvmArgs '-Xmx2G', '-Ddevauth.enabled=false'
                 systemProperty 'courier.e2e.reportDir', file('build/courier-e2e/results').absolutePath

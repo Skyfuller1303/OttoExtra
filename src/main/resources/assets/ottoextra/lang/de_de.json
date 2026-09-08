@@ -491,7 +491,7 @@
   "ottoextra.config.map.bannerState": "Wappen: Stand/Hierarchie",
   "ottoextra.config.map.bannerEdit": "Wappen-Position (Drag&Drop)…",
   "ottoextra.map.bannerEdit.title": "Wappen-Position",
-  "ottoextra.map.bannerEdit.hint": "Block mit der Maus ziehen — Loslassen speichert.",
+  "ottoextra.map.bannerEdit.hint": "Ziehen: Position · Ecke: Breite/Höhe",
   "ottoextra.map.bannerEdit.reset": "Zurücksetzen",
   "ottoextra.map.bannerEdit.noRegion": "Kein Lehen erkannt — betritt ein Lehen, um den Block zu sehen.",
   "ottoextra.adv.nameHudWidth": "HUD Name: Breite",
@@ -682,7 +682,7 @@
   "ottoextra.set.map.style": "Darstellung",
   "ottoextra.set.map.style.desc": "Farben, Linien und Zoom-Schwellen der Kartenelemente.",
   "ottoextra.set.map.hudAdv": "HUD-Feinjustierung",
-  "ottoextra.set.map.hudAdv.desc": "Breite, Skalierung und Farben der HUD-Texte.",
+  "ottoextra.set.map.hudAdv.desc": "Breite, Höhe, Schriftgröße und Farben der HUD-Texte.",
   "ottoextra.set.rpn.desc": "Lokales RP-Namen-System: Chat, Tabliste und Personenbuch.",
   "ottoextra.set.rpn.chat": "Chat",
   "ottoextra.set.rpn.chat.desc": "RP-Namen im Chat; Unbekannte als Platzhalter oder Accountname.",
@@ -1224,5 +1224,10 @@
   "ottoextra.config.tweaks.combatModeHud": "Kampfmodus-Icon anzeigen",
   "ottoextra.set.tweaks.combatMode.tip": "Übernimmt den Modus aus der Actionbar auf Ottonien. Vor der ersten Erkennung erscheint die Waffenart mit einem Fragezeichen. Bei freier Hand wird das Icon ausgeblendet.",
   "ottoextra.letter.preview.overflow": "%s Zeilen: Im Buch sind nur %s sichtbar.",
-  "ottoextra.letter.editor.visibleLines": "Zeilen %s–%s/%s · Mausrad"
+  "ottoextra.letter.editor.visibleLines": "Zeilen %s–%s/%s · Mausrad",
+  "ottoextra.map.bannerEdit.scaleHint": "Mausrad: Schriftgröße · Loslassen speichert",
+  "ottoextra.adv.nameHudHeight": "HUD Name: Höhe",
+  "ottoextra.adv.stateHudHeight": "HUD Stand: Höhe",
+  "ottoextra.adv.factionHudHeight": "HUD Gefolge: Höhe",
+  "ottoextra.adv.hudHeight.tip": "Höhe in GUI-Pixeln. 0 behält eine Zeile. Mehr Höhe erlaubt automatische Zeilenumbrüche."
 }

@@ -568,6 +568,11 @@ public final class OttoExtraConfig {
         public int stateHudWidth = 91;
         public int factionHudWidth = 89;
 
+        // Zero preserves the previous single-line height at the chosen font scale.
+        public int nameHudHeight = 0;
+        public int stateHudHeight = 0;
+        public int factionHudHeight = 0;
+
         public String nameHudColor = "#E6C8A9";
         public String stateHudColor = "#B8A88F";
         public String factionHudColor = "#FFFFFF";

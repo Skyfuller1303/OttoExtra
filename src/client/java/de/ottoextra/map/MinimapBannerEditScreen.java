@@ -27,9 +27,9 @@ public final class MinimapBannerEditScreen extends Screen implements IScreenBase
     private int curY;
     private double resizeStartX;
     private double resizeStartY;
-    private float resizeStartScale;
     private int resizeStartSize;
     private int resizeStartWidth;
+    private int resizeStartHeight;
 
     public MinimapBannerEditScreen(Screen parent, OttoExtraConfig config) {
         super(Text.translatable("ottoextra.map.bannerEdit.title"));
@@ -67,7 +67,8 @@ public final class MinimapBannerEditScreen extends Screen implements IScreenBase
 
     private int[] resizeHandle(MinimapBannerOverlay.Element e) {
         int s = 8;
-        return new int[]{e.x() + e.width() + 1, e.y() + e.height() + 1, s};
+        return new int[]{Math.max(0, Math.min(width - s - 1, e.x() + e.width() + 1)),
+                Math.max(0, Math.min(height - s - 1, e.y() + e.height() + 1)), s};
     }
 
     private MinimapBannerOverlay.Element ottoHoveredElement(double mx, double my) {
@@ -91,17 +92,11 @@ public final class MinimapBannerEditScreen extends Screen implements IScreenBase
                     resizing = e.kind();
                     resizeStartX = click.x();
                     resizeStartY = click.y();
-                    resizeStartScale = switch (e.kind()) {
-                        case NAME -> config.map.nameHudScale;
-                        case FACTION -> config.map.factionHudScale;
-                        default -> config.map.stateHudScale;
-                    };
+                    curX = e.x();
+                    curY = e.y();
                     resizeStartSize = config.map.minimapBannerSize;
-                    resizeStartWidth = switch (e.kind()) {
-                        case NAME -> config.map.nameHudWidth;
-                        case FACTION -> config.map.factionHudWidth;
-                        default -> config.map.stateHudWidth;
-                    };
+                    resizeStartWidth = e.width();
+                    resizeStartHeight = e.height();
                     return true;
                 }
             }
@@ -126,28 +121,39 @@ public final class MinimapBannerEditScreen extends Screen implements IScreenBase
 
             double dx = click.x() - resizeStartX;
             double dy = click.y() - resizeStartY;
+            int newWidth = Math.max(20, Math.min(Math.min(400, width - curX),
+                    resizeStartWidth + (int) Math.round(dx)));
+            int newHeight = Math.max(1, Math.min(Math.min(MinimapHudTextLayout.MAX_HEIGHT, height - curY),
+                    resizeStartHeight + (int) Math.round(dy)));
+            int actualHeight;
             switch (resizing) {
-                case BANNER -> config.map.minimapBannerSize =
-                        Math.max(8, Math.min(64, resizeStartSize + (int) Math.round((dx + dy) / 2.0)));
+                case BANNER -> {
+                    config.map.minimapBannerSize = Math.max(8, Math.min(Math.min(64,
+                            Math.min(width - curX, height - curY)),
+                            resizeStartSize + (int) Math.round((dx + dy) / 2.0)));
+                    newWidth = config.map.minimapBannerSize;
+                    actualHeight = newWidth;
+                }
                 case NAME -> {
-                    config.map.nameHudWidth =
-                            Math.max(20, Math.min(400, resizeStartWidth + (int) Math.round(dx)));
-                    config.map.nameHudScale =
-                            MinimapBannerOverlay.clampScale(resizeStartScale + (float) (dy * 0.02));
+                    config.map.nameHudWidth = newWidth;
+                    config.map.nameHudHeight = MinimapHudTextLayout.height(newHeight, config.map.nameHudScale);
+                    actualHeight = config.map.nameHudHeight;
                 }
                 case STATE -> {
-                    config.map.stateHudWidth =
-                            Math.max(20, Math.min(400, resizeStartWidth + (int) Math.round(dx)));
-                    config.map.stateHudScale =
-                            MinimapBannerOverlay.clampScale(resizeStartScale + (float) (dy * 0.02));
+                    config.map.stateHudWidth = newWidth;
+                    config.map.stateHudHeight = MinimapHudTextLayout.height(newHeight, config.map.stateHudScale);
+                    actualHeight = config.map.stateHudHeight;
                 }
                 case FACTION -> {
-                    config.map.factionHudWidth =
-                            Math.max(20, Math.min(400, resizeStartWidth + (int) Math.round(dx)));
-                    config.map.factionHudScale =
-                            MinimapBannerOverlay.clampScale(resizeStartScale + (float) (dy * 0.02));
+                    config.map.factionHudWidth = newWidth;
+                    config.map.factionHudHeight = MinimapHudTextLayout.height(newHeight, config.map.factionHudScale);
+                    actualHeight = config.map.factionHudHeight;
                 }
+                default -> throw new IllegalStateException("Unknown minimap element: " + resizing);
             }
+            // Keep the opposite corner fixed, including right/bottom-anchored elements.
+            MinimapBannerOverlay.savePosition(config.map, resizing, curX, curY,
+                    newWidth, actualHeight, width, height);
             return true;
         }
         if (dragging != null) {
@@ -160,6 +166,27 @@ public final class MinimapBannerEditScreen extends Screen implements IScreenBase
             return true;
         }
         return super.mouseDragged(click, deltaX, deltaY);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
+        var element = ottoHoveredElement(mouseX, mouseY);
+        if (element == null || element.kind() == MinimapBannerOverlay.Kind.BANNER
+                || resizing != null || dragging != null || vertical == 0) {
+            return super.mouseScrolled(mouseX, mouseY, horizontal, vertical);
+        }
+        float scale = MinimapBannerOverlay.clampScale(element.scale() + (float) vertical * 0.05F);
+        int configuredHeight;
+        switch (element.kind()) {
+            case NAME -> { config.map.nameHudScale = scale; configuredHeight = config.map.nameHudHeight; }
+            case STATE -> { config.map.stateHudScale = scale; configuredHeight = config.map.stateHudHeight; }
+            case FACTION -> { config.map.factionHudScale = scale; configuredHeight = config.map.factionHudHeight; }
+            default -> { return false; }
+        }
+        MinimapBannerOverlay.savePosition(config.map, element.kind(), element.x(), element.y(),
+                element.width(), MinimapHudTextLayout.height(configuredHeight, scale), width, height);
+        config.save();
+        return true;
     }
 
     @Override
@@ -189,6 +216,8 @@ public final class MinimapBannerEditScreen extends Screen implements IScreenBase
         MinecraftClient client = MinecraftClient.getInstance();
         ctx.drawCenteredTextWithShadow(textRenderer,
                 Text.translatable("ottoextra.map.bannerEdit.hint"), width / 2, 10, 0xFFE6C8A9);
+        ctx.drawCenteredTextWithShadow(textRenderer,
+                Text.translatable("ottoextra.map.bannerEdit.scaleHint"), width / 2, 22, 0xFFE6C8A9);
         List<MinimapBannerOverlay.Element> list = elements();
         if (list.isEmpty()) {
             ctx.drawCenteredTextWithShadow(textRenderer,
@@ -198,7 +227,7 @@ public final class MinimapBannerEditScreen extends Screen implements IScreenBase
         }
         var hovered = ottoHoveredElement(mouseX, mouseY);
         for (var e : list) {
-            boolean active = e.kind() == dragging;
+            boolean active = e.kind() == dragging || e.kind() == resizing;
             int col = active ? 0xFFFFD479 : 0xFFB08D57;
             ctx.fill(e.x() - 2, e.y() - 2, e.x() + e.width() + 2, e.y() - 1, col);
             ctx.fill(e.x() - 2, e.y() + e.height() + 1, e.x() + e.width() + 2,

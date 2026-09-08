@@ -3,6 +3,7 @@ package de.ottoextra.map.xaero;
 import de.ottoextra.OttoExtra;
 import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.map.MapOverlayRenderer;
+import de.ottoextra.map.MinimapHudTextLayout;
 import de.ottoextra.regions.RegionMessageService;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.RenderPipelines;
@@ -118,7 +119,7 @@ public final class MinimapBannerOverlay {
         if (cfg.minimapBannerShowName && regionName != null && !regionName.isBlank()) {
             float sc = clampScale(cfg.nameHudScale);
             int w = Math.max(20, cfg.nameHudWidth);
-            int h = Math.round(10 * sc);
+            int h = MinimapHudTextLayout.height(cfg.nameHudHeight, sc);
             int[] pos = resolve(cfg.nameHudX, cfg.nameHudY,
                     cfg.nameHudFromRight, cfg.nameHudFromBottom,
                     w, h, sw - w - 2 < dockX ? sw - w - 2 : dockX, nextDockY, sw, sh);
@@ -128,7 +129,7 @@ public final class MinimapBannerOverlay {
         if (cfg.minimapBannerShowState && stateLine != null && !stateLine.isBlank()) {
             float sc = clampScale(cfg.stateHudScale);
             int w = Math.max(20, cfg.stateHudWidth);
-            int h = Math.round(10 * sc);
+            int h = MinimapHudTextLayout.height(cfg.stateHudHeight, sc);
             int[] pos = resolve(cfg.stateHudX, cfg.stateHudY,
                     cfg.stateHudFromRight, cfg.stateHudFromBottom,
                     w, h, sw - w - 2 < dockX ? sw - w - 2 : dockX, nextDockY, sw, sh);
@@ -140,7 +141,7 @@ public final class MinimapBannerOverlay {
         if (cfg.minimapBannerShowFaction && factionShown != null && !factionShown.isBlank()) {
             float sc = clampScale(cfg.factionHudScale);
             int w = Math.max(20, cfg.factionHudWidth);
-            int h = Math.round(10 * sc);
+            int h = MinimapHudTextLayout.height(cfg.factionHudHeight, sc);
             int[] pos = resolve(cfg.factionHudX, cfg.factionHudY,
                     cfg.factionHudFromRight, cfg.factionHudFromBottom,
                     w, h, sw - w - 2 < dockX ? sw - w - 2 : dockX, nextDockY, sw, sh);
@@ -291,23 +292,29 @@ public final class MinimapBannerOverlay {
     }
 
     private static void drawScaledText(DrawContext ctx, MinecraftClient client, Element e, int color) {
-
-        String text = client.textRenderer.trimToWidth(e.text(),
-                Math.max(10, Math.round(e.width() / e.scale())));
-        if (Math.abs(e.scale() - 1.0f) < 0.01f) {
-            ctx.drawText(client.textRenderer, text, e.x(), e.y(), color, true);
-            return;
-        }
+        var lines = textLines(client.textRenderer, e);
         var m = ctx.getMatrices();
         m.pushMatrix();
         m.translate(e.x(), e.y());
         m.scale(e.scale(), e.scale());
-        ctx.drawText(client.textRenderer, text, 0, 0, color, true);
+        for (int i = 0; i < lines.size(); i++) {
+            ctx.drawText(client.textRenderer, lines.get(i), 0, i * MinimapHudTextLayout.LINE_HEIGHT, color, true);
+        }
         m.popMatrix();
     }
 
+    public static List<net.minecraft.text.OrderedText> textLines(net.minecraft.client.font.TextRenderer renderer, Element e) {
+        int width = MinimapHudTextLayout.textWidth(e.width(), e.scale());
+        int capacity = MinimapHudTextLayout.maxLines(e.height(), e.scale());
+        if (capacity == 1) {
+            return List.of(net.minecraft.text.Text.literal(renderer.trimToWidth(e.text(), width)).asOrderedText());
+        }
+        var lines = renderer.wrapLines(net.minecraft.text.Text.literal(e.text()), width);
+        return lines.subList(0, Math.min(capacity, lines.size()));
+    }
+
     public static float clampScale(float s) {
-        return Math.max(0.5f, Math.min(3.0f, s));
+        return MinimapHudTextLayout.clampScale(s);
     }
 
     public static void savePosition(OttoExtraConfig.Map cfg, Kind kind,

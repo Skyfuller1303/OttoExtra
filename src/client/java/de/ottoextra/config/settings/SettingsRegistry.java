@@ -489,6 +489,12 @@ public final class SettingsRegistry {
                         () -> c.map.nameHudWidth, v -> c.map.nameHudWidth = v, 20, 400),
                 Option.intVal("ottoextra.adv.stateHudWidth", "map.stateHudWidth",
                         () -> c.map.stateHudWidth, v -> c.map.stateHudWidth = v, 20, 400),
+                Option.intVal("ottoextra.adv.nameHudHeight", "map.nameHudHeight",
+                        () -> c.map.nameHudHeight, v -> c.map.nameHudHeight = v, 0, 160)
+                        .tooltip("ottoextra.adv.hudHeight.tip"),
+                Option.intVal("ottoextra.adv.stateHudHeight", "map.stateHudHeight",
+                        () -> c.map.stateHudHeight, v -> c.map.stateHudHeight = v, 0, 160)
+                        .tooltip("ottoextra.adv.hudHeight.tip"),
                 Option.floatVal("ottoextra.adv.nameHudScale", "map.nameHudScale",
                         () -> c.map.nameHudScale, v -> c.map.nameHudScale = v, 0.5, 3),
                 Option.floatVal("ottoextra.adv.stateHudScale", "map.stateHudScale",
@@ -499,6 +505,9 @@ public final class SettingsRegistry {
                         () -> c.map.stateHudColor, v -> c.map.stateHudColor = v),
                 Option.intVal("ottoextra.adv.factionHudWidth", "map.factionHudWidth",
                         () -> c.map.factionHudWidth, v -> c.map.factionHudWidth = v, 20, 400),
+                Option.intVal("ottoextra.adv.factionHudHeight", "map.factionHudHeight",
+                        () -> c.map.factionHudHeight, v -> c.map.factionHudHeight = v, 0, 160)
+                        .tooltip("ottoextra.adv.hudHeight.tip"),
                 Option.floatVal("ottoextra.adv.factionHudScale", "map.factionHudScale",
                         () -> c.map.factionHudScale, v -> c.map.factionHudScale = v, 0.5, 3),
                 Option.color("ottoextra.adv.factionHudColor", "map.factionHudColor",
