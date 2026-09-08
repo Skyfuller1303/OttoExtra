@@ -1,6 +1,7 @@
 package de.ottoextra.welcome;
 
 import de.ottoextra.OttoExtra;
+import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.logging.DebugLog;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.loader.api.FabricLoader;
@@ -12,19 +13,23 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /** Zeigt den Willkommensbildschirm genau einmal pro Installation. */
 public final class WelcomeScreenManager {
 
+    public static final int CONSENT_VERSION = 2;
+
     private static final AtomicBoolean INITIALIZED = new AtomicBoolean();
     private static final AtomicBoolean ACCEPTED = new AtomicBoolean();
     private static final AtomicBoolean SHOWN_THIS_SESSION = new AtomicBoolean();
+    private static OttoExtraConfig config;
 
     private WelcomeScreenManager() {
     }
 
-    public static void initialize() {
+    public static void initialize(OttoExtraConfig loadedConfig) {
         if (!INITIALIZED.compareAndSet(false, true)) {
             return;
         }
 
-        ACCEPTED.set(WelcomeState.wasAccepted());
+        config = loadedConfig;
+        ACCEPTED.set(loadedConfig.consent.onboardingVersion >= CONSENT_VERSION);
         ClientTickEvents.END_CLIENT_TICK.register(WelcomeScreenManager::tick);
     }
 
@@ -42,11 +47,26 @@ public final class WelcomeScreenManager {
         client.setScreen(new WelcomeScreen(client.currentScreen));
     }
 
-    static void accept() {
+    static void accept(boolean resourcePacks, boolean externalImages, boolean updateChecks,
+                       boolean communityRpNameUploads, RoleplayChoices choices) {
+        if (config == null) {
+            return;
+        }
+        config.consent.automaticResourcePackDownloads = resourcePacks;
+        config.consent.externalImageDownloads = externalImages;
+        config.consent.updateChecks = updateChecks;
+        config.consent.setCommunityRpNameUploads(communityRpNameUploads);
+        if (choices != null) {
+            choices.apply(config);
+        }
+        config.consent.onboardingVersion = CONSENT_VERSION;
+        config.save();
+
         String version = installedVersion();
-        WelcomeState.markAccepted(version);
         ACCEPTED.set(true);
-        DebugLog.debug("OttoExtra-Willkommensbildschirm bestaetigt (Version {}).", version);
+        DebugLog.debug(
+                "OttoExtra-Einwilligungsassistent abgeschlossen (Version {}, Resourcepacks {}, Bilder {}, Update-Pruefung {}, RP-Namen-Upload {}).",
+                version, resourcePacks, externalImages, updateChecks, communityRpNameUploads);
     }
 
     /**

@@ -4,6 +4,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import de.ottoextra.OttoExtra;
 import de.ottoextra.logging.DebugLog;
+import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.welcome.WelcomeScreenManager;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.loader.api.FabricLoader;
@@ -46,10 +47,12 @@ public final class UpdateChecker {
 
     public static void initialize() {
         ClientTickEvents.END_CLIENT_TICK.register(UpdateChecker::tick);
-        checkAsync();
     }
 
     public static void checkAsync() {
+        if (!OttoExtraConfig.active().consent.updateChecks) {
+            return;
+        }
         if (!STARTED.compareAndSet(false, true)) {
             return;
         }
@@ -120,8 +123,11 @@ public final class UpdateChecker {
     }
 
     private static void tick(MinecraftClient client) {
-        if (client == null || SHOWN_THIS_SESSION.get()
-                || WelcomeScreenManager.blocksOtherPrompts()) {
+        if (client == null || WelcomeScreenManager.blocksOtherPrompts()) {
+            return;
+        }
+        checkAsync();
+        if (SHOWN_THIS_SESSION.get()) {
             return;
         }
 
