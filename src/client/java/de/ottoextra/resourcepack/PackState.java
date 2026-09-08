@@ -18,6 +18,8 @@ public final class PackState {
     public String version;
     public String sha256;
     public String etag;
+    /** Original configured direct ZIP source; absent for manifest/legacy installs. */
+    public String directSource;
 
     public String installedAt;
 

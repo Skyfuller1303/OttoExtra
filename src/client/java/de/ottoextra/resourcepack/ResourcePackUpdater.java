@@ -110,7 +110,7 @@ public final class ResourcePackUpdater {
             OttoExtra.LOGGER.info("[resourcepack] Neue Version {} verfuegbar (lokal: {}) — lade herunter.",
                     manifest.version(), state.version != null ? state.version : "keine");
             return downloadService.download(zip, manifest.sha256()).thenAccept(tmp ->
-                    installAndMaybeActivate(tmp, manifest.version(), manifest.sha256(), state, manifest.notes()));
+                    installAndMaybeActivate(tmp, manifest.version(), manifest.sha256(), state, manifest.notes(), null));
         }, ioExecutor);
     }
 
@@ -125,17 +125,22 @@ public final class ResourcePackUpdater {
     }
 
     private CompletableFuture<Void> directZipFlow(URI zipUri, PackState state) {
-        if (PackInstaller.usablePack(OttoExtraPaths.serverPackFile())) {
-            DebugLog.debug("[resourcepack] Direkt-Modus: Pack vorhanden, kein erneuter Download (ETag-Check folgt).");
+        if (isDirectCurrent(zipUri, state, OttoExtraPaths.serverPackFile())) {
+            DebugLog.debug("[resourcepack] Direkt-Modus: Pack aus derselben Quelle vorhanden.");
             ensureActivation(state);
             return CompletableFuture.completedFuture(null);
         }
         return downloadService.download(zipUri, null).thenAccept(tmp ->
-                installAndMaybeActivate(tmp, "direct", null, state, null));
+                installAndMaybeActivate(tmp, "direct", null, state, null, zipUri.normalize().toString()));
+    }
+
+    static boolean isDirectCurrent(URI source, PackState state, java.nio.file.Path file) {
+        // Old states have no source: download once to establish a trustworthy identity.
+        return source.normalize().toString().equals(state.directSource) && PackInstaller.usablePack(file);
     }
 
     private void installAndMaybeActivate(java.nio.file.Path tmp, String version, String sha,
-                                         PackState previous, String notes) {
+                                         PackState previous, String notes, String directSource) {
         try {
             if (!PackDownloadService.downloadsAllowed() || Thread.currentThread().isInterrupted()) {
                 java.nio.file.Files.deleteIfExists(tmp);
@@ -150,6 +155,7 @@ public final class ResourcePackUpdater {
         PackState ns = new PackState();
         ns.version = version;
         ns.sha256 = sha;
+        ns.directSource = directSource;
         ns.installedAt = now;
         ns.lastCheckedAt = now;
         ns.remoteVersion = version;

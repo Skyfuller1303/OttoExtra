@@ -10,6 +10,28 @@ class PackRecoveryTest {
     @TempDir Path directory;
 
     @Test
+    void directPackCacheRequiresTheInstalledSourceIncludingAfterStateRoundTrip() throws Exception {
+        Path file = directory.resolve("Ottonien.zip");
+        try (var zip = new ZipOutputStream(Files.newOutputStream(file))) {
+            zip.putNextEntry(new ZipEntry("pack.mcmeta"));
+            zip.write("{}".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }
+        var sourceA = java.net.URI.create("https://example.invalid/a.zip");
+        var sourceB = java.net.URI.create("https://example.invalid/b.zip");
+        var state = new PackState();
+        state.version = "direct";
+        assertFalse(ResourcePackUpdater.isDirectCurrent(sourceA, state, file),
+                "Old installs with an unknown source need one download");
+        state.directSource = sourceA.toString();
+        state = new com.google.gson.Gson().fromJson(new com.google.gson.Gson().toJson(state), PackState.class);
+        assertTrue(ResourcePackUpdater.isDirectCurrent(sourceA, state, file));
+        assertFalse(ResourcePackUpdater.isDirectCurrent(sourceB, state, file));
+        assertFalse(ResourcePackUpdater.isDirectCurrent(sourceA, state, directory.resolve("missing.zip")));
+        Files.writeString(file, "broken");
+        assertFalse(ResourcePackUpdater.isDirectCurrent(sourceA, state, file));
+    }
+
+    @Test
     void matchingStateRequiresAnExistingUsableZip() throws Exception {
         var state = new PackState();
         state.version = "v1";
