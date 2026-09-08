@@ -4,6 +4,8 @@ import de.ottoextra.OttoExtra;
 import de.ottoextra.OttoExtraContext;
 import de.ottoextra.OttoExtraModule;
 import de.ottoextra.animalinfo.AnimalInfoEvents;
+import de.ottoextra.config.OttoExtraConfig;
+import de.ottoextra.config.OttoExtraPaths;
 import de.ottoextra.horses.ui.BasicHorseOverviewScreen;
 import de.ottoextra.horses.ui.BasicHorseRecordScreen;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -16,12 +18,19 @@ import net.minecraft.entity.passive.AnimalEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.hit.EntityHitResult;
 import org.lwjgl.glfw.GLFW;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
+import java.util.Locale;
 
 public final class HorseRegistryModule implements OttoExtraModule {
 
     private KeyBinding openRecordKey;
     private KeyBinding openOverviewKey;
     private KeyBinding genderGlowKey;
+    private String identityServer;
+    private boolean rememberIdentities;
 
     @Override
     public String id() {
@@ -54,6 +63,10 @@ public final class HorseRegistryModule implements OttoExtraModule {
     }
 
     private void tick(MinecraftClient client) {
+        if (client.currentScreen == null && identityServer != null
+                && rememberIdentities != OttoExtraConfig.active().animalInfo.rememberAnimalIdentities) {
+            configureIdentityCache();
+        }
         HorseFinder.tick(client);
         while (genderGlowKey != null && genderGlowKey.wasPressed()) {
             AnimalGenderGlow.toggle(client);
@@ -94,6 +107,11 @@ public final class HorseRegistryModule implements OttoExtraModule {
 
     @Override
     public void onServerJoin(OttoExtraContext context) {
+        var server = MinecraftClient.getInstance().getCurrentServerEntry();
+        if (server != null && context.isOnOttonien()) {
+            identityServer = server.address.trim().toLowerCase(Locale.ROOT);
+            configureIdentityCache();
+        }
         HorseFinder.pollNow();
         HorseRegistry.refresh().exceptionally(error -> {
             OttoExtra.LOGGER.debug("Tiernamen konnten nicht geladen werden: {}",
@@ -104,13 +122,33 @@ public final class HorseRegistryModule implements OttoExtraModule {
 
     @Override
     public void onDisconnect(OttoExtraContext context) {
+        finishIdentitySession();
         HorseRegistry.clearConnection();
         HorseFinder.reset();
     }
 
     @Override
     public void onClientStop(OttoExtraContext context) {
+        finishIdentitySession();
         HorseRegistry.shutdown();
         HorseFinder.shutdown();
+    }
+
+    private void finishIdentitySession() {
+        // Also honor a saved opt-out when leaving directly from a menu without another world tick.
+        if (identityServer != null && !OttoExtraConfig.active().animalInfo.rememberAnimalIdentities) {
+            configureIdentityCache();
+        }
+        identityServer = null;
+    }
+
+    private void configureIdentityCache() {
+        rememberIdentities = OttoExtraConfig.active().animalInfo.rememberAnimalIdentities;
+        try {
+            String filename = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(identityServer.getBytes(StandardCharsets.UTF_8))) + ".json";
+            HorseRegistry.openIdentityCache(OttoExtraPaths.cacheDir().resolve("animals").resolve(filename),
+                    identityServer, rememberIdentities);
+        } catch (NoSuchAlgorithmException impossible) { throw new IllegalStateException(impossible); }
     }
 }

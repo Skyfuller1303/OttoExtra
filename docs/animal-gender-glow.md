@@ -30,11 +30,11 @@ ein bekanntes Geschlecht geliefert hat. Einmal anvisieren und die Tierinfo
 abwarten genügt; das Tier muss danach nicht mehr im Fadenkreuz bleiben.
 Es werden keine Geschlechter geraten und keine zusätzlichen Abfragen gestartet.
 
-Die [lokalen Tierbeobachtungen](animal-nametags.md) bleiben bis zum Disconnect
-im Arbeitsspeicher: maximal 1.024 UUIDs, keine neue Cache-Datei. Erkannte
-Beobachtungen haben Vorrang vor bereits geladenen, zugänglichen Registerdaten.
-Neue Beobachtungen aktualisieren die Farbe. Nach dem Trennen der Verbindung
-stehen die vorherigen Beobachtungen nicht mehr zur Verfügung.
+Die vollständigen Tierbeobachtungen bleiben bis zum Disconnect im Arbeitsspeicher.
+Ab Alpha J bleiben **Tierart und Geschlecht optional bis zu 14 Tage lokal erhalten**,
+mit höchstens 1.024 UUIDs pro Server. Neue Tierinfos aktualisieren die Farbe.
+Erkannte aktuelle Beobachtungen und zugängliche Registerdaten haben Vorrang
+vor der gespeicherten Identität. [Details zum lokalen Cache](animal-identity-cache.md).
 
 ## Implementierung und Kompatibilität
 
@@ -68,4 +68,4 @@ Vanilla-Glow, Menüschalter und die registrierte Tastenbelegung über Client-Tic
 Der API-Ersatz bricht bei jedem unerwarteten Aufruf ab; die Serverprobe prüft,
 dass kein Befehl versendet wurde. Screenshots dokumentieren Umrisse und Menü.
 
-[Release-Validierung](releases/0.1.17-i.md).
+[Release-Validierung](releases/0.1.17-j.md).

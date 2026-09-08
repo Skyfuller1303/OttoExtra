@@ -699,6 +699,10 @@ public final class SettingsRegistry {
                         () -> c.animalInfo.genderGlowEnabled, v -> c.animalInfo.genderGlowEnabled = v)
                         .tooltip("ottoextra.set.animalinfo.glow.tip"));
         var animalInfoAdvanced = tab(animalInfo, "ottoextra.set.tab.advanced");
+        card(animalInfoAdvanced, "ottoextra.set.animalinfo.localCache", "ottoextra.set.animalinfo.localCache.desc",
+                Option.bool("ottoextra.config.animalinfo.rememberAnimalIdentities", "animalInfo.rememberAnimalIdentities",
+                        () -> c.animalInfo.rememberAnimalIdentities, v -> c.animalInfo.rememberAnimalIdentities = v)
+                        .tooltip("ottoextra.set.animalinfo.localCache.tip"));
         card(animalInfoAdvanced, "ottoextra.set.animalinfo.overview", "ottoextra.set.animalinfo.overview.desc",
                 Option.bool("ottoextra.horses.filter.cows", "animalInfo.overviewShowCows",
                         () -> c.animalInfo.overviewShowCows, v -> c.animalInfo.overviewShowCows = v),

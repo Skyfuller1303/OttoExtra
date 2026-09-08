@@ -1,4 +1,8 @@
 {
+  "ottoextra.set.animalinfo.localCache": "Lokaler Tiercache",
+  "ottoextra.set.animalinfo.localCache.desc": "Tierart und Geschlecht nach dem Wiederverbinden für Glow und Nametags verwenden.",
+  "ottoextra.config.animalinfo.rememberAnimalIdentities": "Tiergeschlecht 14 Tage lokal merken",
+  "ottoextra.set.animalinfo.localCache.tip": "Speichert bis zu 1.024 Tiere je Server auf diesem Rechner. Ablauf 14 Tage nach der letzten erhaltenen Tierinfo. Zuchtbereitschaft, Mast und andere Statuswerte werden nicht dauerhaft gespeichert. Ausschalten und Einstellungen speichern löscht den Cache des aktuellen Servers; keine Datenbank-Einträge.",
   "key.ottoextra.animal_gender_glow": "Tier-Glow nach Geschlecht umschalten",
   "ottoextra.set.animalinfo.glow": "Tier-Glow",
   "ottoextra.set.animalinfo.glow.desc": "Weiblich: Rosa. Männlich: Blau. Standardtaste: F8. Änderbar unter Steuerung → Tastenbelegung → Verschiedenes.",
@@ -34,7 +38,7 @@
   "ottoextra.set.animalinfo.nametag": "Tier-Nametag",
   "ottoextra.set.animalinfo.nametag.desc": "Darstellung der Namen über anvisierten Tieren.",
   "ottoextra.config.animalinfo.nametagIncludeUnregistered": "Auch ungespeicherte Tiere",
-  "ottoextra.set.animalinfo.nametagIncludeUnregistered.tip": "Nutzt bekannte Toast-Daten auch ohne Tierregister-Eintrag. Geschlecht oder Namensfarbe zusätzlich aktivieren. Bis zu 1.024 Tiere bleiben für diese Verbindung lokal im Arbeitsspeicher; keine zusätzlichen Abfragen oder automatischen Register-Einträge.",
+  "ottoextra.set.animalinfo.nametagIncludeUnregistered.tip": "Nutzt bekannte Toast-Daten auch ohne Tierregister-Eintrag. Geschlecht oder Namensfarbe zusätzlich aktivieren. Mit lokalem Tiercache bleiben Tierart und Geschlecht bis zu 14 Tage verfügbar. Keine zusätzlichen Abfragen oder automatischen Register-Einträge.",
   "ottoextra.config.animalinfo.nametagShowGender": "Geschlecht im Nametag anzeigen",
   "ottoextra.set.animalinfo.nametagShowGender.tip": "Ergänzt ♀ oder ♂, sobald das Geschlecht aus Tierinfo oder Tierregister bekannt ist. Gilt für OttoExtras Tier-Nametags.",
   "ottoextra.config.animalinfo.nametagGenderColor": "Tiernamen nach Geschlecht färben",

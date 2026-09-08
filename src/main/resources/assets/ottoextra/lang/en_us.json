@@ -1,4 +1,8 @@
 {
+  "ottoextra.set.animalinfo.localCache": "Local animal cache",
+  "ottoextra.set.animalinfo.localCache.desc": "Reuse animal type and gender for glow and nametags after reconnecting.",
+  "ottoextra.config.animalinfo.rememberAnimalIdentities": "Remember animal gender locally for 14 days",
+  "ottoextra.set.animalinfo.localCache.tip": "Stores up to 1,024 animals per server on this computer. Expires 14 days after the last received animal info. Breeding readiness, feeding and other status values are not stored persistently. Disabling and saving settings deletes the current server cache; no database entries.",
   "key.ottoextra.animal_gender_glow": "Toggle animal gender glow",
   "ottoextra.set.animalinfo.glow": "Animal glow",
   "ottoextra.set.animalinfo.glow.desc": "Female: pink. Male: blue. Default key: F8. Change it in Controls → Key Binds → Miscellaneous.",
@@ -34,7 +38,7 @@
   "ottoextra.set.animalinfo.nametag": "Animal nametag",
   "ottoextra.set.animalinfo.nametag.desc": "Display of names above targeted animals.",
   "ottoextra.config.animalinfo.nametagIncludeUnregistered": "Include unregistered animals",
-  "ottoextra.set.animalinfo.nametagIncludeUnregistered.tip": "Uses known toast data without a register entry. Also enable gender symbols or name coloring. Up to 1,024 animals are cached locally in memory for this connection; no extra requests or automatic register entries.",
+  "ottoextra.set.animalinfo.nametagIncludeUnregistered.tip": "Uses known toast data without a register entry. Also enable gender symbols or name coloring. With the local animal cache, type and gender remain available for up to 14 days. No extra requests or automatic register entries.",
   "ottoextra.config.animalinfo.nametagShowGender": "Show gender in nametag",
   "ottoextra.set.animalinfo.nametagShowGender.tip": "Adds ♀ or ♂ once the gender is known from animal info or the register. Applies to OttoExtra animal nametags.",
   "ottoextra.config.animalinfo.nametagGenderColor": "Color animal names by gender",

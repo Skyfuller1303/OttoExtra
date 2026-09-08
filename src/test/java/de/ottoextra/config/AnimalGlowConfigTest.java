@@ -22,6 +22,28 @@ class AnimalGlowConfigTest {
     }
 
     @Test
+    void identityCacheOptOutSurvivesSavingAndSnapshotRestore() {
+        var config = new OttoExtraConfig();
+        assertTrue(config.animalInfo.rememberAnimalIdentities);
+        config.restoreFrom("{\"animalInfo\":{\"genderGlowEnabled\":true}}");
+        assertTrue(config.animalInfo.rememberAnimalIdentities);
+        var registry = SettingsRegistry.build(config, null, null, null, null, null, null, null, null, null);
+        var option = registry.modules().stream().flatMap(m -> m.tabs().stream())
+                .flatMap(t -> t.cards().stream()).flatMap(c -> c.options().stream())
+                .filter(o -> o.configKey.equals("animalInfo.rememberAnimalIdentities")).findFirst().orElseThrow();
+        option.set.accept("false");
+        var reference = config.animalInfo;
+        String snapshot = config.snapshotJson();
+        config.animalInfo.rememberAnimalIdentities = true;
+        config.restoreFrom(snapshot);
+        assertSame(reference, config.animalInfo);
+        assertFalse(reference.rememberAnimalIdentities);
+        Path file = directory.resolve("identity.json");
+        config.save(file);
+        assertFalse(OttoExtraConfig.load(file).animalInfo.rememberAnimalIdentities);
+    }
+
+    @Test
     void menuOptInPersistsAndSnapshotRestoreKeepsTheConfigReference() {
         var config = new OttoExtraConfig();
         var registry = SettingsRegistry.build(config, null, null, null, null, null, null, null, null, null);

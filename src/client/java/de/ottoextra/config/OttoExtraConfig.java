@@ -71,6 +71,7 @@ public final class OttoExtraConfig {
         public boolean nametagGenderColor = false;
         public boolean nametagIncludeUnregistered = false;
         public boolean genderGlowEnabled = false;
+        public boolean rememberAnimalIdentities = true;
         public boolean overviewShowCows = false;
         public boolean overviewShowChickens = false;
         public boolean overviewShowPigs = false;

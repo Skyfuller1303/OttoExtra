@@ -12,6 +12,7 @@ import de.ottoextra.map.LehenPolygonStore;
 import de.ottoextra.regions.RegionsServices;
 
 import java.time.Instant;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -20,6 +21,10 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 
 /**
@@ -35,6 +40,13 @@ public final class HorseRegistry {
             new ConcurrentHashMap<>();
     private static final Map<UUID, AnimalBreedingHorse> DATABASE_RECORDS =
             new ConcurrentHashMap<>();
+    private static final ScheduledExecutorService IDENTITY_IO = Executors.newSingleThreadScheduledExecutor(task -> {
+        Thread thread = new Thread(task, "OttoExtra-AnimalCache");
+        thread.setDaemon(true);
+        return thread;
+    });
+    private static volatile AnimalIdentityCache identityCache;
+    private static ScheduledFuture<?> identityFlush;
 
     private static volatile OttoExtraApiClient api;
     private static volatile BooleanSupplier onOttonien = () -> false;
@@ -74,11 +86,44 @@ public final class HorseRegistry {
             AnimalInfoObservation previous = OBSERVATIONS.get(observation.entityUuid());
             if (previous != null && previous.observedAt().isAfter(observation.observedAt())) return;
             OBSERVATIONS.put(observation.entityUuid(), observation);
+            if (identityCache != null) identityCache.remember(identity(observation));
             if (OBSERVATIONS.size() > MAX_OBSERVATIONS) {
                 OBSERVATIONS.values().stream().min(Comparator.comparing(AnimalInfoObservation::observedAt))
                         .ifPresent(oldest -> OBSERVATIONS.remove(oldest.entityUuid()));
             }
         }
+    }
+
+    static synchronized CompletableFuture<Void> openIdentityCache(Path file, String server, boolean enabled) {
+        closeIdentityCache();
+        AnimalIdentityCache cache = new AnimalIdentityCache(file, server, clock);
+        if (!enabled) return CompletableFuture.runAsync(cache::delete, IDENTITY_IO);
+        identityCache = cache;
+        CompletableFuture<Void> loading = CompletableFuture.runAsync(cache::load, IDENTITY_IO);
+        OBSERVATIONS.values().forEach(observation -> cache.remember(identity(observation)));
+        identityFlush = IDENTITY_IO.scheduleWithFixedDelay(cache::saveIfDirty, 1, 1, TimeUnit.SECONDS);
+        return loading;
+    }
+
+    private static synchronized void closeIdentityCache() {
+        if (identityFlush != null) identityFlush.cancel(false);
+        identityFlush = null;
+        AnimalIdentityCache cache = identityCache;
+        identityCache = null;
+        if (cache != null) IDENTITY_IO.execute(cache::saveIfDirty);
+    }
+
+    private static AnimalIdentityCache.Identity identity(AnimalInfoObservation observation) {
+        return new AnimalIdentityCache.Identity(observation.entityUuid(), observation.snapshot().animalName(),
+                observation.snapshot().gender(), observation.observedAt().toEpochMilli());
+    }
+
+    /** Identity fallback is display-only: observation() and saveName() never use disk data. */
+    static AnimalIdentityCache.Identity knownIdentity(UUID uuid) {
+        AnimalInfoObservation observation = uuid == null ? null : OBSERVATIONS.get(uuid);
+        if (observation != null && AnimalGender.color(observation.snapshot().gender()) != null) return identity(observation);
+        AnimalIdentityCache cache = identityCache;
+        return cache == null ? null : cache.find(uuid);
     }
 
     /** Returns the latest server-approved name for a horse UUID. */
@@ -236,7 +281,9 @@ public final class HorseRegistry {
             return observation.snapshot().gender();
         }
         AnimalBreedingHorse record = DATABASE_RECORDS.get(entityUuid);
-        return record == null ? "" : record.gender();
+        if (record != null && AnimalGender.color(record.gender()) != null) return record.gender();
+        var known = knownIdentity(entityUuid);
+        return known == null ? "" : known.gender();
     }
 
     /** Returns the protected database values formatted for the animal-info toast. */
@@ -391,6 +438,7 @@ public final class HorseRegistry {
     }
 
     static synchronized void clearConnection() {
+        closeIdentityCache();
         connectionGeneration++;
         namingPlayer = null;
         namingPlayerRequest++;
@@ -407,6 +455,7 @@ public final class HorseRegistry {
 
     static void shutdown() {
         clearConnection();
+        CompletableFuture.runAsync(() -> { }, IDENTITY_IO).join();
         api = null;
         onOttonien = () -> false;
         basicSurfaceActive = false;

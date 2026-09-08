@@ -64,14 +64,14 @@ public final class HorseRegistryNametagRenderer {
                                          OttoExtraConfig.AnimalInfo config) {
         LABELS.remove(state);
         if (!config.nametagIncludeUnregistered || (!config.nametagShowGender && !config.nametagGenderColor)) return;
-        var observation = HorseRegistry.observation(uuid).orElse(null);
-        if (observation == null || AnimalGender.color(observation.snapshot().gender()) == null) return;
-        String gender = observation.snapshot().gender();
+        var identity = HorseRegistry.knownIdentity(uuid);
+        if (identity == null) return;
+        String gender = identity.gender();
         if (state.displayName != null) {
             state.displayName = decorate(state.displayName, gender, config);
         } else {
             Text name = customName != null ? customName
-                    : Text.literal(observation.snapshot().animalName()).formatted(Formatting.GOLD);
+                    : Text.literal(identity.animalType()).formatted(Formatting.GOLD);
             LABELS.put(state, decorate(name, gender, config));
         }
     }

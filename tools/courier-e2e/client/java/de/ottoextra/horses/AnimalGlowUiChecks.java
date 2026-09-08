@@ -25,6 +25,8 @@ import org.lwjgl.glfw.GLFW;
 
 import java.lang.reflect.Proxy;
 import java.time.Instant;
+import java.nio.file.Path;
+import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -51,6 +53,10 @@ public final class AnimalGlowUiChecks {
                             throw new AssertionError("Glow requested API data: " + method.getName());
                         });
                 HorseRegistry.initialize(api, gate::get, true);
+                Path cacheFile = Path.of(System.getProperty("courier.e2e.reportDir")).resolve("glow-identity-cache.json");
+                try { Files.deleteIfExists(cacheFile); }
+                catch (java.io.IOException error) { throw new RuntimeException(error); }
+                HorseRegistry.openIdentityCache(cacheFile, "local-test-server", true).join();
                 HorseFinder.initialize(null, gate::get);
                 AnimalGenderGlow.initialize(gate::get);
                 c.setScreen(null);
@@ -106,6 +112,12 @@ public final class AnimalGlowUiChecks {
                 require(outline(c, female) == 0xFF68B8FF, "Fresh toast data did not update glow");
                 HorseRegistry.clearConnection();
                 require(!female.isGlowing() && outline(c, female) == EntityRenderState.NO_OUTLINE, "Glow reused disconnected observations");
+                HorseRegistry.openIdentityCache(cacheFile, "local-test-server", true).join();
+                require(female.isGlowing() && outline(c, female) == 0xFF68B8FF, "Reconnect did not restore disk-backed gender glow");
+                require(HorseRegistry.observation(female.getUuid()).isEmpty(), "Disk identity became a fresh breeding observation");
+                require(HorseRegistry.name(female.getUuid()).isEmpty(), "Disk identity created a register entry");
+                HorseRegistry.openIdentityCache(cacheFile, "local-test-server", false).join();
+                require(!female.isGlowing() && !Files.exists(cacheFile), "Disabling the disk cache retained old identity data");
                 observe(female, "Weiblich"); observe(male, "Männlich"); observe(finder, "Stute");
                 for (var animal : animals) c.world.addEntity(animal);
                 c.player.setYaw(0); c.player.setPitch(5);
@@ -146,6 +158,23 @@ public final class AnimalGlowUiChecks {
                 require(!OttoExtraConfig.active().animalInfo.nametagGenderColor, "Glow changed nametag settings");
             });
             ctx.waitTick(); ctx.takeScreenshot("animal-glow-settings");
+            ctx.runOnClient(c -> {
+                var screen = (OttoExtraSettingsScreen) c.currentScreen;
+                OttoExtraConfig.active().animalInfo.rememberAnimalIdentities = true;
+                try {
+                    var field = OttoExtraSettingsScreen.class.getDeclaredField("searchField");
+                    field.setAccessible(true);
+                    ((TextFieldWidget) field.get(screen)).setText("animalInfo.rememberAnimalIdentities");
+                } catch (ReflectiveOperationException error) { throw new RuntimeException(error); }
+                var toggle = screen.children().stream().filter(e -> e instanceof ButtonWidget)
+                        .map(e -> (ButtonWidget) e).filter(b -> b.visible && b.getMessage().getString()
+                                .equals(Text.translatable("ottoextra.settings.on").getString())).findFirst().orElseThrow();
+                toggle.onPress(new KeyInput(GLFW.GLFW_KEY_ENTER, 0, 0));
+                require(!OttoExtraConfig.active().animalInfo.rememberAnimalIdentities, "Cache menu did not disable persistence");
+                toggle.onPress(new KeyInput(GLFW.GLFW_KEY_ENTER, 0, 0));
+                require(OttoExtraConfig.active().animalInfo.rememberAnimalIdentities, "Cache menu did not enable persistence");
+            });
+            ctx.waitTick(); ctx.takeScreenshot("animal-cache-settings");
             ctx.runOnClient(c -> c.setScreen(null));
             gate.set(false);
             press(ctx);

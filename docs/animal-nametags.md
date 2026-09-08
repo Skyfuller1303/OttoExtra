@@ -43,17 +43,18 @@ Entity-UUID getrennt. Bei voller Kapazität wird die älteste Beobachtung verdr�
 neue Antworten aktualisieren vorhandene Einträge. Verspätete ältere Antworten
 überschreiben keine neueren Beobachtungen.
 
-Die Daten liegen ausschließlich im **Arbeitsspeicher** und werden beim Disconnect
-geleert. Es entstehen keine Cache-Datei, keine automatischen Register-Einträge
-und keine zusätzlichen Serverabfragen für die Nametags. Bei erneutem Anvisieren
-in derselben Verbindung kann der Nametag sofort auf bekannte Werte zurückgreifen.
-Nach erneutem Verbinden kommen die Werte wieder mit der normalen Tierinfo.
+Die vollständigen Beobachtungen liegen im **Arbeitsspeicher** und werden beim
+Disconnect geleert. Ab Alpha J werden **Tierart und Geschlecht zusätzlich bis
+zu 14 Tage lokal gespeichert**, wenn der lokale Tiercache aktiviert ist.
+Dadurch funktionieren die Geschlechts-Nametags auch nach erneutem Verbinden.
+Es entstehen keine automatischen Register-Einträge oder zusätzlichen Abfragen.
+[Speicherumfang, Ablauf und Einstellung](animal-identity-cache.md).
 
 Der kurze Toast-Cache (standardmäßig fünf Sekunden, höchstens 128 Einträge) bleibt
 separat: Er steuert das bestehende Abfrageverhalten für veränderliche Werte wie
 Mast und Paarungsbereitschaft. Der Nametag-Speicher verhindert diese normalen
-Aktualisierungen nicht. Eine dauerhafte lokale Datei ist für diese Anzeige nicht
-nötig und würde zusätzliche Regeln für veraltete Daten erfordern.
+Aktualisierungen nicht. Veränderliche Zuchtwerte werden nicht aus dem
+dauerhaften Identitätscache übernommen.
 
 ## Daten und Darstellung
 
