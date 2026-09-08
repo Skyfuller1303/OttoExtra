@@ -9,6 +9,7 @@ import de.ottoextra.regions.RegionDataService;
 import de.ottoextra.regions.RegionsServices;
 import de.ottoextra.rpnames.RpNamesServices;
 import de.ottoextra.rpnames.title.TitleRegistry;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.network.PlayerListEntry;
 
 import java.util.Comparator;
@@ -23,19 +24,31 @@ public final class PlayerListSortingModule implements OttoExtraModule {
 
     @Override
     public boolean enabled(OttoExtraConfig config) {
-        return config.regions.enabled && config.rpnames.enabled;
+        // Der Waechter muss auch dann starten, wenn die Funktion beim
+        // Clientstart ausgeschaltet ist, damit Aus -> An ohne Neustart klappt.
+        return true;
     }
 
     @Override
     public void onInitializeClient(OttoExtraContext context) {
         RegionDataService regions = RegionsServices.data();
-        TitleRegistry titles = RpNamesServices.titles();
-        if (regions == null || titles == null) {
-            OttoExtra.LOGGER.warn("[playerlist] Lehen-Sortierung nicht initialisiert — Dienste fehlen.");
+        if (regions == null) {
+            OttoExtra.LOGGER.warn(
+                    "[playerlist] Lehen-Sortierung nicht initialisiert — Regionsdienst fehlt.");
             return;
         }
+        TitleRegistry titles = RpNamesServices.titles();
         service = new PlayerListSortingService(context.api(), regions, titles,
-                context.config().rpnames);
+                context.config().rpnames,
+                () -> context.config().regions.enabled
+                        && context.config().rpnames.enabled
+                        && context.config().rpnames.tablistSortByRegion);
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            PlayerListSortingService current = service;
+            if (current != null) {
+                current.tick();
+            }
+        });
         DebugLog.debug("[playerlist] Lehen-/Titel-Sortierung initialisiert.");
     }
 
@@ -62,6 +75,13 @@ public final class PlayerListSortingModule implements OttoExtraModule {
             Comparator<PlayerListEntry> vanilla) {
         PlayerListSortingService current = service;
         return current == null ? vanilla : current.wrap(vanilla);
+    }
+
+    public static void onTabOpened() {
+        PlayerListSortingService current = service;
+        if (current != null) {
+            current.onTabOpened();
+        }
     }
 
     private static void deactivate() {

@@ -11,6 +11,7 @@ import de.ottoextra.regions.RegionDataService;
 import de.ottoextra.rpnames.tablist.TablistNameFormatter;
 import de.ottoextra.rpnames.title.TitleRegistry;
 import net.minecraft.client.network.PlayerListEntry;
+import net.minecraft.util.Util;
 import net.minecraft.world.GameMode;
 
 import java.util.Comparator;
@@ -23,75 +24,168 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BooleanSupplier;
 
 final class PlayerListSortingService {
     private static final int UNKNOWN_TITLE_ORDER = Integer.MAX_VALUE;
+    static final long EMPTY_RETRY_INTERVAL_MS = 5_000L;
 
     private final OttoExtraApiClient api;
     private final RegionDataService regions;
     private final TitleRegistry titles;
     private final OttoExtraConfig.RpNames config;
+    private final BooleanSupplier sortingRequested;
     private final AtomicLong generation = new AtomicLong();
+    private final AtomicLong refreshInFlightGeneration = new AtomicLong(-1L);
     private final AtomicBoolean activationLogged = new AtomicBoolean();
 
     private volatile Snapshot snapshot = Snapshot.inactive();
+    private volatile boolean joined;
+    private volatile boolean sortingWasRequested;
+    private volatile long nextRefreshAt;
 
     PlayerListSortingService(OttoExtraApiClient api, RegionDataService regions,
-                             TitleRegistry titles, OttoExtraConfig.RpNames config) {
+                             TitleRegistry titles, OttoExtraConfig.RpNames config,
+                             BooleanSupplier sortingRequested) {
         this.api = api;
         this.regions = regions;
         this.titles = titles;
         this.config = config;
+        this.sortingRequested = sortingRequested;
     }
 
-    void onServerJoin() {
-        long currentGeneration = generation.incrementAndGet();
+    synchronized void onServerJoin() {
+        generation.incrementAndGet();
+        refreshInFlightGeneration.set(-1L);
         activationLogged.set(false);
-        snapshot = new Snapshot(true, Map.of());
+        snapshot = Snapshot.inactive();
+        joined = true;
+        sortingWasRequested = false;
+        nextRefreshAt = 0L;
+        tick();
+    }
+
+    /**
+     * Erkennt Konfigurationswechsel und wiederholt ausschließlich fehlende
+     * Sortierdaten. Bei einem erfolgreichen Snapshot entstehen keine
+     * periodischen API-Aufrufe. Erneutes Öffnen der Tabliste lädt die Daten neu.
+     */
+    void tick() {
+        tick(false);
+    }
+
+    void onTabOpened() {
+        tick(true);
+    }
+
+    private synchronized void tick(boolean tabOpened) {
+        long now = Util.getMeasuringTimeMs();
+        boolean requested = isSortingRequested();
+        if (!joined) {
+            return;
+        }
+        if (!requested) {
+            if (sortingWasRequested) {
+                generation.incrementAndGet();
+                refreshInFlightGeneration.set(-1L);
+                activationLogged.set(false);
+                snapshot = Snapshot.inactive();
+                sortingWasRequested = false;
+                nextRefreshAt = 0L;
+                DebugLog.debug("[playerlist] Lehen-Sortierung deaktiviert.");
+            }
+            return;
+        }
+        if (!sortingWasRequested) {
+            generation.incrementAndGet();
+            refreshInFlightGeneration.set(-1L);
+            activationLogged.set(false);
+            snapshot = new Snapshot(true, Map.of());
+            sortingWasRequested = true;
+            nextRefreshAt = 0L;
+            DebugLog.debug(
+                    "[playerlist] Lehen-Sortierung aktiviert — lade Sortierdaten neu.");
+        }
+
+        long currentGeneration = generation.get();
+        Snapshot current = snapshot;
+        boolean inFlight = refreshInFlightGeneration.get() == currentGeneration;
+        if ((tabOpened && !inFlight) || refreshDue(joined, requested, current.players().isEmpty(),
+                inFlight, now, nextRefreshAt)) {
+            refresh(currentGeneration, now);
+        }
+    }
+
+    private void refresh(long currentGeneration, long now) {
+        if (!refreshInFlightGeneration.compareAndSet(-1L, currentGeneration)) {
+            return;
+        }
+        nextRefreshAt = now + EMPTY_RETRY_INTERVAL_MS;
         regions.bootstrapCompletion()
                 .thenCompose(ignored -> generation.get() == currentGeneration
+                                && joined && isSortingRequested()
                         ? api.compactPlayers()
                         : CompletableFuture.completedFuture(List.of()))
                 .whenComplete((players, error) -> {
-                    if (generation.get() != currentGeneration) {
-                        return;
+                    synchronized (this) {
+                        try {
+                            if (generation.get() != currentGeneration
+                                    || !joined || !isSortingRequested()) {
+                                return;
+                            }
+                            if (error != null) {
+                                DebugLog.debug("[playerlist] Sortierdaten nicht verfügbar: {}",
+                                        rootMessage(error));
+                                nextRefreshAt = Util.getMeasuringTimeMs()
+                                        + EMPTY_RETRY_INTERVAL_MS;
+                                return;
+                            }
+                            Map<UUID, PlayerData> indexed = index(players);
+                            snapshot = new Snapshot(true, indexed);
+                            nextRefreshAt = indexed.isEmpty()
+                                    ? Util.getMeasuringTimeMs() + EMPTY_RETRY_INTERVAL_MS
+                                    : Long.MAX_VALUE;
+                            DebugLog.debug("[playerlist] {} Spieler für Lehen-Sortierung geladen.",
+                                    indexed.size());
+                        } finally {
+                            // Erst nach dem Cacheupdate darf die nächste Tab-Anfrage starten.
+                            refreshInFlightGeneration.compareAndSet(currentGeneration, -1L);
+                        }
                     }
-                    if (error != null) {
-                        DebugLog.debug("[playerlist] Sortierdaten nicht verfügbar: {}",
-                                rootMessage(error));
-                        return;
-                    }
-                    Map<UUID, PlayerData> indexed = index(players);
-                    snapshot = new Snapshot(true, indexed);
-                    DebugLog.debug("[playerlist] {} Spieler für Lehen-Sortierung geladen.",
-                            indexed.size());
                 });
     }
 
-    void deactivate() {
+    synchronized void deactivate() {
         generation.incrementAndGet();
+        refreshInFlightGeneration.set(-1L);
         activationLogged.set(false);
         snapshot = Snapshot.inactive();
+        joined = false;
+        sortingWasRequested = false;
+        nextRefreshAt = 0L;
     }
 
     Comparator<PlayerListEntry> wrap(Comparator<PlayerListEntry> vanilla) {
         Snapshot current = snapshot;
-        if (!config.tablistSortByRegion || !current.active || current.players.isEmpty()) {
+        if (!isSortingRequested() || !current.active || current.players.isEmpty()) {
             return vanilla;
         }
         if (activationLogged.compareAndSet(false, true)) {
             DebugLog.debug("[playerlist] Lehen-Sortierung aktiv; Server-listOrder wird ersetzt.");
         }
-        Map<PlayerListEntry, PlayerListSortKey> keys = new IdentityHashMap<>();
+        return comparator(vanilla, PlayerListSortingService::isSpectator,
+                entry -> sortKey(entry, current));
+    }
+
+    static <T> Comparator<T> comparator(Comparator<T> vanilla,
+                                        java.util.function.Predicate<T> spectator,
+                                        java.util.function.Function<T, PlayerListSortKey> key) {
+        Map<T, PlayerListSortKey> keys = new IdentityHashMap<>();
         return (left, right) -> {
-            if (isSpectator(left) != isSpectator(right)) {
-                return vanilla.compare(left, right);
-            }
-            PlayerListSortKey leftKey = keys.computeIfAbsent(left,
-                    entry -> sortKey(entry, current));
-            PlayerListSortKey rightKey = keys.computeIfAbsent(right,
-                    entry -> sortKey(entry, current));
-            int result = PlayerListSortKey.compare(leftKey, rightKey);
+            int status = Boolean.compare(spectator.test(left), spectator.test(right));
+            if (status != 0) return status;
+            int result = PlayerListSortKey.compare(
+                    keys.computeIfAbsent(left, key), keys.computeIfAbsent(right, key));
             return result != 0 ? result : vanilla.compare(left, right);
         };
     }
@@ -136,7 +230,8 @@ final class PlayerListSortingService {
         }
 
         String title = TablistNameFormatter.visibleSortTitle(profile, data.apiTitle);
-        TitleRegistry.ResolvedTitle resolved = titles.find(title).orElse(null);
+        TitleRegistry.ResolvedTitle resolved = titles == null
+                ? null : titles.find(title).orElse(null);
         int groupPriority = resolved != null ? resolved.group().priority : Integer.MIN_VALUE;
         String group = resolved != null ? normalize(resolved.groupKey()) : "";
         int titleOrder = resolved != null ? resolved.titleIndex() : UNKNOWN_TITLE_ORDER;
@@ -211,6 +306,23 @@ final class PlayerListSortingService {
         String message = current.getMessage();
         return message == null || message.isBlank()
                 ? current.getClass().getSimpleName() : message;
+    }
+
+    private boolean isSortingRequested() {
+        try {
+            return sortingRequested != null
+                    ? sortingRequested.getAsBoolean()
+                    : config.tablistSortByRegion;
+        } catch (RuntimeException error) {
+            return false;
+        }
+    }
+
+    static boolean refreshDue(boolean joined, boolean requested,
+                              boolean snapshotEmpty, boolean inFlight,
+                              long now, long nextRefreshAt) {
+        return joined && requested && snapshotEmpty && !inFlight
+                && now >= nextRefreshAt;
     }
 
     private record PlayerData(String lehen, int roleOrder, String apiTitle) {
