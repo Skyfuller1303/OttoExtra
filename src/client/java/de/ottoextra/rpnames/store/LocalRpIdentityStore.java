@@ -10,6 +10,7 @@ import de.ottoextra.rpnames.model.KnowledgeState;
 import de.ottoextra.rpnames.model.LocalRpProfile;
 import de.ottoextra.rpnames.model.RpNameSource;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -27,11 +28,25 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BooleanSupplier;
+import java.util.stream.Stream;
 
 public final class LocalRpIdentityStore {
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
     private static final long SAVE_DEBOUNCE_MS = 2000;
+
+    public enum RepairStatus {
+        HEALTHY,
+        RESTORED,
+        NO_DATA,
+        NO_VALID_BACKUP,
+        FAILED
+    }
+
+    public record RepairResult(RepairStatus status, Path source, Path preservedFile,
+                               int playerCount) {
+    }
 
     private static final class FileModel {
         int schemaVersion = 1;
@@ -43,10 +58,32 @@ public final class LocalRpIdentityStore {
     private final Map<String, LocalRpProfile> byNameLower = new ConcurrentHashMap<>();
     private final FailureLogGate saveFailureLog = new FailureLogGate();
     private final ScheduledExecutorService scheduler;
+    private final boolean persistenceEnabled;
+    private final Path dataFile;
+    private final Path recoveryBackupsDir;
     private volatile ScheduledFuture<?> pendingSave;
     private volatile boolean dirty = false;
+    private volatile boolean persistenceBlocked = false;
+    private volatile RepairResult lastRepairResult =
+            new RepairResult(RepairStatus.NO_DATA, null, null, 0);
 
     public LocalRpIdentityStore() {
+        this(true, OttoExtraPaths.rpnamesKnownPlayers(), OttoExtraPaths.rpnamesBackups());
+    }
+
+    LocalRpIdentityStore(boolean persistenceEnabled) {
+        this(persistenceEnabled, null, null);
+    }
+
+    LocalRpIdentityStore(Path dataFile, Path recoveryBackupsDir) {
+        this(true, dataFile, recoveryBackupsDir);
+    }
+
+    private LocalRpIdentityStore(boolean persistenceEnabled, Path dataFile,
+                                 Path recoveryBackupsDir) {
+        this.persistenceEnabled = persistenceEnabled;
+        this.dataFile = dataFile;
+        this.recoveryBackupsDir = recoveryBackupsDir;
         this.scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "ottoextra-rpnames-store");
             t.setDaemon(true);
@@ -55,42 +92,206 @@ public final class LocalRpIdentityStore {
     }
 
     public synchronized void load() {
-        Path file = OttoExtraPaths.rpnamesKnownPlayers();
+        Path file = dataFile;
+        if (file == null) {
+            return;
+        }
         if (!Files.exists(file)) {
+            lastRepairResult = new RepairResult(RepairStatus.NO_DATA, null, null, 0);
             return;
         }
         try {
-            FileModel model = GSON.fromJson(
-                    Files.readString(file, StandardCharsets.UTF_8), FileModel.class);
-            if (model == null || model.players == null) {
-                throw new IllegalStateException("leere Datei");
-            }
-            byUuid.clear();
-            byNameLower.clear();
-            for (LocalRpProfile p : model.players) {
-                if (p == null) {
-                    continue;
-                }
-                p.repair();
-                index(p);
+            boolean migratedApiState = applyModel(readModel(file));
+            persistenceBlocked = false;
+            lastRepairResult = new RepairResult(
+                    RepairStatus.HEALTHY, file, null, byNameLower.size());
+            if (migratedApiState) {
+                dirty = true;
+                saveSoon();
             }
             DebugLog.debug("[rpnames] {} bekannte Personen geladen.", byNameLower.size());
         } catch (Exception e) {
-
-            try {
-                Path broken = file.resolveSibling("known-players.broken-" + stamp() + ".json");
-                Files.move(file, broken, StandardCopyOption.REPLACE_EXISTING);
-                OttoExtra.LOGGER.warn("[rpnames] known-players.json defekt ({}) — nach {} verschoben.",
-                        e.toString(), broken.getFileName());
-            } catch (Exception moveFail) {
-                OttoExtra.LOGGER.warn("[rpnames] known-players.json defekt und nicht verschiebbar: {}",
-                        moveFail.toString());
-            }
+            lastRepairResult = recoverCorruptFile(e);
         }
     }
 
-    public void saveSoon() {
+    public synchronized RepairResult repairData() {
+        if (!persistenceEnabled || dataFile == null) {
+            return new RepairResult(RepairStatus.FAILED, null, null, byNameLower.size());
+        }
+        if (Files.exists(dataFile)) {
+            try {
+                FileModel model = readModel(dataFile);
+                applyModel(model);
+                persistenceBlocked = false;
+                dirty = false;
+                RepairResult previousResult = lastRepairResult;
+                if (previousResult.status() == RepairStatus.RESTORED) {
+                    return previousResult;
+                }
+                lastRepairResult = new RepairResult(
+                        RepairStatus.HEALTHY, dataFile, null, byNameLower.size());
+                return lastRepairResult;
+            } catch (Exception e) {
+                lastRepairResult = recoverCorruptFile(e);
+                return lastRepairResult;
+            }
+        }
+        lastRepairResult = restoreRecoveryCandidate(null);
+        return lastRepairResult;
+    }
+
+    public synchronized boolean restoreBackup(BooleanSupplier restoreFiles) {
+        saveNow();
+        if (dirty && persistenceEnabled && !persistenceBlocked) {
+            return false;
+        }
+        ScheduledFuture<?> pending = pendingSave;
+        if (pending != null) {
+            pending.cancel(false);
+            pendingSave = null;
+        }
+        boolean restored;
+        try {
+            restored = restoreFiles.getAsBoolean();
+        } finally {
+            // Auch nach einem teilweise fehlgeschlagenen Restore nie alte Daten nachschreiben.
+            dirty = false;
+            load();
+        }
+        return restored && !persistenceBlocked;
+    }
+
+    public RepairResult lastRepairResult() {
+        return lastRepairResult;
+    }
+
+    private RepairResult recoverCorruptFile(Exception cause) {
+        Path broken = null;
+        try {
+            broken = dataFile.resolveSibling("known-players.broken-" + stamp() + ".json");
+            Files.move(dataFile, broken, StandardCopyOption.REPLACE_EXISTING);
+            OttoExtra.LOGGER.warn(
+                    "[rpnames] known-players.json defekt ({}) — Original als {} erhalten.",
+                    cause.toString(), broken.getFileName());
+        } catch (Exception moveFail) {
+            persistenceBlocked = true;
+            dirty = false;
+            OttoExtra.LOGGER.warn(
+                    "[rpnames] Defekte known-players.json konnte nicht gesichert werden; "
+                            + "Speichern bleibt zum Schutz der Daten gesperrt: {}",
+                    moveFail.toString());
+            return new RepairResult(
+                    RepairStatus.FAILED, null, broken, byNameLower.size());
+        }
+        return restoreRecoveryCandidate(broken);
+    }
+
+    private RepairResult restoreRecoveryCandidate(Path broken) {
+        for (Path candidate : recoveryCandidates()) {
+            try {
+                FileModel model = readModel(candidate);
+                restoreFile(candidate);
+                applyModel(model);
+                persistenceBlocked = false;
+                dirty = false;
+                OttoExtra.LOGGER.warn(
+                        "[rpnames] Personendaten automatisch aus {} wiederhergestellt ({} Personen).",
+                        candidate, byNameLower.size());
+                return new RepairResult(
+                        RepairStatus.RESTORED, candidate, broken, byNameLower.size());
+            } catch (Exception invalidCandidate) {
+                DebugLog.debug("[rpnames] Reparaturkandidat {} unbrauchbar: {}",
+                        candidate, invalidCandidate.toString());
+            }
+        }
+        persistenceBlocked = true;
+        dirty = false;
+        OttoExtra.LOGGER.error(
+                "[rpnames] Keine gültige Sicherung gefunden; automatisches Speichern bleibt gesperrt.");
+        return new RepairResult(
+                RepairStatus.NO_VALID_BACKUP, null, broken, byNameLower.size());
+    }
+
+    private List<Path> recoveryCandidates() {
+        List<Path> candidates = new ArrayList<>();
+        Path tmp = dataFile.resolveSibling("known-players.json.tmp");
+        Path previous = dataFile.resolveSibling("known-players.previous.json");
+        if (Files.exists(tmp)) {
+            candidates.add(tmp);
+        }
+        if (Files.exists(previous)) {
+            candidates.add(previous);
+        }
+        if (recoveryBackupsDir != null && Files.isDirectory(recoveryBackupsDir)) {
+            try (Stream<Path> files = Files.walk(recoveryBackupsDir)) {
+                files.filter(Files::isRegularFile)
+                        .filter(p -> p.getFileName().toString().equals("known-players.json"))
+                        .sorted(Comparator.comparing(LocalRpIdentityStore::backupSortKey).reversed())
+                        .forEach(candidates::add);
+            } catch (Exception e) {
+                DebugLog.debug("[rpnames] Backup-Suche fehlgeschlagen: {}", e.toString());
+            }
+        }
+        return candidates;
+    }
+
+    private static String backupSortKey(Path file) {
+        Path parent = file.getParent();
+        return parent == null ? "" : parent.getFileName().toString();
+    }
+
+    private FileModel readModel(Path file) throws IOException {
+        FileModel model = GSON.fromJson(
+                Files.readString(file, StandardCharsets.UTF_8), FileModel.class);
+        if (model == null || model.players == null) {
+            throw new IOException("leere oder unvollständige Personendatei");
+        }
+        return model;
+    }
+
+    private boolean applyModel(FileModel model) {
+        Map<String, LocalRpProfile> loadedByUuid = new ConcurrentHashMap<>();
+        Map<String, LocalRpProfile> loadedByName = new ConcurrentHashMap<>();
+        boolean migratedApiState = false;
+        for (LocalRpProfile p : model.players) {
+            if (p == null) {
+                continue;
+            }
+            boolean hadApiState = p.apiState != null && !p.apiState.isBlank();
+            p.repair();
+            migratedApiState |= !hadApiState && !p.apiState.isBlank();
+            if (p.accountName != null && !p.accountName.isBlank()) {
+                loadedByName.merge(p.accountName.toLowerCase(Locale.ROOT), p,
+                        (old, next) -> next.lastSeenAt >= old.lastSeenAt ? next : old);
+            }
+            if (p.uuid != null && !p.uuid.isBlank()) {
+                loadedByUuid.put(p.uuid.toLowerCase(Locale.ROOT), p);
+            }
+        }
+        byUuid.clear();
+        byUuid.putAll(loadedByUuid);
+        byNameLower.clear();
+        byNameLower.putAll(loadedByName);
+        return migratedApiState;
+    }
+
+    private void restoreFile(Path candidate) throws IOException {
+        Files.createDirectories(dataFile.getParent());
+        Path recoveryTmp = dataFile.resolveSibling("known-players.recovery.tmp");
+        Files.copy(candidate, recoveryTmp, StandardCopyOption.REPLACE_EXISTING);
+        readModel(recoveryTmp);
+        replaceFile(recoveryTmp, dataFile);
+    }
+
+    public synchronized void saveSoon() {
+        if (persistenceBlocked) {
+            return;
+        }
         dirty = true;
+        if (!persistenceEnabled) {
+            return;
+        }
         ScheduledFuture<?> pending = pendingSave;
         if (pending != null) {
             pending.cancel(false);
@@ -99,24 +300,25 @@ public final class LocalRpIdentityStore {
     }
 
     public synchronized void saveNow() {
-        if (!dirty && Files.exists(OttoExtraPaths.rpnamesKnownPlayers())) {
+        if (!persistenceEnabled || persistenceBlocked || dataFile == null) {
+            return;
+        }
+        if (!dirty && Files.exists(dataFile)) {
             return;
         }
         try {
             FileModel model = new FileModel();
             model.updatedAt = System.currentTimeMillis();
-            model.players = new ArrayList<>(byNameLower.values());
+            model.players = all();
             model.players.sort(Comparator.comparing(
                     p -> p.accountName == null ? "" : p.accountName.toLowerCase(Locale.ROOT)));
-            Path file = OttoExtraPaths.rpnamesKnownPlayers();
+            Path file = dataFile;
             Files.createDirectories(file.getParent());
             Path tmp = file.resolveSibling("known-players.json.tmp");
             Files.writeString(tmp, GSON.toJson(model), StandardCharsets.UTF_8);
-            try {
-                Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-            } catch (Exception atomicUnsupported) {
-                Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING);
-            }
+            readModel(tmp);
+            preservePreviousVersion(file);
+            replaceFile(tmp, file);
             dirty = false;
             if (saveFailureLog.onSuccess()) {
                 DebugLog.debug("[rpnames] Speichern nach Fehler wieder möglich.");
@@ -125,6 +327,27 @@ public final class LocalRpIdentityStore {
             if (saveFailureLog.onFailure()) {
                 OttoExtra.LOGGER.warn("[rpnames] Speichern fehlgeschlagen: {}", e.toString());
             }
+        }
+    }
+
+    private void preservePreviousVersion(Path file) throws IOException {
+        if (!Files.exists(file)) {
+            return;
+        }
+        readModel(file);
+        Path previous = file.resolveSibling("known-players.previous.json");
+        Path previousTmp = file.resolveSibling("known-players.previous.json.tmp");
+        Files.copy(file, previousTmp, StandardCopyOption.REPLACE_EXISTING);
+        readModel(previousTmp);
+        replaceFile(previousTmp, previous);
+    }
+
+    private static void replaceFile(Path source, Path target) throws IOException {
+        try {
+            Files.move(source, target, StandardCopyOption.REPLACE_EXISTING,
+                    StandardCopyOption.ATOMIC_MOVE);
+        } catch (Exception atomicUnsupported) {
+            Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
         }
     }
 
@@ -178,7 +401,8 @@ public final class LocalRpIdentityStore {
                 return Optional.of(p);
             }
         }
-        return findByName(accountName);
+        return findByName(accountName).filter(p -> uuid == null || uuid.isBlank()
+                || p.uuid == null || p.uuid.isBlank() || uuid.equalsIgnoreCase(p.uuid));
     }
 
     public Optional<LocalRpProfile> findByName(String accountName) {
@@ -188,16 +412,23 @@ public final class LocalRpIdentityStore {
         return Optional.ofNullable(byNameLower.get(accountName.toLowerCase(Locale.ROOT)));
     }
 
-    public List<LocalRpProfile> all() {
-        return new ArrayList<>(byNameLower.values());
+    public synchronized List<LocalRpProfile> all() {
+        // Reused names must not remove the previous owner's UUID profile.
+        java.util.Set<LocalRpProfile> profiles = new java.util.LinkedHashSet<>(byUuid.values());
+        profiles.addAll(byNameLower.values());
+        return new ArrayList<>(profiles);
     }
 
     public int size() {
-        return byNameLower.size();
+        return all().size();
     }
 
     public synchronized LocalRpProfile ensureSeen(String accountName, String uuid, RpNameSource source) {
-        long now = System.currentTimeMillis();
+        LocalRpProfile previousNameOwner = findByName(accountName).orElse(null);
+        // Keep name ownership deterministic across same-millisecond observations
+        // and clock corrections when both UUID profiles are later loaded.
+        long now = Math.max(System.currentTimeMillis(),
+                previousNameOwner == null ? 0 : previousNameOwner.lastSeenAt + 1);
         LocalRpProfile profile = find(uuid, accountName).orElse(null);
         if (profile == null) {
             profile = new LocalRpProfile();
@@ -220,7 +451,7 @@ public final class LocalRpIdentityStore {
             if (accountName != null && !accountName.isBlank()
                     && profile.accountName != null
                     && !accountName.equalsIgnoreCase(profile.accountName)) {
-                byNameLower.remove(profile.accountName.toLowerCase(Locale.ROOT));
+                byNameLower.remove(profile.accountName.toLowerCase(Locale.ROOT), profile);
                 profile.accountName = accountName;
                 changed = true;
             }
@@ -247,6 +478,10 @@ public final class LocalRpIdentityStore {
         if (!keep.hasTitle() && dupe.hasTitle()) {
             keep.title = dupe.title;
             keep.titleGroup = dupe.titleGroup;
+        }
+        if ((keep.apiState == null || keep.apiState.isBlank())
+                && dupe.apiState != null && !dupe.apiState.isBlank()) {
+            keep.apiState = dupe.apiState;
         }
         keep.locked = keep.locked || dupe.locked;
         keep.firstSeenAt = Math.min(nonZero(keep.firstSeenAt), nonZero(dupe.firstSeenAt));
@@ -343,7 +578,8 @@ public final class LocalRpIdentityStore {
         return profile;
     }
 
-    public synchronized boolean importApi(String accountName, String uuid, String rpName, String title) {
+    public synchronized boolean importApi(String accountName, String uuid, String rpName,
+                                          String title, String state) {
         LocalRpProfile profile = find(uuid, accountName).orElse(null);
         if (profile == null) {
             return false;
@@ -355,6 +591,11 @@ public final class LocalRpIdentityStore {
         boolean recorded = false;
         if (rpName != null && !rpName.isBlank() && !rpName.equals(profile.apiRpName)) {
             profile.apiRpName = rpName;
+            recorded = true;
+        }
+        String apiState = state == null ? "" : state.trim();
+        if (!apiState.equals(profile.apiState == null ? "" : profile.apiState)) {
+            profile.apiState = apiState;
             recorded = true;
         }
         if (profile.locked || !profile.knowledgeState.allowsAutomaticUpdates()) {
@@ -415,7 +656,9 @@ public final class LocalRpIdentityStore {
                 || profile.source != RpNameSource.API_IMPORTED) {
             return false;
         }
-        boolean changed = importApi(accountName, uuid, rpName, title);
+        // Chatbeobachtungen enthalten keinen API-Stand und dürfen den zuletzt
+        // synchronisierten Wert deshalb nicht löschen.
+        boolean changed = importApi(accountName, uuid, rpName, title, profile.apiState);
         if (changed) {
             de.ottoextra.rpnames.chat.ChatHistoryRefresh.request();
         }

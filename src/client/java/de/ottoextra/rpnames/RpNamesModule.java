@@ -207,11 +207,12 @@ public final class RpNamesModule implements OttoExtraModule {
                         cleanApiText(profile.rp_name()),
                         fallbackProfileName(profile, account));
                 String title = cleanApiText(profile.title());
+                String apiState = cleanApiText(profile.state());
 
                 var store = RpNamesServices.store();
                 if (store != null) {
                     store.ensureSeen(account, responseUuid, RpNameSource.SEEN_ONLINE);
-                    store.importApi(account, responseUuid, rpName, title);
+                    store.importApi(account, responseUuid, rpName, title, apiState);
                 }
 
                 // Direkte API-Werte werden an das Fenster übergeben. Dadurch

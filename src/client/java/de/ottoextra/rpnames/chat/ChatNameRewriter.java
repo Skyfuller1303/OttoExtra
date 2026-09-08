@@ -3,6 +3,7 @@ package de.ottoextra.rpnames.chat;
 import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.rpnames.model.LocalRpProfile;
 import de.ottoextra.rpnames.store.LocalRpIdentityStore;
+import de.ottoextra.rpnames.title.TitleColorResolver;
 import de.ottoextra.rpnames.title.TitleRegistry;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.ObjectTextContent;
@@ -463,18 +464,9 @@ public final class ChatNameRewriter {
         if (!ownTitleApplies(profile)) {
             return null;
         }
-        var catalog = de.ottoextra.rpnames.RpNamesServices.catalog();
-        String groupTitleColor = null;
-        Optional<TitleRegistry.ResolvedTitle> resolved = titles.find(profile.title);
-        if (resolved.isPresent()) {
-            groupTitleColor = resolved.get().group().titleColor;
-        }
-        String catalogColor = catalog != null
-                ? catalog.titleColor(profile.title).orElse(null) : null;
-        String fallback = catalog != null ? catalog.fallbackTitleColor() : "#a17f5f";
-        String pers = profile.colors.chatTitleColor;
-        String titleColor = firstNonBlank(pers,
-                firstNonBlank(catalogColor, firstNonBlank(groupTitleColor, fallback)));
+        String titleColor = TitleColorResolver.resolve(profile,
+                profile.colors.chatTitleColor, profile.title,
+                de.ottoextra.rpnames.RpNamesServices.catalog(), titles);
         return colored(de.ottoextra.rpnames.RpNamesServices
                 .displayTitle(profile) + " ", titleColor);
     }

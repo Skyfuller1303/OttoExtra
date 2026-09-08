@@ -106,15 +106,12 @@ public final class RegionsApiRpNameImporter {
             boolean isSelf = account.equalsIgnoreCase(selfName);
             String rpName = clean(p.rpName);
             String title = clean(p.title);
-            String group = clean(p.state);
+            String apiState = clean(p.state);
 
             LocalRpProfile existing = store.find(p.uuid, account).orElse(null);
             if (existing != null) {
                 boolean hadConflict = existing.apiConflict != null;
-                boolean changed = store.importApi(account, p.uuid, rpName, title);
-                if (applyGroup(existing, group)) {
-                    changed = true;
-                }
+                boolean changed = store.importApi(account, p.uuid, rpName, title, apiState);
                 if (changed) {
                     updated++;
                 }
@@ -132,9 +129,7 @@ public final class RegionsApiRpNameImporter {
                 if (title != null) {
                     profile.title = title;
                 }
-                if (group != null) {
-                    profile.titleGroup = group;
-                }
+                profile.apiState = apiState == null ? "" : apiState;
                 profile.knowledgeState = KnowledgeState.API_IMPORTED;
                 profile.source = RpNameSource.API_IMPORTED;
                 long now = System.currentTimeMillis();
@@ -149,15 +144,6 @@ public final class RegionsApiRpNameImporter {
         DebugLog.debug("[rpnames] API-Import: {} Spieler, {} ergänzt, {} angelegt, {} Konflikte.",
                 env.players.size(), updated, created, conflicts);
         return new Result(env.players.size(), updated, created, conflicts, null);
-    }
-
-    private static boolean applyGroup(LocalRpProfile profile, String group) {
-        if (group == null || profile.locked || !profile.knowledgeState.allowsAutomaticUpdates()
-                || (profile.titleGroup != null && !profile.titleGroup.isBlank())) {
-            return false;
-        }
-        profile.titleGroup = group;
-        return true;
     }
 
     private static String clean(String s) {

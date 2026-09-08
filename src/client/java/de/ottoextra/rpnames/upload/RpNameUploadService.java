@@ -32,7 +32,7 @@ public final class RpNameUploadService {
     private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor(
             daemonThreads());
 
-    private static final ConcurrentHashMap<String, String> OBSERVED_IDENTITIES =
+    private static final ConcurrentHashMap<String, ObservedIdentity> OBSERVED_IDENTITIES =
             new ConcurrentHashMap<>();
     private static final FailureLogGate FAILURE_LOG = new FailureLogGate();
 
@@ -64,6 +64,9 @@ public final class RpNameUploadService {
         }
 
         OttoExtraConfig config = OttoExtraConfig.active();
+        if (!config.consent.communityRpNameUploads) {
+            return CompletableFuture.completedFuture(Result.skipped());
+        }
         UploadData data;
         try {
             data = createUploadData(targetAccountName, targetUuid, rpName);
@@ -71,9 +74,25 @@ public final class RpNameUploadService {
             return CompletableFuture.completedFuture(Result.failed(e.getMessage()));
         }
 
+        return enqueue(config, data, EXECUTOR, RpNameUploadService::send);
+    }
+
+    private record ObservedIdentity(String value, OttoExtraConfig.Consent consent, long generation) { }
+
+    @FunctionalInterface
+    interface Transport {
+        Result send(OttoExtraConfig config, UploadData data, java.util.function.BooleanSupplier allowed);
+    }
+
+    static CompletableFuture<Result> enqueue(OttoExtraConfig config, UploadData data,
+            java.util.concurrent.Executor executor,
+            Transport transport) {
+        var consent = config.consent;
+        long generation = consent.uploadGeneration();
+        if (!consent.allowsUpload(generation)) return CompletableFuture.completedFuture(Result.skipped());
         String key = data.targetKey();
-        String value = data.identityValue();
-        String previous = OBSERVED_IDENTITIES.putIfAbsent(key, value);
+        ObservedIdentity value = new ObservedIdentity(data.identityValue(), consent, generation);
+        ObservedIdentity previous = OBSERVED_IDENTITIES.putIfAbsent(key, value);
         if (value.equals(previous)) {
             return CompletableFuture.completedFuture(Result.skipped());
         }
@@ -81,9 +100,14 @@ public final class RpNameUploadService {
             OBSERVED_IDENTITIES.put(key, value);
         }
 
-        return CompletableFuture.supplyAsync(() -> send(config, data), EXECUTOR)
+        return CompletableFuture.supplyAsync(() -> {
+                    java.util.function.BooleanSupplier allowed = () ->
+                            config.consent == consent && consent.allowsUpload(generation);
+                    if (!allowed.getAsBoolean()) return Result.skipped();
+                    return transport.send(config, data, allowed);
+                }, executor)
                 .thenApply(result -> {
-                    if (!result.success()) {
+                    if (!result.attempted() || !result.success()) {
                         OBSERVED_IDENTITIES.remove(key, value);
                     }
                     return result;
@@ -154,7 +178,9 @@ public final class RpNameUploadService {
                 normalizedRpName);
     }
 
-    private static Result send(OttoExtraConfig config, UploadData data) {
+    private static Result send(OttoExtraConfig config, UploadData data,
+                               java.util.function.BooleanSupplier allowed) {
+        if (!allowed.getAsBoolean()) return Result.skipped();
         URI uri = new OttoExtraApiRoutes(config.api.baseUrl).communityParticipantRpName();
         if (!"https".equalsIgnoreCase(uri.getScheme())) {
             return Result.failed("Unsichere API-Adresse wurde abgelehnt");
@@ -172,6 +198,7 @@ public final class RpNameUploadService {
                 .build();
 
         try {
+            if (!allowed.getAsBoolean()) return Result.skipped();
             HttpResponse<String> response = HTTP.send(
                     request,
                     HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));

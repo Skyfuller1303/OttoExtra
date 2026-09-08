@@ -2,6 +2,7 @@ package de.ottoextra.rpnames.ui;
 
 import de.ottoextra.rpnames.RpNamesServices;
 import de.ottoextra.rpnames.store.LocalRpIdentityStore;
+import de.ottoextra.rpnames.title.TitleColorResolver;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
@@ -254,17 +255,9 @@ public final class MeetPersonScreen extends Screen {
         var catalog = RpNamesServices.catalog();
         var p = RpNamesServices.store() != null
                 ? RpNamesServices.store().findByName(account).orElse(null) : null;
-        String catalogColor = catalog != null
-                ? catalog.titleColor(title).orElse(null) : null;
-        String groupColor = RpNamesServices.titles() != null
-                ? RpNamesServices.titles().find(title).map(r -> r.group().titleColor).orElse(null)
-                : null;
-        String fallback = catalog != null ? catalog.fallbackTitleColor() : "#a17f5f";
-
         String pers = p != null ? p.colors.nametagTitleColor : null;
-        String hex = RpNamesServices.titleOverridesColor(title)
-                ? firstNonBlank(catalogColor, firstNonBlank(pers, firstNonBlank(groupColor, fallback)))
-                : firstNonBlank(pers, firstNonBlank(catalogColor, firstNonBlank(groupColor, fallback)));
+        String hex = TitleColorResolver.resolve(p, pers, title,
+                catalog, RpNamesServices.titles());
         return argb(hex, 0xFFD2BF6A);
     }
 

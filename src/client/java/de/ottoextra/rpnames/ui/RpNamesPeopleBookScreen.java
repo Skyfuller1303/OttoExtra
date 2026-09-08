@@ -1,6 +1,9 @@
 package de.ottoextra.rpnames.ui;
 
 import de.ottoextra.config.OttoExtraConfig;
+import de.ottoextra.addon.OttoExtraAddons;
+import de.ottoextra.addon.RpBookPlayerContext;
+import de.ottoextra.addon.RpBookPlayerField;
 import de.ottoextra.rpnames.RpNamesServices;
 import de.ottoextra.rpnames.chat.ChatNameRewriter;
 import de.ottoextra.rpnames.importer.RegionsApiRpNameImporter;
@@ -8,6 +11,7 @@ import de.ottoextra.rpnames.model.KnowledgeState;
 import de.ottoextra.rpnames.model.LocalRpProfile;
 import de.ottoextra.rpnames.store.LocalRpIdentityStore;
 import de.ottoextra.rpnames.title.TitleRegistry;
+import de.ottoextra.rpnames.title.TitleColorResolver;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
@@ -94,6 +98,8 @@ public final class RpNamesPeopleBookScreen extends Screen {
     private ButtonWidget keepLocalButton;
     private ButtonWidget takeApiButton;
     private final List<ButtonWidget> chipButtons = new ArrayList<>();
+    private final List<ButtonWidget> addonFieldButtons = new ArrayList<>();
+    private List<RpBookPlayerField> addonPlayerFields = List.of();
 
     private boolean filterDropdownOpen;
     private ButtonWidget filterButton;
@@ -261,6 +267,8 @@ public final class RpNamesPeopleBookScreen extends Screen {
     @Override
     protected void init() {
         chipButtons.clear();
+        addonFieldButtons.clear();
+        addonPlayerFields = fieldsFor(selected);
         refreshOnline();
 
         String[] tabKeys = {"ottoextra.rpbook.tab.people",
@@ -390,6 +398,18 @@ public final class RpNamesPeopleBookScreen extends Screen {
                 .pos(x + w / 2 + 2, y - 1).build();
         addDrawableChild(titleLockCheckbox);
         y += 21;
+
+        for (int i = 0; i < addonPlayerFields.size(); i++) {
+            final int fieldIndex = i;
+            ButtonWidget button = ButtonWidget.builder(addonFieldLabel(addonPlayerFields.get(i)), b -> {
+                if (fieldIndex < addonPlayerFields.size()) {
+                    addonPlayerFields.get(fieldIndex).action().run();
+                }
+            }).dimensions(x, y, w, 16).build();
+            addonFieldButtons.add(button);
+            addDrawableChild(button);
+            y += 19;
+        }
 
         int fieldW = (w - 16 - 4) / 2 - 12;
         for (int row = 0; row < 3; row++) {
@@ -644,13 +664,10 @@ public final class RpNamesPeopleBookScreen extends Screen {
         return hay != null && hay.toLowerCase(Locale.ROOT).contains(needle);
     }
 
-    private String[] defaultColorsFor(String title) {
+    private String[] defaultColorsFor(LocalRpProfile profile, String title) {
         var catalog = RpNamesServices.catalog();
-        String titleColor = catalog != null ? catalog.titleColor(title).orElse(null) : null;
-        if (titleColor == null) {
-            titleColor = titles.find(title == null ? "" : title)
-                    .map(r -> r.group().titleColor).orElse("");
-        }
+        String titleColor = TitleColorResolver.resolve(profile, null, title,
+                catalog, titles);
 
         String nameColor = catalog != null
                 ? catalog.titleNameColor(title).orElse(catalog.defaultNameColor())
@@ -659,7 +676,8 @@ public final class RpNamesPeopleBookScreen extends Screen {
     }
 
     /**
-     * Unveränderte Basisfarben für einen Titel. Anders als {@link #defaultColorsFor(String)}
+     * Unveränderte Basisfarben für einen Titel. Anders als
+     * {@link #defaultColorsFor(LocalRpProfile, String)}
      * werden titelbezogene Farb-Overrides hier bewusst ignoriert. Ein Reset soll sichtbar
      * zur Kategorie-/Grundfarbe zurückkehren und nicht wieder den gerade angepassten
      * Titel-Override einsetzen.
@@ -724,7 +742,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         String[] overrides = {profile.colors.chatTitleColor, profile.colors.chatNameColor,
                 profile.colors.tabTitleColor, profile.colors.tabNameColor,
                 profile.colors.nametagTitleColor, profile.colors.nametagNameColor};
-        String[] defaults = defaultColorsFor(profile.title);
+        String[] defaults = defaultColorsFor(profile, profile.title);
         for (int i = 0; i < 6; i++) {
             colorFields[i].setText(overrides[i] != null && !overrides[i].isBlank()
                     ? overrides[i] : defaults[i]);
@@ -733,6 +751,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         chatFlagButton.setMessage(flagLabel("ottoextra.rpbook.flag.chat", profile.showInChat));
         tabFlagButton.setMessage(flagLabel("ottoextra.rpbook.flag.tab", profile.showInTablist));
         tagFlagButton.setMessage(flagLabel("ottoextra.rpbook.flag.tag", profile.showInNametag));
+        refreshAddonFields();
         setPeopleEditEnabled(true);
         suppressLockAuto = false;
         personDirty = false;
@@ -765,6 +784,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         chatFlagButton.active = enabled;
         tabFlagButton.active = enabled;
         tagFlagButton.active = enabled;
+        addonFieldButtons.forEach(button -> button.active = enabled);
         copyChatColorsButton.active = enabled;
         saveButton.active = enabled;
         forgetButton.active = enabled;
@@ -780,6 +800,34 @@ public final class RpNamesPeopleBookScreen extends Screen {
         }
     }
 
+    private List<RpBookPlayerField> fieldsFor(LocalRpProfile profile) {
+        if (profile == null) return List.of();
+        java.util.UUID uuid = null;
+        try {
+            if (profile.uuid != null && !profile.uuid.isBlank()) uuid = java.util.UUID.fromString(profile.uuid);
+        } catch (IllegalArgumentException ignored) {
+        }
+        return OttoExtraAddons.rpBookPlayerFields(new RpBookPlayerContext(
+                uuid, profile.accountName, profile.rpName, profile.title, this));
+    }
+
+    private void refreshAddonFields() {
+        List<RpBookPlayerField> fresh = fieldsFor(selected);
+        if (fresh.size() != addonFieldButtons.size()) {
+            addonPlayerFields = fresh;
+            clearAndInit();
+            return;
+        }
+        addonPlayerFields = fresh;
+        for (int i = 0; i < fresh.size(); i++) {
+            addonFieldButtons.get(i).setMessage(addonFieldLabel(fresh.get(i)));
+        }
+    }
+
+    private static Text addonFieldLabel(RpBookPlayerField field) {
+        return field.value();
+    }
+
     private void savePerson() {
         if (selected == null) {
             return;
@@ -789,7 +837,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         String notes = notesField.getText().trim();
         String group = groupForTitle(title);
 
-        String[] defaults = defaultColorsFor(title);
+        String[] defaults = defaultColorsFor(selected, title);
         String[] baseColors = baseColorsFor(title);
         String[] hex = new String[6];
         for (int i = 0; i < 6; i++) {
@@ -1713,11 +1761,19 @@ public final class RpNamesPeopleBookScreen extends Screen {
         ctx.drawText(textRenderer, Text.translatable("ottoextra.rpbook.titleField").getString(),
                 x, contentY() + 37, COL_TEXT, false);
 
+        int addonBaseY = contentY() + 12 + 21 + 21 + 21;
+        for (int i = 0; i < addonPlayerFields.size(); i++) {
+            Text label = addonPlayerFields.get(i).label();
+            if (label != null && !label.getString().isBlank()) {
+                ctx.drawText(textRenderer, label, x, addonBaseY + i * 19 + 4, COL_TEXT, false);
+            }
+        }
+
         String[] rowLabels = {
                 Text.translatable("ottoextra.rpbook.colors.chat").getString(),
                 Text.translatable("ottoextra.rpbook.colors.tab").getString(),
                 Text.translatable("ottoextra.rpbook.colors.tag").getString()};
-        int baseY = contentY() + 12 + 21 + 21 + 21 + 12;
+        int baseY = contentY() + 12 + 21 + 21 + 21 + addonPlayerFields.size() * 19 + 12;
         for (int row = 0; row < 3; row++) {
             ctx.drawText(textRenderer, rowLabels[row], x, baseY + row * 19 + 3, COL_TEXT, false);
         }
@@ -2032,7 +2088,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
             }
         }
         String title = titleField != null ? titleField.getText().trim() : selected.title;
-        return defaultColorsFor(title)[index];
+        return defaultColorsFor(selected, title)[index];
     }
 
     private static MutableText colored(String s, String hex) {

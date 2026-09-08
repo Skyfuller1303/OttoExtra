@@ -1,5 +1,7 @@
 package de.ottoextra.rpnames.model;
 
+import de.ottoextra.rpnames.title.ApiStateCategory;
+
 import java.util.regex.Pattern;
 
 public final class LocalRpProfile {
@@ -14,6 +16,8 @@ public final class LocalRpProfile {
     public String accountName;
     public String rpName = UNKNOWN_NAME;
     public String title = "";
+    /** Zuletzt von der Spieler-API gelieferter Stand. */
+    public String apiState = "";
     public String titleGroup = "";
     public KnowledgeState knowledgeState = KnowledgeState.SEEN;
     public RpNameSource source = RpNameSource.SEEN_ONLINE;
@@ -64,6 +68,13 @@ public final class LocalRpProfile {
         }
         if (titleGroup == null) {
             titleGroup = "";
+        }
+        if (apiState == null) {
+            apiState = "";
+        }
+        // Frühere Versionen speicherten den API-Stand irrtümlich als Titelgruppe.
+        if (apiState.isBlank() && ApiStateCategory.isKnown(titleGroup)) {
+            apiState = titleGroup.trim();
         }
         if (knowledgeState == null) {
             knowledgeState = hasRpName() ? KnowledgeState.HEARD_NAME : KnowledgeState.SEEN;
