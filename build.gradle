@@ -7,6 +7,29 @@ version = project.mod_version
 group = project.maven_group
 base { archivesName = project.archives_base_name }
 
+def alwaysDebugBuild = providers.gradleProperty("ottoextraAlwaysDebug")
+        .map { it.toBoolean() }.orElse(false)
+def debugMarkerDir = layout.buildDirectory.dir("generated/ottoextraDebugResources")
+
+tasks.register("generateDebugBuildMarker") {
+    inputs.property("alwaysDebug", alwaysDebugBuild)
+    outputs.dir(debugMarkerDir)
+    doLast {
+        File root = debugMarkerDir.get().asFile
+        project.delete(root)
+        if (alwaysDebugBuild.get()) {
+            root.mkdirs()
+            new File(root, "ottoextra-always-debug.marker").text = "enabled\n"
+        }
+    }
+}
+
+tasks.named("remapJar") {
+    if (alwaysDebugBuild.get()) {
+        archiveClassifier = "always-debug"
+    }
+}
+
 // Client-only Mod: saubere Trennung von gemeinsamem und Client-Code.
 // Dedicated-Server laedt dadurch keine Client-Klassen.
 loom {
@@ -41,6 +64,14 @@ loom {
     }
 }
 
+sourceSets.client.resources.srcDir(debugMarkerDir)
+tasks.named("processClientResources") {
+    dependsOn tasks.named("generateDebugBuildMarker")
+}
+tasks.matching { it.name == "sourcesJar" }.configureEach {
+    dependsOn tasks.named("generateDebugBuildMarker")
+}
+
 repositories {
     mavenCentral()
     maven { name = 'TerraformersMC'; url = 'https://maven.terraformersmc.com/' } // ModMenu
@@ -63,6 +94,8 @@ dependencies {
     // aus dem Modpack. Loom remappt die lokale Mod-JAR nach Yarn.
     modCompileOnly files("libs/xaerominimap-fabric-1.21.11-25.3.12.jar")
     modCompileOnly files("libs/xaerolib-fabric-1.21.11-1.1.15.jar")
+    // Xaero World Map wird nur in der Dev-Instanz geladen und bleibt optional.
+    modLocalRuntime files("../Mods/input/mods/xaeroworldmap-fabric-1.21.11-1.41.0.jar")
 
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
     testImplementation sourceSets.client.output
@@ -90,6 +123,12 @@ processResources {
     inputs.property "version", project.version
     filesMatching("fabric.mod.json") {
         expand "version": project.version
+    }
+}
+
+tasks.named('jar') {
+    from('LICENSE') {
+        rename { "LICENSE_${project.archives_base_name}" }
     }
 }
 

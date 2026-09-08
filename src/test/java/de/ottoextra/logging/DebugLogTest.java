@@ -3,10 +3,13 @@ package de.ottoextra.logging;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DebugLogTest {
+
+    private static final boolean FORCE_ENABLED =
+            DebugLogTest.class.getResource("/ottoextra-always-debug.marker") != null;
 
     @AfterEach
     void disableDebugLog() {
@@ -15,7 +18,7 @@ class DebugLogTest {
 
     @Test
     void debugLoggingIsDisabledByDefault() {
-        assertFalse(DebugLog.isEnabled());
+        assertEquals(FORCE_ENABLED, DebugLog.isEnabled());
     }
 
     @Test
@@ -24,6 +27,6 @@ class DebugLogTest {
         assertTrue(DebugLog.isEnabled());
 
         DebugLog.setEnabled(false);
-        assertFalse(DebugLog.isEnabled());
+        assertEquals(FORCE_ENABLED, DebugLog.isEnabled());
     }
 }

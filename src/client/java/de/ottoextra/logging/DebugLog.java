@@ -9,25 +9,29 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class DebugLog {
 
-    private static final AtomicBoolean ENABLED = new AtomicBoolean(false);
+    private static final boolean FORCE_ENABLED =
+            DebugLog.class.getResource("/ottoextra-always-debug.marker") != null;
+    private static final AtomicBoolean ENABLED = new AtomicBoolean(FORCE_ENABLED);
 
     private DebugLog() {
     }
 
     public static boolean isEnabled() {
-        return ENABLED.get();
+        return FORCE_ENABLED || ENABLED.get();
     }
 
     public static void setEnabled(boolean enabled) {
-        ENABLED.set(enabled);
+        ENABLED.set(FORCE_ENABLED || enabled);
     }
 
     public static boolean isLogging() {
-        return isEnabled() && OttoExtra.LOGGER.isDebugEnabled();
+        return isEnabled() && (FORCE_ENABLED || OttoExtra.LOGGER.isDebugEnabled());
     }
 
     public static void debug(String message, Object... arguments) {
-        if (isLogging()) {
+        if (FORCE_ENABLED) {
+            OttoExtra.LOGGER.info("[debug] " + message, arguments);
+        } else if (isLogging()) {
             OttoExtra.LOGGER.debug(message, arguments);
         }
     }
