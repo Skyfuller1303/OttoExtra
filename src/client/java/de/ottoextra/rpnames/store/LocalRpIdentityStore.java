@@ -512,14 +512,15 @@ public final class LocalRpIdentityStore {
             return false;
         }
         LocalRpProfile profile = ensureSeen(accountName, null, RpNameSource.SEEN_ONLINE);
-        if (!profile.knowledgeState.allowsAutomaticUpdates() || profile.locked) {
+        if (profile.locked || profile.knowledgeState == KnowledgeState.MANUAL_LOCKED) {
             profile.lastSeenAt = System.currentTimeMillis();
             return false;
         }
         long now = System.currentTimeMillis();
         boolean changed = false;
 
-        if (rpName != null && !rpName.isBlank() && !rpName.equalsIgnoreCase(accountName)) {
+        if (profile.knowledgeState.allowsAutomaticUpdates()
+                && rpName != null && !rpName.isBlank() && !rpName.equalsIgnoreCase(accountName)) {
             if (!profile.hasRpName() || profile.knowledgeState == KnowledgeState.API_IMPORTED) {
                 if (profile.hasRpName() && !profile.rpName.equals(rpName)) {
                     profile.apiConflict = profile.rpName;
@@ -535,7 +536,7 @@ public final class LocalRpIdentityStore {
                 changed = true;
             }
         }
-        if (title != null && !title.isBlank() && !profile.hasTitle() && !profile.titleLocked) {
+        if (canUpdateTitle(profile) && title != null && !title.isBlank() && !title.equals(profile.title)) {
             profile.title = title;
             if (titleGroup != null && !titleGroup.isBlank()) {
                 profile.titleGroup = titleGroup;
@@ -559,8 +560,7 @@ public final class LocalRpIdentityStore {
             return false;
         }
         LocalRpProfile profile = find(uuid, account).orElse(null);
-        if (profile == null || profile.locked || profile.titleLocked
-                || !profile.knowledgeState.allowsAutomaticUpdates()) {
+        if (!canUpdateTitle(profile)) {
             return false;
         }
         if (t.equals(profile.title == null ? "" : profile.title)) {
@@ -572,6 +572,12 @@ public final class LocalRpIdentityStore {
         return true;
     }
 
+    /** Manual names stay local; only explicit profile/title locks freeze the title. */
+    private static boolean canUpdateTitle(LocalRpProfile profile) {
+        return profile != null && !profile.locked && !profile.titleLocked
+                && profile.knowledgeState != KnowledgeState.MANUAL_LOCKED;
+    }
+
     public synchronized LocalRpProfile updateManual(String accountName,
                                                     java.util.function.Consumer<LocalRpProfile> edit,
                                                     boolean lock) {
@@ -579,7 +585,7 @@ public final class LocalRpIdentityStore {
         edit.accept(profile);
         profile.repair();
         profile.knowledgeState = lock ? KnowledgeState.MANUAL_LOCKED : KnowledgeState.MANUAL;
-        profile.locked = lock || profile.locked;
+        profile.locked = lock;
         profile.source = RpNameSource.MANUAL_EDIT;
         profile.lastUpdatedAt = System.currentTimeMillis();
         index(profile);
@@ -607,6 +613,10 @@ public final class LocalRpIdentityStore {
         String apiState = state == null ? "" : state.trim();
         if (!apiState.equals(profile.apiState == null ? "" : profile.apiState)) {
             profile.apiState = apiState;
+            recorded = true;
+        }
+        if (canUpdateTitle(profile) && title != null && !title.isBlank() && !title.equals(profile.title)) {
+            profile.title = title;
             recorded = true;
         }
         if (profile.locked || !profile.knowledgeState.allowsAutomaticUpdates()) {
@@ -638,13 +648,6 @@ public final class LocalRpIdentityStore {
                 && !profile.rpName.equals(rpName)) {
             profile.apiConflict = rpName;
             changed = true;
-        }
-        if (title != null && !title.isBlank() && !profile.titleLocked
-                && (!profile.hasTitle() || apiManaged)) {
-            if (!title.equals(profile.title)) {
-                profile.title = title;
-                changed = true;
-            }
         }
         if (changed) {
             profile.lastUpdatedAt = System.currentTimeMillis();

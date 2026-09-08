@@ -107,6 +107,99 @@ class LocalRpIdentityStoreTest {
     }
 
     @Test
+    void manualProfileAcceptsServerAndApiTitlesWithoutOverwritingPersonalNameOrColors() {
+        var store = new LocalRpIdentityStore(false);
+        try {
+            var profile = store.updateManual("Player", p -> {
+                p.rpName = "Mein Bekannter";
+                p.title = "Knappe";
+                p.colors.chatNameColor = "#123456";
+            }, false);
+            assertFalse(profile.locked);
+            assertFalse(profile.titleLocked);
+            assertEquals(KnowledgeState.MANUAL, profile.knowledgeState);
+            assertTrue(store.updateTitleIfChanged("Player", null, "Ritter"));
+            assertTrue(store.learnIdentity("Player", "Servername", "Freiherr", "Adel",
+                    de.ottoextra.rpnames.model.RpNameSource.SEEN_ONLINE));
+            assertEquals("Freiherr", profile.title);
+            assertTrue(store.importApi("Player", null, "API-Name", "Graf", "Adlige"));
+            assertEquals("Graf", profile.title);
+            assertEquals("Mein Bekannter", profile.rpName);
+            assertEquals("#123456", profile.colors.chatNameColor);
+            assertEquals("Adlige", profile.apiState);
+        } finally { store.shutdown(); }
+    }
+
+    @Test
+    void explicitTitleLockBlocksAllAutomaticTitleSourcesUntilItIsCleared() {
+        var store = new LocalRpIdentityStore(false);
+        try {
+            var profile = store.updateManual("Player", p -> {
+                p.rpName = "Bekannter";
+                p.title = "Mein Titel";
+                p.titleLocked = true;
+            }, false);
+            assertFalse(store.updateTitleIfChanged("Player", null, "Servertitel"));
+            store.learnIdentity("Player", "Servername", "Beobachteter Titel", "Adel",
+                    de.ottoextra.rpnames.model.RpNameSource.SEEN_ONLINE);
+            store.importApi("Player", null, "API-Name", "API-Titel", "Adlige");
+            assertEquals("Mein Titel", profile.title);
+            assertFalse(profile.locked);
+            store.updateManual("Player", p -> p.titleLocked = false, false);
+            assertTrue(store.updateTitleIfChanged("Player", null, "Neuer Titel"));
+            assertEquals("Neuer Titel", profile.title);
+        } finally { store.shutdown(); }
+    }
+
+    @Test
+    void explicitlyLockedEmptyTitleIsNotFilledAutomatically() {
+        var store = new LocalRpIdentityStore(false);
+        try {
+            var profile = store.updateManual("Player", p -> p.titleLocked = true, false);
+            store.learnIdentity("Player", "Name", "Beobachteter Titel", "Adel",
+                    de.ottoextra.rpnames.model.RpNameSource.SEEN_ONLINE);
+            store.importApi("Player", null, "Name", "API-Titel", "Adlige");
+            assertFalse(store.updateTitleIfChanged("Player", null, "Servertitel"));
+            assertEquals("", profile.title);
+        } finally { store.shutdown(); }
+    }
+
+    @Test
+    void fullProfileLockCanBeExplicitlyRemovedAndStaysRemovedAfterReload() {
+        Path file = temporaryDirectory.resolve("known-players.json");
+        var store = new LocalRpIdentityStore(file, temporaryDirectory.resolve("backups"));
+        try {
+            var profile = store.updateManual("Player", p -> { p.rpName = "Name"; p.title = "Alt"; }, true);
+            assertTrue(profile.locked);
+            assertFalse(store.updateTitleIfChanged("Player", null, "Blockiert"));
+            store.updateManual("Player", p -> { }, false);
+            assertFalse(profile.locked);
+            assertEquals(KnowledgeState.MANUAL, profile.knowledgeState);
+        } finally { store.shutdown(); }
+        var reloaded = new LocalRpIdentityStore(file, temporaryDirectory.resolve("backups"));
+        try {
+            reloaded.load();
+            assertFalse(reloaded.findByName("Player").orElseThrow().locked);
+            assertTrue(reloaded.updateTitleIfChanged("Player", null, "Aktuell"));
+        } finally { reloaded.shutdown(); }
+    }
+
+    @Test
+    void titleLockStillAllowsApiManagedNameAndMetadataUpdates() {
+        var store = new LocalRpIdentityStore(false);
+        try {
+            var profile = store.ensureSeen("Player", null, de.ottoextra.rpnames.model.RpNameSource.SEEN_ONLINE);
+            store.importApi("Player", null, "Alter Name", "Fester Titel", "Gemeiner");
+            profile.titleLocked = true;
+            store.importApi("Player", null, "Neuer Name", "Neuer Titel", "Adlige");
+            assertEquals("Neuer Name", profile.rpName);
+            assertEquals("Adlige", profile.apiState);
+            assertEquals("Fester Titel", profile.title);
+            assertFalse(profile.locked);
+        } finally { store.shutdown(); }
+    }
+
+    @Test
     void corruptFileIsPreservedAndRestoredFromRollingPreviousVersion() throws Exception {
         Path dataFile = temporaryDirectory.resolve("known-players.json");
         Path backups = temporaryDirectory.resolve("backups");

@@ -261,6 +261,10 @@ public final class CourierE2ETest implements FabricClientGameTest {
                 click("ottoextra.letter.txt.export");
                 check(textFiles().equals(before), "Stale export action adopted a different book");
             });
+            test("UI-PEOPLE-LOCKS", "Personen speichern ohne automatische Sperren; Titel nur ausdrücklich sperren", () -> {
+                de.ottoextra.rpnames.store.PeopleLockUiChecks.run(ctx);
+                check(commands().isEmpty(), "People book sent server commands");
+            });
             check(!results.isEmpty(), "No tests selected");
             String requested = System.getProperty("courier.e2e.filter", "");
             if (!requested.isBlank()) for (String id : requested.split(","))

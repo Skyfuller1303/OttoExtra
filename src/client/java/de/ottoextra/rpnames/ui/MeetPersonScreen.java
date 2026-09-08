@@ -179,14 +179,14 @@ public final class MeetPersonScreen extends Screen {
         }
         final String rpName = rp == null ? "" : rp.trim();
         final String t = title == null ? "" : title.trim();
-        store.ensureSeen(account, uuid, de.ottoextra.rpnames.model.RpNameSource.MANUAL_EDIT);
+        var previous = store.ensureSeen(account, uuid, de.ottoextra.rpnames.model.RpNameSource.MANUAL_EDIT);
 
         store.updateManual(account, p -> {
             if (!rpName.isEmpty()) {
                 p.rpName = rpName;
             }
             p.title = t;
-        }, true);
+        }, previous.locked || previous.knowledgeState == de.ottoextra.rpnames.model.KnowledgeState.MANUAL_LOCKED);
 
         close();
     }

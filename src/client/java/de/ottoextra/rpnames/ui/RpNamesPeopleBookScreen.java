@@ -86,7 +86,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
     private CheckboxWidget lockCheckbox;
     private CheckboxWidget titleLockCheckbox;
 
-    private boolean suppressLockAuto;
+    private boolean loadingPerson;
     private ButtonWidget chatFlagButton;
     private ButtonWidget tabFlagButton;
     private ButtonWidget tagFlagButton;
@@ -351,7 +351,6 @@ public final class RpNamesPeopleBookScreen extends Screen {
         rpNameField = new TextFieldWidget(textRenderer, x, y, w, 16, Text.empty());
         rpNameField.setMaxLength(48);
         rpNameField.setChangedListener(s -> {
-            autoLock();
             markPersonDirty();
         });
         addDrawableChild(rpNameField);
@@ -361,9 +360,8 @@ public final class RpNamesPeopleBookScreen extends Screen {
 
         titleField.setChangedListener(s -> {
 
-            autoLockTitle();
             markPersonDirty();
-            if (!suppressLockAuto) {
+            if (!loadingPerson) {
                 forceRawTitleDisplay = false;
             }
             titleAutofill = null;
@@ -391,11 +389,11 @@ public final class RpNamesPeopleBookScreen extends Screen {
         y += 21;
 
         lockCheckbox = CheckboxWidget.builder(Text.translatable("ottoextra.rpbook.lock"), textRenderer)
-                .pos(x, y - 1).build();
+                .pos(x, y - 1).callback((checkbox, checked) -> markPersonDirty()).build();
         addDrawableChild(lockCheckbox);
         titleLockCheckbox = CheckboxWidget.builder(
                 Text.translatable("ottoextra.rpbook.titleLock"), textRenderer)
-                .pos(x + w / 2 + 2, y - 1).build();
+                .pos(x + w / 2 + 2, y - 1).callback((checkbox, checked) -> markPersonDirty()).build();
         addDrawableChild(titleLockCheckbox);
         y += 21;
 
@@ -488,27 +486,10 @@ public final class RpNamesPeopleBookScreen extends Screen {
         TextFieldWidget f = new TextFieldWidget(textRenderer, x, y, w, 14, Text.empty());
         f.setMaxLength(7);
         f.setChangedListener(s -> {
-            autoLock();
             markPersonDirty();
         });
         addDrawableChild(f);
         return f;
-    }
-
-    private void autoLock() {
-        if (suppressLockAuto || tab != Tab.PEOPLE || selected == null || lockCheckbox == null
-                || !lockCheckbox.active || lockCheckbox.isChecked()) {
-            return;
-        }
-        lockCheckbox.onPress(null);
-    }
-
-    private void autoLockTitle() {
-        if (suppressLockAuto || tab != Tab.PEOPLE || selected == null || titleLockCheckbox == null
-                || !titleLockCheckbox.active || titleLockCheckbox.isChecked()) {
-            return;
-        }
-        titleLockCheckbox.onPress(null);
     }
 
     private ButtonWidget flagButton(int x, int y, int w, String key,
@@ -727,7 +708,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
             setPeopleEditEnabled(false);
             return;
         }
-        suppressLockAuto = true;
+        loadingPerson = true;
         rpNameField.setText(profile.hasRpName() ? profile.rpName : "");
         titleField.setText(profile.title == null ? "" : profile.title);
         forceRawTitleDisplay = profile.rawTitleDisplay;
@@ -753,12 +734,12 @@ public final class RpNamesPeopleBookScreen extends Screen {
         tagFlagButton.setMessage(flagLabel("ottoextra.rpbook.flag.tag", profile.showInNametag));
         refreshAddonFields();
         setPeopleEditEnabled(true);
-        suppressLockAuto = false;
+        loadingPerson = false;
         personDirty = false;
     }
 
     private void markPersonDirty() {
-        if (!suppressLockAuto && tab == Tab.PEOPLE && selected != null) {
+        if (!loadingPerson && tab == Tab.PEOPLE && selected != null) {
             personDirty = true;
         }
     }
@@ -861,7 +842,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
             p.title = title;
             p.rawTitleDisplay = forceRawTitleDisplay;
 
-            p.titleLocked = titleLockCheckbox.isChecked() && !title.isEmpty();
+            p.titleLocked = titleLockCheckbox.isChecked();
             p.titleGroup = group;
             p.notes = notes;
             p.colors.chatTitleColor = hex[0];
