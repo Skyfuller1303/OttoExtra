@@ -9,6 +9,7 @@ import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityAttachmentType;
 import net.minecraft.entity.passive.AbstractHorseEntity;
+import net.minecraft.entity.passive.AnimalEntity;
 import net.minecraft.text.Text;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Style;
@@ -36,23 +37,44 @@ public final class HorseRegistryNametagRenderer {
                                float tickProgress) {
         LABELS.remove(state);
         MinecraftClient client = MinecraftClient.getInstance();
-        if (client.currentScreen != null || !RegistryAnimals.supports(entity)
+        if (client.currentScreen != null || !(entity instanceof AnimalEntity)
                 || (!HorseRegistry.basicSurfaceActive() && entity instanceof AbstractHorseEntity)
                 || !(client.crosshairTarget instanceof EntityHitResult hit)
                 || hit.getEntity() != entity
                 || state.squaredDistanceToCamera >= MAX_DISTANCE_SQUARED) {
             return;
         }
-        HorseRegistry.name(entity.getUuid()).ifPresent(name -> {
-            if (state.nameLabelPos == null) {
-                state.nameLabelPos = entity.getAttachments().getPointNullable(
-                        EntityAttachmentType.NAME_TAG, 0,
-                        entity.getLerpedYaw(tickProgress));
-            }
-            if (state.nameLabelPos != null) {
-                prepareLabel(state, name, knownGender(entity.getUuid()), OttoExtraConfig.active().animalInfo);
-            }
-        });
+        var config = OttoExtraConfig.active().animalInfo;
+        String registeredName = RegistryAnimals.supports(entity)
+                ? HorseRegistry.name(entity.getUuid()).orElse(null) : null;
+        if (registeredName == null && (!config.nametagIncludeUnregistered
+                || (!config.nametagShowGender && !config.nametagGenderColor))) return;
+        if (state.nameLabelPos == null) {
+            state.nameLabelPos = entity.getAttachments().getPointNullable(
+                    EntityAttachmentType.NAME_TAG, 0, entity.getLerpedYaw(tickProgress));
+        }
+        if (state.nameLabelPos == null) return;
+        if (registeredName != null) {
+            prepareLabel(state, registeredName, knownGender(entity.getUuid()), config);
+        } else {
+            prepareUnregisteredLabel(state, entity.getUuid(), entity.getCustomName(), config);
+        }
+    }
+
+    static void prepareUnregisteredLabel(EntityRenderState state, UUID uuid, Text customName,
+                                         OttoExtraConfig.AnimalInfo config) {
+        LABELS.remove(state);
+        if (!config.nametagIncludeUnregistered || (!config.nametagShowGender && !config.nametagGenderColor)) return;
+        var observation = HorseRegistry.observation(uuid).orElse(null);
+        if (observation == null || genderColor(observation.snapshot().gender()) == null) return;
+        String gender = observation.snapshot().gender();
+        if (state.displayName != null) {
+            state.displayName = decorate(state.displayName, gender, config);
+        } else {
+            Text name = customName != null ? customName
+                    : Text.literal(observation.snapshot().animalName()).formatted(Formatting.GOLD);
+            LABELS.put(state, decorate(name, gender, config));
+        }
     }
 
     /** Uses already available data only; rendering never initiates a server query. */

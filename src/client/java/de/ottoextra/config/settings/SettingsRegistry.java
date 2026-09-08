@@ -681,7 +681,10 @@ public final class SettingsRegistry {
                         .tooltip("ottoextra.set.animalinfo.nametagShowGender.tip"),
                 Option.bool("ottoextra.config.animalinfo.nametagGenderColor", "animalInfo.nametagGenderColor",
                         () -> c.animalInfo.nametagGenderColor, v -> c.animalInfo.nametagGenderColor = v)
-                        .tooltip("ottoextra.set.animalinfo.nametagGenderColor.tip"));
+                        .tooltip("ottoextra.set.animalinfo.nametagGenderColor.tip"),
+                Option.bool("ottoextra.config.animalinfo.nametagIncludeUnregistered", "animalInfo.nametagIncludeUnregistered",
+                        () -> c.animalInfo.nametagIncludeUnregistered, v -> c.animalInfo.nametagIncludeUnregistered = v)
+                        .tooltip("ottoextra.set.animalinfo.nametagIncludeUnregistered.tip"));
         var animalInfoAdvanced = tab(animalInfo, "ottoextra.set.tab.advanced");
         card(animalInfoAdvanced, "ottoextra.set.animalinfo.timing",
                 "ottoextra.set.animalinfo.timing.desc",

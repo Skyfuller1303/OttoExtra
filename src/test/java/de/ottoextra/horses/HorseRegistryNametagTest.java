@@ -141,4 +141,30 @@ class HorseRegistryNametagTest {
         assertEquals(expected, label.getString());
         assertEquals(color, label.getStyle().getColor().getRgb());
     }
+
+    @Test
+    void unregisteredNamesRequireOptInKnownDataAndAnEnabledGenderOption() {
+        HorseRegistry.initialize(null, () -> true, true);
+        UUID uuid = UUID.randomUUID();
+        var config = new OttoExtraConfig.AnimalInfo();
+        config.nametagGenderColor = true;
+        var state = new EntityRenderState();
+        Text original = Text.literal("Kuh");
+        state.displayName = original;
+        HorseRegistry.observe(new AnimalInfoObservation(uuid,
+                new AnimalInfoSnapshot("Rotvieh Rind", "Weiblich", "Ja"), Instant.now()));
+        HorseRegistryNametagRenderer.prepareUnregisteredLabel(state, uuid, null, config);
+        assertSame(original, state.displayName);
+        config.nametagIncludeUnregistered = true;
+        HorseRegistryNametagRenderer.prepareUnregisteredLabel(state, UUID.randomUUID(), null, config);
+        assertSame(original, state.displayName);
+        config.nametagGenderColor = false;
+        HorseRegistryNametagRenderer.prepareUnregisteredLabel(state, uuid, null, config);
+        assertSame(original, state.displayName);
+        config.nametagGenderColor = true;
+        HorseRegistryNametagRenderer.prepareUnregisteredLabel(state, uuid, null, config);
+        assertEquals("Kuh", state.displayName.getString());
+        assertEquals(0xFF79B8, state.displayName.getStyle().getColor().getRgb());
+        assertTrue(HorseRegistry.name(uuid).isEmpty());
+    }
 }

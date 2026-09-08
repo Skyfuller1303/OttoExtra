@@ -16,22 +16,28 @@ class AnimalNametagConfigTest {
     void allCombinationsSurviveSaveLoadAndSnapshotRestore() {
         for (boolean show : new boolean[]{false, true}) {
             for (boolean tint : new boolean[]{false, true}) {
-                var config = new OttoExtraConfig();
-                config.animalInfo.nametagShowGender = show;
-                config.animalInfo.nametagGenderColor = tint;
-                Path file = directory.resolve(show + "-" + tint + ".json");
-                config.save(file);
-                var loaded = OttoExtraConfig.load(file);
-                assertEquals(show, loaded.animalInfo.nametagShowGender);
-                assertEquals(tint, loaded.animalInfo.nametagGenderColor);
-                String snapshot = loaded.snapshotJson();
-                var reference = loaded.animalInfo;
-                loaded.animalInfo.nametagShowGender = !show;
-                loaded.animalInfo.nametagGenderColor = !tint;
-                loaded.restoreFrom(snapshot);
-                assertSame(reference, loaded.animalInfo);
-                assertEquals(show, reference.nametagShowGender);
-                assertEquals(tint, reference.nametagGenderColor);
+                for (boolean include : new boolean[]{false, true}) {
+                    var config = new OttoExtraConfig();
+                    config.animalInfo.nametagShowGender = show;
+                    config.animalInfo.nametagGenderColor = tint;
+                    config.animalInfo.nametagIncludeUnregistered = include;
+                    Path file = directory.resolve(show + "-" + tint + "-" + include + ".json");
+                    config.save(file);
+                    var loaded = OttoExtraConfig.load(file);
+                    assertEquals(show, loaded.animalInfo.nametagShowGender);
+                    assertEquals(tint, loaded.animalInfo.nametagGenderColor);
+                    assertEquals(include, loaded.animalInfo.nametagIncludeUnregistered);
+                    String snapshot = loaded.snapshotJson();
+                    var reference = loaded.animalInfo;
+                    loaded.animalInfo.nametagShowGender = !show;
+                    loaded.animalInfo.nametagGenderColor = !tint;
+                    loaded.animalInfo.nametagIncludeUnregistered = !include;
+                    loaded.restoreFrom(snapshot);
+                    assertSame(reference, loaded.animalInfo);
+                    assertEquals(show, reference.nametagShowGender);
+                    assertEquals(tint, reference.nametagGenderColor);
+                    assertEquals(include, reference.nametagIncludeUnregistered);
+                }
             }
         }
     }
@@ -41,10 +47,13 @@ class AnimalNametagConfigTest {
         var config = new OttoExtraConfig();
         assertFalse(config.animalInfo.nametagShowGender);
         assertFalse(config.animalInfo.nametagGenderColor);
+        assertFalse(config.animalInfo.nametagIncludeUnregistered);
         config.animalInfo.nametagShowGender = config.animalInfo.nametagGenderColor = true;
+        config.animalInfo.nametagIncludeUnregistered = true;
         config.restoreFrom("{\"animalInfo\":{\"enabled\":false}}");
         assertFalse(config.animalInfo.nametagShowGender);
         assertFalse(config.animalInfo.nametagGenderColor);
+        assertFalse(config.animalInfo.nametagIncludeUnregistered);
         assertFalse(config.animalInfo.enabled);
     }
 
@@ -62,6 +71,11 @@ class AnimalNametagConfigTest {
         assertFalse(config.animalInfo.nametagGenderColor);
         tint.set.accept("true");
         show.set.accept("false");
+        assertFalse(config.animalInfo.nametagShowGender);
+        assertTrue(config.animalInfo.nametagGenderColor);
+        var include = options.stream().filter(o -> o.configKey.equals("animalInfo.nametagIncludeUnregistered")).findFirst().orElseThrow();
+        include.set.accept("true");
+        assertTrue(config.animalInfo.nametagIncludeUnregistered);
         assertFalse(config.animalInfo.nametagShowGender);
         assertTrue(config.animalInfo.nametagGenderColor);
     }

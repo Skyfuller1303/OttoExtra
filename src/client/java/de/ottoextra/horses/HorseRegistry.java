@@ -28,6 +28,7 @@ import java.util.function.BooleanSupplier;
  */
 public final class HorseRegistry {
 
+    static final int MAX_OBSERVATIONS = 1_024;
     private static final Map<UUID, AnimalBreedingHorseName> NAMES =
             new ConcurrentHashMap<>();
     private static final Map<UUID, AnimalInfoObservation> OBSERVATIONS =
@@ -68,9 +69,15 @@ public final class HorseRegistry {
         clearConnection();
     }
 
-    static void observe(AnimalInfoObservation observation) {
+    static synchronized void observe(AnimalInfoObservation observation) {
         if (observation != null && observation.snapshot().complete()) {
+            AnimalInfoObservation previous = OBSERVATIONS.get(observation.entityUuid());
+            if (previous != null && previous.observedAt().isAfter(observation.observedAt())) return;
             OBSERVATIONS.put(observation.entityUuid(), observation);
+            if (OBSERVATIONS.size() > MAX_OBSERVATIONS) {
+                OBSERVATIONS.values().stream().min(Comparator.comparing(AnimalInfoObservation::observedAt))
+                        .ifPresent(oldest -> OBSERVATIONS.remove(oldest.entityUuid()));
+            }
         }
     }
 
