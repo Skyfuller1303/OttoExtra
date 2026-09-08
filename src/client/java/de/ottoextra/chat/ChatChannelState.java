@@ -9,22 +9,29 @@ import java.util.function.BooleanSupplier;
 public final class ChatChannelState {
 
     public enum ChatChannel {
-        SPRECHEN("[Sprechen]", "s", true),
-        FLUESTERN("[Flüstern]", "f", true),
-        MURMELN("[Murmeln]", "m", true),
-        RUFEN("[Rufen]", "r", true),
-        BRUELLEN("[Brüllen]", "b", true),
-        OFFTOPIC("[Offtopic]", "o", false),
-        HILFE("[Hilfe]", "h", false);
+        SPRECHEN("[Sprechen]", "ottoextra.chat.channel.sprechen", "s", true),
+        FLUESTERN("[Flüstern]", "ottoextra.chat.channel.fluestern", "f", true),
+        MURMELN("[Murmeln]", "ottoextra.chat.channel.murmeln", "m", true),
+        RUFEN("[Rufen]", "ottoextra.chat.channel.rufen", "r", true),
+        BRUELLEN("[Brüllen]", "ottoextra.chat.channel.bruellen", "b", true),
+        OFFTOPIC("[Offtopic]", "ottoextra.chat.channel.offtopic", "o", false),
+        HILFE("[Hilfe]", "ottoextra.chat.channel.hilfe", "h", false);
 
+        /** Deutsches Serverlabel; wird weiterhin fuer die Chaterkennung gebraucht. */
         public final String label;
+        public final String translationKey;
         public final String command;
         public final boolean rp;
 
-        ChatChannel(String label, String command, boolean rp) {
+        ChatChannel(String label, String translationKey, String command, boolean rp) {
             this.label = label;
+            this.translationKey = translationKey;
             this.command = command;
             this.rp = rp;
+        }
+
+        public net.minecraft.text.Text displayLabel() {
+            return net.minecraft.text.Text.translatable(translationKey);
         }
     }
 

@@ -20,7 +20,7 @@ public final class ChatChannelButton {
 
     public static int width(MinecraftClient client) {
         var channel = ChatChannelState.current();
-        int w = client.textRenderer.getWidth(channel.label);
+        int w = client.textRenderer.getWidth(channel.displayLabel());
         String bang = bangText();
         if (channel == ChatChannelState.ChatChannel.OFFTOPIC && !bang.isEmpty()) {
             w += client.textRenderer.getWidth(bang);
@@ -64,7 +64,7 @@ public final class ChatChannelButton {
             ctx.drawText(client.textRenderer, bang, x, y, bangColor(), true);
             x += client.textRenderer.getWidth(bang);
         }
-        ctx.drawText(client.textRenderer, channel.label, x, y, color, true);
+        ctx.drawText(client.textRenderer, channel.displayLabel(), x, y, color, true);
     }
 
     public static int originalColor(ChatChannelState.ChatChannel channel) {

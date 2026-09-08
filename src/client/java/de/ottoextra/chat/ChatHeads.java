@@ -4,6 +4,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.PlayerListEntry;
 import net.minecraft.client.util.DefaultSkinHelper;
 import net.minecraft.entity.player.SkinTextures;
+import de.ottoextra.config.OttoExtraConfig;
 
 import java.util.UUID;
 
@@ -37,6 +38,9 @@ public final class ChatHeads {
         SkinTextures local = SkinCache.localSkin(uuid);
         if (local != null) {
             return local;
+        }
+        if (!OttoExtraConfig.active().consent.externalImageDownloads) {
+            return DefaultSkinHelper.getSkinTextures(uuid);
         }
         try {
             SkinTextures s = mc.getSkinProvider()

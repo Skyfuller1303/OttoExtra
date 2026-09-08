@@ -107,6 +107,30 @@ class LongChatSenderSplitTest {
         assertTrue(parts.get(parts.size() - 1).indexOf('(') < 0);
     }
 
+    @Test
+    void einzelnerSternWirdBeimTeilenNichtZumEmoteErgaenzt() {
+        String message = "er sagt *und dann passiert etwas ohne schliessenden Stern am Ende";
+
+        List<String> parts = LongChatSender.split(message, 25, " >");
+
+        assertTrue(parts.size() >= 3);
+        assertEquals(1, parts.stream().mapToInt(part -> countChar(part, '*')).sum());
+        assertEquals(message, String.join(" ",
+                parts.stream().map(part -> part.replace(" >", "")).toList()));
+        assertTrue(parts.stream().allMatch(part -> part.length() <= 25));
+    }
+
+    @Test
+    void einzelnerSternNachGeschlossenemEmoteBleibtUnveraendert() {
+        String message = "*winkt* und *dieser lange Text hat keinen schliessenden Stern";
+
+        List<String> parts = LongChatSender.split(message, 25, " >");
+
+        assertEquals(3, parts.stream().mapToInt(part -> countChar(part, '*')).sum());
+        assertEquals(message, String.join(" ",
+                parts.stream().map(part -> part.replace(" >", "")).toList()));
+    }
+
     private static int countChar(String s, char c) {
         return (int) s.chars().filter(x -> x == c).count();
     }

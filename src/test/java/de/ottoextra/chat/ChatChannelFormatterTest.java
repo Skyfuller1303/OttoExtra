@@ -212,6 +212,99 @@ class ChatChannelFormatterTest {
         assertTrue(styleFor(formatted, "OOC").isItalic());
     }
 
+    @Test
+    void unmatchedStarDoesNotStartAnEmote() {
+        Text original = Text.literal("Hallo *winkt ohne Ende").formatted(Formatting.WHITE);
+
+        Text formatted = RpChatFormatter.formatContent(original);
+
+        assertEquals(original.getString(), formatted.getString());
+        assertFalse(styleFor(formatted, "winkt ohne Ende").isItalic());
+        assertEquals(Formatting.WHITE.getColorValue(),
+                styleFor(formatted, "winkt ohne Ende").getColor().getRgb());
+    }
+
+    @Test
+    void onlyClosedEmotesAreStyledWithAnOddNumberOfStars() {
+        Text original = Text.literal("*winkt* sagt Hallo *nickt* und *offen");
+
+        Text formatted = RpChatFormatter.formatContent(original);
+
+        assertEquals(original.getString(), formatted.getString());
+        assertTrue(styleFor(formatted, "winkt").isItalic());
+        assertTrue(styleFor(formatted, "nickt").isItalic());
+        assertFalse(styleFor(formatted, "sagt Hallo").isItalic());
+        assertFalse(styleFor(formatted, "offen").isItalic());
+    }
+
+    @Test
+    void closedEmoteCanSpanTextComponentsAndTranslatableWrappers() {
+        Text original = Text.literal("vor *win")
+                .append(Text.translatable("%s", Text.literal("kt")))
+                .append(Text.literal(" freundlich* danach *offen"));
+
+        Text formatted = RpChatFormatter.formatContent(original);
+
+        assertEquals(original.getString(), formatted.getString());
+        assertTrue(styleFor(formatted, "win").isItalic());
+        assertTrue(styleFor(formatted, "kt").isItalic());
+        assertTrue(styleFor(formatted, "freundlich").isItalic());
+        assertFalse(styleFor(formatted, "offen").isItalic());
+    }
+
+    @Test
+    void unmatchedStarDoesNotPreventOocFromClosing() {
+        Text original = Text.literal("((OOC *offen)) normal").formatted(Formatting.WHITE);
+
+        Text formatted = RpChatFormatter.formatContent(original);
+
+        assertEquals(original.getString(), formatted.getString());
+        assertFalse(styleFor(formatted, "offen").isItalic());
+        assertEquals(Formatting.WHITE.getColorValue(),
+                styleFor(formatted, "normal").getColor().getRgb());
+    }
+
+    @Test
+    void closedEmoteRestoresItsStyleAfterNestedOoc() {
+        Text formatted = RpChatFormatter.formatContent(
+                Text.literal("*winkt (kurz (OOC)) weiter* normal *offen"));
+
+        assertTrue(styleFor(formatted, "winkt").isItalic());
+        assertFalse(styleFor(formatted, "OOC").isItalic());
+        assertTrue(styleFor(formatted, "weiter").isItalic());
+        assertFalse(styleFor(formatted, "offen").isItalic());
+    }
+
+    @Test
+    void headerStarsCannotCompleteAnEmoteInTheBody() {
+        Text original = Text.literal("[Sprechen] *Bote*: Hallo *offen");
+
+        Text formatted = RpChatFormatter.format(original);
+
+        assertEquals(original.getString(), formatted.getString());
+        assertFalse(styleFor(formatted, "Bote").isItalic());
+        assertFalse(styleFor(formatted, "offen").isItalic());
+    }
+
+    @Test
+    void unmatchedStarPreservesUnrelatedExplicitStyle() {
+        Style base = Style.EMPTY.withBold(true).withInsertion("original");
+        Text formatted = RpChatFormatter.formatContent(
+                Text.literal("*offen").setStyle(base));
+
+        assertEquals(base, styleFor(formatted, "offen"));
+    }
+
+    @Test
+    void unmatchedOuterStarDoesNotSuppressClosedEmoteInsideOoc() {
+        Text original = Text.literal("*offen ((OOC *winkt* weiter)) normal");
+        Text formatted = RpChatFormatter.formatContent(original);
+        assertEquals(original.getString(), formatted.getString());
+        assertFalse(styleFor(formatted, "offen").isItalic());
+        assertTrue(styleFor(formatted, "winkt").isItalic());
+        assertFalse(styleFor(formatted, "normal").isItalic());
+    }
+
     private static Style styleFor(Text text, String needle) {
         return text.visit((style, segment) -> segment.contains(needle)
                 ? Optional.of(style) : Optional.empty(), Style.EMPTY).orElseThrow();

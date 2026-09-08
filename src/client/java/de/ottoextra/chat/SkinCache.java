@@ -8,6 +8,7 @@ import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
 import de.ottoextra.OttoExtra;
 import de.ottoextra.config.OttoExtraPaths;
+import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.logging.DebugLog;
 
 import java.net.URI;
@@ -104,6 +105,9 @@ public final class SkinCache {
     }
 
     private static void ensurePng(UUID uuid, String base64Value, boolean changed) {
+        if (!OttoExtraConfig.active().consent.externalImageDownloads) {
+            return;
+        }
         if (uuid == null || base64Value == null) {
             return;
         }

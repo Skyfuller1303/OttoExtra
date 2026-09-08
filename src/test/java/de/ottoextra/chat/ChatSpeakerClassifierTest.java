@@ -45,6 +45,42 @@ class ChatSpeakerClassifierTest {
     }
 
     @Test
+    void ownStructuredPlayerComponentWorksBeforeOnlineListIsReady() {
+        MutableText head = MutableText.of(new ObjectTextContent(
+                new PlayerTextObjectContents(ProfileComponent.ofDynamic("Skyfuller1303"), true)));
+        Text message = Text.literal("[Sprechen] ").append(head).append(" Matthias: Hallo");
+
+        assertEquals(PLAYER, ChatSpeakerClassifier.classify(
+                message, false, true, account -> false, "skyfuller1303"));
+    }
+
+    @Test
+    void structuredSpeakerAccountIsAvailableForRpNameRewrite() {
+        for (String channel : new String[]{
+                "Sprechen", "Reden", "Flüstern", "Murmeln", "Rufen", "Brüllen"}) {
+            MutableText head = MutableText.of(new ObjectTextContent(
+                    new PlayerTextObjectContents(
+                            ProfileComponent.ofDynamic("Skyfuller1303"), true)));
+            Text message = Text.translatable("%s",
+                    Text.literal("[" + channel + "] ")
+                            .append(head).append(" Matthias: Test"));
+
+            assertEquals("Skyfuller1303",
+                    ChatSpeakerClassifier.speakerComponentAccount(message), channel);
+        }
+    }
+
+    @Test
+    void structuredPlayerComponentInMessageBodyIsIgnored() {
+        MutableText mentionedPlayer = MutableText.of(new ObjectTextContent(
+                new PlayerTextObjectContents(ProfileComponent.ofDynamic("Skyfuller1303"), true)));
+        Text message = Text.literal("[Rufen] Bote Hinz: Zeigt ").append(mentionedPlayer);
+
+        assertEquals(NPC, ChatSpeakerClassifier.classify(
+                message, false, true, account -> true, null));
+    }
+
+    @Test
     void exactOnlineHeadAccountIdentifiesPlayer() {
         Text message = Text.literal("[Sprechen] [Skyfuller1303 head] Unbekannt: Hallo");
 
@@ -58,6 +94,14 @@ class ChatSpeakerClassifierTest {
 
         assertEquals(NPC, ChatSpeakerClassifier.classify(
                 message, false, true, "Skyfuller"::equalsIgnoreCase));
+    }
+
+    @Test
+    void ownHeadAccountWorksBeforeOnlineListIsReady() {
+        Text message = Text.literal("[Flüstern] [Skyfuller1303 head] Matthias: Leise");
+
+        assertEquals(PLAYER, ChatSpeakerClassifier.classify(
+                message, false, true, account -> false, "Skyfuller1303"));
     }
 
     @Test

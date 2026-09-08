@@ -8,9 +8,11 @@ import net.minecraft.text.Style;
 import net.minecraft.text.StyleSpriteSource;
 import net.minecraft.text.Text;
 import net.minecraft.text.TextContent;
+import net.minecraft.text.TextVisitFactory;
 import net.minecraft.util.Formatting;
 
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.List;
 import java.util.Optional;
 
@@ -41,8 +43,9 @@ public final class RpChatFormatter {
                 return message;
             }
 
-            StateBox syntax = new StateBox();
-            return rebuild(message, bodyStart, new int[]{0}, syntax, Style.EMPTY);
+            StateBox syntax = new StateBox(plain, bodyStart);
+            Text formatted = rebuild(message, bodyStart, new int[]{0}, syntax, Style.EMPTY);
+            return keepOnlyIfTextPreserved(message, formatted);
         } catch (Throwable ignored) {
             return message;
         }
@@ -59,10 +62,24 @@ public final class RpChatFormatter {
             return content;
         }
         try {
-            return rebuild(content, 0, new int[]{0}, new StateBox(), Style.EMPTY);
+            Text formatted = rebuild(content, 0, new int[]{0},
+                    new StateBox(content.getString(), 0), Style.EMPTY);
+            return keepOnlyIfTextPreserved(content, formatted);
         } catch (Throwable ignored) {
             return content;
         }
+    }
+
+    /** Stiltransformationen dürfen sichtbaren Chattext weder duplizieren noch verlieren. */
+    static Text keepOnlyIfTextPreserved(Text original, Text formatted) {
+        if (original == null || formatted == null) {
+            return original;
+        }
+        return visibleString(original).equals(visibleString(formatted)) ? formatted : original;
+    }
+
+    static String visibleString(Text text) {
+        return text == null ? "" : TextVisitFactory.removeFormattingCodes(text);
     }
 
     /**
@@ -117,7 +134,7 @@ public final class RpChatFormatter {
         }
     }
 
-    static int findBodyStart(String plain) {
+    public static int findBodyStart(String plain) {
         if (plain == null || plain.isEmpty()) {
             return -1;
         }
@@ -245,7 +262,7 @@ public final class RpChatFormatter {
         RpChatSyntax.Kind currentKind = null;
         for (int index = localBodyStart; index < text.length(); index++) {
             char c = text.charAt(index);
-            RpChatSyntax.Step step = RpChatSyntax.step(syntax.state, c);
+            RpChatSyntax.Step step = syntax.step(c, globalStart + index);
             if (currentKind != null && currentKind != step.kind()) {
                 appendSegment(out, segment, base, currentKind, syntax);
             }
@@ -310,8 +327,13 @@ public final class RpChatFormatter {
             return;
         }
         int localStart = Math.max(0, bodyStart - globalStart);
-        if (localStart < own.length()) {
-            syntax.state = RpChatSyntax.scan(own.substring(localStart), syntax.state);
+        for (int index = localStart; index < own.length(); index++) {
+            char c = own.charAt(index);
+            if (c == '§' && index + 1 < own.length()) {
+                index++;
+                continue;
+            }
+            syntax.state = syntax.step(c, globalStart + index).after();
         }
     }
 
@@ -370,5 +392,16 @@ public final class RpChatFormatter {
     private static final class StateBox {
         private RpChatSyntax.State state = RpChatSyntax.State.normal();
         private final List<Formatting> formattingCodes = new ArrayList<>();
+        private final BitSet emoteDelimiters;
+        private final int bodyStart;
+
+        private StateBox(String text, int bodyStart) {
+            this.bodyStart = bodyStart;
+            this.emoteDelimiters = RpChatSyntax.pairedEmoteDelimiters(text.substring(bodyStart));
+        }
+
+        private RpChatSyntax.Step step(char c, int position) {
+            return RpChatSyntax.step(state, c, emoteDelimiters.get(position - bodyStart));
+        }
     }
 }

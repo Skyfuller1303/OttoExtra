@@ -1,5 +1,6 @@
 package de.ottoextra.mixin;
 
+import de.ottoextra.animalinfo.AnimalInfoService;
 import de.ottoextra.chat.ChatMessagePipeline;
 import de.ottoextra.rpnames.chat.ChatHistoryRefresh;
 import net.minecraft.client.gui.hud.ChatHud;
@@ -8,11 +9,38 @@ import net.minecraft.network.message.MessageSignatureData;
 import net.minecraft.text.Text;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArgs;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 
 @Mixin(ChatHud.class)
 public abstract class ChatHudMixin {
+
+    @Inject(
+            method = "addMessage(Lnet/minecraft/text/Text;Lnet/minecraft/network/message/MessageSignatureData;Lnet/minecraft/client/gui/hud/MessageIndicator;)V",
+            at = @At("HEAD"),
+            cancellable = true)
+    private void ottoextra$delayChatLine(Text original,
+                                         MessageSignatureData signature,
+                                         MessageIndicator indicator,
+                                         CallbackInfo ci) {
+        if (!ChatMessagePipeline.isReplay(original)) {
+            de.ottoextra.logging.ChatMessageLog.recordIncoming(original);
+        }
+        // Gemeinsame Main-Thread-Grenze fuer Game-, profilfreien und signierten
+        // Chat. Damit erreicht auch eine vom Proxy anders verpackte Tierinfo
+        // denselben Collector, ohne dieselbe Nachricht mehrfach auszuwerten.
+        if (AnimalInfoService.handleGameMessage(original)) {
+            ci.cancel();
+            return;
+        }
+        ChatHud self = (ChatHud) (Object) this;
+        if (ChatMessagePipeline.deferIncoming(original, signature, indicator,
+                () -> self.addMessage(original, signature, indicator))) {
+            ci.cancel();
+        }
+    }
 
     @ModifyArgs(
             method = "addMessage(Lnet/minecraft/text/Text;Lnet/minecraft/network/message/MessageSignatureData;Lnet/minecraft/client/gui/hud/MessageIndicator;)V",
