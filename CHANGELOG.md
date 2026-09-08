@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.17-e – Alpha – 2026-09-08
+
+- Zwei getrennte Schalter unter Tierinfo → Grundlagen → Tier-Nametag:
+  Geschlecht als ♀/♂ anzeigen und den Tiernamen nach Geschlecht färben.
+- Die Namensfarbe funktioniert auch ohne Symbol. Unbekanntes Geschlecht behält
+  die bisherige Darstellung; beide Optionen sind standardmäßig aus.
+- Vorhandene Tierdaten werden ohne zusätzliche Abfragen verwendet. Ein passender
+  Vanilla-Nametag wird dekoriert, ohne den registrierten Namen doppelt anzuzeigen.
+- [Verhalten und Tests](docs/animal-nametags.md),
+  [Installation](release-notes-0.1.17-e.md).
+
 ## 0.1.17-d – Alpha – 2026-09-08
 
 - Der Tierinfo-Toast verwendet transparente 16 × 16-Symbole für Geschlecht,
