@@ -18,6 +18,26 @@ class OttoExtraApiRoutesTest {
                 routes.v2ProtectedChatMessage("abc_123-X").toString());
         assertEquals("https://api.ottoextra.dev/v2/chat-translations/inbox",
                 routes.v2ProtectedChatInbox().toString());
+        assertEquals("https://api.ottoextra.dev/v2/animal-breeding/horses",
+                routes.v2AnimalBreedingHorses().toString());
+        assertEquals("https://api.ottoextra.dev/v2/animal-breeding/breeder-access",
+                routes.v2AnimalBreedingBreederAccess().toString());
+        assertEquals("https://api.ottoextra.dev/v2/animal-breeding/horse-names",
+                routes.v2AnimalBreedingHorseNames().toString());
+        assertEquals("https://api.ottoextra.dev/v2/animal-breeding/horses/abc-123",
+                routes.v2AnimalBreedingHorse("abc-123").toString());
+        assertEquals("https://api.ottoextra.dev/v2/animal-breeding/horses/abc-123/name",
+                routes.v2AnimalBreedingHorseName("abc-123").toString());
+        assertEquals("https://api.ottoextra.dev/v2/animal-breeding/horses/abc-123/observation",
+                routes.v2AnimalBreedingHorseObservation("abc-123").toString());
+        assertEquals("https://api.ottoextra.dev/v2/animal-breeding/horses/abc-123/editors",
+                routes.v2AnimalBreedingHorseEditors("abc-123").toString());
+        assertEquals("https://api.ottoextra.dev/v2/animal-breeding/farms",
+                routes.v2AnimalBreedingFarms().toString());
+        assertEquals("https://api.ottoextra.dev/v2/animal-breeding/breeding-events",
+                routes.v2AnimalBreedingEvents().toString());
+        assertEquals("https://api.ottoextra.dev/v2/animal-breeding/breeding-events/event-123/foal",
+                routes.v2AnimalBreedingEventFoal("event-123").toString());
     }
 
     @Test

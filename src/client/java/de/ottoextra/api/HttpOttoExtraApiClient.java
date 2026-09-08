@@ -11,6 +11,9 @@ import de.ottoextra.api.auth.MinecraftSessionAuth;
 import de.ottoextra.api.auth.ResponseVerifier;
 import de.ottoextra.api.auth.SpkiPinning;
 import de.ottoextra.api.model.ApiEnvelope;
+import de.ottoextra.api.model.AnimalBreedingHorse;
+import de.ottoextra.api.model.AnimalBreedingHorseName;
+import de.ottoextra.api.model.AnimalBreedingHorseLocation;
 import de.ottoextra.api.model.CompactPlayer;
 import de.ottoextra.api.model.FactionRecord;
 import de.ottoextra.api.model.PlayerRecord;
@@ -28,6 +31,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -230,6 +234,299 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
                     new TypeToken<List<ProtectedChatInboxEntry>>() { }.getType());
             return parsed == null ? List.of() : List.copyOf(parsed);
         });
+    }
+
+    @Override
+    public CompletableFuture<List<AnimalBreedingHorse>> animalBreedingHorses() {
+        URI uri = routes.v2AnimalBreedingHorses();
+        return authenticatedJson("GET", uri, null).thenApply(json -> {
+            JsonElement horses = json.get("horses");
+            if (horses == null || !horses.isJsonArray()) {
+                return List.of();
+            }
+            List<AnimalBreedingHorse> parsed = gson.fromJson(horses,
+                    new TypeToken<List<AnimalBreedingHorse>>() { }.getType());
+            return parsed == null ? List.of() : List.copyOf(parsed);
+        });
+    }
+
+    @Override
+    public CompletableFuture<Optional<String>> animalBreedingRole() {
+        URI uri = routes.v2AnimalBreedingBreederAccess();
+        return authenticatedJson("GET", uri, null).thenApply(json -> {
+            JsonElement role = json.get("role");
+            if (role == null || role.isJsonNull()) return Optional.empty();
+            if (!role.isJsonPrimitive() || !role.getAsJsonPrimitive().isString()) {
+                throw ApiProblem.parse(uri, "role ist ungültig").toException();
+            }
+            String value = role.getAsString().trim().toLowerCase(java.util.Locale.ROOT);
+            if (!List.of("viewer", "editor", "admin").contains(value)) {
+                throw ApiProblem.parse(uri, "role ist unbekannt").toException();
+            }
+            return Optional.of(value);
+        });
+    }
+
+    @Override
+    public CompletableFuture<Void> setAnimalBreedingBreederAccess(
+            String playerName, boolean granted) {
+        if (playerName == null
+                || !playerName.trim().matches("[A-Za-z0-9_]{3,16}")) {
+            return CompletableFuture.failedFuture(
+                    ApiProblem.badRequest("Spielername ist ungültig").toException());
+        }
+        JsonObject body = new JsonObject();
+        body.addProperty("playerName", playerName.trim());
+        URI uri = routes.v2AnimalBreedingBreederAccess();
+        return authenticatedJson(granted ? "PUT" : "DELETE", uri, body)
+                .thenApply(json -> null);
+    }
+
+    @Override
+    public CompletableFuture<List<AnimalBreedingHorseName>> animalBreedingHorseNames() {
+        URI uri = routes.v2AnimalBreedingHorseNames();
+        return authenticatedJson("GET", uri, null).thenApply(json -> {
+            JsonElement names = json.get("horseNames");
+            if (names == null || !names.isJsonArray()) {
+                return List.of();
+            }
+            List<AnimalBreedingHorseName> parsed = gson.fromJson(names,
+                    new TypeToken<List<AnimalBreedingHorseName>>() { }.getType());
+            return parsed == null ? List.of() : List.copyOf(parsed);
+        });
+    }
+
+    @Override
+    public CompletableFuture<Optional<UUID>> animalBreedingFinderTarget() {
+        return animalBreedingFinderTargets().thenApply(targets -> targets.stream().findFirst());
+    }
+
+    @Override
+    public CompletableFuture<List<UUID>> animalBreedingFinderTargets() {
+        URI uri = routes.v2AnimalBreedingFinder();
+        return authenticatedJson("GET", uri, null).thenApply(json -> {
+            JsonElement finders = json.get("finders");
+            if (finders != null && finders.isJsonArray()) {
+                java.util.LinkedHashSet<UUID> targets = new java.util.LinkedHashSet<>();
+                for (JsonElement element : finders.getAsJsonArray()) {
+                    if (!element.isJsonObject()) {
+                        throw ApiProblem.parse(uri, "finders ist ungültig").toException();
+                    }
+                    try {
+                        targets.add(UUID.fromString(requiredString(
+                                element.getAsJsonObject(), "entityUuid", uri)));
+                    } catch (ApiProblem.ApiException error) {
+                        throw error;
+                    } catch (Exception error) {
+                        throw ApiProblem.parse(uri, "finders.entityUuid ist ungültig")
+                                .toException();
+                    }
+                }
+                return List.copyOf(targets);
+            }
+            JsonElement finder = json.get("finder");
+            if (finder == null || finder.isJsonNull()) return List.of();
+            if (!finder.isJsonObject()) {
+                throw ApiProblem.parse(uri, "finder ist ungültig").toException();
+            }
+            try {
+                return List.of(UUID.fromString(requiredString(
+                        finder.getAsJsonObject(), "entityUuid", uri)));
+            } catch (ApiProblem.ApiException error) {
+                throw error;
+            } catch (Exception error) {
+                throw ApiProblem.parse(uri, "finder.entityUuid ist ungültig")
+                        .toException();
+            }
+        });
+    }
+
+    @Override
+    public CompletableFuture<Void> setAnimalBreedingFinderTarget(UUID entityUuid) {
+        if (entityUuid == null) {
+            return CompletableFuture.failedFuture(
+                    ApiProblem.badRequest("Finder-Pferd fehlt").toException());
+        }
+        URI uri = routes.v2AnimalBreedingFinder();
+        JsonObject body = new JsonObject();
+        body.addProperty("entityUuid", entityUuid.toString());
+        return authenticatedJson("PUT", uri, body).thenApply(json -> null);
+    }
+
+    @Override
+    public CompletableFuture<Void> addAnimalBreedingFinderTarget(UUID entityUuid) {
+        if (entityUuid == null) {
+            return CompletableFuture.failedFuture(
+                    ApiProblem.badRequest("Finder-Pferd fehlt").toException());
+        }
+        URI uri = routes.v2AnimalBreedingFinder(entityUuid.toString());
+        return authenticatedJson("PUT", uri, null).thenApply(json -> null);
+    }
+
+    @Override
+    public CompletableFuture<Void> removeAnimalBreedingFinderTarget(UUID entityUuid) {
+        if (entityUuid == null) {
+            return CompletableFuture.failedFuture(
+                    ApiProblem.badRequest("Finder-Pferd fehlt").toException());
+        }
+        URI uri = routes.v2AnimalBreedingFinder(entityUuid.toString());
+        return authenticatedJson("DELETE", uri, null).thenApply(json -> null);
+    }
+
+    @Override
+    public CompletableFuture<Void> clearAnimalBreedingFinderTarget() {
+        URI uri = routes.v2AnimalBreedingFinder();
+        return authenticatedJson("DELETE", uri, null).thenApply(json -> null);
+    }
+
+    @Override
+    public CompletableFuture<AnimalBreedingHorse> putAnimalBreedingHorse(
+            AnimalBreedingHorse horse, AnimalBreedingHorseLocation location) {
+        if (horse == null) {
+            return CompletableFuture.failedFuture(
+                    ApiProblem.badRequest("Pferdeakte fehlt").toException());
+        }
+        URI uri = routes.v2AnimalBreedingHorse(horse.entityUuid());
+        return putAnimalBreedingHorseAt(uri, horse, location);
+    }
+
+    @Override
+    public CompletableFuture<AnimalBreedingHorse> putAnimalBreedingHorseObservation(
+            AnimalBreedingHorse horse) {
+        if (horse == null) {
+            return CompletableFuture.failedFuture(
+                    ApiProblem.badRequest("Pferdebeobachtung fehlt").toException());
+        }
+        URI uri = routes.v2AnimalBreedingHorseObservation(horse.entityUuid());
+        return putAnimalBreedingHorseAt(uri, horse, null);
+    }
+
+    @Override
+    public CompletableFuture<AnimalBreedingHorse> putAnimalBreedingHorseName(
+            AnimalBreedingHorse horse, AnimalBreedingHorseLocation location) {
+        if (horse == null || horse.registryName().isBlank()) {
+            return CompletableFuture.failedFuture(
+                    ApiProblem.badRequest("Pferd oder Pferdename fehlt").toException());
+        }
+        URI uri = routes.v2AnimalBreedingHorseName(horse.entityUuid());
+        return putAnimalBreedingHorseAt(uri, horse, location);
+    }
+
+    private CompletableFuture<AnimalBreedingHorse> putAnimalBreedingHorseAt(
+            URI uri, AnimalBreedingHorse horse,
+            AnimalBreedingHorseLocation location) {
+        JsonObject body = new JsonObject();
+        body.addProperty("entityUuid", horse.entityUuid());
+        body.addProperty("registryName", horse.registryName());
+        body.addProperty("origin", horse.origin());
+        body.addProperty("currentFarm", horse.currentFarm());
+        body.addProperty("animalType", horse.animalType());
+        body.addProperty("gender", horse.gender());
+        body.addProperty("coatColor", horse.coatColor());
+        body.addProperty("marking", horse.marking());
+        body.addProperty("life", horse.life());
+        body.addProperty("jumpHeight", horse.jumpHeight());
+        body.addProperty("speed", horse.speed());
+        body.addProperty("mast", horse.mast());
+        body.addProperty("breedingReady", horse.breedingReady());
+        body.addProperty("observedAtEpochMillis", horse.observedAtEpochMillis());
+        body.addProperty("updatedAtEpochMillis", horse.updatedAtEpochMillis());
+        if (location != null) {
+            JsonObject position = new JsonObject();
+            position.addProperty("dimension", location.dimension());
+            position.addProperty("x", location.x());
+            position.addProperty("y", location.y());
+            position.addProperty("z", location.z());
+            body.add("location", position);
+        }
+        return authenticatedJson("PUT", uri, body).thenApply(json -> {
+            JsonElement stored = json.get("horse");
+            if (stored == null || !stored.isJsonObject()) {
+                throw ApiProblem.parse(uri, "horse fehlt").toException();
+            }
+            try {
+                AnimalBreedingHorse parsed = gson.fromJson(
+                        stored, AnimalBreedingHorse.class);
+                if (parsed == null) {
+                    throw ApiProblem.parse(uri, "horse ist leer").toException();
+                }
+                return parsed;
+            } catch (ApiProblem.ApiException error) {
+                throw error;
+            } catch (Exception error) {
+                throw ApiProblem.parse(uri, error.getMessage()).toException();
+            }
+        });
+    }
+
+    @Override
+    public CompletableFuture<Void> deleteAnimalBreedingHorse(UUID entityUuid) {
+        if (entityUuid == null) {
+            return CompletableFuture.failedFuture(
+                    ApiProblem.badRequest("Pferde-UUID fehlt").toException());
+        }
+        URI uri = routes.v2AnimalBreedingHorse(entityUuid.toString());
+        return authenticatedJson("DELETE", uri, null).thenApply(json -> null);
+    }
+
+    @Override
+    public CompletableFuture<Void> setAnimalBreedingHorseEditor(
+            UUID horseUuid, String playerName, boolean granted) {
+        if (horseUuid == null || playerName == null
+                || !playerName.trim().matches("[A-Za-z0-9_]{3,16}")) {
+            return CompletableFuture.failedFuture(
+                    ApiProblem.badRequest("Pferd oder Spielername ist ungültig").toException());
+        }
+        JsonObject body = new JsonObject();
+        body.addProperty("playerName", playerName.trim());
+        URI uri = routes.v2AnimalBreedingHorseEditors(horseUuid.toString());
+        return authenticatedJson(granted ? "PUT" : "DELETE", uri, body)
+                .thenApply(json -> null);
+    }
+
+    @Override
+    public CompletableFuture<UUID> createAnimalBreedingEvent(
+            UUID mareUuid, UUID stallionUuid, String farmName,
+            long pairedAtEpochMillis) {
+        if (mareUuid == null || stallionUuid == null
+                || mareUuid.equals(stallionUuid)
+                || pairedAtEpochMillis <= 0L) {
+            return CompletableFuture.failedFuture(
+                    ApiProblem.badRequest("Ungültiges Zuchtereignis").toException());
+        }
+        JsonObject body = new JsonObject();
+        body.addProperty("mareUuid", mareUuid.toString());
+        body.addProperty("stallionUuid", stallionUuid.toString());
+        body.addProperty("farmName", farmName == null ? "" : farmName.trim());
+        body.addProperty("pairedAtEpochMillis", pairedAtEpochMillis);
+        URI uri = routes.v2AnimalBreedingEvents();
+        return authenticatedJson("POST", uri, body).thenApply(json -> {
+            JsonElement event = json.get("event");
+            if (event == null || !event.isJsonObject()) {
+                throw ApiProblem.parse(uri, "event fehlt").toException();
+            }
+            try {
+                return UUID.fromString(requiredString(
+                        event.getAsJsonObject(), "id", uri));
+            } catch (ApiProblem.ApiException error) {
+                throw error;
+            } catch (Exception error) {
+                throw ApiProblem.parse(uri, "event.id ungültig").toException();
+            }
+        });
+    }
+
+    @Override
+    public CompletableFuture<Void> linkAnimalBreedingFoal(
+            UUID eventUuid, UUID foalUuid) {
+        if (eventUuid == null || foalUuid == null) {
+            return CompletableFuture.failedFuture(
+                    ApiProblem.badRequest("Zuchtereignis oder Fohlen fehlt").toException());
+        }
+        JsonObject body = new JsonObject();
+        body.addProperty("foalUuid", foalUuid.toString());
+        URI uri = routes.v2AnimalBreedingEventFoal(eventUuid.toString());
+        return authenticatedJson("PUT", uri, body).thenApply(json -> null);
     }
 
     @Override

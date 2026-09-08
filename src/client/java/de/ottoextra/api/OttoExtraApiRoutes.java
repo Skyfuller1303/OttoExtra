@@ -148,6 +148,54 @@ public final class OttoExtraApiRoutes {
         return v2("chat-translations/inbox");
     }
 
+    public URI v2AnimalBreedingHorses() {
+        return v2("animal-breeding/horses");
+    }
+
+    public URI v2AnimalBreedingBreederAccess() {
+        return v2("animal-breeding/breeder-access");
+    }
+
+    public URI v2AnimalBreedingHorseNames() {
+        return v2("animal-breeding/horse-names");
+    }
+
+    public URI v2AnimalBreedingFinder() {
+        return v2("animal-breeding/finder");
+    }
+
+    public URI v2AnimalBreedingFinder(String entityUuid) {
+        return v2("animal-breeding/finder/" + enc(entityUuid));
+    }
+
+    public URI v2AnimalBreedingHorse(String entityUuid) {
+        return v2("animal-breeding/horses/" + enc(entityUuid));
+    }
+
+    public URI v2AnimalBreedingHorseName(String entityUuid) {
+        return v2("animal-breeding/horses/" + enc(entityUuid) + "/name");
+    }
+
+    public URI v2AnimalBreedingHorseObservation(String entityUuid) {
+        return v2("animal-breeding/horses/" + enc(entityUuid) + "/observation");
+    }
+
+    public URI v2AnimalBreedingHorseEditors(String entityUuid) {
+        return v2("animal-breeding/horses/" + enc(entityUuid) + "/editors");
+    }
+
+    public URI v2AnimalBreedingFarms() {
+        return v2("animal-breeding/farms");
+    }
+
+    public URI v2AnimalBreedingEvents() {
+        return v2("animal-breeding/breeding-events");
+    }
+
+    public URI v2AnimalBreedingEventFoal(String eventUuid) {
+        return v2("animal-breeding/breeding-events/" + enc(eventUuid) + "/foal");
+    }
+
     public URI resolveRelative(String relativePath) {
         if (relativePath == null || relativePath.isBlank()) {
             return null;
