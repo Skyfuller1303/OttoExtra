@@ -71,10 +71,11 @@ public final class MapModule implements OttoExtraModule {
             var regionData = RegionsServices.data();
             if (context.isOnOttonien() && regionData != null
                     && mapOpenSyncGate.tryAcquire()) {
-                regionData.syncNow();
+                regionData.refreshNow();
             }
             LehenPolygonStore.ensureLoaded();
             PoliticalOverlay.clearSelection();
+            MapSelectionPanel.reset();
 
             try {
                 var buttons = net.fabricmc.fabric.api.client.screen.v1.Screens.getButtons(screen);
@@ -113,24 +114,36 @@ public final class MapModule implements OttoExtraModule {
                 DebugLog.debug("[map] Politik-Button nicht einfuegbar: {}", t.toString());
             }
 
-            double[] press = {Double.NaN, Double.NaN};
+            ScreenEvents.beforeRender(screen).register((s, drawContext, mouseX, mouseY, tickDelta) ->
+                    PaintedWorldMapHook.beginFrame(s));
+
+            MapClickGesture clickGesture = new MapClickGesture();
+            net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents.allowMouseClick(screen)
+                    .register((s, click) -> {
+                        if (!overlayVisible || !cfg.clickInfoPanel
+                                || (cfg.onlyOnOttonien && !context.isOnOttonien())
+                                || isOverButton(s, click.x(), click.y())
+                                || !MapSelectionPanel.contains(click.x(), click.y())) return true;
+                        clickGesture.press(click.button(), click.x(), click.y(), true);
+                        if (click.button() == 0) {
+                            MapSelectionPanel.handleClick(s, XaeroMapBridge.view(s), click.x(), click.y());
+                        }
+                        return false;
+                    });
+            net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents.allowMouseScroll(screen)
+                    .register((s, mouseX, mouseY, horizontal, vertical) ->
+                            !overlayVisible || !cfg.clickInfoPanel
+                                    || (cfg.onlyOnOttonien && !context.isOnOttonien())
+                                    || isOverButton(s, mouseX, mouseY)
+                                    || !MapSelectionPanel.handleScroll(mouseX, mouseY, vertical));
             net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents.afterMouseClick(screen)
                     .register((s, click, handled) -> {
-                        if (click.button() == 0) {
-                            press[0] = click.x();
-                            press[1] = click.y();
-                        }
+                        clickGesture.press(click.button(), click.x(), click.y(), handled);
                         return handled;
                     });
             net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents.afterMouseRelease(screen)
                     .register((s, click, handled) -> {
-                        if (click.button() != 0 || Double.isNaN(press[0])) {
-                            return handled;
-                        }
-                        double dx = click.x() - press[0];
-                        double dy = click.y() - press[1];
-                        press[0] = Double.NaN;
-                        if (dx * dx + dy * dy > 16.0) {
+                        if (!clickGesture.release(click.button(), click.x(), click.y(), handled)) {
                             return handled;
                         }
                         if (!overlayVisible || XaeroMapBridge.isDisabled()
@@ -151,30 +164,32 @@ public final class MapModule implements OttoExtraModule {
                         }
                         return handled;
                     });
-            ScreenEvents.afterRender(screen).register((s, drawContext, mouseX, mouseY, tickDelta) -> {
-                if (!overlayVisible || XaeroMapBridge.isDisabled()) {
-                    return;
-                }
-                if (cfg.onlyOnOttonien && !context.isOnOttonien()) {
-                    return;
-                }
-                try {
-                    XaeroMapBridge.View view = XaeroMapBridge.view(s);
-                    if (view != null) {
+        });
 
-                        MapOverlayRenderer.render(drawContext, view, cfg, mouseX, mouseY);
-                        ParchmentMapOverlay.render(drawContext, view, cfg);
-                        MapSelectionPanel.render(drawContext, view, cfg);
-                        if (overlayFailureLog.onSuccess()) {
-                            DebugLog.debug("[map] Overlay nach Renderfehler wieder aktiv.");
-                        }
-                    }
-                } catch (Throwable t) {
-                    if (overlayFailureLog.onFailure()) {
-                        OttoExtra.LOGGER.warn("[map] Overlay-Fehler: {}", t.toString());
+        WorldMapOverlayHook.install((s, drawContext, mouseX, mouseY, tickDelta) -> {
+            MapSelectionPanel.hide();
+            if (!overlayVisible || XaeroMapBridge.isDisabled()) {
+                return;
+            }
+            if (cfg.onlyOnOttonien && !context.isOnOttonien()) {
+                return;
+            }
+            try {
+                XaeroMapBridge.View view = XaeroMapBridge.view(s);
+                if (view != null) {
+
+                    MapOverlayRenderer.render(drawContext, view, cfg, mouseX, mouseY);
+                    ParchmentMapOverlay.render(drawContext, view, cfg);
+                    MapSelectionPanel.render(drawContext, view, cfg);
+                    if (overlayFailureLog.onSuccess()) {
+                        DebugLog.debug("[map] Overlay nach Renderfehler wieder aktiv.");
                     }
                 }
-            });
+            } catch (Throwable t) {
+                if (overlayFailureLog.onFailure()) {
+                    OttoExtra.LOGGER.warn("[map] Overlay-Fehler: {}", t.toString());
+                }
+            }
         });
 
         if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("xaerominimap")) {

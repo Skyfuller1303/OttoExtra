@@ -20,6 +20,7 @@ public final class LehenPolygonStore {
 
     private static final AtomicBoolean loading = new AtomicBoolean(false);
     private static volatile List<LehenPolygon> polygons = List.of();
+    private static volatile List<LehenPolygon> territoryPolygons = List.of();
     private static volatile List<BorderSegment> segments = List.of();
     private static volatile java.util.Map<String, Integer> groupColors = java.util.Map.of();
     private static volatile boolean loaded = false;
@@ -33,6 +34,11 @@ public final class LehenPolygonStore {
 
     public static List<LehenPolygon> polygons() {
         return polygons;
+    }
+
+    /** Original territory boundaries before the map's visual border snapping. */
+    public static List<LehenPolygon> territoryPolygons() {
+        return territoryPolygons;
     }
 
     public static List<BorderSegment> segments() {
@@ -74,6 +80,7 @@ public final class LehenPolygonStore {
                     result.add(p);
                 }
             }
+            territoryPolygons = List.copyOf(result);
             result = snapSharedBorders(result);
             polygons = List.copyOf(result);
             segments = buildSegments(result);
