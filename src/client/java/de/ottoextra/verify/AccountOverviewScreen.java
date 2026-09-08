@@ -38,13 +38,8 @@ public final class AccountOverviewScreen extends Screen {
     private final UUID minecraftUuid;
     private final String minecraftName;
 
-    private volatile PlayerRecord profile;
-    private volatile AccountLinkApi.AccountSummary account;
-    private volatile boolean profileLoading;
-    private volatile boolean accountLoading;
-    private volatile String profileError = "";
-    private volatile String accountError = "";
-    private volatile String refreshedAt = "";
+    private final AccountOverviewState state =
+            new AccountOverviewState(() -> LocalTime.now().format(TIME));
 
     public AccountOverviewScreen(
             Screen parent,
@@ -102,48 +97,13 @@ public final class AccountOverviewScreen extends Screen {
     }
 
     private void refresh() {
-        profileError = "";
-        if (!linkConfig.hasDeviceToken() || linkConfig.linkPending) {
-            account = null;
-            accountLoading = false;
-            accountError = "";
-            profileLoading = true;
-            profileApi.player(minecraftUuid).whenComplete((value, error) ->
-                    MinecraftClientExecutor.run(() -> {
-                        profileLoading = false;
-                        if (error == null && value != null) {
-                            profile = value;
-                        } else {
-                            profileError = shortError(error);
-                        }
-                        markRefreshed();
-                    }));
-            return;
-        }
-        profileLoading = true;
-        accountLoading = true;
-        accountError = "";
-        linkApi.summary().whenComplete((value, error) ->
-                MinecraftClientExecutor.run(() -> {
-                    accountLoading = false;
-                    profileLoading = false;
-                    if (error == null && value != null) {
-                        account = value;
-                        if (value.profile() != null) {
-                            profile = value.profile();
-                        } else {
-                            profileError = Text.translatable("ottoextra.account.no_data").getString();
-                        }
-                    } else {
-                        accountError = shortError(error);
-                        profileError = accountError;
-                    }
-                    markRefreshed();
-                }));
-    }
-
-    private void markRefreshed() {
-        refreshedAt = LocalTime.now().format(TIME);
+        boolean linked = linkConfig.hasDeviceToken() && !linkConfig.linkPending;
+        state.refresh(linked, () -> linked
+                        ? linkApi.summary().thenApply(value -> value == null ? null
+                                : new AccountOverviewState.Details(value.profile(), value))
+                        : profileApi.player(minecraftUuid).thenApply(value ->
+                                new AccountOverviewState.Details(value, null)),
+                MinecraftClientExecutor::run);
     }
 
     @Override
@@ -159,12 +119,12 @@ public final class AccountOverviewScreen extends Screen {
         ctx.fill(px, py + 33, px + pw, py + 34, BORDER);
 
         ctx.drawText(textRenderer, title, px + 12, py + 10, GOLD, true);
-        String state = linkState();
+        String linkLabel = linkState();
         int stateColor = linkConfig.hasDeviceToken() && !linkConfig.linkPending ? GREEN : YELLOW;
-        int stateWidth = textRenderer.getWidth(state) + 12;
+        int stateWidth = textRenderer.getWidth(linkLabel) + 12;
         int stateX = px + pw - stateWidth - 10;
         ctx.fill(stateX, py + 7, stateX + stateWidth, py + 25, 0x553A4C5F);
-        ctx.drawCenteredTextWithShadow(textRenderer, state,
+        ctx.drawCenteredTextWithShadow(textRenderer, linkLabel,
                 stateX + stateWidth / 2, py + 12, stateColor);
 
         int contentY = py + 43;
@@ -175,16 +135,23 @@ public final class AccountOverviewScreen extends Screen {
         int rightW = px + pw - 9 - rightX;
         renderProfile(ctx, rightX, contentY, rightW, ph - 79);
 
-        if (!refreshedAt.isBlank()) {
-            String updated = Text.translatable("ottoextra.account.updated", refreshedAt).getString();
-            ctx.drawText(textRenderer, updated,
-                    px + pw - textRenderer.getWidth(updated) - 10, py + ph - 38, MUTED, false);
+        String updated = state.refreshedAt.isBlank() ? ""
+                : Text.translatable("ottoextra.account.updated", state.refreshedAt).getString();
+        if (this.state.error != null) {
+            String failed = Text.translatable("ottoextra.account.refreshFailed").getString();
+            String message = updated.isBlank() ? failed : failed + " · " + updated;
+            ctx.drawText(textRenderer, trim(message, pw - 20), px + 10, py + ph - 38, YELLOW, false);
+        } else if (!updated.isBlank()) {
+            ctx.drawText(textRenderer, updated, px + pw - textRenderer.getWidth(updated) - 10,
+                    py + ph - 38, MUTED, false);
         }
 
         super.render(ctx, mouseX, mouseY, delta);
     }
 
     private void renderIdentity(DrawContext ctx, int x, int y, int w, int h) {
+        var account = state.account;
+        boolean accountLoading = state.loading && linkConfig.hasDeviceToken() && !linkConfig.linkPending;
         card(ctx, x, y, w, h);
         int avatar = Math.min(52, w - 24);
         int ax = x + (w - avatar) / 2;
@@ -216,7 +183,8 @@ public final class AccountOverviewScreen extends Screen {
     }
 
     private void renderProfile(DrawContext ctx, int x, int y, int w, int h) {
-        if (profileLoading && profile == null) {
+        PlayerRecord profile = state.profile;
+        if (state.loading && profile == null) {
             card(ctx, x, y, w, h);
             ctx.drawCenteredTextWithShadow(textRenderer,
                     Text.translatable("ottoextra.account.loading"),
@@ -225,8 +193,8 @@ public final class AccountOverviewScreen extends Screen {
         }
         if (profile == null) {
             card(ctx, x, y, w, h);
-            String error = profileError.isBlank()
-                    ? Text.translatable("ottoextra.account.no_data").getString() : profileError;
+            String error = state.error == null
+                    ? Text.translatable("ottoextra.account.no_data").getString() : shortError(state.error);
             ctx.drawCenteredTextWithShadow(textRenderer, trim(error, w - 16),
                     x + w / 2, y + h / 2 - 4, YELLOW);
             return;
@@ -329,6 +297,12 @@ public final class AccountOverviewScreen extends Screen {
     @Override
     public void close() {
         client.setScreen(parent);
+    }
+
+    @Override
+    public void removed() {
+        state.invalidate();
+        super.removed();
     }
 
     private static final class MinecraftClientExecutor {
