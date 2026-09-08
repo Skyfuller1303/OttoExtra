@@ -1,6 +1,7 @@
 package de.ottoextra.horses.ui;
 
 import de.ottoextra.api.model.AnimalBreedingHorse;
+import de.ottoextra.config.OttoExtraConfig;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -14,6 +15,59 @@ final class HorseOverviewView {
     private static final Pattern NUMBER = Pattern.compile("[-+]?\\d+(?:[.,]\\d+)?");
 
     private HorseOverviewView() {
+    }
+
+    static String displayName(AnimalBreedingHorse record) {
+        return record.registryName().isBlank() ? "???" : record.registryName();
+    }
+
+    static List<AnimalKind> filters(OttoExtraConfig.AnimalInfo config) {
+        return java.util.Arrays.stream(AnimalKind.values())
+                .filter(kind -> kind != AnimalKind.OTHER && kind.enabled(config)).toList();
+    }
+
+    static List<AnimalBreedingHorse> filter(List<AnimalBreedingHorse> records, AnimalKind selected,
+                                           OttoExtraConfig.AnimalInfo config) {
+        return records.stream().filter(record -> {
+            AnimalKind kind = kind(record);
+            return kind.enabled(config) && (selected == AnimalKind.ALL || selected == kind);
+        }).toList();
+    }
+
+    static AnimalKind kind(AnimalBreedingHorse record) {
+        String type = record.animalType().toLowerCase(Locale.ROOT);
+        if (containsAny(type, "esel", "donkey", "maultier", "mule")) return AnimalKind.DONKEYS;
+        if (containsAny(type, "rind", "rotvieh", "kuh", "cow")) return AnimalKind.COWS;
+        if (containsAny(type, "brakel", "huhn", "hühner", "chicken")) return AnimalKind.CHICKENS;
+        if (containsAny(type, "schwein", "pig")) return AnimalKind.PIGS;
+        if (containsAny(type, "ziege", "goat")) return AnimalKind.GOATS;
+        if (containsAny(type, "zaupel", "schaf", "sheep")) return AnimalKind.SHEEP;
+        if (containsAny(type, "pferd", "horse", "ross", "gaul")
+                || (type.isBlank() && (!record.speed().isBlank() || !record.jumpHeight().isBlank()
+                || !record.coatColor().isBlank()))) return AnimalKind.HORSES;
+        return AnimalKind.OTHER;
+    }
+
+    private static boolean containsAny(String type, String... aliases) {
+        for (String alias : aliases) if (type.contains(alias)) return true;
+        return false;
+    }
+
+    enum AnimalKind {
+        ALL, HORSES, DONKEYS, COWS, CHICKENS, PIGS, GOATS, SHEEP, OTHER;
+
+        String translationKey() { return "ottoextra.horses.filter." + name().toLowerCase(Locale.ROOT); }
+
+        boolean enabled(OttoExtraConfig.AnimalInfo config) {
+            return switch (this) {
+                case ALL, HORSES, DONKEYS, OTHER -> true;
+                case COWS -> config.overviewShowCows;
+                case CHICKENS -> config.overviewShowChickens;
+                case PIGS -> config.overviewShowPigs;
+                case GOATS -> config.overviewShowGoats;
+                case SHEEP -> config.overviewShowSheep;
+            };
+        }
     }
 
     static List<FarmGroup> groups(List<AnimalBreedingHorse> records,

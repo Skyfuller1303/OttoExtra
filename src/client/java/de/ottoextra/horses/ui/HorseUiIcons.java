@@ -47,6 +47,11 @@ final class HorseUiIcons {
 
     static void gender(DrawContext context, TextRenderer renderer, String raw,
                        int x, int y, int maxWidth) {
+        gender(context, renderer, raw, x, y, maxWidth, false);
+    }
+
+    static void gender(DrawContext context, TextRenderer renderer, String raw,
+                       int x, int y, int maxWidth, boolean compact) {
         String label = raw == null || raw.isBlank() ? "–"
                 : raw.replace("♀", "").replace("♂", "").trim();
         String normalized = label.toLowerCase(Locale.ROOT);
@@ -57,7 +62,9 @@ final class HorseUiIcons {
                 || normalized.equals("male") || (raw != null && raw.contains("♂"));
         int color = female ? 0xFFFF8FB3 : male ? 0xFF72B7FF : 0xFFAA9D90;
         draw(context, icon(female ? "gender_mare" : male ? "gender_stallion" : "gender_unknown"),
-                x, y - 2, color);
-        smallText(context, renderer, label, x + 17, y, color, Math.max(1, maxWidth - 18), 0.75F);
+                x, compact ? y : y - 2, compact ? 8 : 16, 16, color);
+        int textOffset = compact ? 11 : 17;
+        smallText(context, renderer, label, x + textOffset, y, color,
+                Math.max(1, maxWidth - textOffset - 1), compact ? 0.85F : 0.75F);
     }
 }

@@ -70,6 +70,11 @@ public final class OttoExtraConfig {
         public boolean nametagShowGender = false;
         public boolean nametagGenderColor = false;
         public boolean nametagIncludeUnregistered = false;
+        public boolean overviewShowCows = false;
+        public boolean overviewShowChickens = false;
+        public boolean overviewShowPigs = false;
+        public boolean overviewShowGoats = false;
+        public boolean overviewShowSheep = false;
         /** Lokaler Opt-in fuer Zuchtakte, Hofsync und Zucht-Autofill. */
         public boolean breederModeEnabled = false;
         public int hoverDelayMs = 100;

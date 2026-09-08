@@ -2,26 +2,38 @@ package de.ottoextra.horses.ui;
 
 import de.ottoextra.OttoExtra;
 import de.ottoextra.api.model.AnimalBreedingHorse;
+import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.horses.HorseFinder;
 import de.ottoextra.horses.HorseRegistry;
 import de.ottoextra.horses.RegistryAnimals;
 import de.ottoextra.horses.ui.HorseOverviewView.SortOrder;
 import de.ottoextra.horses.ui.HorseOverviewView.SortSelection;
+import de.ottoextra.horses.ui.HorseOverviewView.AnimalKind;
 import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.ConfirmScreen;
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.tooltip.Tooltip;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.passive.AnimalEntity;
 import net.minecraft.entity.passive.HorseEntity;
+import net.minecraft.entity.passive.DonkeyEntity;
+import net.minecraft.entity.passive.CowEntity;
+import net.minecraft.entity.passive.ChickenEntity;
+import net.minecraft.entity.passive.PigEntity;
+import net.minecraft.entity.passive.GoatEntity;
+import net.minecraft.entity.passive.SheepEntity;
+import net.minecraft.util.hit.EntityHitResult;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -42,7 +54,7 @@ public final class BasicHorseOverviewScreen extends Screen {
     private static final int MUTED = 0xFFAA9D90;
     private static final int ERROR = 0xFFFF8E7A;
     private static final int HEADER_HEIGHT = 20;
-    private static final int HORSE_HEIGHT = 40;
+    private static final int HORSE_HEIGHT = 44;
     private static final Identifier FINDER_ICON = icon("finder");
     private static final Identifier DELETE_ICON = icon("delete");
     private static final Identifier SPEED_ICON = icon("speed");
@@ -61,7 +73,11 @@ public final class BasicHorseOverviewScreen extends Screen {
     private TextFieldWidget searchField;
     private ButtonWidget refreshButton;
     private ButtonWidget sortButton;
-    private HorseEntity fallbackHorse;
+    private ButtonWidget filterButton;
+    private ButtonWidget addButton;
+    private AnimalEntity entryTarget;
+    private final Map<AnimalKind, AnimalEntity> fallbackAnimals = new EnumMap<>(AnimalKind.class);
+    private AnimalKind filter = AnimalKind.ALL;
     private final SortSelection sorting = new SortSelection();
     private boolean sortMenuOpen;
     private boolean refreshing;
@@ -83,7 +99,7 @@ public final class BasicHorseOverviewScreen extends Screen {
         rebuildRows();
 
         searchField = new TextFieldWidget(textRenderer, px + 12, py + 29,
-                panelW() - 24, 18,
+                panelW() - 130, 18,
                 Text.translatable("ottoextra.horses.overview.search"));
         searchField.setPlaceholder(Text.translatable(
                 "ottoextra.horses.overview.search"));
@@ -95,12 +111,30 @@ public final class BasicHorseOverviewScreen extends Screen {
             rebuildRows();
         });
         addDrawableChild(searchField);
+        filterButton = addDrawableChild(ButtonWidget.builder(filterButtonText(), button -> {
+            var choices = HorseOverviewView.filters(OttoExtraConfig.active().animalInfo);
+            filter = choices.get((choices.indexOf(filter) + 1) % choices.size());
+            scroll = 0;
+            rebuildRows();
+            button.setMessage(filterButtonText());
+        }).dimensions(px + panelW() - 112, py + 29, 100, 18).build());
 
         refreshButton = addDrawableChild(ButtonWidget.builder(
                         Text.translatable("ottoextra.horses.overview.refresh"),
                         button -> refreshRecords())
                 .dimensions(px + 12, py + panelH() - 27, 76, 18)
                 .build());
+        if (entryTarget == null && client != null && client.crosshairTarget instanceof EntityHitResult hit
+                && hit.getEntity() instanceof AnimalEntity animal && RegistryAnimals.supports(animal)) {
+            entryTarget = animal;
+        }
+        addButton = addDrawableChild(ButtonWidget.builder(Text.translatable("ottoextra.horses.overview.add"), button -> {
+            if (entryTarget != null && client != null) {
+                HorseRegistry.observation(entryTarget.getUuid()).ifPresent(observation ->
+                        client.setScreen(new BasicHorseRecordScreen(this, entryTarget, observation)));
+            }
+        }).dimensions(px + 94, py + panelH() - 27, 106, 18).build());
+        addButton.setTooltip(Tooltip.of(Text.translatable("ottoextra.horses.overview.add.tip")));
         sortMenuOpen = false;
         sortButton = addDrawableChild(ButtonWidget.builder(sortButtonText(),
                         button -> sortMenuOpen = !sortMenuOpen)
@@ -149,8 +183,11 @@ public final class BasicHorseOverviewScreen extends Screen {
 
     private void rebuildRows() {
         rows.clear();
+        var config = OttoExtraConfig.active().animalInfo;
+        if (!HorseOverviewView.filters(config).contains(filter)) filter = AnimalKind.ALL;
+        if (filterButton != null) filterButton.setMessage(filterButtonText());
         List<HorseOverviewView.FarmGroup> farms = HorseOverviewView.groups(
-                HorseRegistry.databaseRecords(), query, sorting);
+                HorseOverviewView.filter(HorseRegistry.databaseRecords(), filter, config), query, sorting);
         visibleHorses = farms.stream()
                 .flatMap(group -> group.horses().stream())
                 .toList();
@@ -198,7 +235,17 @@ public final class BasicHorseOverviewScreen extends Screen {
         if (refreshButton != null) {
             refreshButton.active = !refreshing;
         }
+        if (addButton != null) {
+            addButton.active = client != null && entryTarget != null && entryTarget.isAlive()
+                    && entryTarget.getEntityWorld() == client.world
+                    && HorseRegistry.observation(entryTarget.getUuid()).isPresent();
+        }
     }
+
+    private Text filterButtonText() { return Text.translatable(filter.translationKey()); }
+
+    @Override
+    public void tick() { updateButtons(); }
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY,
@@ -286,7 +333,7 @@ public final class BasicHorseOverviewScreen extends Screen {
         if (client == null) {
             return;
         }
-        String name = displayName(horse);
+        String name = displayName(horse) + (horse.registryName().isBlank() ? " (" + horse.entityUuid() + ")" : "");
         client.setScreen(new ConfirmScreen(confirmed -> {
             if (client == null) {
                 return;
@@ -431,12 +478,10 @@ public final class BasicHorseOverviewScreen extends Screen {
                 hovered ? 0xE0483828 : 0xC0322921);
         boolean collapsed = collapsedFarms.contains(row.farm());
         HorseUiIcons.draw(context, collapsed ? EXPAND_ICON : COLLAPSE_ICON,
-                contentX() + 3, y + 4, 12, 16, GOLD);
+                contentX() + 5, y + 7, 8, 16, GOLD);
         String farm = row.farm().isBlank()
                 ? Text.translatable("ottoextra.horses.overview.no_farm").getString() : row.farm();
-        context.drawTextWithShadow(textRenderer,
-                textRenderer.trimToWidth(farm, speedX() - contentX() - 24),
-                contentX() + 19, y + 8, GOLD);
+        drawSmallText(context, farm, contentX() + 19, y + 8, GOLD, speedX() - contentX() - 24);
         renderMetricHeader(context, SPEED_ICON, speedX(), jumpX() - speedX() - 4,
                 y, "ottoextra.horses.overview.speed", sorting.metric(true));
         renderMetricHeader(context, JUMP_ICON, jumpX(), finderX() - jumpX() - 8,
@@ -461,7 +506,7 @@ public final class BasicHorseOverviewScreen extends Screen {
                                     int y, String label, SortOrder order) {
         boolean active = order != null;
         context.fill(x, y + 3, x + w, y + HEADER_HEIGHT - 1, active ? 0xB080632E : 0x663C3932);
-        HorseUiIcons.draw(context, icon, x + 2, y + 4, 12, 16, active ? GOLD : MUTED);
+        HorseUiIcons.draw(context, icon, x + 3, y + 7, 8, 16, active ? GOLD : MUTED);
         if (w >= 48) {
             String priority = active ? sorting.priority(order) + ". " : "";
             String text = priority + Text.translatable(label).getString();
@@ -470,7 +515,7 @@ public final class BasicHorseOverviewScreen extends Screen {
                     text, w - 32), x + 17, y + 7, BODY);
         }
         Identifier direction = !active ? SORT_NONE_ICON : order.ascending() ? SORT_ASC_ICON : SORT_DESC_ICON;
-        HorseUiIcons.draw(context, direction, x + w - 12, y + 6, 10, 16, active ? GOLD : MUTED);
+        HorseUiIcons.draw(context, direction, x + w - 11, y + 7, 8, 16, active ? GOLD : MUTED);
     }
 
     private Text metricTooltip(boolean speed) {
@@ -486,16 +531,21 @@ public final class BasicHorseOverviewScreen extends Screen {
 
         int x = contentX() + 43;
         int available = Math.max(20, finderX() - x - 6);
-        context.drawTextWithShadow(textRenderer,
-                textRenderer.trimToWidth(displayName(horse) + "  *  "
-                        + value(horse.origin()), available),
-                x, y + 6, TITLE);
+        String name = textRenderer.trimToWidth(displayName(horse), available * 2 / 3);
+        context.drawTextWithShadow(textRenderer, name, x, y + 6, TITLE);
+        int originX = x + textRenderer.getWidth(name) + 8;
+        drawSmallText(context, "· " + value(horse.origin()), originX, y + 7, MUTED,
+                Math.max(1, available - (originX - x)));
+        if (horse.registryName().isBlank()) {
+            HorseUiIcons.smallText(context, textRenderer, horse.entityUuid(), x, y + 17,
+                    MUTED, available, 0.65F);
+        }
 
         boolean finderActive = HorseFinder.isTarget(horse.uuid());
         context.fill(finderX(), y + 4, finderX() + 18, y + 22,
                 finderActive ? 0xFF80632E
                         : buttonColor(mouseX, mouseY, finderX(), y));
-        drawIcon(context, FINDER_ICON, finderX() + 1, y + 5,
+        drawIcon(context, FINDER_ICON, finderX() + 5, y + 9,
                 finderActive ? GOLD : MUTED);
 
         boolean canDelete = horse.canManage();
@@ -504,29 +554,29 @@ public final class BasicHorseOverviewScreen extends Screen {
                 canDelete && !deleting.contains(horse.uuid())
                         ? buttonColor(mouseX, mouseY, deleteX(), y)
                         : 0xFF282729);
-        drawIcon(context, DELETE_ICON, deleteX() + 1, y + 5, deleteColor);
+        drawIcon(context, DELETE_ICON, deleteX() + 5, y + 9, deleteColor);
 
-        HorseUiIcons.gender(context, textRenderer, horse.gender(), x, y + 23, speedX() - x);
+        HorseUiIcons.gender(context, textRenderer, horse.gender(), x, y + 30, speedX() - x, true);
         int speedX = speedX();
         int speedWidth = jumpX() - speedX;
         if (horse.speed().isBlank() && horse.jumpHeight().isBlank()) {
             context.drawTextWithShadow(textRenderer,
                     textRenderer.trimToWidth(horse.animalType(),
                             Math.max(18, finderX() - speedX - 6)),
-                    speedX, y + 22, BODY);
+                    speedX, y + 30, BODY);
             return;
         }
-        drawIcon(context, SPEED_ICON, speedX, y + 21, MUTED);
+        drawIcon(context, SPEED_ICON, speedX, y + 30, MUTED);
         context.drawTextWithShadow(textRenderer,
                 textRenderer.trimToWidth(value(horse.speed()),
-                        Math.max(18, speedWidth - 18)),
-                speedX + 17, y + 22, BODY);
+                        Math.max(18, speedWidth - 13)),
+                speedX + 12, y + 30, BODY);
         int jumpX = speedX + speedWidth;
-        drawIcon(context, JUMP_ICON, jumpX, y + 21, MUTED);
+        drawIcon(context, JUMP_ICON, jumpX, y + 30, MUTED);
         context.drawTextWithShadow(textRenderer,
                 textRenderer.trimToWidth(value(horse.jumpHeight()),
-                        Math.max(18, finderX() - jumpX - 20)),
-                jumpX + 17, y + 22, BODY);
+                        Math.max(18, finderX() - jumpX - 15)),
+                jumpX + 12, y + 30, BODY);
     }
 
     private void renderHorseModel(DrawContext context,
@@ -556,15 +606,23 @@ public final class BasicHorseOverviewScreen extends Screen {
         if (loaded instanceof AnimalEntity animal && RegistryAnimals.supports(animal)) {
             return animal;
         }
-        if (horse.speed().isBlank() && horse.jumpHeight().isBlank()
-                && horse.coatColor().isBlank()) {
-            return null;
+        AnimalKind kind = HorseOverviewView.kind(horse);
+        AnimalEntity preview = fallbackAnimals.get(kind);
+        if (preview == null || preview.getEntityWorld() != client.world) {
+            preview = switch (kind) {
+                case HORSES -> new HorseEntity(EntityType.HORSE, client.world);
+                case DONKEYS -> new DonkeyEntity(EntityType.DONKEY, client.world);
+                case COWS -> new CowEntity(EntityType.COW, client.world);
+                case CHICKENS -> new ChickenEntity(EntityType.CHICKEN, client.world);
+                case PIGS -> new PigEntity(EntityType.PIG, client.world);
+                case GOATS -> new GoatEntity(EntityType.GOAT, client.world);
+                case SHEEP -> new SheepEntity(EntityType.SHEEP, client.world);
+                default -> null;
+            };
+            if (preview != null) fallbackAnimals.put(kind, preview);
         }
-        if (fallbackHorse == null || fallbackHorse.getEntityWorld() != client.world) {
-            fallbackHorse = new HorseEntity(EntityType.HORSE, client.world);
-        }
-        HorseAppearance.from(horse).applyTo(fallbackHorse);
-        return fallbackHorse;
+        if (preview instanceof HorseEntity entity) HorseAppearance.from(horse).applyTo(entity);
+        return preview;
     }
 
     private void renderScrollbar(DrawContext context) {
@@ -658,7 +716,7 @@ public final class BasicHorseOverviewScreen extends Screen {
 
     private static void drawIcon(DrawContext context, Identifier icon,
                                  int x, int y, int color) {
-        HorseUiIcons.draw(context, icon, x, y, color);
+        HorseUiIcons.draw(context, icon, x, y, 8, 16, color);
     }
 
     private static Identifier icon(String name) {
@@ -678,8 +736,7 @@ public final class BasicHorseOverviewScreen extends Screen {
     }
 
     private static String displayName(AnimalBreedingHorse horse) {
-        return horse.registryName().isBlank()
-                ? horse.entityUuid().substring(0, 8) : horse.registryName();
+        return HorseOverviewView.displayName(horse);
     }
 
     private static String value(String raw) {
@@ -703,11 +760,11 @@ public final class BasicHorseOverviewScreen extends Screen {
     }
 
     private int panelW() {
-        return Math.min(680, Math.max(330, width - 20));
+        return Math.min(680, Math.max(300, width - 20));
     }
 
     private int panelH() {
-        return Math.min(410, Math.max(240, height - 20));
+        return Math.min(410, Math.max(200, height - 20));
     }
 
     private int contentX() {

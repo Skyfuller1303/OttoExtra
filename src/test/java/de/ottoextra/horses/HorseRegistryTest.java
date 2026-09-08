@@ -25,7 +25,7 @@ class HorseRegistryTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"Kuh", "Schaf", "Huhn", "Esel", "Ziege", "Schwein"})
+    @ValueSource(strings = {"Kuh", "Schaf", "Huhn", "Esel", "Packesel", "Maultier", "Ziege", "Schwein"})
     void savesFarmAnimalNamesWithoutRequiringHorseStats(String animalType) {
         UUID uuid = UUID.randomUUID();
         AnimalBreedingHorseLocation location = new AnimalBreedingHorseLocation(

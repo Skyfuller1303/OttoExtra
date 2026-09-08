@@ -182,6 +182,10 @@ public final class CourierE2ETest implements FabricClientGameTest {
                 de.ottoextra.horses.AnimalNametagUiChecks.run(ctx);
                 check(commands().isEmpty(), "Nametag rendering emitted server commands");
             });
+            test("UI-ANIMAL-OVERVIEW", "Tierartenfilter, kompakte Tierzeilen und Esel speichern", () -> {
+                de.ottoextra.horses.AnimalOverviewUiChecks.run(ctx);
+                check(commands().isEmpty(), "Overview emitted server commands");
+            });
             check(!results.isEmpty(), "No tests selected");
             String requested = System.getProperty("courier.e2e.filter", "");
             if (!requested.isBlank()) for (String id : requested.split(","))

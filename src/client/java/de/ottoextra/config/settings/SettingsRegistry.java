@@ -686,6 +686,17 @@ public final class SettingsRegistry {
                         () -> c.animalInfo.nametagIncludeUnregistered, v -> c.animalInfo.nametagIncludeUnregistered = v)
                         .tooltip("ottoextra.set.animalinfo.nametagIncludeUnregistered.tip"));
         var animalInfoAdvanced = tab(animalInfo, "ottoextra.set.tab.advanced");
+        card(animalInfoAdvanced, "ottoextra.set.animalinfo.overview", "ottoextra.set.animalinfo.overview.desc",
+                Option.bool("ottoextra.horses.filter.cows", "animalInfo.overviewShowCows",
+                        () -> c.animalInfo.overviewShowCows, v -> c.animalInfo.overviewShowCows = v),
+                Option.bool("ottoextra.horses.filter.chickens", "animalInfo.overviewShowChickens",
+                        () -> c.animalInfo.overviewShowChickens, v -> c.animalInfo.overviewShowChickens = v),
+                Option.bool("ottoextra.horses.filter.pigs", "animalInfo.overviewShowPigs",
+                        () -> c.animalInfo.overviewShowPigs, v -> c.animalInfo.overviewShowPigs = v),
+                Option.bool("ottoextra.horses.filter.goats", "animalInfo.overviewShowGoats",
+                        () -> c.animalInfo.overviewShowGoats, v -> c.animalInfo.overviewShowGoats = v),
+                Option.bool("ottoextra.horses.filter.sheep", "animalInfo.overviewShowSheep",
+                        () -> c.animalInfo.overviewShowSheep, v -> c.animalInfo.overviewShowSheep = v));
         card(animalInfoAdvanced, "ottoextra.set.animalinfo.timing",
                 "ottoextra.set.animalinfo.timing.desc",
                 Option.intVal("ottoextra.config.animalinfo.hoverDelay",

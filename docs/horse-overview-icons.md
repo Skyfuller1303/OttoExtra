@@ -12,6 +12,11 @@ Vorgabe für alle Dateien:
 - Motiv weiß; OttoExtra färbt es abhängig von Zustand und Geschlecht ein
 - Dateinamen unverändert lassen
 
+Ab Alpha F stellt die [Tierübersicht](animal-overview.md) diese Icons mit
+**8 × 8 GUI-Pixeln** dar, passend zur Höhe der normalen Schrift. Die größeren
+Klickflächen bleiben bestehen. Hof- und Herkunftsnamen verwenden 75 %
+Schriftgröße. Die Tierakte behält ihre bisherige Symbolgröße.
+
 Dateien:
 
 - `finder.png`
