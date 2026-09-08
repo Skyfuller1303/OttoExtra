@@ -9,10 +9,14 @@ den Schalter **Tiere nach Geschlecht umranden** aktivieren.
 - Ein ausgewähltes Finder-Tier behält seinen goldenen Umriss.
 
 Unter **Minecraft → Optionen → Steuerung → Tastenbelegung → Verschiedenes**
-lässt sich **Tier-Glow nach Geschlecht umschalten** frei belegen. Die Taste ist
-anfangs unbelegt. Sie schaltet denselben gespeicherten Wert wie das Menü um und
+lässt sich **Tier-Glow nach Geschlecht umschalten** frei belegen. Ab Alpha I ist
+**F8** die Standardtaste. Sie schaltet denselben gespeicherten Wert wie das Menü um und
 zeigt den neuen Zustand in der Aktionsleiste. Bei geöffnetem Menü oder außerhalb
 einer aktiven Ottonien-Verbindung schaltet sie nichts um.
+
+Bereits gespeicherte eigene Tastenbelegungen bleiben erhalten. Falls Alpha H
+die Taste schon als unbelegt gespeichert hat, in der Tastenbelegung einmal
+**Zurücksetzen** neben dem Tier-Glow wählen oder **F8** zuweisen.
 
 Der Glow ist standardmäßig aus (`animalInfo.genderGlowEnabled=false`) und
 unabhängig von den Nametag-Schaltern. Er gilt für lebende, geladene Tiere in
@@ -64,4 +68,4 @@ Vanilla-Glow, Menüschalter und die registrierte Tastenbelegung über Client-Tic
 Der API-Ersatz bricht bei jedem unerwarteten Aufruf ab; die Serverprobe prüft,
 dass kein Befehl versendet wurde. Screenshots dokumentieren Umrisse und Menü.
 
-[Release-Validierung](releases/0.1.17-h.md).
+[Release-Validierung](releases/0.1.17-i.md).

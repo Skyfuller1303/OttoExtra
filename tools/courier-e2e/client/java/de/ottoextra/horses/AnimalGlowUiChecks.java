@@ -41,6 +41,7 @@ public final class AnimalGlowUiChecks {
         float pitch = ctx.computeOnClient(c -> c.player.getPitch());
         var key = ctx.computeOnClient(c -> Arrays.stream(c.options.allKeys)
                 .filter(k -> k.getId().equals("key.ottoextra.animal_gender_glow")).findFirst().orElseThrow());
+        require(key.getDefaultKey().getCode() == GLFW.GLFW_KEY_F8, "Glow default key must be F8");
         String oldKey = ctx.computeOnClient(c -> key.getBoundKeyTranslationKey());
         AtomicBoolean gate = new AtomicBoolean(true);
         try {
@@ -110,7 +111,7 @@ public final class AnimalGlowUiChecks {
                 c.player.setYaw(0); c.player.setPitch(5);
                 c.options.getGuiScale().setValue(3);
                 c.getToastManager().clear();
-                key.setBoundKey(InputUtil.Type.KEYSYM.createFromCode(GLFW.GLFW_KEY_F8));
+                key.setBoundKey(key.getDefaultKey());
                 KeyBinding.updateKeysByCode();
             });
             ctx.getInput().resizeWindow(1920, 1080); ctx.waitTicks(5);

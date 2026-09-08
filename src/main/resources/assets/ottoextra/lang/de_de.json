@@ -1,7 +1,7 @@
 {
   "key.ottoextra.animal_gender_glow": "Tier-Glow nach Geschlecht umschalten",
   "ottoextra.set.animalinfo.glow": "Tier-Glow",
-  "ottoextra.set.animalinfo.glow.desc": "Weiblich: Rosa. Männlich: Blau. Taste unter Steuerung → Tastenbelegung → Verschiedenes frei belegen.",
+  "ottoextra.set.animalinfo.glow.desc": "Weiblich: Rosa. Männlich: Blau. Standardtaste: F8. Änderbar unter Steuerung → Tastenbelegung → Verschiedenes.",
   "ottoextra.config.animalinfo.genderGlowEnabled": "Tiere nach Geschlecht umranden",
   "ottoextra.set.animalinfo.glow.tip": "Markiert bekannte Tiere auf Ottonien bis 64 Blöcke Entfernung, auch durch Wände und ohne Register-Eintrag. Nutzt bereits bekannte Toast- oder Registerdaten. Unbekanntes Geschlecht bleibt ohne neue Markierung. Der goldene Finder hat Vorrang.",
   "ottoextra.animalinfo.glow.enabled": "Tier-Glow an: ♀ Rosa · ♂ Blau",

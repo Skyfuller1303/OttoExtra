@@ -37,7 +37,7 @@ public final class HorseRegistryModule implements OttoExtraModule {
         AnimalGenderGlow.initialize(context::isOnOttonien);
         genderGlowKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.ottoextra.animal_gender_glow", InputUtil.Type.KEYSYM,
-                GLFW.GLFW_KEY_UNKNOWN, KeyBinding.Category.MISC));
+                GLFW.GLFW_KEY_F8, KeyBinding.Category.MISC));
         AnimalInfoEvents.OBSERVED.register(HorseRegistry::observe);
         ClientTickEvents.END_CLIENT_TICK.register(this::tick);
 
