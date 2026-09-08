@@ -105,7 +105,7 @@ public final class RegionMessageService {
         }
         data.requestRegionDetail(name);
         if (banners != null) {
-            data.factionForRegion(name).ifPresent(banners::bannerFor);
+            banners.bannerForRegion(data, name);
         }
     }
 

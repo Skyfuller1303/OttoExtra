@@ -17,6 +17,11 @@ import net.minecraft.util.Identifier;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.function.BiConsumer;
+import java.util.function.BooleanSupplier;
 
 public final class RegionInfoScreen extends Screen {
 
@@ -40,14 +45,43 @@ public final class RegionInfoScreen extends Screen {
 
     private RegionRecord region;
     private FactionRecord faction;
-    private volatile List<PlayerRecord> players;
-    private volatile boolean playersLoading = false;
+    private List<PlayerRecord> players;
+    private boolean playersLoading = false;
+    private long playerRequestGeneration;
+    private final ViewRequests requests = new ViewRequests();
     private List<FactionRecord> vassals = List.of();
 
     private ButtonWidget tabOverview;
     private ButtonWidget tabPlayers;
     private ButtonWidget tabVassals;
     private final List<ButtonWidget> rowButtons = new ArrayList<>();
+
+    /** Applies async results only on the client executor and to the current view lifetime. */
+    static final class ViewRequests {
+        private long generation;
+
+        void invalidate() {
+            generation++;
+        }
+
+        <T> void whenComplete(CompletableFuture<T> request, Executor clientExecutor,
+                              BooleanSupplier currentView, BiConsumer<T, Throwable> apply) {
+            long requestGeneration = generation;
+            request.whenComplete((value, error) -> clientExecutor.execute(() -> {
+                if (generation == requestGeneration && currentView.getAsBoolean()) {
+                    apply.accept(value, error);
+                }
+            }));
+        }
+    }
+
+    record DataSnapshot(RegionRecord region, FactionRecord faction, List<FactionRecord> vassals) {
+        static DataSnapshot read(RegionDataService data, String name) {
+            FactionRecord faction = data.factionForRegion(name).orElse(null);
+            return new DataSnapshot(data.regionByName(name).orElse(null), faction,
+                    faction == null ? List.of() : data.vassalsOf(faction));
+        }
+    }
 
     public RegionInfoScreen(String regionName, Screen parent) {
         super(Text.translatable("ottoextra.regions.screen.title"));
@@ -120,30 +154,71 @@ public final class RegionInfoScreen extends Screen {
                 .dimensions(bx, panelY() + panelH() - 26, bw, 18).build());
 
         updateTabState();
+        rebuildRowButtons();
+        loadPlayers();
+        RegionDataService data = RegionsServices.data();
+        if (data != null && !regionName.isBlank()) {
+            requests.whenComplete(data.requestRegionDetailAsync(regionName), client::execute,
+                    () -> client.currentScreen == this && RegionsServices.data() == data,
+                    (ignored, error) -> {
+                        if (error != null) return;
+                        if (loadData()) refreshDataWidgets();
+                        loadPlayers();
+                    });
+        }
     }
 
-    private void loadData() {
+    private boolean loadData() {
         RegionDataService data = RegionsServices.data();
         if (data == null || regionName.isBlank()) {
-            return;
+            return false;
         }
-        region = data.regionByName(regionName).orElse(null);
-        faction = data.factionForRegion(regionName).orElse(null);
-        vassals = faction != null ? data.vassalsOf(faction) : List.of();
-        data.requestRegionDetail(regionName);
+        DataSnapshot snapshot = DataSnapshot.read(data, regionName);
+        boolean changed = !Objects.equals(region, snapshot.region())
+                || !Objects.equals(faction, snapshot.faction()) || !vassals.equals(snapshot.vassals());
+        region = snapshot.region();
+        FactionRecord refreshedFaction = snapshot.faction();
+        if (!Objects.equals(faction, refreshedFaction)) {
+            playerRequestGeneration++;
+            players = null;
+            playersLoading = false;
+        }
+        faction = refreshedFaction;
+        vassals = snapshot.vassals();
+        return changed;
     }
 
     private void switchTab(Tab newTab) {
         tab = newTab;
         scroll = 0;
         updateTabState();
-        if (newTab == Tab.PLAYERS && players == null && !playersLoading && faction != null) {
-            playersLoading = true;
-            RegionsServices.data().factionPlayers(faction).whenComplete((list, t) -> {
-                players = (t == null && list != null) ? list : List.of();
-                playersLoading = false;
-            });
-        }
+        loadPlayers();
+        rebuildRowButtons();
+    }
+
+    private void loadPlayers() {
+        if (tab != Tab.PLAYERS || players != null || playersLoading || faction == null) return;
+        RegionDataService data = RegionsServices.data();
+        if (data == null) return;
+        FactionRecord requestedFaction = faction;
+        long requestGeneration = ++playerRequestGeneration;
+        playersLoading = true;
+        requests.whenComplete(data.factionPlayers(requestedFaction), client::execute,
+                () -> client.currentScreen == this && RegionsServices.data() == data
+                        && playerRequestGeneration == requestGeneration
+                        && Objects.equals(faction, requestedFaction),
+                (list, error) -> {
+                    players = error == null && list != null ? list : List.of();
+                    playersLoading = false;
+                    refreshDataWidgets();
+                });
+    }
+
+    private void refreshDataWidgets() {
+        tabPlayers.setMessage(Text.translatable("ottoextra.regions.tab.players", playerCountLabel()));
+        tabVassals.setMessage(Text.translatable("ottoextra.regions.tab.vassals", vassals.size()));
+        scroll = 0;
+        contentHeight = 0;
         rebuildRowButtons();
     }
 
@@ -264,7 +339,8 @@ public final class RegionInfoScreen extends Screen {
 
         String description = resolveDescription();
         if (!description.isBlank()) {
-            for (OrderedText l : textRenderer.wrapLines(Text.literal(description), w)) {
+            Text translatedDescription = translatedRegionText(description);
+            for (OrderedText l : textRenderer.wrapLines(translatedDescription, w)) {
                 ctx.drawText(textRenderer, l, x, y, COL_BODY, true);
                 y += line;
             }
@@ -272,7 +348,7 @@ public final class RegionInfoScreen extends Screen {
         }
 
         String lead = leadSentence();
-        for (OrderedText l : textRenderer.wrapLines(Text.literal(lead), w)) {
+        for (OrderedText l : textRenderer.wrapLines(translatedRegionText(lead), w)) {
             ctx.drawText(textRenderer, l, x, y, COL_BODY, true);
             y += line;
         }
@@ -301,7 +377,7 @@ public final class RegionInfoScreen extends Screen {
         }
         int line = textRenderer.fontHeight + 2;
         List<OrderedText> bodyLines = body == null || body.isBlank()
-                ? List.of() : textRenderer.wrapLines(Text.literal(body), w - 10);
+                ? List.of() : textRenderer.wrapLines(translatedRegionText(body), w - 10);
         int cardH = 6 + line + bodyLines.size() * line;
         ctx.fill(x, y, x + w, y + cardH, COL_CARD);
         ctx.fill(x, y, x + 2, y + cardH, COL_RANK);
@@ -312,6 +388,11 @@ public final class RegionInfoScreen extends Screen {
             by += line;
         }
         return y + cardH + 4;
+    }
+
+    private static Text translatedRegionText(String text) {
+        return de.ottoextra.addon.OttoExtraAddons.processDisplayText(
+                "REGION", Text.literal(text));
     }
 
     private void renderPlayers(DrawContext ctx) {
@@ -448,6 +529,14 @@ public final class RegionInfoScreen extends Screen {
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, horizontal, vertical);
+    }
+
+    @Override
+    public void removed() {
+        requests.invalidate();
+        playerRequestGeneration++;
+        playersLoading = false;
+        super.removed();
     }
 
     @Override

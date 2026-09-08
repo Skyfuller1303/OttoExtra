@@ -40,11 +40,17 @@ public final class RegionNotificationOverlay {
     private static final Palette DARK = new Palette(
             0xFF212D3B, 0xFF0A0A0A, 0xFF344459, 0xFF191F22,
             0xFFFFFFFF, 0xFFFFFFFF, 0xFF9BC7DC, 0xFF9D9D9D);
+    private static final Palette NOTIFICATION = new Palette(
+            0xFFD0D0D0, 0xFF202020, 0xFFF2F2F2, 0xFF8A8A8A,
+            0xFF111111, 0xFF000000, 0xFF303030, 0xFF303030);
 
     public enum Position { TOP_CENTER, TOP_RIGHT, TOP_LEFT, CENTER }
 
     private static volatile String regionName = "";
     private static volatile String hierarchy = "";
+    private static volatile String notificationTitle = "";
+    private static volatile Identifier notificationIcon = null;
+    private static volatile boolean genericNotification = false;
     private static volatile long shownAt = 0;
 
     private static volatile boolean sticky = false;
@@ -58,13 +64,46 @@ public final class RegionNotificationOverlay {
     public static void show(String name, String hierarchyLine) {
         regionName = name == null ? "" : name;
         hierarchy = hierarchyLine == null ? "" : hierarchyLine;
+        notificationTitle = "";
+        notificationIcon = null;
+        genericNotification = false;
         shownAt = System.currentTimeMillis();
         sticky = false;
+    }
+
+    public static void showNotification(String title, String name, String detail) {
+        showNotification(title, name, detail, null);
+    }
+
+    public static void showNotification(
+            String title, String name, String detail, Identifier icon) {
+        notificationTitle = title == null ? "" : title;
+        regionName = name == null ? "" : name;
+        hierarchy = detail == null ? "" : detail;
+        notificationIcon = icon;
+        genericNotification = true;
+        shownAt = System.currentTimeMillis();
+        sticky = false;
+    }
+
+    public static void showNotificationSticky(
+            String title, String name, String detail, Identifier icon) {
+        showNotification(title, name, detail, icon);
+        sticky = true;
+    }
+
+    public static void clearNotification() {
+        if (genericNotification) {
+            clear();
+        }
     }
 
     public static void holdPreview(String name, String hierarchyLine) {
         regionName = name == null ? "" : name;
         hierarchy = hierarchyLine == null ? "" : hierarchyLine;
+        notificationTitle = "";
+        notificationIcon = null;
+        genericNotification = false;
         shownAt = System.currentTimeMillis();
         sticky = true;
     }
@@ -211,8 +250,9 @@ public final class RegionNotificationOverlay {
         progress = Math.max(0f, Math.min(1f, progress));
         float ease = 1f - (1f - progress) * (1f - progress);
 
+        boolean generic = genericNotification;
         Style st = activeStyle();
-        Palette pal = st.pal();
+        Palette pal = generic ? NOTIFICATION : st.pal();
         int maxTextWidth = st.maxTextWidth();
         int minWidth = st.minWidth();
         int maxWidth = st.maxWidth();
@@ -231,14 +271,15 @@ public final class RegionNotificationOverlay {
         float hintScale = base * st.hintScale();
 
         TextRenderer tr = client.textRenderer;
-        String title = Text.translatable("ottoextra.regions.entered").getString();
-        boolean hasHierarchy = st.showHierarchy() && !hierarchy.isBlank();
+        String title = generic && !notificationTitle.isBlank()
+                ? notificationTitle : Text.translatable("ottoextra.regions.entered").getString();
+        boolean hasHierarchy = !hierarchy.isBlank() && (generic || st.showHierarchy());
         String hint = Text.translatable("ottoextra.regions.hint", menuKeyName).getString();
         boolean renderHint = st.showHint();
         de.ottoextra.config.OttoExtraConfig.Regions regionCfg = cfg;
         FactionRecord currentFaction = null;
         RegionDataService regionData = RegionsServices.data();
-        if (regionData != null) {
+        if (!generic && regionData != null) {
             currentFaction = regionData.factionForRegion(regionName).orElse(null);
         }
         String factionLine = currentFaction != null && currentFaction.name() != null
@@ -253,41 +294,44 @@ public final class RegionNotificationOverlay {
         String coordinateLine = mc.player != null
                 ? Math.round(mc.player.getX()) + " / " + Math.round(mc.player.getZ()) : "";
 
-        Identifier banner = null;
-        if (st.showBanner()) {
+        Identifier banner = generic ? notificationIcon : null;
+        if (!generic && st.showBanner()) {
             banner = resolveBanner();
         }
         int iconArea = banner != null ? bannerSize + iconGap : 0;
 
         List<ScaledLine> lines = new ArrayList<>();
-        if (st.showEnteredTitle()) {
+        if (generic || st.showEnteredTitle()) {
             lines.add(new ScaledLine(Text.literal(title).asOrderedText(), titleScale, pal.title()));
         }
         int regionWrap = Math.max(20, (int) (maxTextWidth / Math.max(0.3f, regionScale)));
 
-        String regionShown = de.ottoextra.map.PoliticalOverlay.displayNameFor(regionName);
+        String regionShown = generic ? regionName
+                : de.ottoextra.map.PoliticalOverlay.displayNameFor(regionName);
         for (net.minecraft.text.OrderedText regionLine
                 : tr.wrapLines(Text.literal(regionShown), regionWrap)) {
             lines.add(new ScaledLine(regionLine, regionScale, pal.region()));
         }
         if (hasHierarchy) {
-            lines.add(new ScaledLine(Text.literal(hierarchy).asOrderedText(), hierarchyScale, pal.hierarchy()));
+            Text hierarchyText = generic ? Text.literal(hierarchy) : translatedRegionText(hierarchy);
+            lines.add(new ScaledLine(hierarchyText.asOrderedText(),
+                    hierarchyScale, pal.hierarchy()));
         }
-        if (regionCfg != null && regionCfg.showFaction && !factionLine.isBlank()) {
+        if (!generic && regionCfg != null && regionCfg.showFaction && !factionLine.isBlank()) {
             String shownFaction = de.ottoextra.map.PoliticalOverlay.displayNameFor(factionLine);
             lines.add(new ScaledLine(Text.literal("Herrschaft: " + shownFaction).asOrderedText(),
                     hierarchyScale, pal.hierarchy()));
         }
-        if (regionCfg != null && regionCfg.showLeader && !leaderLine.isBlank()) {
+        if (!generic && regionCfg != null && regionCfg.showLeader && !leaderLine.isBlank()) {
             lines.add(new ScaledLine(Text.translatable(
                             "ottoextra.regions.toast.leader", leaderLine).asOrderedText(),
                     hierarchyScale, pal.hierarchy()));
         }
-        if (regionCfg != null && regionCfg.showCoordinates && !coordinateLine.isBlank()) {
+        if (!generic && regionCfg != null && regionCfg.showCoordinates && !coordinateLine.isBlank()) {
             lines.add(new ScaledLine(Text.literal("Koordinaten: " + coordinateLine).asOrderedText(),
                     hintScale, pal.hint()));
         }
-        if (renderHint) {
+        if (!generic && renderHint) {
             lines.add(new ScaledLine(Text.literal(hint).asOrderedText(), hintScale, pal.hint()));
         }
 
@@ -360,6 +404,11 @@ public final class RegionNotificationOverlay {
         }
     }
 
+    private static Text translatedRegionText(String text) {
+        return de.ottoextra.addon.OttoExtraAddons.processDisplayText(
+                "REGION", Text.literal(text));
+    }
+
     private record ScaledLine(net.minecraft.text.OrderedText text, float scale, int color) {
     }
 
@@ -369,8 +418,7 @@ public final class RegionNotificationOverlay {
         if (data == null || banners == null || regionName.isBlank()) {
             return null;
         }
-        Optional<FactionRecord> faction = data.factionForRegion(regionName);
-        return faction.flatMap(banners::bannerFor).orElse(null);
+        return banners.bannerForRegion(data, regionName).orElse(null);
     }
 
     static String leaderDisplayName(

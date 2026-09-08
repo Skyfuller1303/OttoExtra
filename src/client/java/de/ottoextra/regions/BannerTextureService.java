@@ -4,6 +4,7 @@ import de.ottoextra.OttoExtra;
 import de.ottoextra.api.OttoExtraApiClient;
 import de.ottoextra.api.model.FactionRecord;
 import de.ottoextra.config.OttoExtraPaths;
+import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.logging.DebugLog;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.texture.NativeImage;
@@ -14,6 +15,7 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.time.Duration;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -23,16 +25,27 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class BannerTextureService {
 
     private static final byte[] PNG_MAGIC = {(byte) 0x89, 'P', 'N', 'G'};
+    private static final long FAILED_RETRY_NANOS = Duration.ofSeconds(45).toNanos();
+    private static final long REFRESH_INTERVAL_NANOS = Duration.ofMinutes(20).toNanos();
 
     private final OttoExtraApiClient api;
     private final Map<String, Identifier> texturesByUuid = new ConcurrentHashMap<>();
     private final Set<String> inFlight = ConcurrentHashMap.newKeySet();
-    private final Set<String> failed = ConcurrentHashMap.newKeySet();
-
-    private final Set<String> refreshedThisSession = ConcurrentHashMap.newKeySet();
+    private final Map<String, Long> retryAfterNanos = new ConcurrentHashMap<>();
+    private final Map<String, Long> refreshedAtNanos = new ConcurrentHashMap<>();
 
     public BannerTextureService(OttoExtraApiClient api) {
         this.api = api;
+    }
+
+    public void onServerJoin() {
+        retryAfterNanos.clear();
+        refreshedAtNanos.clear();
+    }
+
+    /** Uses explicit/suggested region banners even when there is no player faction. */
+    public Optional<Identifier> bannerForRegion(RegionDataService data, String regionName) {
+        return RegionBannerResolver.resolve(data, regionName, this::bannerForPath, this::bannerFor);
     }
 
     public Optional<Identifier> bannerFor(FactionRecord faction) {
@@ -45,7 +58,7 @@ public final class BannerTextureService {
             maybeRefresh(uuid, faction.effectiveBannerPath());
             return Optional.of(ready);
         }
-        if (failed.contains(uuid) || !inFlight.add(uuid)) {
+        if (retryBlocked(uuid) || !inFlight.add(uuid)) {
             return Optional.empty();
         }
 
@@ -66,7 +79,7 @@ public final class BannerTextureService {
                 texturesByUuid.put(uuid, bundled);
                 return Optional.of(bundled);
             }
-            failed.add(uuid);
+            markFailed(uuid);
             return Optional.empty();
         }
         return startDownload(uuid, relative);
@@ -83,7 +96,7 @@ public final class BannerTextureService {
             maybeRefresh(key, relativePath);
             return Optional.of(ready);
         }
-        if (failed.contains(key) || !inFlight.add(key)) {
+        if (retryBlocked(key) || !inFlight.add(key)) {
             return Optional.empty();
         }
         Path cached = OttoExtraPaths.bannersCache().resolve(key + ".png");
@@ -96,11 +109,15 @@ public final class BannerTextureService {
     }
 
     private Optional<Identifier> startDownload(String uuid, String relative) {
+        if (!OttoExtraConfig.active().consent.externalImageDownloads) {
+            inFlight.remove(uuid);
+            return Optional.empty();
+        }
         Path cached = OttoExtraPaths.bannersCache().resolve(uuid + ".png");
         URI uri = api.routes().resolveRelative(relative);
         if (uri == null) {
             inFlight.remove(uuid);
-            failed.add(uuid);
+            markFailed(uuid);
             return Optional.empty();
         }
         api.downloadBinary(uri).whenComplete((bytes, t) -> {
@@ -108,7 +125,7 @@ public final class BannerTextureService {
                 DebugLog.debug("[regions] Banner-Download fehlgeschlagen ({}): {}",
                         uri, t != null ? t.toString() : "kein PNG");
                 inFlight.remove(uuid);
-                failed.add(uuid);
+                markFailed(uuid);
                 return;
             }
             try {
@@ -124,23 +141,27 @@ public final class BannerTextureService {
                 DebugLog.debug("[regions] Banner-Cache schreiben fehlgeschlagen: {}", e.getMessage());
             }
             writeSourceMarker(uuid, relative);
-            refreshedThisSession.add(uuid);
+            refreshedAtNanos.put(uuid, System.nanoTime());
             registerBytes(uuid, bytes);
         });
         return Optional.empty();
     }
 
     private void maybeRefresh(String key, String relativePath) {
-        if (relativePath == null || relativePath.isBlank()
-                || !refreshedThisSession.add(key)) {
+        if (!OttoExtraConfig.active().consent.externalImageDownloads) {
+            return;
+        }
+        if (relativePath == null || relativePath.isBlank() || !beginRefresh(key)) {
             return;
         }
         URI uri = api.routes().resolveRelative(relativePath);
         if (uri == null) {
+            inFlight.remove(key);
             return;
         }
         api.downloadBinary(uri).whenComplete((bytes, t) -> {
             if (t != null || bytes == null || !isPng(bytes)) {
+                inFlight.remove(key);
                 return;
             }
             try {
@@ -157,9 +178,38 @@ public final class BannerTextureService {
             } catch (Exception e) {
                 DebugLog.debug("[regions] Banner-Refresh schreiben fehlgeschlagen: {}", e.getMessage());
             }
-            inFlight.add(key);
             registerBytes(key, bytes);
         });
+    }
+
+    private boolean retryBlocked(String key) {
+        Long retryAfter = retryAfterNanos.get(key);
+        if (retryAfter == null) {
+            return false;
+        }
+        if (System.nanoTime() - retryAfter < 0) {
+            return true;
+        }
+        retryAfterNanos.remove(key, retryAfter);
+        return false;
+    }
+
+    private void markFailed(String key) {
+        inFlight.remove(key);
+        retryAfterNanos.put(key, System.nanoTime() + FAILED_RETRY_NANOS);
+    }
+
+    private boolean beginRefresh(String key) {
+        long now = System.nanoTime();
+        Long previous = refreshedAtNanos.get(key);
+        if (previous != null && now - previous < REFRESH_INTERVAL_NANOS) {
+            return false;
+        }
+        if (!inFlight.add(key)) {
+            return false;
+        }
+        refreshedAtNanos.put(key, now);
+        return true;
     }
 
     private static void writeSourceMarker(String key, String relativePath) {
@@ -185,13 +235,13 @@ public final class BannerTextureService {
             byte[] bytes = Files.readAllBytes(file);
             if (!isPng(bytes)) {
                 inFlight.remove(uuid);
-                failed.add(uuid);
+                markFailed(uuid);
                 return;
             }
             registerBytes(uuid, bytes);
         } catch (Exception e) {
             inFlight.remove(uuid);
-            failed.add(uuid);
+            markFailed(uuid);
         }
     }
 
@@ -209,8 +259,9 @@ public final class BannerTextureService {
                 Identifier id = OttoExtra.id("dynamic/banners/" + uuid);
                 client.getTextureManager().registerTexture(id, texture);
                 texturesByUuid.put(uuid, id);
+                retryAfterNanos.remove(uuid);
             } catch (Throwable t) {
-                failed.add(uuid);
+                markFailed(uuid);
                 DebugLog.debug("[regions] Banner-Textur fehlgeschlagen ({}): {}", uuid, t.toString());
             } finally {
                 inFlight.remove(uuid);
