@@ -53,7 +53,7 @@ public final class LetterEditorScreen extends Screen {
     private static final int PANEL_W = 184;
     private static final int PANEL_H = 250;
     private static final int TEXT_X = 28;
-    private static final int TEXT_Y = 30;
+    private static final int TEXT_Y = 48;
     private static final int LINE_H = 12;
 
     private static final int BOOK_PAGE_WIDTH = 108;
@@ -75,7 +75,32 @@ public final class LetterEditorScreen extends Screen {
     private int viewportCursor = -1;
     private int viewportCursorLine = -1;
     private String status = "";
+    private PreviewKey previewKey;
+    private int previewBookPages = -1;
     private LetterFormattingSidebar formattingSidebar;
+
+    private record PreviewKey(List<String> pages, String document, int documentVersion,
+                              boolean imported, int lockedPages, int lockedOffset,
+                              List<String> initialPages, String sendMode, String command) { }
+
+    @Override
+    public void tick() {
+        super.tick();
+        refreshBookPageCount();
+    }
+
+    private void refreshBookPageCount() {
+        draft.repair();
+        var key = new PreviewKey(List.copyOf(draft.pages), draft.meta.flowingDocument,
+                draft.meta.flowingDocumentVersion, draft.meta.importedFromBook,
+                draft.meta.lockedPages, draft.meta.lockedOffset,
+                List.copyOf(draft.meta.courierInitialPages), config.letter.sendMode,
+                config.letter.letterCommand);
+        if (key.equals(previewKey)) return;
+        var plan = LetterServices.previewPlan(config, draft);
+        previewBookPages = plan.warnings().isEmpty() ? Math.max(1, plan.predictedPages().size()) : -1;
+        previewKey = key;
+    }
 
     private static final int HISTORY_LIMIT = 100;
     private final Deque<EditorState> undoStack = new ArrayDeque<>();
@@ -1204,6 +1229,8 @@ public final class LetterEditorScreen extends Screen {
     @Override
     protected void init() {
         reflowAllPages();
+        previewKey = null;
+        refreshBookPageCount();
         viewportPage = -1;
         if (config.letter.formattingEnabled) {
             formattingSidebar = new LetterFormattingSidebar(
@@ -1384,9 +1411,13 @@ public final class LetterEditorScreen extends Screen {
         int ph = panelHeight();
         ctx.fill(px - 2, py - 2, px + PANEL_W + 2, py + ph + 2, PAPER_DARK);
         ctx.fill(px, py, px + PANEL_W, py + ph, PAPER_COLOR);
-        ctx.drawText(textRenderer, Text.translatable("ottoextra.letter.pageIndicator",
+        ctx.drawText(textRenderer, Text.translatable("ottoextra.letter.workingPageIndicator",
                 page + 1, draft.pages.size()), px + TEXT_X, py + 12,
                 TEXT_COLOR, false);
+        Text bookCount = previewBookPages < 0
+                ? Text.translatable("ottoextra.letter.bookCountUnavailable")
+                : Text.translatable("ottoextra.letter.bookCount", previewBookPages);
+        ctx.drawText(textRenderer, bookCount, px + TEXT_X, py + 23, TEXT_COLOR, false);
         if (de.ottoextra.letter.calibration.LetterCalibrationService
                 .isCalibrationDraft(draft)) {
             ctx.drawText(textRenderer, "§cKalibrierung · "
@@ -1395,7 +1426,7 @@ public final class LetterEditorScreen extends Screen {
                     px + TEXT_X, py + ph - 40, TEXT_COLOR_LOCKED, false);
         } else if (hasLockedHere()) {
             ctx.drawText(textRenderer, Text.translatable("ottoextra.letter.book.locked"),
-                    px + TEXT_X + 44, py + 12, TEXT_COLOR_LOCKED, false);
+                    px + TEXT_X, py + 34, TEXT_COLOR_LOCKED, false);
         }
 
         String t = text();

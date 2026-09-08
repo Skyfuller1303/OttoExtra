@@ -275,12 +275,17 @@ public final class LetterServices {
     }
 
     public static List<String> previewPages(OttoExtraConfig config, LetterDraft draft) {
+        return previewPlan(config, draft).predictedPages();
+    }
+
+    /** Shared prediction, including warnings, for the editor count and book preview. */
+    public static LetterCommandPlan previewPlan(OttoExtraConfig config, LetterDraft draft) {
         if (draft.meta.importedFromBook && draft.meta.lockedPages >= 0) {
             LetterDraft remaining = unlockedPart(draft);
             return LetterV2Planner.planDocument(config.letter.letterCommand, remaining.pages,
-                    textWidth(), draft.meta.courierInitialPages).predictedPages();
+                    textWidth(), draft.meta.courierInitialPages);
         }
-        return buildPlan(config, draft, SendPurpose.LETTER).predictedPages();
+        return buildPlan(config, draft, SendPurpose.LETTER);
     }
 
     private static long[] buildDelays(OttoExtraConfig config, List<Integer> pageIndex,

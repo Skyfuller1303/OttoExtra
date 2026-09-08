@@ -83,10 +83,10 @@ public final class LetterPreviewScreen extends Screen {
         ctx.fill(px - 2, py - 2, px + PANEL_W + 2, py + ph + 2, PAPER_DARK);
         ctx.fill(px, py, px + PANEL_W, py + ph, PAPER);
         ctx.drawText(textRenderer,
-                Text.translatable("ottoextra.letter.pageIndicator", page + 1, pages.size()),
+                Text.translatable("ottoextra.letter.bookPageIndicator", page + 1, pages.size()),
                 px + 26, py + 13, TEXT, false);
         ctx.drawText(textRenderer, Text.translatable("ottoextra.letter.preview.readonly"),
-                px + 116, py + 13, 0x99765B41, false);
+                px + 26, py + 24, 0x99765B41, false);
 
         String raw = pages.get(page);
         List<int[]> spans = lineSpans(raw);
