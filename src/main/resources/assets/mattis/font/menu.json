@@ -1,0 +1,20 @@
+{
+  "providers": [
+    { "type": "bitmap", "file": "mattis:font/icons/clean/animals/sheep_ee200.png", "ascent": 7, "height": 8, "chars": ["\uE200"] },
+    { "type": "bitmap", "file": "mattis:font/icons/clean/animals/cow_ee201.png", "ascent": 7, "height": 8, "chars": ["\uE201"] },
+    { "type": "bitmap", "file": "mattis:font/icons/clean/animals/pig_ee202.png", "ascent": 7, "height": 8, "chars": ["\uE202"] },
+    { "type": "bitmap", "file": "mattis:font/icons/clean/animals/horse_ee203.png", "ascent": 7, "height": 8, "chars": ["\uE203"] },
+    { "type": "bitmap", "file": "mattis:font/icons/clean/animals/donkey_ee204.png", "ascent": 7, "height": 8, "chars": ["\uE204"] },
+    { "type": "bitmap", "file": "mattis:font/icons/clean/animals/goat_ee205.png", "ascent": 7, "height": 8, "chars": ["\uE205"] },
+    { "type": "bitmap", "file": "mattis:font/icons/clean/animals/chicken_ee206.png", "ascent": 7, "height": 8, "chars": ["\uE206"] },
+    { "type": "bitmap", "file": "mattis:font/icons/clean/animals/wolf_ee207.png", "ascent": 7, "height": 8, "chars": ["\uE207"] },
+    { "type": "bitmap", "file": "mattis:font/icons/clean/status/gender_ee400.png", "ascent": 7, "height": 8, "chars": ["\uE400"] },
+    { "type": "bitmap", "file": "mattis:font/icons/clean/status/female_ee401.png", "ascent": 7, "height": 8, "chars": ["\uE401"] },
+    { "type": "bitmap", "file": "mattis:font/icons/clean/status/male_ee402.png", "ascent": 7, "height": 8, "chars": ["\uE402"] },
+    { "type": "bitmap", "file": "mattis:font/icons/clean/status/feeding_ee403.png", "ascent": 7, "height": 8, "chars": ["\uE403"] },
+    { "type": "bitmap", "file": "mattis:font/icons/clean/status/feeding_loss_ee404.png", "ascent": 7, "height": 8, "chars": ["\uE404"] },
+    { "type": "bitmap", "file": "mattis:font/icons/clean/status/shearable_ee405.png", "ascent": 7, "height": 8, "chars": ["\uE405"] },
+    { "type": "bitmap", "file": "mattis:font/icons/clean/status/milkable_ee406.png", "ascent": 7, "height": 8, "chars": ["\uE406"] },
+    { "type": "bitmap", "file": "mattis:font/icons/clean/status/breed_ready_ee407.png", "ascent": 7, "height": 8, "chars": ["\uE407"] }
+  ]
+}
