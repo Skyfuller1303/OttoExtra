@@ -190,6 +190,10 @@ public final class CourierE2ETest implements FabricClientGameTest {
                 de.ottoextra.map.MinimapHeightUiChecks.run(ctx);
                 check(commands().isEmpty(), "Minimap layout emitted server commands");
             });
+            test("UI-INVENTORY", "Inventar und Rezeptbuch wiederholt öffnen, umschalten und skalieren", () -> {
+                InventoryUiChecks.run(ctx);
+                check(commands().isEmpty(), "Inventory test emitted server commands");
+            });
             check(!results.isEmpty(), "No tests selected");
             String requested = System.getProperty("courier.e2e.filter", "");
             if (!requested.isBlank()) for (String id : requested.split(","))
