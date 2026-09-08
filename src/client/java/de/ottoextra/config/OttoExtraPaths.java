@@ -49,6 +49,10 @@ public final class OttoExtraPaths {
         return root().resolve("debug").resolve("letter-calibration");
     }
 
+    public static Path lettersDir() {
+        return root().resolve("letters");
+    }
+
     public static Path importDir() {
         return root().resolve("import");
     }

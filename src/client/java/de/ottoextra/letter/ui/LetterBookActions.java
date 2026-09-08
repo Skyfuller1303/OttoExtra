@@ -47,7 +47,7 @@ public final class LetterBookActions {
             use = lastUse;
             lastUse = null;
             if (use == null || System.nanoTime() - use.time() > OPEN_TIMEOUT_NS
-                    || use.hand() != Hand.MAIN_HAND || !LetterWriteItemGuard.isWritableLetter(use.stack())) {
+                    || use.hand() != Hand.MAIN_HAND || !LetterWriteItemGuard.isLetter(use.stack())) {
                 return;
             }
             openedBooks.put(screen, use);
@@ -73,14 +73,25 @@ public final class LetterBookActions {
         pending = null;
         int center = actions.screen().width / 2;
         var buttons = Screens.getButtons(actions.screen());
+        boolean writable = LetterWriteItemGuard.isWritableLetter(actions.use().stack());
+        int buttonWidth = Math.min(98, (actions.screen().width - 24) / 3);
+        int left = center - (buttonWidth * 3 + 8) / 2;
+        // One compact row also fits the small vanilla book screen without covering Done.
+        buttons.add(ButtonWidget.builder(Text.translatable("ottoextra.letter.txt.export"), button -> {
+            if (actions.use().matches(client.player)) {
+                de.ottoextra.letter.archive.LetterArchiveService.exportBook(actions.use().stack());
+            }
+        }).dimensions(writable ? left + 2 * (buttonWidth + 4) : center - 49,
+                actions.y(), writable ? buttonWidth : 98, 20).build());
+        if (!writable) return;
         buttons.add(ButtonWidget.builder(Text.translatable("ottoextra.letter.book.edit"), button -> {
             if (actions.use().matches(client.player)) {
                 WrittenLetterImport.editInEditor(actions.config(), client.player.getMainHandStack());
             }
-        }).dimensions(center - 100, actions.y(), 98, 20).build());
+        }).dimensions(left, actions.y(), buttonWidth, 20).build());
         buttons.add(ButtonWidget.builder(Text.translatable("ottoextra.letter.book.send"), button ->
                 LetterActionPrompt.onSendHeld(actions.config(), actions.screen(), actions.use().stack()))
-                .dimensions(center + 2, actions.y(), 98, 20).build());
+                .dimensions(left + buttonWidth + 4, actions.y(), buttonWidth, 20).build());
     }
 
     public static void clear() {

@@ -86,17 +86,19 @@ public final class LetterWriteItemGuard {
 
     /** Courier identifies writable letters by their title and absence of the sent marker. */
     public static boolean isWritableLetter(ItemStack stack) {
+        if (!isLetter(stack)) return false;
+        var lore = stack.get(DataComponentTypes.LORE);
+        return lore == null || lore.lines().stream().noneMatch(line ->
+                WrittenLetterImport.toSection(line).contains("§8Zu "));
+    }
+
+    public static boolean isLetter(ItemStack stack) {
         if (stack == null || !stack.isOf(Items.WRITTEN_BOOK)
                 || stack.get(DataComponentTypes.WRITTEN_BOOK_CONTENT) == null) {
             return false;
         }
         String title = stack.get(DataComponentTypes.WRITTEN_BOOK_CONTENT).title().raw();
-        if (!title.contains("§7Brief von §6")) {
-            return false;
-        }
-        var lore = stack.get(DataComponentTypes.LORE);
-        return lore == null || lore.lines().stream().noneMatch(line ->
-                WrittenLetterImport.toSection(line).contains("§8Zu "));
+        return title.contains("§7Brief von §6");
     }
 
     static LetterSendContext capture(OttoExtraConfig config, LetterDraft draft) {

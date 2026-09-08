@@ -1240,5 +1240,13 @@
   "ottoextra.adv.nameHudHeight": "HUD name: height",
   "ottoextra.adv.stateHudHeight": "HUD status: height",
   "ottoextra.adv.factionHudHeight": "HUD faction: height",
-  "ottoextra.adv.hudHeight.tip": "Height in GUI pixels. 0 keeps one line. More height allows automatic line wrapping."
+  "ottoextra.adv.hudHeight.tip": "Height in GUI pixels. 0 keeps one line. More height allows automatic line wrapping.",
+  "ottoextra.letter.txt.title": "Import letters from TXT",
+  "ottoextra.letter.txt.export": "Export TXT",
+  "ottoextra.letter.txt.import": "Import",
+  "ottoextra.letter.txt.folder": "Open letters folder",
+  "ottoextra.letter.txt.refresh": "Refresh",
+  "ottoextra.letter.txt.empty": "No TXT files in the letters folder.",
+  "ottoextra.letter.txt.saved": "Letter saved as TXT: %s (config/ottoextra/letters)",
+  "ottoextra.letter.txt.failed": "Could not read or save TXT file. Use UTF-8, at most 256 KiB and 100 pages."
 }

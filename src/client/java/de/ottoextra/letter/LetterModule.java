@@ -228,8 +228,16 @@ public final class LetterModule implements OttoExtraModule {
             }
         });
 
+        net.fabricmc.fabric.api.client.message.v1.ClientSendMessageEvents.COMMAND.register(command -> {
+            if (config.letter.enabled) {
+                de.ottoextra.letter.archive.LetterArchiveService.onCommand(command, config.letter.postCommand);
+            }
+        });
         net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents.ALLOW_GAME
-                .register((message, overlay) -> !isHiddenLetterHint(message.getString()));
+                .register((message, overlay) -> {
+                    de.ottoextra.letter.archive.LetterArchiveService.onGameMessage(message, overlay);
+                    return !isHiddenLetterHint(message.getString());
+                });
 
         DebugLog.debug("[letter] initialisiert (Editor + Brief/Verkündung + Recovery).");
     }

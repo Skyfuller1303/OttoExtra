@@ -1240,5 +1240,13 @@
   "ottoextra.adv.nameHudHeight": "HUD Name: Höhe",
   "ottoextra.adv.stateHudHeight": "HUD Stand: Höhe",
   "ottoextra.adv.factionHudHeight": "HUD Gefolge: Höhe",
-  "ottoextra.adv.hudHeight.tip": "Höhe in GUI-Pixeln. 0 behält eine Zeile. Mehr Höhe erlaubt automatische Zeilenumbrüche."
+  "ottoextra.adv.hudHeight.tip": "Höhe in GUI-Pixeln. 0 behält eine Zeile. Mehr Höhe erlaubt automatische Zeilenumbrüche.",
+  "ottoextra.letter.txt.title": "Briefe als TXT importieren",
+  "ottoextra.letter.txt.export": "TXT exportieren",
+  "ottoextra.letter.txt.import": "Importieren",
+  "ottoextra.letter.txt.folder": "Letters-Ordner öffnen",
+  "ottoextra.letter.txt.refresh": "Aktualisieren",
+  "ottoextra.letter.txt.empty": "Keine TXT-Dateien im Letters-Ordner.",
+  "ottoextra.letter.txt.saved": "Brief als TXT gespeichert: %s (config/ottoextra/letters)",
+  "ottoextra.letter.txt.failed": "TXT-Datei konnte nicht gelesen oder gespeichert werden. UTF-8, höchstens 256 KiB und 100 Seiten."
 }

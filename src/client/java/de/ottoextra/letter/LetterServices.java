@@ -48,6 +48,7 @@ public final class LetterServices {
     }
 
     public static void clearSendingState() {
+        de.ottoextra.letter.archive.LetterArchiveService.clear();
         activeSend.cancel();
         preparedLetter = null;
         pending = null;
