@@ -4,7 +4,7 @@
   "wikiSource": "https://wiki.ottonien.com/w/St%C3%A4nde_und_Titel",
   "categories": {
     "system": {
-      "label": "System",
+      "label": "Team",
       "color": "#bc4296"
     },
     "adel": {
@@ -17,7 +17,7 @@
     },
     "vorkoster": {
       "label": "Vorkoster",
-      "color": "#e97749"
+      "color": "#ea7749"
     },
     "custom": {
       "label": "Custom",
@@ -511,7 +511,7 @@
         "Knecht",
         "Magd"
       ],
-      "category": "allgemein",
+      "category": "custom",
       "colorOverride": null,
       "source": "WIKI_IMPORT",
       "sourceCategory": "CUSTOM",
@@ -525,7 +525,7 @@
         "Häusler",
         "Häuslerin"
       ],
-      "category": "allgemein",
+      "category": "custom",
       "colorOverride": null,
       "source": "WIKI_IMPORT",
       "sourceCategory": "CUSTOM",
@@ -593,7 +593,7 @@
         "Vorkosterin"
       ],
       "category": "vorkoster",
-      "colorOverride": null,
+      "colorOverride": "#ea7749",
       "source": "WIKI_IMPORT",
       "sourceCategory": "ALLGEMEIN",
       "enabled": true,
@@ -607,7 +607,7 @@
         "Chronistin"
       ],
       "category": "allgemein",
-      "colorOverride": null,
+      "colorOverride": "#86a0b3",
       "source": "WIKI_IMPORT",
       "sourceCategory": "ALLGEMEIN",
       "enabled": true,
@@ -1763,7 +1763,7 @@
       "variants": [
         "Gelehrter"
       ],
-      "category": "klerus",
+      "category": "fertigkeit",
       "colorOverride": null,
       "source": "WIKI_IMPORT",
       "sourceCategory": "FERTIGKEIT_MEISTER",
@@ -1795,6 +1795,87 @@
       "sourceCategory": "FERTIGKEIT_MEISTER",
       "enabled": true,
       "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "kreuzfahrer",
+      "title": "Kreuzfahrer",
+      "variants": [
+        "Kreuzfahrer",
+        "Kreuzfahrerin"
+      ],
+      "category": "custom",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "federzunge",
+      "title": "Federzunge",
+      "variants": [
+        "Federzunge"
+      ],
+      "category": "custom",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "komplementaer",
+      "title": "Komplementär",
+      "variants": [
+        "Komplementär"
+      ],
+      "category": "custom",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "gildenmitglied",
+      "title": "Gildenmitglied",
+      "variants": [
+        "Gildenmitglied"
+      ],
+      "category": "custom",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "verwaltungsnonne",
+      "title": "Verwaltungsnonne",
+      "variants": [
+        "Verwaltungsnonne"
+      ],
+      "category": "klerus",
+      "colorOverride": null,
+      "source": "WIKI_IMPORT",
+      "sourceCategory": "CUSTOM",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
+      "id": "legende",
+      "title": "Legende",
+      "variants": [
+        "Legende",
+        "Legendin"
+      ],
+      "category": "allgemein",
+      "colorOverride": "#6a9fae",
+      "source": "SERVER_DEFAULT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
     }
-  ]
+  ],
+  "bundledRevision": 1
 }

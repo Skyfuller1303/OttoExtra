@@ -4,6 +4,8 @@ import com.mojang.authlib.GameProfile;
 import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.rpnames.RpNamesServices;
 import de.ottoextra.rpnames.model.LocalRpProfile;
+import de.ottoextra.rpnames.title.TitleColorResolver;
+import net.minecraft.scoreboard.Team;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.ObjectTextContent;
 import net.minecraft.text.PlainTextContent;
@@ -26,6 +28,10 @@ public final class TablistNameFormatter {
     }
 
     public static Text format(GameProfile gameProfile, Text original) {
+        return format(gameProfile, original, null);
+    }
+
+    public static Text format(GameProfile gameProfile, Text original, Team team) {
         if (!RpNamesServices.isActive() || gameProfile == null) {
             return null;
         }
@@ -33,7 +39,10 @@ public final class TablistNameFormatter {
         OttoExtraConfig.RpNames cfg = RpNamesServices.config();
         boolean showTitles = cfg.tablistShowTitle;
         String account = gameProfile.name();
-        Text base = original != null ? original : Text.literal(account);
+        // Ohne separaten Anzeigenamen nutzt die Vanilla-Tabliste das aktuelle
+        // Scoreboard-Team. Auch nach Rejoins dessen Wappen/Prefix/Suffix erhalten,
+        // bevor ein RP-Name den Vanilla-Fallback durch einen Anzeigenamen ersetzt.
+        Text base = original != null ? original : Team.decorateName(team, Text.literal(account));
         LocalRpProfile profile = RpNamesServices.store()
                 .find(gameProfile.id() != null ? gameProfile.id().toString() : null, account)
                 .orElse(null);
@@ -259,7 +268,9 @@ public final class TablistNameFormatter {
             if (containsObjectComponent(text)) {
                 return text.copy();
             }
-            rememberWhitespace(textWithoutObjectComponents(text), state);
+            // Hier sind keine Objektkomponenten enthalten. Fuer den Abstand zum
+            // Wappen den Originaltext verwenden; der Titel-Extraktor trimmt ihn.
+            rememberWhitespace(text.getString(), state);
             return Text.empty();
         }
         if (argument instanceof String string) {
@@ -456,17 +467,11 @@ public final class TablistNameFormatter {
     }
 
     private static MutableText titlePrefix(LocalRpProfile profile, Style baseStyle) {
-        var catalog = RpNamesServices.catalog();
         String cleanTitle = cleanObjectDebugTokens(profile.title);
-        String catalogColor = catalog != null
-                ? catalog.titleColor(cleanTitle).orElse(null) : null;
-        String groupColor = RpNamesServices.titles().find(cleanTitle)
-                .map(r -> r.group().titleColor).orElse(null);
-        String fallback = catalog != null ? catalog.fallbackTitleColor() : "#a17f5f";
         String shown = cleanObjectDebugTokens(RpNamesServices.displayTitle(profile));
-        String personal = profile.colors.tabTitleColor;
-        String titleColor = firstNonBlank(personal,
-                firstNonBlank(catalogColor, firstNonBlank(groupColor, fallback)));
+        String titleColor = TitleColorResolver.resolve(profile,
+                profile.colors.tabTitleColor, cleanTitle,
+                RpNamesServices.catalog(), RpNamesServices.titles());
         return colored(shown + " ", titleColor, baseStyle);
     }
 

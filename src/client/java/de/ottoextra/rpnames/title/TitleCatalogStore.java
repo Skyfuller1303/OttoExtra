@@ -6,6 +6,7 @@ import de.ottoextra.OttoExtra;
 import de.ottoextra.config.OttoExtraPaths;
 
 import java.io.InputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -44,6 +45,7 @@ public final class TitleCatalogStore {
 
     private static final class FileModel {
         int schemaVersion = 1;
+        int bundledRevision;
         String defaultNameColor = "#c7a87f";
         String wikiSource = "";
         Map<String, Category> categories = new LinkedHashMap<>();
@@ -52,6 +54,8 @@ public final class TitleCatalogStore {
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
     private static final String BUNDLED = "/assets/ottoextra/rpnames/title-catalog-default.json";
+    private static final int BUNDLED_REVISION = 1;
+    private static final String WIKI_SOURCE = "https://wiki.ottonien.com/w/St%C3%A4nde_und_Titel";
 
     private FileModel model = new FileModel();
 
@@ -63,12 +67,7 @@ public final class TitleCatalogStore {
             if (!Files.exists(file)) {
                 writeBundledDefault(file);
             }
-            FileModel loaded = GSON.fromJson(
-                    Files.readString(file, StandardCharsets.UTF_8), FileModel.class);
-            if (loaded == null || loaded.titles == null) {
-                throw new IllegalStateException("leere title-catalog.json");
-            }
-            model = loaded;
+            model = readModel(file);
         } catch (Exception e) {
             OttoExtra.LOGGER.warn("[rpnames] title-catalog.json unlesbar ({}) — nutze Bundled.", e.toString());
             try (InputStream in = TitleCatalogStore.class.getResourceAsStream(BUNDLED)) {
@@ -85,6 +84,38 @@ public final class TitleCatalogStore {
         }
     }
 
+    public synchronized void reloadAfterRestore() {
+        reloadAfterRestore(catalogFile());
+    }
+
+    synchronized void reloadAfterRestore(Path file) {
+        FileModel previous = model;
+        Map<String, Entry> previousIndex = byVariant;
+        try {
+            model = readModel(file);
+            if (migrateKnownFixes()) {
+                save(file);
+            } else {
+                reindex();
+            }
+        } catch (Exception e) {
+            model = previous;
+            byVariant = previousIndex;
+            throw new IllegalStateException("title-catalog.json nach Restore unlesbar", e);
+        }
+    }
+
+    private static FileModel readModel(Path file) throws IOException {
+        FileModel loaded = GSON.fromJson(
+                Files.readString(file, StandardCharsets.UTF_8), FileModel.class);
+        if (loaded == null || loaded.titles == null || loaded.categories == null
+                || loaded.titles.stream().anyMatch(java.util.Objects::isNull)
+                || loaded.categories.values().stream().anyMatch(java.util.Objects::isNull)) {
+            throw new IOException("leere oder unvollständige title-catalog.json");
+        }
+        return loaded;
+    }
+
     private boolean migrateKnownFixes() {
         boolean changed = false;
         for (Entry e : model.titles) {
@@ -94,11 +125,52 @@ public final class TitleCatalogStore {
                 changed = true;
             }
         }
+        if (model.bundledRevision < BUNDLED_REVISION && WIKI_SOURCE.equals(model.wikiSource)) {
+            // Upgrade only the shipped wiki catalog, once. Custom catalogs and edited colors stay local.
+            migrateRankColor("vorkoster", "vorkoster", "#e97749");
+            migrateRankColor("chronist", "allgemein", "#a17f5f");
+            Category beta = model.categories.get("vorkoster");
+            if (beta != null && "#e97749".equalsIgnoreCase(beta.color)) beta.color = "#ea7749";
+            Category team = model.categories.get("system");
+            if (team != null && "System".equals(team.label)) team.label = "Team";
+            for (Entry e : model.titles) {
+                if (!"WIKI_IMPORT".equals(e.source)) continue;
+                if ("gelehrter".equals(e.id) && "klerus".equals(e.category)) e.category = "fertigkeit";
+                if (("knecht".equals(e.id) || "haeusler".equals(e.id)) && "allgemein".equals(e.category))
+                    e.category = "custom";
+            }
+            for (String id : new String[]{"kreuzfahrer", "federzunge", "komplementaer",
+                    "gildenmitglied", "verwaltungsnonne", "legende"}) {
+                Entry bundled = bundledDefault(id).orElse(null);
+                if (bundled == null) continue;
+                boolean exists = model.titles.stream().anyMatch(e -> id.equals(e.id)
+                        || matchKeys(e).stream().anyMatch(key -> bundled.variants.stream()
+                        .anyMatch(v -> TitleRegistry.normalize(v).equals(TitleRegistry.normalize(key)))));
+                if (!exists) model.titles.add(GSON.fromJson(GSON.toJson(bundled), Entry.class));
+            }
+            model.bundledRevision = BUNDLED_REVISION;
+            changed = true;
+        }
         return changed;
     }
 
+    private void migrateRankColor(String id, String category, String oldColor) {
+        Category currentCategory = model.categories.get(category);
+        // A category color may itself have been customized by the player.
+        if (currentCategory == null || !oldColor.equalsIgnoreCase(currentCategory.color)) return;
+        for (Entry e : model.titles) {
+            if (id.equals(e.id) && "WIKI_IMPORT".equals(e.source) && category.equals(e.category)
+                    && (e.colorOverride == null || e.colorOverride.isBlank())) {
+                bundledDefault(id).ifPresent(defaults -> e.colorOverride = defaults.colorOverride);
+            }
+        }
+    }
+
     public synchronized void save() {
-        Path file = catalogFile();
+        save(catalogFile());
+    }
+
+    private void save(Path file) {
         try {
             Files.createDirectories(file.getParent());
             Path tmp = file.resolveSibling(file.getFileName() + ".tmp");
@@ -281,6 +353,15 @@ public final class TitleCatalogStore {
     public String fallbackTitleColor() {
         Category c = model.categories.get("allgemein");
         return c != null && c.color != null && !c.color.isBlank() ? c.color : "#a17f5f";
+    }
+
+    public Optional<String> categoryColor(String category) {
+        if (category == null || category.isBlank()) {
+            return Optional.empty();
+        }
+        Category value = model.categories.get(category);
+        return value == null || value.color == null || value.color.isBlank()
+                ? Optional.empty() : Optional.of(value.color);
     }
 
     public Optional<String> titleNameColor(String title) {
