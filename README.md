@@ -2,7 +2,7 @@
 
 Clientseitiger Fabric-Mod für das Mittelalter-Rollenspiel-Netzwerk **Ottonien**.
 
-OttoExtra bündelt mehrere Komfort- und Rollenspiel-Funktionen in einer zentralen Mod: RP-Namen, Chat-Kanäle, Karten-Overlay, Regionen-Einblendungen, Briefsystem, Resourcepack-Downloader, Importfunktionen und ein gemeinsames Einstellungs-GUI.
+OttoExtra bündelt mehrere Komfort- und Rollenspiel-Funktionen in einer zentralen Mod: RP-Namen, Chat-Kanäle, Karten-Overlay, Regionen-Einblendungen, Tierinfo, Briefsystem, Resourcepack-Downloader, Importfunktionen und ein gemeinsames Einstellungs-GUI.
 
 ## Projektstatus
 
@@ -18,26 +18,35 @@ Die Mod ist als clientseitige Community-Erweiterung für Ottonien gedacht und er
 | Fabric Loader | `>= 0.18.1` |
 | Fabric API | erforderlich |
 | Seite | clientseitig |
-| Version | `0.1.15.3` |
+| Version | `0.1.17-a` – Alpha für gemeinsame Tests |
 | Server-Gate | Funktionen werden nur auf Ottonien aktiv |
-| Server-Interaktion | ausschließlich über normale Chat-Befehle und öffentliche APIs |
+| Server-Interaktion | normale Spielinteraktionen, Chat-Befehle und öffentliche APIs |
 
 ## Features
 
 - Zentrales Einstellungs-GUI für alle Module
 - RP-Namen in Chat, Tabliste und Namensschildern
+- Überspringbare Erststart-Auswahl für Komfort, Ausgewogen oder Immersiv mit Einstellungsvorschau
 - Lokale Titel können den serverseitigen Titel in der Tabliste ersetzen, ohne das Lehenswappen zu entfernen
 - Lokales RP-Personenbuch mit Titel-, Farb-, Notiz- und Importverwaltung
 - Chat-Kanal-Umschaltung direkt am Chat-Eingabefeld
 - Regionen-Einblendung beim Betreten eines Lehens
+- Kompakte Tierinfo mit Geschlecht und Paarungsbereitschaft beim Anvisieren von Zuchttieren
 - Pergamentmodus, gemalte Übersichtskarte und anklickbare Lehen für Xaero's World Map und Minimap
 - Brief- und Verkündungseditor mit Seitenverwaltung, Formatierung und Vorschau
 - Nach dem Absenden startet der nächste neue Brief mit einer leeren Seite
 - Resourcepack-Downloader für das Ottonien-Resourcepack
+- Minecraft-/Discord-Konto direkt mit `/ottoextra verify` verknüpfen
+- Kontoübersicht mit Stand, Rang, Gefolge und Hellerbestand über `/ottoextra account`
+- Regenerierende Ressourcen erkennen, anzeigen und per `R` bestätigen
 - Import bestehender Daten aus OttoPlus/OttoTalk
 - Backup- und Recovery-Funktionen für wichtige lokale Daten
 
 ## Installation
+
+Die aktuelle Testversion ist **0.1.17-a**. Hinweise zu Änderungen, bekannten
+Beobachtungen und sinnvollen Tests stehen in den
+[Alpha-Release-Notizen](release-notes-0.1.17-a.md).
 
 1. Fabric Loader für Minecraft `1.21.11` installieren.
 2. Fabric API in den `mods`-Ordner legen.
@@ -63,6 +72,11 @@ Geplant beziehungsweise enthalten:
 - übersichtliche Gruppierung pro Funktionsbereich
 
 ## Diagnose-Logs
+
+Der standardmäßig aktive Tweak **Chatprotokoll** schreibt Chat- und
+Systemnachrichten mit Zeitstempel separat nach `logs/ottoextra-chat.log`.
+Die Datei bleibt über Neustarts erhalten. Unter **Tweaks → Basis** lässt sich
+das Speichern ausschalten. [Details zum Chatprotokoll](docs/chat-log.md).
 
 OttoExtra-Diagnosen sind nach jedem Start deaktiviert. Bei Bedarf lassen sie sich
 für die laufende Sitzung einschalten:
@@ -125,6 +139,9 @@ Kategorien können unter anderem sein:
 - Spielernamen
 
 Beim Vergeben eines Titels kann die Titelfarbe automatisch aus dem Katalog übernommen werden.
+Unter RP-Namen → Basis → Farben lässt sich die Adelsfarbe für andere Titel optional
+einschalten. Standardmäßig bestimmt der angezeigte Titel seine Farbe; feste
+Rangfarben behalten Vorrang. Details: [Titelfarben](docs/title-colors.md).
 
 ## RP-Personenbuch
 
@@ -215,6 +232,16 @@ Optionen:
 - Live-Vorschau im Einstellungsmenü
 - anpassbare Farben, Abstände und Schriftgrößen
 
+## OttoExtra Resources
+
+`/ottoextra resources` öffnet Ressourcenliste und Manager-Erfassung. Die Mod lädt nur
+freigegebene Ressourcen in 192 Blöcken Umgebung, prüft POINT-/CUBOID-Zonen lokal und
+meldet eine Nutzung erst nach Bestätigung. Alternativen: `/ores confirm`,
+`/ottoextra resources status` und `/ottoextra resources sync`.
+
+Manager setzen für einen Bereich `/ottoextra resources pos1` und `pos2`. Cooldowns und
+Regenerationsstufen werden ausschließlich durch die OttoExtra-API berechnet.
+
 ## Karte
 
 OttoExtra integriert Ottonien-Daten in Xaero's World Map und Xaero's Minimap.
@@ -291,6 +318,8 @@ Bei Verkündungen soll besonders darauf geachtet werden, dass Minecraft-Seiten s
 ## Resourcepack-Downloader
 
 OttoExtra kann das Ottonien-Server-Resourcepack automatisch herunterladen und aktivieren.
+Vor dem ersten Download fragt ein verpflichtender Erststart-Assistent ausdrücklich
+nach Erlaubnis. Ohne Zustimmung findet kein Resourcepack-Download statt.
 
 Optionen:
 
@@ -298,6 +327,35 @@ Optionen:
 - automatische Aktivierung
 - manuelles Deaktivieren respektieren
 - erneute Prüfung bei Änderungen
+
+## Datenschutz und Netzwerkzugriffe
+
+Vor dem ersten Hauptmenü erklärt OttoExtra optionale Netzwerkfunktionen getrennt.
+Keine Erlaubnis ist vorausgewählt; alle Entscheidungen können später in den
+Datenschutz-Einstellungen widerrufen werden.
+
+- Automatische Resourcepack-Downloads von GitHub
+- Skin- und Regionsbanner-Downloads mit lokalem PNG-Cache
+- Versionsprüfung über die GitHub-API; Mod-Dateien werden nicht automatisch aktualisiert
+- Optionales Teilen beobachteter RP-Namen mit `api.ottoextra.dev`
+
+Beim Teilen beobachteter RP-Namen werden der eigene Minecraft-Accountname oder die
+eigene UUID sowie RP-Name, Accountname und gegebenenfalls UUID des beobachteten
+Spielers übertragen. Ohne Zustimmung bleiben beobachtete Namen lokal. Konto-
+Verknüpfung und Kontoübersicht kontaktieren `ottoextra.dev` erst nach einem
+ausdrücklichen Spielerbefehl.
+
+## English summary
+
+OttoExtra is a client-side Fabric mod for the German-language Ottonien role-play
+server. It adds RP names, chat controls, map and region overlays, letter tools,
+local backups, and an optional Ottonien resource-pack updater.
+
+Before the first main menu, a guided consent screen asks separately about
+automatic resource-pack downloads, external skin and banner downloads, GitHub
+version checks, and sharing observed RP names with `api.ottoextra.dev`. Nothing
+is preselected. All permissions can be declined or revoked later in Privacy
+settings. The mod never downloads or replaces its own JAR.
 
 ## Import aus OttoPlus
 

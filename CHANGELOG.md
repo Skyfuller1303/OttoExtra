@@ -1,5 +1,511 @@
 # Changelog
 
+## 0.1.17-a – Alpha – 2026-09-08
+
+- Erste weitergebbare Alpha des aktuellen Entwicklungsstands mit Courier-V2,
+  Tierinfo/Pferdeübersicht, RP-Ersteinrichtung, Karten- und Chat-Erweiterungen.
+- Zwölf Auditpunkte vom 8. September umgesetzt: verbindungsgebundener Langchat
+  mit stabiler Sendepause und Verlauf, sichere Config-/RP-Wiederherstellung,
+  Texturfreigabe, aktuelle Kontoantworten und quellenabhängiger Resourcepack-Cache.
+- Briefeditor unterscheidet Arbeits- und Buchseiten; Vorschau und Versand verwenden
+  dieselbe Planung. Sperrhinweise und Backup-Rückmeldungen bleiben erkennbar.
+- Alpha-Verteilung und bekannte offene Beobachtungen:
+  [Release-Notizen](release-notes-0.1.17-a.md).
+- Nachweise zu allen zwölf Punkten:
+  [Audit-Umsetzung](docs/audit-2026-09-08/UMSETZUNG.md).
+
+### Weitere enthaltene Änderungen aus der Vorbereitung
+
+- Lehen-Klick auf der Worldmap nutzt dieselbe weiche Kamerabewegung wie Wegpunkte.
+  Der neue Pergament-Infokasten zeigt Wappen, Herrschaft, Lehen und Koordinaten,
+  ausgeschriebene Angaben zu Führung, Bewohnern und Lehnsherren sowie vorhandene
+  Kurzbeschreibungen. Längere Texte sind scrollbar; Entfernung und Reisezeiten bleiben sichtbar.
+- Lehen-Texte unterscheiden unabhängige Herrschaften, Vasallen und NPC-Lehen.
+  Vogteien und Abteien werden korrekt ausgeschrieben, der Rang der übergeordneten
+  Herrschaft wird genannt. NPC-Texte stehen ohne künstliche Bewohner-/Vasallenangaben;
+  Holdern erhält die ausführliche Beschreibung. Anzeigename und ursprünglicher
+  Lehensname bleiben getrennt (Mährstein / Heldweg).
+- Titelfarbe richtet sich standardmäßig nach dem angezeigten Titel. Die bisherige
+  Farbübernahme vom Adelsstand ist unter RP-Namen optional zuschaltbar.
+  Vorkoster/in, Legende/Legendin und Chronist/in behalten ihre festen Standardfarben.
+- Titelkatalog mit der aktuellen Wiki-Liste abgeglichen, fehlende Titel ergänzt
+  und Standzuordnungen korrigiert; bestehende Kataloge werden unter Erhalt eigener
+  Farben und Titelvarianten aktualisiert.
+
+- Einstellungen lassen sich wieder ohne Xaeros Minimap öffnen; der optionale
+  Wappen-Editor wird erst bei vorhandener Kartenmod geladen.
+- Standardmäßig aktives Chatprotokoll unter Tweaks: alle Chat-/Systemnachrichten
+  mit Zeitstempel in `logs/ottoextra-chat.log`, unabhängig vom Debug-Modus und
+  über Neustarts erhalten; verzögerte Nachrichten ohne Doppeleinträge.
+- Überspringbare RP-Einrichtung nach den Erststart-Hinweisen: Komfort,
+  Ausgewogen und Immersiv als drei Karten mit Auswahlbuttons nebeneinander.
+  Elf An/Aus-Schalter für Chat/Tabliste, Namensschilder und Kennenlernen erlauben
+  individuelle Details vor dem Übernehmen; Zurück erhält die Entwürfe.
+- Einheitlicher dunkelblauer und goldener Stil für alle Erststart-Seiten;
+  Zurück, Ablehnen und Erlauben stehen auch bei den Grundeinstellungen nebeneinander.
+- Erststart-Hinweise passen auch bei hoher GUI-Skalierung vollständig ins
+  Fenster. Längere Texte sind scrollbar; die Auswahl-Buttons bleiben erreichbar.
+- XaeroPlus-Minimap-Hooks unterscheiden die Schnittstellen mit und ohne
+  Zoomargument auch beim Mixin-Remapping im Entwicklungsclient exakt.
+- Die gebaute Mod-JAR enthält jetzt die MIT-Lizenzdatei.
+
+## 1.16.3-w – Mehrere Sortierkriterien in der Tierübersicht – 2026-09-07
+
+- Tempo und Sprunghöhe gleichzeitig sortieren: Auswahlreihenfolge bestimmt die
+  Priorität; weitere Kriterien entscheiden bei Gleichstand. Richtung je Kriterium
+  einzeln ändern, ohne andere Kriterien oder die Hofreihenfolge zurückzusetzen.
+- Priorität 1/2 direkt im Hofkopf und Sortiermenü. Der Menü-Pfeil setzt ein
+  Kriterium nach vorne; erneute Auswahl entfernt es. Separate Reset-Option.
+- Hofkopf-Klick wechselt absteigend → aufsteigend → aus. Klappzustände bleiben erhalten.
+
+## 1.16.3-v – Tiermenü und sortierbare Pferdeübersicht – 2026-09-07
+
+- Tierregister: kleinere UUID und gemeinsame Icons für Geschlecht, Tempo,
+  Sprung, Mast, Paarung sowie Scheren/Melken; Werte mit erklärenden Tooltips.
+- Tempo und Sprunghöhe innerhalb der Höfe numerisch auf-/absteigend sortieren,
+  über den Hofkopf oder das Sortiermenü. Fehlende Werte bleiben hinten.
+- Höfe lassen sich einzeln auf-/zuklappen; Zustand bleibt beim Sortieren,
+  Filtern und Abgleichen erhalten. Neue Pfeil-Icons liegen als austauschbare PNGs vor.
+
+## 1.16.3-u – Karten-Overlays unter der Bedienoberfläche – 2026-09-07
+
+- Grenzen, Namen, Wappen, politische Flächen und Karteninformationen werden
+  vor Xaeros Buttons, Dropdowns, Kontextmenüs und Tooltips gezeichnet.
+- Eigene GUI-Ebenen sichern die Reihenfolge auch beim gebündelten Rendering.
+
+## 1.16.3-t – Tiernamen für Lehensmitglieder – 2026-09-07
+
+- Bei der ersten Benennung eines Tieres wird die Lehenszuordnung auch aus
+  `faction_ref` erkannt, wenn die Regionsdaten kein `region_id` enthalten.
+  Mitglieder sehen dadurch im eigenen Lehen das Namensfeld statt nur „–“.
+
+## 1.16.3-s – Tabliste beim Öffnen aktualisieren – 2026-09-06
+
+- Bei jedem erneuten Öffnen mit Tab werden die Lehen- und Rangdaten für die
+  aktivierte Tablisten-Sortierung neu geladen und anschließend berücksichtigt.
+- Während des Ladens und bei Abruffehlern bleibt die bisherige Sortierung
+  erhalten. Gedrückthalten löst keine weiteren Abrufe aus; laufende Anfragen
+  werden geteilt und Antworten aus vorherigen Sitzungen verworfen.
+
+## 1.16.3-n – Mährsteiner Wappen im Regionstoast – 2026-09-06
+
+- Der Betreten-Toast und das Vorladen berücksichtigen jetzt feste Regionswappen
+  vor Fraktionswappen. Damit erscheint das Mährsteiner Banner auch bei Lehen
+  ohne Spielerfraktion, etwa Klepburg, Eberfeld, Miessteig, Riedorf und Berhausen.
+- Toast und Karte verwenden dieselbe Wappenauswahl und denselben Cacheeintrag
+  für Regionsnamen und Polygon-IDs. Bereits geladene Wappen werden wiederverwendet.
+
+## 1.16.3-m – Kampfmodus neben der Hotbar – 2026-09-06
+
+- Unter Tweaks lässt sich das neue Kampfmodus-Icon ein- und ausschalten.
+  Es erscheint auf Ottonien nur mit einer Waffe in der Haupthand, rechts neben
+  der Hotbar im gespiegelten Abstand des Offhand-Slots.
+- Alle zwölf Kampftechniken werden aus beiden Actionbar-Paketformen erkannt.
+  Der zuletzt erkannte Modus bleibt pro Waffenklasse für die laufende Sitzung
+  gespeichert. Vor der ersten Erkennung erscheint das Waffenklassen-Icon mit `?`.
+- Stumpf- und Stangenwaffen werden auch dann erkannt, wenn sie technisch
+  Schwert-Items sind: über Itemmodell, Kategorie in der Lore oder vorhandene
+  Ottonien-Waffennamen. Bögen, Armbrüste und Speer-Items werden ebenfalls erkannt.
+- Die Anzeige verwendet die vorhandenen Talent-Icons aus dem Ressourcenpaket
+  und lässt Platz für eine rechte Offhand oder die Hotbar-Angriffsanzeige.
+
+## 1.16.3-l – Tiernamen für Nutztiere – 2026-09-06
+
+- Das Benennungsmenü auf `B` unterstützt jetzt zusätzlich Kühe, Schafe,
+  Hühner, Ziegen und Schweine; Pferde, Esel und Maultiere bleiben unterstützt.
+- Tierregister mit passendem Tiermodell, Tiernamen und Scher-/Melkinfos;
+  Tierübersicht, Namensanzeige und Finder unterstützen die zusätzlichen Tiere.
+- AnimalBreeding 0.5.12 öffnet für die zusätzlichen Nutztiere das gemeinsame
+  Benennungsmenü, auch ohne Züchtermodus. Die vorhandenen serverseitigen
+  Regeln für Erstbenennung und Bearbeitungsfreigaben gelten weiterhin.
+
+## Lokale Tablisten-Diagnose – 2026-09-06
+
+- Für Spieler, die erst nach einem eigenen Reconnect aus der Tabliste verschwinden,
+  protokolliert der vorhandene Debug-Modus jetzt An-/Abmeldungen und Sichtbarkeits-
+  bzw. Anzeigenamen-Updates vor und nach der Paketverarbeitung. Dieser Nachtrag
+  dient der Ursachenklärung; der gemeldete dauerhafte Eintrag ist noch nicht behoben.
+
+## Lokaler Tablisten-Fix – 2026-09-06
+
+- Fehlt nach einem Proxy-Rejoin der separate Tablisten-Anzeigename, erhält die
+  RP-Namensanzeige jetzt Wappen, Präfix und Suffix aus dem aktuellen Scoreboard-Team.
+  Später eintreffende Team-Daten werden beim nächsten Anzeigen berücksichtigt.
+- Bei übersetzten Titelkomponenten bleibt der Abstand zwischen Wappen und Name
+  auch nach Titelersetzung oder ausgeblendeten Titeln erhalten.
+
+## Lokaler XaeroPlus-Testbuild – 2026-09-06
+
+### Behoben
+
+- XaeroPlus-Zeichnungen werden nach OttoExtras gemalter Kartenbasis ausgegeben;
+  bereits konsumierte Zeichen-Klicks lösen keine OttoExtra-Gebietsauswahl aus.
+- Auf Nutzerwunsch werden bei aktivem FairPlay ausschließlich eigene Linien,
+  Zeichenvorschau und Texte auf Weltkarte und Minimap zusätzlich gerendert, auch ohne
+  aktives OttoExtra-Kartenmodul. Server-FairPlay, Radar und alle anderen
+  gesperrten Features bleiben unverändert; Highlights sind nicht freigeschaltet.
+- Minimap-Erweiterung: eigener Renderhook für XaeroPlus 2.34.5 (mit Zoom) und
+  2.31.5 (ohne Zoom), mit Minimap-Kontext und passendem Kameraursprung.
+
+### Kompatibilität
+
+- Optionale Integration für XaeroPlus unter Minecraft Fabric 1.21.11; keine neue
+  Pflichtabhängigkeit. Ingame-Abnahme und Nachweise: `docs/bugs/XAEROPLUS-ANALYSE.md`.
+
+## [1.16.3-k] – 2026-09-04
+
+### Behoben
+
+- Die Tablisten-Sortierung nach Lehen/Gefolgen erkennt das Aus- und erneute
+  Einschalten während einer laufenden Sitzung und lädt ihren Snapshot sofort
+  neu, statt im alten deaktivierten Zustand zu bleiben.
+- Fehlen die Sortierdaten oder scheitert ihr API-Abruf, folgt alle fünf Sekunden
+  ein neuer Versuch. Nach einem erfolgreichen Snapshot enden die Netzwerk-Retries;
+  die Tabliste selbst wird bei jeder Darstellung mit den aktuellen Daten sortiert.
+- Der Aktivierungswächter wird auch dann initialisiert, wenn Regions- oder
+  RP-Namen-Funktionen beim Clientstart ausgeschaltet sind.
+
+## [1.16.3-j] – 2026-09-04
+
+### Geändert
+
+- Der bisherige Tierinfo-Standard von 300 ms stabilem Hover wird einmalig auf
+  100 ms migriert. Bewusst gewählte andere Hover-Zeiten bleiben erhalten.
+- Der globale Abstand bei schnellen Zielwechseln sinkt von 750 auf 350 ms.
+  Laufende Serverantworten werden weiterhin nicht parallelisiert, damit weder
+  Paketspam noch vermischte Tierinfo-Blöcke entstehen.
+
+## [1.16.3-i] – 2026-09-04
+
+### Behoben
+
+- Alle Pferde verwenden nun sofort den expliziten Sneak-Abfragepfad. Die
+  Funktion hängt damit nicht mehr davon ab, ob Minecraft den Leinenzustand des
+  anvisierten Pferdes bereits clientseitig synchronisiert hat.
+- Tierinfo-Antworten werden an der gemeinsamen Chat-HUD-Grenze ausgewertet und
+  funktionieren dadurch auch bei signierten oder vom Proxy anders verpackten
+  Nachrichten. Doppelte Auswertung über mehrere Paketpfade wurde entfernt.
+- Der Debug-Modus protokolliert Zielwechsel, Abfragepfad, vollständige Antworten
+  und Timeouts der Tierinfo gezielt in `logs/debug.log`.
+
+## [1.16.3-h] – 2026-09-04
+
+### Behoben
+
+- Angeleinte Pferde verwenden sofort den expliziten Sneak-Abfragepfad, damit
+  der Server den automatischen Klick nicht als Aufsteigeversuch behandelt.
+- Eine serverseitige Aufforderung zum Losbinden beendet die laufende Anfrage
+  sofort. Nach einem endgültigen Fehlschlag bleibt der Pferde-Toast über die
+  UUID-basierte Datenbank oder die letzte Beobachtung verfügbar, ohne Abfragen
+  anderer Tiere zu blockieren.
+
+## [1.16.3-g] – 2026-09-04
+
+### Behoben
+
+- Tierinfo-Antworten werden erst nach Minecrafts Wechsel vom Netzwerk- in den
+  Clientthread ausgewertet. Dadurch bleiben Anfragezustand, Cache und Toast
+  synchron und die Anzeige kann nicht mehr sporadisch nur kurz erscheinen oder
+  nach einer Antwort aussetzen.
+
+## [1.16.3-f] – 2026-09-04
+
+### Behoben
+
+- Automatische Tier- und Pferdeinfos werden auch verarbeitet, wenn der Server
+  sie als profillose Systemchat-Nachrichten statt als normale Game-Message
+  sendet. Manuelle Tierinfos ohne laufende OttoExtra-Abfrage bleiben sichtbar.
+
+## [1.16.3-e] – 2026-09-03
+
+### Behoben
+
+- Tierinfo-Abfragen synchronisieren vor dem unsichtbaren Shift-Rechtsklick den
+  ausgewählten Hotbar-Slot. Bleibt eine Antwort aus, folgt ein abgesicherter
+  Sneak-Fallback; nach dem Backoff kann auch dasselbe anvisierte Tier erneut
+  abgefragt werden.
+- Die persönliche J-Übersicht zeigt nicht mehr automatisch alle Tiere eines
+  eigenen oder freigegebenen Hofes. Sichtbar sind nur selbst gespeicherte bzw.
+  besessene Pferde und ausdrücklich freigegebene Pferdeakten.
+- Die Pferdemodelle sitzen in den kompakten Zeilen etwas tiefer.
+- Die Hofsortierung befindet sich oberhalb der Liste und öffnet über
+  „Sortieren nach“ eine Auswahl für A–Z oder Z–A.
+- Lupe, Mülleimer, Geschlecht, Tempo und Sprunghöhe verwenden austauschbare
+  16×16-PNG-Ressourcen statt fest im Java-Code gezeichneter Symbole.
+
+## [1.16.3-d] – 2026-09-03
+
+### Hinzugefügt
+
+- Die J-Pferdeübersicht ist jetzt vollständig in OttoExtra enthalten und zeigt
+  ausschließlich eigene sowie über Höfe oder Pferdeakten freigegebene Tiere.
+- Pferde werden kompakt nach Höfen gruppiert und wahlweise A–Z oder Z–A
+  sortiert. Die Suche berücksichtigt Name, Hof, Herkunft und UUID.
+- Jede Zeile zeigt ein echtes Pferdemodell mit gespeicherter Fellfarbe und
+  Zeichnung, Name und Herkunft sowie farbiges Geschlecht, Tempo und Sprunghöhe.
+- Pixelgenaue Lupen- und Mülleimer-Symbole ersetzen problematische Schriftzeichen.
+  Berechtigte Besitzer können Pferdeakten nach einer Bestätigung löschen.
+
+## [1.16.3-c] – 2026-09-03
+
+### Hinzugefügt
+
+- Die AnimalBreeding-API kann eine Pferdeakte über ihre Entity-UUID löschen;
+  Besitz und Berechtigung werden weiterhin serverseitig geprüft.
+
+## [1.16.3-b] – 2026-09-02
+
+### Behoben
+
+- Parallele Leser der Minecraft-/Discord-Verknüpfung schreiben die
+  Zugangsdaten nicht mehr beim Laden zurück. Eindeutige temporäre Dateien und
+  ein gemeinsamer Dateilock verhindern, dass ein gültiger Device-Token durch
+  konkurrierende Addons verloren geht.
+- Der Schreibschutz prüft die Anzahl von „Pergament und Feder“ nur noch im
+  aktiven Hotbar-Slot. Weitere Exemplare im übrigen Inventar blockieren den
+  Schreibvorgang nicht; beim Fortsetzen muss weiterhin der angefangene Brief in
+  der Haupthand liegen.
+
+## [1.16.3-a] – 2026-09-02
+
+### Behoben
+
+- Im V2-Briefeditor bleibt der Cursor nach einem manuellen Umbruch auf späteren
+  Seiten exakt an der sichtbaren Position. Unsichtbare Leerzeichen von
+  automatischen Zeilen- und Seitenumbrüchen verschieben nachfolgende Eingaben
+  nicht mehr um ein Zeichen oder in den vorherigen Absatz.
+
+## [1.16.3] – 2026-09-02
+
+### Geändert
+
+- Die festen Positionen des Aktivitäts-HUDs werden im Platzierungsdialog
+  verständlich als „Mitte links“, „Oben links“ und weitere Positionen angezeigt.
+- „Letzte Aktualisierung“ und die aktuelle Uhrzeit lassen sich getrennt
+  ein- und ausblenden; dadurch ist auch eine reine Uhrzeitanzeige möglich.
+
+## [0.1.16.1] – 2026-08-21
+
+### Tweaks – Neu
+
+- **Voting:** Der Vote-Reminder ist neu in OttoExtra integriert und befindet
+  sich mit seinen Einstellungen unter „Tweaks“. Beim Öffnen der Vote-Seiten wird
+  der eigene Minecraft-Name direkt in die Zwischenablage kopiert.
+- **Litematica:** Die neue optionale Integration zeigt in der Blockanzeige
+  zusätzlich zum technischen Blockzustand den gelben, lokalisierten Inventarnamen
+  aus dem aktiven Resourcepack.
+- **Litematica – Fachwerk:** Fachwerk-Notenblöcke werden anhand von Instrument,
+  Note und Redstone-Zustand erkannt. Litematica zeigt für alle 28 Fachwerkvarianten
+  die passende Farbe und Bauform an, beispielsweise „Weißer Fachwerk Balken“
+  oder „Graues Fachwerk Zierde“. Normale und unbelegte Notenblöcke bleiben
+  unverändert.
+
+### Tweaks – Geändert
+
+- Die separaten Vote- und Litematica-Erweiterungen werden für diese Funktionen
+  nicht mehr benötigt. OttoExtra vermeidet beim Übergang doppelte
+  Vote-Erinnerungen.
+
+### Weitere Änderungen
+
+- Der Briefeditor verwendet bei neuen Briefen standardmäßig die seitenbasierte
+  Briefversion `PAGE`.
+- Das Aktivitäts-HUD kann über einen frei belegbaren Tastenschlüssel direkt
+  ein- und ausgeblendet werden. Der gewählte Zustand bleibt gespeichert.
+- Tactical Factions besitzt im Politik-Buch den neuen Tab „Spieler-Wache“.
+  Minecraft-Namen können dort dauerhaft eingetragen und entfernt werden; bei
+  einem späteren Onlinekommen erscheint eine Chatnachricht. Bereits beim eigenen
+  Serverbeitritt anwesende Spieler lösen keine Meldung aus.
+
+### Behoben
+
+- Automatische Tierinfo-Abfragen werden vollständig unterbrochen, solange der
+  Spieler auf einem Pferd, Esel oder Maultier reitet. Dadurch sendet OttoExtra in
+  diesem Zustand keinen simulierten Shift-Rechtsklick auf andere Tiere und keine
+  nachgelagerte Sneak-Flanke.
+- Alte Vote-Einstellungen werden einmalig in die zentrale OttoExtra-Konfiguration
+  übernommen, ohne die bisherige Konfigurationsdatei zu löschen.
+- Litematica bleibt auch ohne installierte optionale Integration startfähig;
+  unbekannte Blockzustände fallen zuverlässig auf den normalen Inventarnamen
+  zurück.
+
+## [0.1.16] – 2026-08-10
+
+Diese Fassung bündelt alle Änderungen seit `0.1.15.3`, einschließlich des
+zwischenzeitlichen `0.1.15.4`-Teststands.
+
+### Hinzugefügt
+
+- Automatische, kompakte Tierinfos beim Anvisieren von Zuchttieren mit Modell,
+  Name, Geschlecht, Paarungsstatus, Mast, Restzeit sowie tierabhängigen Werten
+  wie Scherbarkeit, Melkbarkeit, Sprunghöhe und Geschwindigkeit.
+- Eigener Tierinfo-Editor mit getrennten Layouts für Schaf, Kuh, Schwein,
+  Pferdearten, Packesel, Ziege, Huhn, Wolf und sonstige Tiere. Jede Tierart und
+  jedes Anzeigeelement kann separat aktiviert oder deaktiviert, verschoben und
+  skaliert werden.
+- Minecraft-/Discord-Kontoverknüpfung über `/ottoextra verify` sowie eine
+  Kontoübersicht über `/ottoextra account` mit RP-Profil, Stand, Rang, Gefolge
+  und Hellerbestand.
+- Verpflichtender Erststart-Assistent für optionale Netzwerkzugriffe. Er fragt
+  Resourcepack-Downloads, externe Bilder, Versionsprüfung und das Teilen
+  beobachteter RP-Namen getrennt ab; keine Erlaubnis ist vorausgewählt.
+- Verschiebbares und skalierbares Aktivitäts-HUD mit Wappen, Gefolgenamen,
+  Aktivitätsstufe, festen Positionen und frei platzierbarem Modus.
+- Aktivitätspings auf Xaeros Weltkarte. Hohe Aktivität nutzt zwei zeitversetzte,
+  langsamere Ringe; beim Herauszoomen zählt pro zusammengefasstem Lehen nur die
+  höchste Aktivitätsstufe.
+- Neuer optionaler Brief-Versandmodus `V2`, der Fließtext und notwendige
+  Legacy-Zeilen kombiniert und die tatsächliche Server-Paginierung berücksichtigt.
+- Interne Brief-Kalibrierung mit abgesicherten Testfällen für Seiten-, Pixel-,
+  Leerraum-, Escape- und Formatierungsgrenzen.
+- Titelfarben können aus dem API-Stand abgeleitet werden. Persönliche Farben,
+  Stand, Titelkatalog, Titelgruppe und Fallback besitzen eine feste Priorität.
+- Generische, rückwärtskompatible Addon-Hooks für synchrone und asynchrone
+  Chatverarbeitung, dynamische Anzeigetexte, Nametag-Sichtbarkeit und
+  -darstellung sowie beschriftete Aktionen im RP-Personenbuch.
+
+### Geändert
+
+- Automatisch abgefragte Tierinfo-Blöcke erscheinen weder im Chat noch im
+  normalen Client-Log. Manuelle Tierinfo-Abfragen bleiben sichtbar.
+- Tierinfos werden nach Füttern, Melken oder vergleichbaren Interaktionen neu
+  geladen; Blockinteraktionen pausieren automatische Abfragen kurzzeitig.
+- Nametags behandeln Titel, RP-Name und Accountname als getrennte Zeilen. Der
+  Titel wird nicht mehr zusätzlich in die RP-Namenszeile geschrieben.
+- Das RP-Personenbuch reserviert im ausgewählten Spielerprofil Platz für
+  Addon-Felder und deren anklickbare Aktionen.
+- Der Regionsdienst stellt Fraktionen, Hierarchien, Wappen, Spielerzuordnungen
+  und Aktivitätsdaten über wiederverwendbare Schnittstellen für Addons bereit.
+- Briefvorschau und Versand verwenden dieselbe V2-Planung; Leerzeilen,
+  Formatierungen und serverseitige Seitenlimits werden konsistenter behandelt.
+- Der Update-Dialog öffnet nur die Release-Seite im Browser und ersetzt keine
+  Mod-Datei selbstständig.
+- Ottonien-spezifische Funktionen akzeptieren ausschließlich die offizielle
+  Domain und deren echte Subdomains; ähnlich aussehende Hosts werden abgelehnt.
+- Addon-Fehler werden pro Hook isoliert, damit OttoExtra und andere Addons
+  weiterarbeiten. Für Addons wird keine feste OttoExtra-Mindestversion erzwungen.
+
+### Behoben
+
+- Verschachtelte Emotes in OOC-Klammern können sichtbaren Nachrichtentext nicht
+  mehr verdoppeln oder beschädigen; das beobachtete Servermuster wird repariert
+  und unsichere Stilumbauten fallen aufs Original zurück.
+- Bei verschachtelter RP-Syntax bestimmt der innerste Bereich den Stil: Emotes
+  in OOC nutzen Emote-Farbe, OOC in Emotes nutzt OOC-Farbe.
+- Automatische Tierinfo-Abfragen bereinigen den simulierten Sneak-Zustand sofort
+  und lassen serverseitig keine kombinierte Sneak-/Sprint-Erkennung zurück.
+- Pferde- und Esel-Tierinfos mit abweichender Serverausgabe werden vollständig
+  erkannt und nicht mehr teilweise in Chat oder Log stehen gelassen.
+- Alte Tierinfo-Konfigurationen werden schadensfrei ergänzt; deaktivierte
+  Tierarten bleiben auch beim Zurücksetzen ihres Layouts deaktiviert.
+- API-Importe aktualisieren Stand und andere öffentliche Metadaten auch bei
+  gesperrten RP-Profilen, ohne geschützte Namen, Titel oder Farben zu überschreiben.
+- Titelvarianten und entfernte Katalogtitel werden in Personenbuch, Vorschau
+  und Anzeige konsistent ersetzt.
+- Addon-erzwungene Nametags funktionieren auch bei deaktiviertem normalem
+  OttoExtra-Nametag-Modul; mindestens der Minecraft-Accountname bleibt nutzbar.
+
+### OttoExtra-TranslateUtils
+
+#### Hinzugefügt
+
+- Neuer Modus „Serveranzeigen übersetzen“ mit eigener Sprachrichtung,
+  standardmäßig Deutsch → Englisch. Die ausgehende Chatübersetzung behält ihr
+  separates Sprachpaar.
+- Clientseitige Übersetzung für eingehenden Chat, Chat-Hovertexte, Actionbar,
+  Titel und Untertitel, Bossbars, Scoreboard, Tab-Kopf und -Fuß,
+  Inventartitel, gelesene Buchseiten, Custom-Itemnamen, Tooltip- und Lorezeilen
+  sowie dynamische OttoExtra-Regionsanzeigen.
+- Übersetzte Chatnachrichten zeigen den vollständigen Originaltext lokal im
+  Hover, ohne Kanal-, Sprecher-, Farb- oder Klickinformationen zu ersetzen.
+- Persistenter lokaler Cache unter
+  `config/ottoextra-translateutils/translations.json` für wiederverwendbare
+  NPC-, System-, HUD-, Regions- und Itemtexte. Spielerchat, Buchseiten,
+  Chat-Hovertexte und unklare Chatzeilen werden nicht auf Platte gespeichert.
+- Eigene Aktion zum Leeren des Übersetzungscaches sowie eine priorisierte,
+  gebündelte Übersetzungswarteschlange. Chat hat Vorrang vor Item-Vorladungen;
+  fehlerhafte Batches werden verkleinert wiederholt und HTTP 429 respektiert.
+- Schutz für Minecraft-Accountnamen, bekannte RP-Namen, Gefolge, Fraktionen,
+  Regionen und Lehen. Übersetzungen mit veränderten oder neu eingefügten
+  geschützten Eigennamen werden verworfen.
+- Vorladen sichtbarer Itemübersetzungen und lokale Übersetzungen für häufige
+  dynamische Tooltipteile wie Haltbarkeit und Briefabsender.
+- Verpflichtende, versionierte Datenschutzeinwilligung für Serveranzeigen,
+  Custom-Itemnamen, Lore und die Regeln des persistenten Caches.
+
+#### Geändert
+
+- Ausgehende Übersetzung bleibt in Offtopic und Hilfe aktiv; der
+  Sprachindikator zeigt dort keinen deaktivierten Zustand mehr an.
+- Ein- und ausgehende Übersetzungen laufen asynchron. Bis zum Ergebnis bleibt
+  das Original sichtbar, anschließend wird nur die betroffene Anzeige erneuert.
+- Identische gleichzeitige Anfragen werden zusammengeführt und API-Aufrufe
+  gedrosselt, statt dieselben Texte pro Renderdurchlauf erneut anzufragen.
+- Minecraft-Textstile, Komponenten, Farbcodes und mehrzeilige Hover-Lore
+  bleiben beim Austausch des sichtbaren Textes erhalten.
+- Durch das Ottonien-Resourcepack ersetzte deutsche Itemtexte werden auf ihre
+  deutsche Quelle zurückgeführt, damit dynamische Itemnamen zuverlässig
+  übersetzt werden können.
+- TranslateUtils verwendet die kontextreichen synchronen und asynchronen
+  OttoExtra-Addon-Hooks, bleibt jedoch ohne fest deklarierte
+  OttoExtra-Mindestversion.
+
+#### Datenschutz und Fehlerbehebungen
+
+- Nur wiederverwendbare Nicht-Spieler-Texte werden persistent gespeichert;
+  private oder nicht sicher klassifizierbare Inhalte bleiben im Arbeitsspeicher.
+- Cache-Dateien werden atomar ersetzt. Beschädigte Dateien werden nicht
+  überschrieben und Übersetzungsfehler fallen auf das Original zurück.
+- Scoreboard-Einträge, die echten Online-Spielernamen entsprechen, werden nicht
+  übersetzt.
+- Veraltete Cache-Einträge mit veränderten Eigennamen werden nicht angezeigt
+  und automatisch entfernt.
+- Batchantworten mit veränderten Trennern werden nur bei eindeutiger Zuordnung
+  übernommen; unvollständige Antworten landen nicht beim falschen Text.
+
+## [0.1.15.4] – 2026-07-30
+
+### Neu
+
+- Beim kurzen Anvisieren eines Zuchttiers erscheint oben eine schlanke Tierinfo
+  mit kleinem 3D-Tiermodell, Name und Geschlecht, farblicher Paarungsbereitschaft,
+  Mast sowie der verbleibenden Zuchtzeit. Bei Schafen erscheint zusätzlich
+  „Scherbar“, bei Kühen „Melkbar“ jeweils grün oder rot.
+- Der Tierinfo-Layouteditor speichert ein eigenes Layout je Tierart. Modell, Name,
+  Geschlechtssymbol, Geschlechtstext, Paarungsstatus, Mast, Zeit und Zusatzstatus
+  lassen sich einzeln verschieben, skalieren oder ausblenden. Der dunkle
+  Toast-Hintergrund passt seine Größe samt festem Innenabstand automatisch an.
+- Die Abfrage benötigt weder Shift noch Rechtsklick und wird pro Tier gedrosselt
+  sowie kurz zwischengespeichert.
+- Spieler können ihren aktuellen Minecraft-Account direkt in der OttoExtra-Haupt-JAR
+  mit `/ottoextra verify` mit ihrem OttoExtra-/Discord-Konto verbinden.
+- `/ottoextra account` öffnet eine übersichtliche Kontoansicht mit Verbindungsstatus,
+  Discord-Name, RP-Profil, Stand, Rang, Gefolge und aktuellem Hellerbestand.
+- Der sichere Browser-Flow läuft vollständig über `ottoextra.dev`; nach der
+  Discord-Anmeldung wird die Verknüpfung im OttoExtra-Konto angezeigt.
+
+### Sicherheit
+
+- Discord-Zugriffstokens werden nicht im Client gespeichert. Lokal bleibt nur
+  ein widerrufbarer Device-Token in `config/ottoextra-discord.json`.
+- Minecraft-UUID und Accountname stammen in dieser ersten Spielerversion aus
+  der angemeldeten Minecraft-Clientsession.
+
+### Geändert
+
+- Block-Rechtsklicks sperren automatische Tierinfo-Abfragen kurzzeitig. Dadurch
+  kollidiert die simulierte Tierinteraktion nicht mehr mit Türen oder anderen
+  interaktiven Blöcken.
+- Nach Füttern, Melken oder anderen Rechtsklick-Interaktionen wird die angezeigte
+  Tierinfo automatisch neu abgefragt. Sprunghöhe und Geschwindigkeit sind im
+  Pferde-Toast nun getrennt verschiebbar, skalierbar und ausblendbar.
+- Von OttoExtra automatisch angeforderte Tierinfo-Blöcke werden vor dem Chat-HUD
+  abgefangen. Dadurch erscheinen die neun Systemzeilen weder im Chat noch als
+  wiederholte `[CHAT]`-Einträge im Client-Log. Manuelle Tierinfo-Abfragen bleiben
+  unverändert sichtbar.
+- Das abweichende Pferde-/Esel-Format mit „Pferdeinfo“ und „Zuchtbereit“ wird
+  ebenfalls als Toast verarbeitet und vollständig aus Chat und Log entfernt.
+
 ## [0.1.15.3] – 2026-07-22
 
 ### Hinzugefügt
