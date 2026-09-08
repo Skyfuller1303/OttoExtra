@@ -545,6 +545,7 @@
   "ottoextra.letter.prompt.closed": "§a[Brief] §7Keine weitere Aktion.",
   "ottoextra.letter.prompt.none": "§a[Brief] §cKein vorbereiteter Brief vorhanden.",
   "ottoextra.letter.book.edit": "Bearbeiten",
+  "ottoextra.letter.book.send": "Verschicken…",
   "ottoextra.letter.book.locked": "bereits geschrieben",
   "ottoextra.letter.bookImport.title": "Buch importieren",
   "ottoextra.letter.bookImport.oneToOne": "Seiten 1:1",

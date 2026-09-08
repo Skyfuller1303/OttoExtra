@@ -5,6 +5,8 @@ import de.ottoextra.letter.LetterDraft;
 import de.ottoextra.letter.LetterServices;
 import de.ottoextra.letter.model.LetterOutputMode;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.item.ItemStack;
 import net.minecraft.text.ClickEvent;
 import net.minecraft.text.HoverEvent;
 import net.minecraft.text.MutableText;
@@ -34,6 +36,11 @@ public final class LetterActionPrompt {
     }
 
     public static void onSend(OttoExtraConfig config) {
+        ItemStack held = WrittenLetterImport.heldWrittenBookStack();
+        if (WrittenLetterImport.isOwn(held)) {
+            onSendHeld(config, null, held);
+            return;
+        }
         LetterDraft draft = LetterServices.pendingDraft();
         if (draft == null) {
             error();
@@ -46,6 +53,18 @@ public final class LetterActionPrompt {
         }
 
         MinecraftClient.getInstance().setScreen(new RecipientScreen(null, config, draft));
+    }
+
+    public static void onSendHeld(OttoExtraConfig config, Screen parent, ItemStack expected) {
+        ItemStack held = WrittenLetterImport.heldWrittenBookStack();
+        if (held == null || expected == null || !ItemStack.areEqual(held, expected)) {
+            error();
+            return;
+        }
+        LetterDraft draft = LetterServices.prepareHeldLetter(config);
+        if (draft != null) {
+            MinecraftClient.getInstance().setScreen(new RecipientScreen(parent, config, draft));
+        }
     }
 
     public static void onAnnounce(OttoExtraConfig config) {

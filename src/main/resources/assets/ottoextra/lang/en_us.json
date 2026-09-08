@@ -545,6 +545,7 @@
   "ottoextra.letter.prompt.closed": "§a[Letter] §7No further action.",
   "ottoextra.letter.prompt.none": "§a[Letter] §cNo prepared letter available.",
   "ottoextra.letter.book.edit": "Edit",
+  "ottoextra.letter.book.send": "Send…",
   "ottoextra.letter.book.locked": "already written",
   "ottoextra.letter.bookImport.title": "Import book",
   "ottoextra.letter.bookImport.oneToOne": "Pages 1:1",

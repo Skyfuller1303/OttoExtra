@@ -569,6 +569,31 @@ public final class LetterServices {
         return snapshotPreparedPages(draft) != null && LetterWriteItemGuard.matches(config, preparedLetter);
     }
 
+    /** Rebind delivery to an existing unsent book without writing or changing the draft cache. */
+    public static LetterDraft prepareHeldLetter(OttoExtraConfig config) {
+        if (!canStartSend()) {
+            return null;
+        }
+        var held = net.minecraft.client.MinecraftClient.getInstance().player.getMainHandStack();
+        if (!LetterWriteItemGuard.isWritableLetter(held)) {
+            hint("ottoextra.letter.write.holdStarted");
+            return null;
+        }
+        LetterDraft draft = LetterDraft.empty();
+        draft.pages = new ArrayList<>(de.ottoextra.letter.ui.WrittenLetterImport.toSectionPages(
+                held.get(net.minecraft.component.DataComponentTypes.WRITTEN_BOOK_CONTENT)));
+        draft.meta.courierInitialPages = new ArrayList<>(draft.pages);
+        draft.repair();
+        draft.meta.importedFromBook = true;
+        draft.meta.mode = de.ottoextra.letter.model.LetterOutputMode.BRIEF;
+        draft.meta.pagesOneToOne = true;
+        draft.meta.lockedPages = draft.pages.size() - 1;
+        draft.meta.lockedOffset = draft.pages.getLast().length();
+        preparedLetter = LetterWriteItemGuard.capture(config, draft);
+        setPending(draft);
+        return draft;
+    }
+
     public static boolean tryStartAnnouncementSend(OttoExtraConfig config, LetterDraft draft) {
         if (!canStartSend()) {
             return false;

@@ -6,6 +6,7 @@ import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.letter.model.AnnouncementSendProgress;
 import de.ottoextra.letter.model.LetterSendProgress;
 import de.ottoextra.letter.ui.LetterActionPrompt;
+import de.ottoextra.letter.ui.LetterBookActions;
 import de.ottoextra.letter.ui.LetterEditorScreen;
 import de.ottoextra.letter.ui.LetterCalibrationScreen;
 import de.ottoextra.letter.ui.RecoveryPromptScreen;
@@ -163,17 +164,14 @@ public final class LetterModule implements OttoExtraModule {
                                                 .LetterCalibrationService.captureHeldBook(screen))
                                 .dimensions(scaledWidth / 2 - 100, captureY, 200, 20).build());
                     }
-                    if (showEdit) {
-                        buttons.add(net.minecraft.client.gui.widget.ButtonWidget.builder(
-                                        net.minecraft.text.Text.translatable(
-                                                "ottoextra.letter.book.edit"),
-                                        b -> WrittenLetterImport.editInEditor(config, stack))
-                                .dimensions(scaledWidth / 2 - 100, y, 200, 20).build());
-                    }
+                    LetterBookActions.afterInit(screen, config, y);
                 });
 
         net.fabricmc.fabric.api.event.player.UseItemCallback.EVENT.register(
                 (player, world, hand) -> {
+                    if (world.isClient()) {
+                        LetterBookActions.noteUse(player, hand);
+                    }
                     if (!world.isClient() || config.letter.triggerItemName == null
                             || config.letter.triggerItemName.isBlank()) {
                         return net.minecraft.util.ActionResult.PASS;
@@ -194,6 +192,7 @@ public final class LetterModule implements OttoExtraModule {
                 });
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            LetterBookActions.tick(client);
             de.ottoextra.letter.calibration.LetterCalibrationService.tick(config);
             while (editorKey.wasPressed()) {
                 if (client.currentScreen == null) {
@@ -267,6 +266,7 @@ public final class LetterModule implements OttoExtraModule {
         recoveryChecked = false;
 
         LetterServices.clearSendingState();
+        LetterBookActions.clear();
         de.ottoextra.letter.calibration.LetterCalibrationService.interruptSending();
     }
 

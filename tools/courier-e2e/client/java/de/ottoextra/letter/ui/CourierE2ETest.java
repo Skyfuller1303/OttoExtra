@@ -115,6 +115,15 @@ public final class CourierE2ETest implements FabricClientGameTest {
             for (String variant : List.of("server", "player", "missing", "book", "restart", "discard"))
                 test("R-" + variant, "Wiederaufnahme: " + variant, () -> recoveryGuard(variant));
             test("P01", "Empfängerdialog, Selbstversand und Brieftaube", this::post);
+            test("RP01", "Geschriebenen Brief schließen und über Buchbutton verschicken", this::reopenWrittenPost);
+            test("RP02", "Vorhandenen Brief nach erneutem Login verschicken", this::reopenPostAfterLogin);
+            test("RP03", "Versandbefehl verwendet gehaltenen Brief statt alten Entwurf", this::reopenPostCommand);
+            test("RP04", "Empfangene Briefe, normale Bücher und Nebenhand nicht versandbereit", this::unavailableBookPost);
+            test("RP05", "Slotwechsel im erneut geöffneten Versanddialog stoppt Zustellung", this::reopenedPostSlotGuard);
+            test("RP06", "Ausgetauschtes Buch vor Buttonklick wird nicht übernommen", this::reopenPostBookGuard);
+            test("RP07", "Laufendes Schreiben wird durch erneutes Öffnen nicht ersetzt", this::reopenPostWhileWriting);
+            test("RP08", "Nach abgelehntem Versand erneut öffnen und zustellen", this::reopenRejectedPost);
+            test("RP09", "Anderes angezeigtes Buch bietet keinen Versand der Haupthand an", this::reopenDisplayedBookGuard);
             test("P02", "Post ohne Berechtigung", () -> submitDenied(false, false));
             test("P03", "Post ohne Geld", () -> submitDenied(false, true));
             test("A01", "Verkündung aus frischem Entwurf", () -> announce(false));
@@ -477,6 +486,167 @@ public final class CourierE2ETest implements FabricClientGameTest {
         equalPages(predicted, LetterV2Planner.displayPages(rawPages()));
         check(api("GET", "/state", null).getAsJsonArray("outgoing").isEmpty(), "Received book remained queued");
         check(!ctx.computeOnClient(c -> WrittenLetterImport.isOwn(c.player.getMainHandStack())), "Delivered letter remains editable");
+    }
+
+    private void openHeldBook() {
+        ctx.runOnClient(c -> {
+            c.setScreen(null);
+            c.interactionManager.interactItem(c.player, net.minecraft.util.Hand.MAIN_HAND);
+        });
+        ctx.waitFor(c -> c.currentScreen instanceof net.minecraft.client.gui.screen.ingame.BookScreen);
+        pause(150);
+    }
+
+    private boolean hasBookSendButton() {
+        return ctx.computeOnClient(c -> c.currentScreen != null && c.currentScreen.children().stream()
+                .filter(child -> child instanceof ButtonWidget).map(child -> (ButtonWidget) child)
+                .anyMatch(button -> button.getMessage().getString().equals(Text.translatable("ottoextra.letter.book.send").getString())));
+    }
+
+    private void openBookRecipients() {
+        openHeldBook();
+        check(hasBookSendButton(), "Book send button missing");
+        ctx.runOnClient(c -> {
+            var buttons = c.currentScreen.children().stream().filter(child -> child instanceof ButtonWidget)
+                    .map(child -> (ButtonWidget) child).filter(button -> button.visible).toList();
+            for (var button : buttons) {
+                check(button.getY() >= 0 && button.getY() + button.getHeight() <= c.currentScreen.height, "Book action outside screen");
+                check(button.getX() >= 0 && button.getX() + button.getWidth() <= c.currentScreen.width, "Book action outside width");
+            }
+        });
+        click("ottoextra.letter.book.send");
+        check(ctx.computeOnClient(c -> c.currentScreen instanceof RecipientScreen), "Book button did not open recipients");
+        check(!ctx.computeOnClient(c -> LetterServices.isSending()), "Reopening started a write queue");
+    }
+
+    private void submitReopenedPost() {
+        ctx.runOnClient(c -> setField(c.currentScreen, "selected", "CourierAudit"));
+        click("ottoextra.letter.recipient.send");
+        await(() -> ctx.computeOnClient(c -> c.player.getMainHandStack().isEmpty()), 10_000, "Reopened post did not consume book");
+        check(api("GET", "/state", null).getAsJsonArray("outgoing").size() == 1, "Reopened post was not queued once");
+    }
+
+    private void installUnsentBook(List<String> pages) {
+        api("POST", "/book", Map.of("pages", pages)); pause(300);
+    }
+
+    private void reopenWrittenPost() {
+        LetterDraft draft = editor("§6Brief später versenden§r\nGrüße 😀");
+        List<String> predicted = preview(); click("ottoextra.letter.send"); written(draft, predicted);
+        int writes = commands().size();
+        click("gui.back"); openHeldBook(); screenshot("courier-book-send-button");
+        click("ottoextra.letter.book.send");
+        check(ctx.computeOnClient(c -> c.currentScreen instanceof RecipientScreen), "Cannot reopen freshly written letter");
+        click("gui.back");
+        check(ctx.computeOnClient(c -> c.currentScreen instanceof net.minecraft.client.gui.screen.ingame.BookScreen), "Back lost book view");
+        click("ottoextra.letter.book.send");
+        check(commands().size() == writes, "Reopening rewrote the letter");
+        equalPages(predicted, LetterV2Planner.displayPages(rawPages()));
+        submitReopenedPost();
+        check(commands().size() == writes + 1, "Reopened post sent duplicate commands");
+    }
+
+    private void reopenPostAfterLogin() {
+        List<String> original = List.of("§6Vorhandener Brief§r", "Zweite Seite 😀\n§cRot§r Ende");
+        installUnsentBook(original);
+        LetterDraft cached = LetterDraft.empty(); cached.pages.set(0, "Unabhängiger Entwurf bleibt erhalten");
+        ctx.runOnClient(c -> {
+            LetterDraftCache.save(cached);
+            c.disconnect(new TitleScreen(), false); c.setScreen(new TitleScreen());
+        });
+        ctx.waitFor(c -> c.world == null); join();
+        check(ctx.computeOnClient(c -> LetterServices.pendingDraft() == null), "Pending survived disconnect");
+        openBookRecipients();
+        check(commands().isEmpty(), "Existing letter was rewritten after login");
+        equalPages(original, rawPages());
+        check(ctx.computeOnClient(c -> LetterDraftCache.load().pages.equals(cached.pages)), "Reopening overwrote draft cache");
+        submitReopenedPost();
+        check(commands().equals(List.of("/post CourierAudit")), "Unexpected reconnect delivery commands: " + commands());
+    }
+
+    private void reopenPostCommand() {
+        List<String> original = List.of("Gehaltenes Buch hat Vorrang."); installUnsentBook(original);
+        LetterDraft stale = LetterDraft.empty(); stale.pages.set(0, "Dieser alte Entwurf darf nicht geschrieben werden");
+        ctx.runOnClient(c -> {
+            LetterServices.setPending(stale);
+            c.getNetworkHandler().sendChatCommand("ottoextra letter send");
+        });
+        pause(300);
+        check(ctx.computeOnClient(c -> c.currentScreen instanceof RecipientScreen), "Client command did not reopen held book");
+        check(commands().isEmpty(), "Client command wrote stale text or reached server");
+        equalPages(original, rawPages()); submitReopenedPost();
+    }
+
+    private void unavailableBookPost() {
+        for (Map<String, Object> options : List.<Map<String, Object>>of(
+                Map.of("pages", List.of("Empfangener Brief"), "sent", true),
+                Map.of("pages", List.of("Normales Buch"), "title", "Reisetagebuch"))) {
+            api("POST", "/book", options); pause(300); openHeldBook();
+            check(!hasBookSendButton(), "Ineligible book exposes delivery");
+            check(ctx.computeOnClient(c -> LetterServices.prepareHeldLetter(config) == null), "Ineligible book was prepared");
+        }
+        api("POST", "/book&slot=40", Map.of("pages", List.of("Brief in Nebenhand")));
+        api("POST", "/slot&slot=1", null); pause(300);
+        check(ctx.computeOnClient(c -> LetterServices.prepareHeldLetter(config) == null), "Offhand book was adopted");
+        check(commands().isEmpty(), "Negative book case sent commands");
+    }
+
+    private void reopenedPostSlotGuard() {
+        installUnsentBook(List.of("Slotgebundene Zustellung")); openBookRecipients();
+        api("POST", "/slot&slot=1", null); pause(300);
+        ctx.runOnClient(c -> setField(c.currentScreen, "selected", "CourierAudit"));
+        click("ottoextra.letter.recipient.send"); pause(300);
+        check(commands().isEmpty(), "Slot change bypassed delivery guard");
+        check(ctx.computeOnClient(c -> c.currentScreen instanceof RecipientScreen), "Failed delivery closed recipients");
+    }
+
+    private void reopenPostBookGuard() {
+        installUnsentBook(List.of("Erster Brief")); openHeldBook();
+        installUnsentBook(List.of("Anderer Brief im selben Slot"));
+        click("ottoextra.letter.book.send");
+        check(ctx.computeOnClient(c -> !(c.currentScreen instanceof RecipientScreen)), "Old book button adopted replacement book");
+        check(commands().isEmpty(), "Stale book button sent commands");
+        openBookRecipients();
+        installUnsentBook(List.of("Noch ein anderer Brief"));
+        ctx.runOnClient(c -> setField(c.currentScreen, "selected", "CourierAudit"));
+        click("ottoextra.letter.recipient.send"); pause(300);
+        check(commands().isEmpty(), "Changed book content bypassed post guard");
+    }
+
+    private void reopenPostWhileWriting() {
+        ctx.runOnClient(c -> { config.letter.pageModeSendDelayMs = 3000; config.letter.letterPageDelayMinMs = config.letter.letterPageDelayMaxMs = 3000; });
+        LetterDraft draft = editor(LetterCalibrationCorpus.byId("V207").pages().getFirst());
+        List<String> predicted = preview(); click("ottoextra.letter.send");
+        await(() -> commands().size() == 1, 10_000, "First write missing"); pause(200);
+        check(ctx.computeOnClient(c -> LetterServices.isSending()), "Expected active write");
+        check(ctx.computeOnClient(c -> LetterServices.prepareHeldLetter(config) == null), "Active write was replaced");
+        written(draft, predicted);
+    }
+
+    private void reopenRejectedPost() {
+        List<String> original = List.of("Nach Ablehnung erneut zustellen"); installUnsentBook(original);
+        api("POST", "/permissions&post=false", null); openBookRecipients();
+        ctx.runOnClient(c -> setField(c.currentScreen, "selected", "CourierAudit"));
+        click("ottoextra.letter.recipient.send"); pause(400);
+        equalPages(original, rawPages());
+        check(api("GET", "/state", null).getAsJsonArray("outgoing").isEmpty(), "Rejected post was queued");
+        api("POST", "/permissions&post=true", null); openBookRecipients(); submitReopenedPost();
+        check(commands().equals(List.of("/post CourierAudit", "/post CourierAudit")), "Retry rewrote book or duplicated post");
+    }
+
+    private void reopenDisplayedBookGuard() {
+        installUnsentBook(List.of("Brief in der Haupthand"));
+        api("POST", "/book&slot=40", Map.of("pages", List.of("Anderes Buch in der Nebenhand"), "sent", true));
+        pause(300);
+        ctx.runOnClient(c -> c.interactionManager.interactItem(c.player, net.minecraft.util.Hand.OFF_HAND));
+        ctx.waitFor(c -> c.currentScreen instanceof net.minecraft.client.gui.screen.ingame.BookScreen);
+        check(!hasBookSendButton(), "Displayed offhand book offers delivery of a different main-hand letter");
+        check(commands().isEmpty(), "Reading another book sent commands");
+        openBookRecipients();
+        click("gui.back"); click("ottoextra.letter.book.edit");
+        check(ctx.computeOnClient(c -> c.currentScreen instanceof LetterEditorScreen), "Book edit action no longer opens editor");
+        LetterDraft imported = ctx.computeOnClient(c -> field(c.currentScreen, "draft"));
+        equalPages(rawPages(), imported.meta.courierInitialPages);
     }
 
     private void announce(boolean prepared) {
