@@ -123,6 +123,7 @@ public final class ChatModule implements OttoExtraModule {
 
     @Override
     public void onDisconnect(de.ottoextra.OttoExtraContext context) {
+        LongChatSender.cancel();
         joinCountdown = -1;
     }
 }

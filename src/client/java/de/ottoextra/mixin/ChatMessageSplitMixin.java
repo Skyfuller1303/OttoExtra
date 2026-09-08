@@ -25,9 +25,10 @@ public class ChatMessageSplitMixin {
             boolean preserveRpSyntax = cfg.rpFormattingEnabled
                     && ChatChannelState.current().rp;
             LongChatSender.configureMs(cfg.longChatDelayMs);
-            LongChatSender.enqueue(LongChatSender.split(
-                    content, cfg.longChatChunk, cfg.longChatMarker, preserveRpSyntax));
-            ci.cancel();
+            if (LongChatSender.enqueue((ClientPlayNetworkHandler) (Object) this,
+                    LongChatSender.split(content, cfg.longChatChunk, cfg.longChatMarker, preserveRpSyntax))) {
+                ci.cancel();
+            }
         } catch (Throwable ignored) {
 
         }

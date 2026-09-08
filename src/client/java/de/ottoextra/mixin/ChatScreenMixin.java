@@ -52,10 +52,20 @@ public abstract class ChatScreenMixin {
             if (text.startsWith("/") || text.length() <= cfg.longChatChunk) {
                 return;
             }
+            MinecraftClient client = MinecraftClient.getInstance();
+            if (client == null || client.getNetworkHandler() == null) {
+                return;
+            }
             de.ottoextra.chat.LongChatSender.configureMs(cfg.longChatDelayMs);
-            de.ottoextra.chat.LongChatSender.enqueue(
-                    de.ottoextra.chat.LongChatSender.split(text, cfg.longChatChunk, cfg.longChatMarker));
-            ci.cancel();
+            boolean preserveRpSyntax = cfg.rpFormattingEnabled && ChatChannelState.current().rp;
+            if (de.ottoextra.chat.LongChatSender.enqueue(client.getNetworkHandler(),
+                    de.ottoextra.chat.LongChatSender.split(
+                            text, cfg.longChatChunk, cfg.longChatMarker, preserveRpSyntax))) {
+                ci.cancel();
+                if (addToHistory) {
+                    client.inGameHud.getChatHud().addToMessageHistory(text);
+                }
+            }
         } catch (Throwable ignored) {
 
         }
