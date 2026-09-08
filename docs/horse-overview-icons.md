@@ -26,10 +26,20 @@ Dateien:
 - `sort_none.png` – Spalte aktuell nicht sortiert
 - `expand.png` – eingeklappter Hof, Klick öffnet ihn
 - `collapse.png` – aufgeklappter Hof, Klick klappt ihn ein
+- `feeding.png` – Mast im Tierinfo-Toast
+- `breed_ready.png` – Paarungsbereitschaft im Tierinfo-Toast
+- `shearable.png` – Scheren im Tierinfo-Toast
+- `milkable.png` – Melken im Tierinfo-Toast
 
 Geschlecht, Tempo und Sprung im Tierregister verwenden dieselben Icons wie die
 Übersicht. Mast, Paarung, Scheren und Melken verwenden die vorhandenen Symbole aus
 `assets/mattis/textures/font/icons/clean/status/` (8 × 8 Pixel).
+
+Der **Tierinfo-Toast** verwendet ab Alpha D auch für Mast, Paarung, Scheren und
+Melken die oben genannten 16 × 16-PNGs. Geschlecht, Tempo und Sprung verwenden
+die gemeinsamen 16 × 16-Icons. Im Toast beträgt die Basis-Anzeigegröße **8 × 8
+GUI-Pixel**, multipliziert mit der jeweiligen Elementskalierung im Layout-Editor.
+[Details und Clientprüfung](animal-toast-icons.md).
 
 Hofnamen/Anzahl anklicken zum Auf-/Zuklappen. Tempo oder Sprung im Hofkopf anklicken:
 absteigend → aufsteigend → aus. Mehrere Kriterien bleiben gleichzeitig aktiv;
@@ -53,4 +63,10 @@ Nur die neuen Platzhalter erzeugen (PowerShell):
 
 ```powershell
 ./tools/generate-horse-overview-icons.ps1 -Names sort_ascending,sort_descending,sort_none,expand,collapse
+```
+
+Nur die vier neuen Toast-Symbole erzeugen:
+
+```powershell
+./tools/generate-horse-overview-icons.ps1 -Names feeding,breed_ready,shearable,milkable
 ```

@@ -174,6 +174,10 @@ public final class CourierE2ETest implements FabricClientGameTest {
                 check(ctx.computeOnClient(c -> CourierE2ETest.<Integer>field(c.currentScreen, "previewBookPages")) == -1,
                         "Unsafe plan must not show a valid page count");
             });
+            test("UI-ANIMAL-ICONS", "16px Tierstatus-Icons, kompakte Skalierung und Layout-Editor", () -> {
+                de.ottoextra.animalinfo.AnimalInfoUiChecks.run(ctx);
+                check(commands().isEmpty(), "Icon rendering emitted server commands");
+            });
             check(!results.isEmpty(), "No tests selected");
             String requested = System.getProperty("courier.e2e.filter", "");
             if (!requested.isBlank()) for (String id : requested.split(","))

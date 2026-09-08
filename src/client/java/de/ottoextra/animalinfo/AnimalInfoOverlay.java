@@ -299,7 +299,7 @@ public final class AnimalInfoOverlay {
                     config.modelSize, config.modelSize));
         }
         if (config.showTitle) {
-            String name = titleName(renderer, value);
+            Text name = titleText(renderer, value, config);
             addScaled(parts, Part.TITLE, config.titleX, config.titleY,
                     renderer.getWidth(name), 9, config.titleScale);
         }
@@ -378,7 +378,7 @@ public final class AnimalInfoOverlay {
                 case MODEL -> drawAnimal(context, px, py, part.width(), entity,
                         value, animalType, alpha);
                 case TITLE -> drawTitle(context, renderer, value, px, py,
-                        config.titleScale, alpha);
+                        config, alpha);
                 case GENDER_ICON -> drawGenderIcon(context, renderer, value.gender(), px, py,
                         config.genderIconScale, alpha);
                 case GENDER_TEXT -> drawGenderText(context, renderer, value.gender(), px, py,
@@ -455,10 +455,9 @@ public final class AnimalInfoOverlay {
 
     private static void drawTitle(DrawContext context, TextRenderer renderer,
                                   AnimalInfoSnapshot value, int x, int y,
-                                  float rawScale, float alpha) {
-        float scale = clampScale(rawScale);
-        String name = titleName(renderer, value);
-        Text title = Text.literal(name).styled(style -> style.withBold(true));
+                                  OttoExtraConfig.AnimalInfoLayout config, float alpha) {
+        float scale = clampScale(config.titleScale);
+        Text title = titleText(renderer, value, config);
         var matrices = context.getMatrices();
         matrices.pushMatrix();
         matrices.translate(x, y);
@@ -546,8 +545,36 @@ public final class AnimalInfoOverlay {
         matrices.popMatrix();
     }
 
-    private static String titleName(TextRenderer renderer, AnimalInfoSnapshot value) {
-        return renderer.trimToWidth(value.animalName(), 145);
+    private static Text titleText(TextRenderer renderer, AnimalInfoSnapshot value,
+                                  OttoExtraConfig.AnimalInfoLayout config) {
+        int maxWidth = 145;
+        if (config.showGenderIcon) {
+            maxWidth = titleWidthBefore(config, config.genderIconX, config.genderIconY,
+                    ICON_DISPLAY_SIZE * clampScale(config.genderIconScale), maxWidth);
+        }
+        if (config.showGenderText) {
+            maxWidth = titleWidthBefore(config, config.genderTextX, config.genderTextY,
+                    9 * clampScale(config.genderTextScale), maxWidth);
+        }
+        // Measure the bold text that is actually drawn, including an ellipsis when shortened.
+        String name = renderer.trimToWidth(value.animalName(), maxWidth);
+        Text title = Text.literal(name).setStyle(Style.EMPTY.withBold(true));
+        if (name.equals(value.animalName()) && renderer.getWidth(title) <= maxWidth) return title;
+        while (!name.isEmpty()) {
+            Text shortened = Text.literal(name + "…").setStyle(Style.EMPTY.withBold(true));
+            if (renderer.getWidth(shortened) <= maxWidth) return shortened;
+            name = name.substring(0, name.offsetByCodePoints(name.length(), -1));
+        }
+        Text ellipsis = Text.literal("…").setStyle(Style.EMPTY.withBold(true));
+        return renderer.getWidth(ellipsis) <= maxWidth ? ellipsis : Text.empty();
+    }
+
+    private static int titleWidthBefore(OttoExtraConfig.AnimalInfoLayout config,
+                                        int x, int y, float height, int currentWidth) {
+        float scale = clampScale(config.titleScale);
+        if (x <= config.titleX || y >= config.titleY + 9 * scale
+                || y + height <= config.titleY) return currentWidth;
+        return Math.min(currentWidth, Math.max(0, (int) Math.floor((x - config.titleX - 2) / scale)));
     }
 
     private static String mastLabel(AnimalInfoSnapshot value) {
