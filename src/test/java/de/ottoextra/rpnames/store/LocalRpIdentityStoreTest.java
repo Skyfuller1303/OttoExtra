@@ -19,6 +19,67 @@ class LocalRpIdentityStoreTest {
     Path temporaryDirectory;
 
     @Test
+    void repairBeforeFirstSaveKeepsNewProfilesWritable() throws Exception {
+        Path file = temporaryDirectory.resolve("known-players.json");
+        var store = new LocalRpIdentityStore(file, temporaryDirectory.resolve("backups"));
+        try {
+            store.load();
+            assertEquals(LocalRpIdentityStore.RepairStatus.NO_DATA, store.repairData().status());
+            store.ensureSeen("FirstPlayer", null, de.ottoextra.rpnames.model.RpNameSource.SEEN_ONLINE);
+        } finally {
+            store.shutdown();
+        }
+        var reloaded = new LocalRpIdentityStore(file, temporaryDirectory.resolve("backups"));
+        try {
+            reloaded.load();
+            assertTrue(reloaded.findByName("FirstPlayer").isPresent());
+        } finally {
+            reloaded.shutdown();
+        }
+    }
+
+    @Test
+    void healthyRepairKeepsChangesWaitingForTheDebouncedSave() throws Exception {
+        Path file = temporaryDirectory.resolve("known-players.json");
+        Files.writeString(file, fileWithPlayer("Saved", "Saved Name"));
+        var store = new LocalRpIdentityStore(file, temporaryDirectory.resolve("backups"));
+        try {
+            store.load();
+            synchronized (store) {
+                store.ensureSeen("Pending", null, de.ottoextra.rpnames.model.RpNameSource.SEEN_ONLINE);
+                assertEquals(LocalRpIdentityStore.RepairStatus.HEALTHY, store.repairData().status());
+                assertTrue(store.findByName("Pending").isPresent());
+            }
+        } finally {
+            store.shutdown();
+        }
+        var reloaded = new LocalRpIdentityStore(file, temporaryDirectory.resolve("backups"));
+        try {
+            reloaded.load();
+            assertEquals(2, reloaded.size());
+            assertTrue(reloaded.findByName("Pending").isPresent());
+        } finally {
+            reloaded.shutdown();
+        }
+    }
+
+    @Test
+    void repeatedRepairAfterCorruptionCannotUnlockSavingWithoutBackup() throws Exception {
+        Path file = temporaryDirectory.resolve("known-players.json");
+        Files.writeString(file, "{broken");
+        var store = new LocalRpIdentityStore(file, temporaryDirectory.resolve("backups"));
+        try {
+            store.load();
+            assertEquals(LocalRpIdentityStore.RepairStatus.NO_VALID_BACKUP, store.repairData().status());
+            store.ensureSeen("Pending", null, de.ottoextra.rpnames.model.RpNameSource.SEEN_ONLINE);
+            assertEquals(LocalRpIdentityStore.RepairStatus.NO_VALID_BACKUP, store.repairData().status());
+        } finally {
+            store.shutdown();
+        }
+        assertFalse(Files.exists(file));
+    }
+
+    @Test
     void apiImportUpdatesStateOnLockedProfileWithoutChangingProtectedIdentityOrColors() {
         LocalRpIdentityStore store = new LocalRpIdentityStore(false);
         LocalRpProfile profile = new LocalRpProfile();

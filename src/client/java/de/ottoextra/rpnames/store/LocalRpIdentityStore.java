@@ -122,9 +122,15 @@ public final class LocalRpIdentityStore {
         if (Files.exists(dataFile)) {
             try {
                 FileModel model = readModel(dataFile);
-                applyModel(model);
+                // A healthy disk file must not replace changes waiting for the debounce.
+                // A previously blocked store, however, must reload the repaired file.
+                if (!dirty || persistenceBlocked) {
+                    dirty = applyModel(model);
+                }
                 persistenceBlocked = false;
-                dirty = false;
+                if (dirty) {
+                    saveSoon();
+                }
                 RepairResult previousResult = lastRepairResult;
                 if (previousResult.status() == RepairStatus.RESTORED) {
                     return previousResult;
@@ -136,6 +142,11 @@ public final class LocalRpIdentityStore {
                 lastRepairResult = recoverCorruptFile(e);
                 return lastRepairResult;
             }
+        }
+        if (!persistenceBlocked && lastRepairResult.status() == RepairStatus.NO_DATA
+                && recoveryCandidates().isEmpty()) {
+            lastRepairResult = new RepairResult(RepairStatus.NO_DATA, null, null, size());
+            return lastRepairResult;
         }
         lastRepairResult = restoreRecoveryCandidate(null);
         return lastRepairResult;
