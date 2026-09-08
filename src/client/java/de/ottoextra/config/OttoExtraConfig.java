@@ -67,6 +67,8 @@ public final class OttoExtraConfig {
 
         public boolean enabled = true;
         public boolean hideAutomaticChat = true;
+        public boolean nametagShowGender = false;
+        public boolean nametagGenderColor = false;
         /** Lokaler Opt-in fuer Zuchtakte, Hofsync und Zucht-Autofill. */
         public boolean breederModeEnabled = false;
         public int hoverDelayMs = 100;

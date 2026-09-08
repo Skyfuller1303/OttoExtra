@@ -674,6 +674,14 @@ public final class SettingsRegistry {
                         .tooltip("ottoextra.set.animalinfo.hideChat.tip"),
                 Option.action("ottoextra.config.animalinfo.layout",
                         "animalInfo.layout", openAnimalInfoEdit));
+        card(animalInfoBase, "ottoextra.set.animalinfo.nametag",
+                "ottoextra.set.animalinfo.nametag.desc",
+                Option.bool("ottoextra.config.animalinfo.nametagShowGender", "animalInfo.nametagShowGender",
+                        () -> c.animalInfo.nametagShowGender, v -> c.animalInfo.nametagShowGender = v)
+                        .tooltip("ottoextra.set.animalinfo.nametagShowGender.tip"),
+                Option.bool("ottoextra.config.animalinfo.nametagGenderColor", "animalInfo.nametagGenderColor",
+                        () -> c.animalInfo.nametagGenderColor, v -> c.animalInfo.nametagGenderColor = v)
+                        .tooltip("ottoextra.set.animalinfo.nametagGenderColor.tip"));
         var animalInfoAdvanced = tab(animalInfo, "ottoextra.set.tab.advanced");
         card(animalInfoAdvanced, "ottoextra.set.animalinfo.timing",
                 "ottoextra.set.animalinfo.timing.desc",

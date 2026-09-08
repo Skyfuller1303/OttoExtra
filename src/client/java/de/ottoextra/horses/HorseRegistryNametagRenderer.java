@@ -1,5 +1,6 @@
 package de.ottoextra.horses;
 
+import de.ottoextra.config.OttoExtraConfig;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.command.OrderedRenderCommandQueue;
 import net.minecraft.client.render.entity.state.EntityRenderState;
@@ -9,11 +10,16 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityAttachmentType;
 import net.minecraft.entity.passive.AbstractHorseEntity;
 import net.minecraft.text.Text;
+import net.minecraft.text.MutableText;
+import net.minecraft.text.Style;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.hit.EntityHitResult;
 
 import java.util.Collections;
 import java.util.Map;
+import java.util.Locale;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.WeakHashMap;
 
 /** Hover-only livestock nametag; the addon handles horses while it is loaded. */
@@ -44,9 +50,58 @@ public final class HorseRegistryNametagRenderer {
                         entity.getLerpedYaw(tickProgress));
             }
             if (state.nameLabelPos != null) {
-                LABELS.put(state, Text.literal(name).formatted(Formatting.GOLD));
+                prepareLabel(state, name, knownGender(entity.getUuid()), OttoExtraConfig.active().animalInfo);
             }
         });
+    }
+
+    /** Uses already available data only; rendering never initiates a server query. */
+    static String knownGender(UUID uuid) {
+        String observed = HorseRegistry.observation(uuid).map(value -> value.snapshot().gender()).orElse("");
+        return genderColor(observed) != null ? observed
+                : HorseRegistry.databaseSnapshot(uuid).map(value -> value.gender()).orElse("");
+    }
+
+    static void prepareLabel(EntityRenderState state, String name, String gender,
+                             OttoExtraConfig.AnimalInfo config) {
+        LABELS.remove(state);
+        Text vanilla = state.displayName;
+        if (vanilla != null && vanilla.getString().equalsIgnoreCase(name)) {
+            // Decorate the existing label instead of drawing the same animal name twice.
+            state.displayName = decorate(vanilla, gender, config);
+        } else {
+            LABELS.put(state, decorate(Text.literal(name).formatted(Formatting.GOLD), gender, config));
+        }
+    }
+
+    static Text decorate(Text name, String gender, OttoExtraConfig.AnimalInfo config) {
+        Integer color = genderColor(gender);
+        if (color == null || (!config.nametagShowGender && !config.nametagGenderColor)) return name;
+        var result = config.nametagGenderColor
+                ? tintedCopy(name, color) : name.copy();
+        if (config.nametagShowGender) {
+            result.append(Text.literal(color == 0xFF79B8 ? " ♀" : " ♂").withColor(color));
+        }
+        return result;
+    }
+
+    private static MutableText tintedCopy(Text name, int color) {
+        var result = Text.empty().setStyle(name.getStyle().withColor(color));
+        name.visit((style, content) -> {
+            result.append(Text.literal(content).setStyle(style.withColor(color)));
+            return Optional.empty();
+        }, Style.EMPTY);
+        return result;
+    }
+
+    private static Integer genderColor(String raw) {
+        String gender = raw == null ? "" : raw.trim().toLowerCase(Locale.ROOT);
+        boolean female = gender.contains("♀") || gender.startsWith("weib")
+                || gender.startsWith("fem") || gender.equals("stute");
+        boolean male = gender.contains("♂") || gender.startsWith("männ")
+                || gender.startsWith("maenn") || gender.equals("male")
+                || gender.equals("hengst") || gender.equals("wallach");
+        return female == male ? null : female ? 0xFF79B8 : 0x68B8FF;
     }
 
     public static void submit(EntityRenderState state, MatrixStack matrices,
