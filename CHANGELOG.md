@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.17-c – Alpha – 2026-09-08
+
+- Die Buchansicht unversendeter Briefe bietet neben **Bearbeiten** den Button
+  **Verschicken…** zum erneuten Öffnen der Empfängerauswahl.
+- `/ottoextra letter send` verwendet einen gehaltenen unversendeten Brief auch
+  nach erneutem Login oder nach Ablauf des alten Chat-Hinweises.
+- Das Wiederöffnen erhält Buchseiten und separate Entwürfe; Materialverbrauch
+  oder erneute Schreibbefehle werden dadurch nicht ausgelöst.
+- Buch-, Slot- und Sitzungsprüfung bleiben aktiv; andere angezeigte Bücher und
+  empfangene Briefe bieten den neuen Versandbutton nicht an.
+- [Installation und Testerhinweise](release-notes-0.1.17-c.md).
+
 ## 0.1.17-b – Alpha – 2026-09-08
 
 - Briefschreiben wird nicht mehr wegen weiteren Pergaments rechts vom aktiven
