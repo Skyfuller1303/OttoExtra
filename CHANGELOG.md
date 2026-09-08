@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.17-b – Alpha – 2026-09-08
+
+- Briefschreiben wird nicht mehr wegen weiteren Pergaments rechts vom aktiven
+  Hotbar-Slot, im Hauptinventar oder in der Nebenhand blockiert.
+- Material weiter links wird entsprechend Couriers tatsächlicher Entnahmereihenfolge
+  erkannt. Der Hinweis nennt eine sichere Anordnung, statt einen Stapel im aktiven
+  Slot zu behaupten. Abweichende Modelle allein umgehen diese Prüfung nicht.
+- Konkreter Materialfehler bleibt direkt im Editor sichtbar; der Entwurf bleibt erhalten.
+- Reproduktion vor der Korrektur und zusätzliche echte Inventar-/Versandtests:
+  [Nachweis](docs/briefmod/pergament-slot-fix-0.1.17-b.md).
+- [Installation und Testerhinweise](release-notes-0.1.17-b.md).
+
 ## 0.1.17-a – Alpha – 2026-09-08
 
 - Erste weitergebbare Alpha des aktuellen Entwicklungsstands mit Courier-V2,

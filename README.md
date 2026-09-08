@@ -18,7 +18,7 @@ Die Mod ist als clientseitige Community-Erweiterung für Ottonien gedacht und er
 | Fabric Loader | `>= 0.18.1` |
 | Fabric API | erforderlich |
 | Seite | clientseitig |
-| Version | `0.1.17-a` – Alpha für gemeinsame Tests |
+| Version | `0.1.17-b` – Alpha mit korrigierter Schreibmaterial-Prüfung |
 | Server-Gate | Funktionen werden nur auf Ottonien aktiv |
 | Server-Interaktion | normale Spielinteraktionen, Chat-Befehle und öffentliche APIs |
 
@@ -44,9 +44,9 @@ Die Mod ist als clientseitige Community-Erweiterung für Ottonien gedacht und er
 
 ## Installation
 
-Die aktuelle Testversion ist **0.1.17-a**. Hinweise zu Änderungen, bekannten
+Die aktuelle Testversion ist **0.1.17-b**. Hinweise zu Änderungen, bekannten
 Beobachtungen und sinnvollen Tests stehen in den
-[Alpha-Release-Notizen](release-notes-0.1.17-a.md).
+[Alpha-Release-Notizen](release-notes-0.1.17-b.md).
 
 1. Fabric Loader für Minecraft `1.21.11` installieren.
 2. Fabric API in den `mods`-Ordner legen.
