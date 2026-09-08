@@ -218,6 +218,32 @@ public final class OttoExtraConfigScreen extends Screen {
                             config.regions.overlayPosition = order[(idx + 1) % order.length];
                             return config.regions.overlayPosition;
                         });
+                y = toggle(x, y, w, "ottoextra.config.regions.activityHudEnabled",
+                        () -> config.regions.activityHudEnabled,
+                        v -> config.regions.activityHudEnabled = v);
+                y = toggle(x, y, w, "ottoextra.config.regions.activityHudShowClock",
+                        () -> config.regions.activityHudShowClock,
+                        v -> config.regions.activityHudShowClock = v);
+                y = toggle(x, y, w, "ottoextra.config.regions.activityHudShowLastUpdated",
+                        () -> config.regions.activityHudShowLastUpdated,
+                        v -> config.regions.activityHudShowLastUpdated = v);
+                y = cycle(x, y, w, "ottoextra.config.regions.activityHudPosition",
+                        () -> config.regions.activityHudPosition, () -> {
+                            String[] order = {"MIDDLE_LEFT", "TOP_LEFT", "BOTTOM_LEFT",
+                                    "MIDDLE_RIGHT", "TOP_RIGHT", "BOTTOM_RIGHT", "CUSTOM"};
+                            int idx = 0;
+                            for (int i = 0; i < order.length; i++) {
+                                if (order[i].equalsIgnoreCase(config.regions.activityHudPosition)) {
+                                    idx = i;
+                                    break;
+                                }
+                            }
+                            config.regions.activityHudPosition = order[(idx + 1) % order.length];
+                            return config.regions.activityHudPosition;
+                        });
+                y = action(x, y, w, "ottoextra.config.regions.activityHudEdit", () ->
+                        net.minecraft.client.MinecraftClient.getInstance().setScreen(
+                                new de.ottoextra.regions.ActivityHudEditScreen(this, config)));
                 y = action(x, y, w, "ottoextra.config.preview", OttoExtraConfigScreen::triggerPreview);
                 advanced(x, y, w, OttoExtraAdvancedScreen.regions(this, config));
             }
@@ -275,7 +301,7 @@ public final class OttoExtraConfigScreen extends Screen {
                         () -> config.map.minimapBannerShowState, v -> config.map.minimapBannerShowState = v);
                 y = action(x, y, w, "ottoextra.config.map.bannerEdit", () ->
                         net.minecraft.client.MinecraftClient.getInstance()
-                                .setScreen(new de.ottoextra.map.MinimapBannerEditScreen(this, config)));
+                                .setScreen(de.ottoextra.map.MinimapBannerScreenFactory.create(this, config)));
                 advanced(x, y, w, OttoExtraAdvancedScreen.map(this, config));
             }
             case RPNAMES -> {

@@ -17,6 +17,7 @@ import org.lwjgl.glfw.GLFW;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 public final class OttoExtraSettingsScreen extends Screen {
@@ -29,11 +30,15 @@ public final class OttoExtraSettingsScreen extends Screen {
     private static final int COL_DESC = 0xFFA0A0A0;
     private static final int COL_STATUS = 0xFF55FF55;
     private static final int COL_WARN = 0xFFFF5555;
+    private static final int COL_SECTION_BG = 0x38000000;
+    private static final int COL_SECTION_BORDER = 0x665E5E5E;
+    private static final int COL_SECTION_ACCENT = 0xCCDDCC66;
+    private static final int SECTION_GAP = 8;
 
     private final Screen parent;
     private final OttoExtraConfig config;
     private final SettingsRegistry registry;
-    private final String snapshot;
+    private String snapshot;
 
     private final Map<String, String> defaults = new HashMap<>();
 
@@ -57,6 +62,9 @@ public final class OttoExtraSettingsScreen extends Screen {
         Text label;
         Text tooltip;
         boolean header;
+        boolean section;
+        boolean sectionFirst;
+        boolean sectionLast;
         List<OrderedText> descLines = List.of();
         final List<ClickableWidget> widgets = new ArrayList<>();
     }
@@ -74,14 +82,17 @@ public final class OttoExtraSettingsScreen extends Screen {
         this.registry = SettingsRegistry.build(config,
                 () -> open(new de.ottoextra.rpnames.ui.RpNamesPeopleBookScreen(this)),
                 () -> open(new de.ottoextra.config.MapGroupColorsScreen(this, config)),
-                () -> open(new de.ottoextra.map.MinimapBannerEditScreen(this, config)),
+                this::openMinimapBannerEditor,
                 () -> open(new de.ottoextra.letter.ui.LetterEditorScreen(this, config)),
                 () -> open(new de.ottoextra.config.RegionThemeScreen(this, config)),
+                () -> open(new de.ottoextra.regions.ActivityHudEditScreen(this, config)),
                 () -> open(new de.ottoextra.config.FollowingScreen(this, config)),
-                () -> open(new de.ottoextra.config.ChatChannelColorsScreen(this, config)));
+                () -> open(new de.ottoextra.config.ChatChannelColorsScreen(this, config)),
+                () -> open(new de.ottoextra.animalinfo.AnimalInfoEditScreen(this, config)));
         de.ottoextra.addon.OttoExtraAddons.registerSettings(this.registry);
         SettingsRegistry defaultRegistry = SettingsRegistry.build(new OttoExtraConfig(),
-                () -> { }, () -> { }, () -> { }, () -> { }, () -> { }, () -> { }, () -> { });
+                () -> { }, () -> { }, () -> { }, () -> { }, () -> { }, () -> { },
+                () -> { }, () -> { }, () -> { });
         de.ottoextra.addon.OttoExtraAddons.registerDefaultSettings(defaultRegistry);
         for (SettingsRegistry.ModulePage m : defaultRegistry.modules()) {
             for (SettingsRegistry.Tab t : m.tabs()) {
@@ -169,7 +180,11 @@ public final class OttoExtraSettingsScreen extends Screen {
         int fy = height - 26;
         addDrawableChild(ButtonWidget.builder(
                 Text.translatable("ottoextra.settings.discard"), b -> {
+                    boolean oldNobilityColor = config.rpnames.nobilityColorForAllTitles;
                     config.restoreFrom(snapshot);
+                    if (oldNobilityColor != config.rpnames.nobilityColorForAllTitles) {
+                        de.ottoextra.rpnames.chat.ChatHistoryRefresh.request();
+                    }
                     if (client != null) {
                         client.setScreen(parent);
                     }
@@ -253,6 +268,8 @@ public final class OttoExtraSettingsScreen extends Screen {
                 y += ROW_H;
             }
             for (SettingsRegistry.Card card : module.tabs().get(selectedTab).cards()) {
+                y += SECTION_GAP;
+                int sectionStart = rows.size();
                 Row header = new Row();
                 header.baseY = y;
                 header.header = true;
@@ -266,7 +283,13 @@ public final class OttoExtraSettingsScreen extends Screen {
                 for (SettingsRegistry.Option option : card.options()) {
                     y = addOptionRow(y, option, Text.translatable(option.labelKey));
                 }
+                for (int i = sectionStart; i < rows.size(); i++) {
+                    rows.get(i).section = true;
+                }
+                rows.get(sectionStart).sectionFirst = true;
+                rows.get(rows.size() - 1).sectionLast = true;
             }
+            y += SECTION_GAP;
         }
         contentHeight = y;
         scroll = Math.max(0, Math.min(scroll,
@@ -321,7 +344,7 @@ public final class OttoExtraSettingsScreen extends Screen {
                 return b;
             }
             case CYCLE -> {
-                return ButtonWidget.builder(Text.literal(o.get.get()), btn -> {
+                return ButtonWidget.builder(cycleLabel(o), btn -> {
                     String value = o.get.get();
                     String[] vals = o.cycleValues;
                     int idx = 0;
@@ -332,7 +355,7 @@ public final class OttoExtraSettingsScreen extends Screen {
                         }
                     }
                     o.set.accept(vals[(idx + 1) % vals.length]);
-                    btn.setMessage(Text.literal(o.get.get()));
+                    btn.setMessage(cycleLabel(o));
                 }).dimensions(x, 0, w, 18).build();
             }
             case ACTION -> {
@@ -405,6 +428,24 @@ public final class OttoExtraSettingsScreen extends Screen {
                 : Text.translatable("ottoextra.settings.off").formatted(Formatting.RED);
     }
 
+    private void openMinimapBannerEditor() {
+        if (!de.ottoextra.map.MinimapBannerScreenFactory.isAvailable()) {
+            statusMessage = Text.translatable("ottoextra.map.bannerEdit.requiresMinimap").getString();
+            statusWarn = true;
+            return;
+        }
+        open(de.ottoextra.map.MinimapBannerScreenFactory.create(this, config));
+    }
+
+    private static Text cycleLabel(SettingsRegistry.Option option) {
+        String value = option.get.get();
+        if ("regions.activityHudPosition".equals(option.configKey)) {
+            return Text.translatable("ottoextra.activityHud.position."
+                    + value.toLowerCase(Locale.ROOT));
+        }
+        return Text.literal(value);
+    }
+
     private int buildBackupsPage(int y) {
         Row head = new Row();
         head.baseY = y;
@@ -416,6 +457,48 @@ public final class OttoExtraSettingsScreen extends Screen {
         head.height = 14 + head.descLines.size() * 10 + 4;
         rows.add(head);
         y += head.height;
+
+        Row repairHead = new Row();
+        repairHead.baseY = y;
+        repairHead.header = true;
+        repairHead.label = Text.translatable("ottoextra.settings.backups.rpRepair.head");
+        repairHead.descLines = textRenderer.wrapLines(
+                Text.translatable("ottoextra.settings.backups.rpRepair.desc")
+                        .copy().formatted(Formatting.GRAY), contentW());
+        repairHead.height = 14 + repairHead.descLines.size() * 10 + 4;
+        rows.add(repairHead);
+        y += repairHead.height;
+
+        Row repairRow = new Row();
+        repairRow.baseY = y;
+        ButtonWidget repair = ButtonWidget.builder(
+                Text.translatable("ottoextra.settings.backups.rpRepair.run"), b -> {
+                    var store = de.ottoextra.rpnames.RpNamesServices.store();
+                    if (store == null) {
+                        status("ottoextra.settings.backups.rpRepair.failed", true);
+                    } else {
+                        var result = store.repairData();
+                        switch (result.status()) {
+                            case HEALTHY -> status(
+                                    "ottoextra.settings.backups.rpRepair.healthy", false);
+                            case RESTORED -> {
+                                status("ottoextra.settings.backups.rpRepair.restored", false);
+                                de.ottoextra.rpnames.chat.ChatHistoryRefresh.request();
+                            }
+                            case NO_DATA -> status(
+                                    "ottoextra.settings.backups.rpRepair.noData", true);
+                            case NO_VALID_BACKUP -> status(
+                                    "ottoextra.settings.backups.rpRepair.noBackup", true);
+                            case FAILED -> status(
+                                    "ottoextra.settings.backups.rpRepair.failed", true);
+                        }
+                    }
+                    rebuildContent();
+                }).dimensions(contentX(), 0, 210, 18).build();
+        repairRow.widgets.add(repair);
+        addDrawableChild(repair);
+        rows.add(repairRow);
+        y += ROW_H + 4;
 
         Row createRow = new Row();
         createRow.baseY = y;
@@ -448,7 +531,12 @@ public final class OttoExtraSettingsScreen extends Screen {
             int bw = Math.max(120, textRenderer.getWidth(btnLabel) + 12);
             ButtonWidget restore = ButtonWidget.builder(btnLabel, b -> {
                 if (confirming) {
+                    String beforeRestore = config.snapshotJson();
                     boolean ok = OttoExtraBackupService.restoreBackup(entry.dir());
+                    if (ok || !beforeRestore.equals(config.snapshotJson())) {
+                        snapshot = config.snapshotJson();
+                        de.ottoextra.rpnames.chat.ChatHistoryRefresh.request();
+                    }
                     status(ok ? "ottoextra.settings.backups.restored"
                             : "ottoextra.settings.backups.failed", !ok);
                     pendingRestore = null;
@@ -506,11 +594,20 @@ public final class OttoExtraSettingsScreen extends Screen {
 
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
+        int top = contentTop();
+        int bottom = contentBottom();
+        ctx.enableScissor(0, top, width, bottom);
+        for (Row row : rows) {
+            int ry = top + row.baseY - scroll;
+            if (row.section && ry + row.height >= top && ry <= bottom) {
+                drawSectionBackground(ctx, row, ry);
+            }
+        }
+        ctx.disableScissor();
+
         super.render(ctx, mouseX, mouseY, delta);
         ctx.drawCenteredTextWithShadow(textRenderer, getTitle(), width / 2, 8, 0xFFFFFFFF);
 
-        int top = contentTop();
-        int bottom = contentBottom();
         ctx.enableScissor(0, top, width, bottom);
         for (Row row : rows) {
             int ry = top + row.baseY - scroll;
@@ -584,6 +681,22 @@ public final class OttoExtraSettingsScreen extends Screen {
         }
 
         de.ottoextra.regions.RegionNotificationOverlay.render(ctx, null);
+    }
+
+    private void drawSectionBackground(DrawContext ctx, Row row, int rowY) {
+        int left = contentX() - 6;
+        int right = contentX() + contentW() + 2;
+        int rowTop = rowY - (row.sectionFirst ? 2 : 0);
+        int rowBottom = rowY + row.height + (row.sectionLast ? 2 : 0);
+        ctx.fill(left, rowTop, right, rowBottom, COL_SECTION_BG);
+        ctx.fill(left, rowTop, left + 2, rowBottom, COL_SECTION_ACCENT);
+        ctx.fill(right - 1, rowTop, right, rowBottom, COL_SECTION_BORDER);
+        if (row.sectionFirst) {
+            ctx.fill(left, rowTop, right, rowTop + 1, COL_SECTION_BORDER);
+        }
+        if (row.sectionLast) {
+            ctx.fill(left, rowBottom - 1, right, rowBottom, COL_SECTION_BORDER);
+        }
     }
 
     private void selectModuleTab(int idx) {

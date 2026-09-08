@@ -45,6 +45,18 @@ public final class OttoExtraAdvancedScreen extends Screen {
         f.add(intField("ottoextra.adv.paddingRight", () -> c.regions.paddingRight, v -> c.regions.paddingRight = v, 0, 40));
         f.add(intField("ottoextra.adv.paddingTop", () -> c.regions.paddingTop, v -> c.regions.paddingTop = v, 0, 40));
         f.add(intField("ottoextra.adv.paddingBottom", () -> c.regions.paddingBottom, v -> c.regions.paddingBottom = v, 0, 40));
+        f.add(intField("ottoextra.config.regions.activityHudOffsetX",
+                () -> c.regions.activityHudOffsetX,
+                v -> c.regions.activityHudOffsetX = v, -1000, 1000));
+        f.add(intField("ottoextra.config.regions.activityHudOffsetY",
+                () -> c.regions.activityHudOffsetY,
+                v -> c.regions.activityHudOffsetY = v, -1000, 1000));
+        f.add(intField("ottoextra.config.regions.activityHudMaxEntries",
+                () -> c.regions.activityHudMaxEntries,
+                v -> c.regions.activityHudMaxEntries = v, 1, 20));
+        f.add(floatField("ottoextra.config.regions.activityHudScale",
+                () -> c.regions.activityHudScale,
+                v -> c.regions.activityHudScale = v));
         f.add(floatField("ottoextra.adv.titleScale", () -> c.regions.titleScale, v -> c.regions.titleScale = v));
         f.add(floatField("ottoextra.adv.regionScale", () -> c.regions.regionScale, v -> c.regions.regionScale = v));
         f.add(floatField("ottoextra.adv.hierarchyScale", () -> c.regions.hierarchyScale, v -> c.regions.hierarchyScale = v));

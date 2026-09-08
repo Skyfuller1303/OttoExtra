@@ -203,8 +203,31 @@ public final class SettingsRegistry {
     public static SettingsRegistry build(OttoExtraConfig c, Runnable openPeopleBook,
                                          Runnable openGroupColors, Runnable openBannerEdit,
                                          Runnable openLetterEditor, Runnable openRegionThemes,
-                                         Runnable openFollowing, Runnable openChatColors) {
+                                         Runnable openActivityHudEdit,
+                                         Runnable openFollowing, Runnable openChatColors,
+                                         Runnable openAnimalInfoEdit) {
         SettingsRegistry r = new SettingsRegistry();
+
+        var privacy = r.module("privacy", "ottoextra.module.privacy",
+                "ottoextra.set.privacy.desc");
+        var privacyBase = tab(privacy, "ottoextra.set.tab.base");
+        card(privacyBase, "ottoextra.set.privacy.card", "ottoextra.set.privacy.card.desc",
+                Option.bool("ottoextra.consent.setting.resourcepacks",
+                        "consent.automaticResourcePackDownloads",
+                        () -> c.consent.automaticResourcePackDownloads,
+                        v -> c.consent.automaticResourcePackDownloads = v),
+                Option.bool("ottoextra.consent.setting.images",
+                        "consent.externalImageDownloads",
+                        () -> c.consent.externalImageDownloads,
+                        v -> c.consent.externalImageDownloads = v),
+                Option.bool("ottoextra.consent.setting.updates",
+                        "consent.updateChecks",
+                        () -> c.consent.updateChecks,
+                        v -> c.consent.updateChecks = v),
+                Option.bool("ottoextra.consent.setting.rpUpload",
+                        "consent.communityRpNameUploads",
+                        () -> c.consent.communityRpNameUploads,
+                        c.consent::setCommunityRpNameUploads));
 
         var rp = r.module("resourcepack", "ottoextra.module.resourcepack", "ottoextra.set.rp.desc");
         var rpBase = tab(rp, "ottoextra.set.tab.base");
@@ -508,7 +531,13 @@ public final class SettingsRegistry {
                         .tooltip("ottoextra.set.rpn.playerNameColor.tip"),
                 Option.color("ottoextra.config.rpnames.rpNameColor", "rpnames.globalRpNameColor",
                         () -> c.rpnames.globalRpNameColor, v -> c.rpnames.globalRpNameColor = v)
-                        .tooltip("ottoextra.set.rpn.rpNameColor.tip"));
+                        .tooltip("ottoextra.set.rpn.rpNameColor.tip"),
+                Option.bool("ottoextra.config.rpnames.nobilityColorForAllTitles", "rpnames.nobilityColorForAllTitles",
+                        () -> c.rpnames.nobilityColorForAllTitles, v -> {
+                            c.rpnames.nobilityColorForAllTitles = v;
+                            de.ottoextra.rpnames.chat.ChatHistoryRefresh.request();
+                        })
+                        .tooltip("ottoextra.set.rpn.nobilityColorForAllTitles.tip"));
         card(rpnBase, "ottoextra.set.rpn.click", "ottoextra.set.rpn.click.desc",
                 Option.bool("ottoextra.config.rpnames.openBookOnClick", "rpnames.openBookOnClick",
                         () -> c.rpnames.openBookOnClick, v -> c.rpnames.openBookOnClick = v)
@@ -579,7 +608,8 @@ public final class SettingsRegistry {
                 Option.bool("ottoextra.config.module.letter", "letter.enabled",
                         () -> c.letter.enabled, v -> c.letter.enabled = v),
                 Option.cycle("ottoextra.config.letter.sendMode", "letter.sendMode",
-                        () -> c.letter.sendMode, v -> c.letter.sendMode = v, "LEGACY", "PAGE")
+                        () -> c.letter.sendMode, v -> c.letter.sendMode = v,
+                        "LEGACY", "PAGE", "V2")
                         .tooltip("ottoextra.set.letter.sendMode.tip"),
                 Option.string("ottoextra.set.letter.triggerItem", "letter.triggerItemName",
                         () -> c.letter.triggerItemName, v -> c.letter.triggerItemName = v)
@@ -631,8 +661,76 @@ public final class SettingsRegistry {
                         v -> c.letter.pageModeSendDelayMs = v, 200, 5000)
                         .tooltip("ottoextra.set.letter.pageModeDelay.tip"));
 
+        var animalInfo = r.module("animalinfo", "ottoextra.module.animalinfo",
+                "ottoextra.set.animalinfo.desc");
+        var animalInfoBase = tab(animalInfo, "ottoextra.set.tab.base");
+        card(animalInfoBase, "ottoextra.set.animalinfo.toast",
+                "ottoextra.set.animalinfo.toast.desc",
+                Option.bool("ottoextra.config.animalinfo.enabled", "animalInfo.enabled",
+                        () -> c.animalInfo.enabled, v -> c.animalInfo.enabled = v),
+                Option.bool("ottoextra.config.animalinfo.hideChat", "animalInfo.hideAutomaticChat",
+                        () -> c.animalInfo.hideAutomaticChat,
+                        v -> c.animalInfo.hideAutomaticChat = v)
+                        .tooltip("ottoextra.set.animalinfo.hideChat.tip"),
+                Option.action("ottoextra.config.animalinfo.layout",
+                        "animalInfo.layout", openAnimalInfoEdit));
+        var animalInfoAdvanced = tab(animalInfo, "ottoextra.set.tab.advanced");
+        card(animalInfoAdvanced, "ottoextra.set.animalinfo.timing",
+                "ottoextra.set.animalinfo.timing.desc",
+                Option.intVal("ottoextra.config.animalinfo.hoverDelay",
+                        "animalInfo.hoverDelayMs",
+                        () -> c.animalInfo.hoverDelayMs, v -> c.animalInfo.hoverDelayMs = v,
+                        100, 2000),
+                Option.intVal("ottoextra.config.animalinfo.cacheDuration",
+                        "animalInfo.cacheDurationMs",
+                        () -> c.animalInfo.cacheDurationMs,
+                        v -> c.animalInfo.cacheDurationMs = v, 1000, 60000),
+                Option.intVal("ottoextra.config.animalinfo.responseTimeout",
+                        "animalInfo.responseTimeoutMs",
+                        () -> c.animalInfo.responseTimeoutMs,
+                        v -> c.animalInfo.responseTimeoutMs = v, 1000, 10000));
+
         var tweaks = r.module("tweaks", "ottoextra.module.tweaks", "ottoextra.set.tweaks.desc");
         var tweaksBase = tab(tweaks, "ottoextra.set.tab.base");
+        card(tweaksBase, "ottoextra.set.tweaks.chatLog", "ottoextra.set.tweaks.chatLog.desc",
+                Option.bool("ottoextra.config.tweaks.chatLog", "tweaks.chatLog",
+                        () -> c.tweaks.chatLog, v -> c.tweaks.chatLog = v)
+                        .tooltip("ottoextra.set.tweaks.chatLog.tip"));
+        card(tweaksBase, "ottoextra.set.tweaks.combatMode", "ottoextra.set.tweaks.combatMode.desc",
+                Option.bool("ottoextra.config.tweaks.combatModeHud", "tweaks.combatModeHud",
+                        () -> c.tweaks.combatModeHud, v -> c.tweaks.combatModeHud = v)
+                        .tooltip("ottoextra.set.tweaks.combatMode.tip"));
+        card(tweaksBase, "ottoextra.set.regions.activityHud",
+                "ottoextra.set.regions.activityHud.desc",
+                Option.bool("ottoextra.config.regions.activityHudEnabled",
+                        "regions.activityHudEnabled",
+                        () -> c.regions.activityHudEnabled,
+                        v -> c.regions.activityHudEnabled = v)
+                        .tooltip("ottoextra.set.regions.activityHudEnabled.tip"),
+                Option.bool("ottoextra.config.regions.activityHudShowClock",
+                        "regions.activityHudShowClock",
+                        () -> c.regions.activityHudShowClock,
+                        v -> c.regions.activityHudShowClock = v),
+                Option.bool("ottoextra.config.regions.activityHudShowLastUpdated",
+                        "regions.activityHudShowLastUpdated",
+                        () -> c.regions.activityHudShowLastUpdated,
+                        v -> c.regions.activityHudShowLastUpdated = v),
+                Option.cycle("ottoextra.config.regions.activityHudPosition",
+                        "regions.activityHudPosition",
+                        () -> c.regions.activityHudPosition,
+                        v -> c.regions.activityHudPosition = v,
+                        "MIDDLE_LEFT", "TOP_LEFT", "BOTTOM_LEFT",
+                        "MIDDLE_RIGHT", "TOP_RIGHT", "BOTTOM_RIGHT", "CUSTOM"),
+                Option.intVal("ottoextra.config.regions.activityHudMaxEntries",
+                        "regions.activityHudMaxEntries",
+                        () -> c.regions.activityHudMaxEntries,
+                        v -> c.regions.activityHudMaxEntries = v, 1, 20),
+                Option.floatVal("ottoextra.config.regions.activityHudScale",
+                        "regions.activityHudScale",
+                        () -> c.regions.activityHudScale,
+                        v -> c.regions.activityHudScale = v, 0.5, 2.0),
+                Option.action("ottoextra.config.regions.activityHudEdit",
+                        "regions.activityHudEdit", openActivityHudEdit));
         card(tweaksBase, "ottoextra.set.tweaks.toolprotect", "ottoextra.set.tweaks.toolprotect.desc",
                 Option.bool("ottoextra.config.tweaks.toolprotect", "tweaks.toolProtect.enabled",
                         () -> c.tweaks.toolProtect.enabled, v -> c.tweaks.toolProtect.enabled = v),
@@ -644,6 +742,35 @@ public final class SettingsRegistry {
                         () -> c.tweaks.toolProtect.warnBelowPercent,
                         v -> c.tweaks.toolProtect.warnBelowPercent = v, 1, 50)
                         .tooltip("ottoextra.set.tweaks.toolprotect.warnPercent.tip"));
+        card(tweaksBase, "ottoextra.set.tweaks.vote", "ottoextra.set.tweaks.vote.desc",
+                Option.bool("ottoextra.config.tweaks.vote.enabled", "tweaks.vote.enabled",
+                        () -> c.tweaks.vote.enabled, v -> c.tweaks.vote.enabled = v),
+                Option.intVal("ottoextra.config.tweaks.vote.resetHour", "tweaks.vote.resetHour",
+                        () -> c.tweaks.vote.resetHour, v -> c.tweaks.vote.resetHour = v,
+                        0, 23),
+                Option.intVal("ottoextra.config.tweaks.vote.joinDelay", "tweaks.vote.joinDelaySeconds",
+                        () -> c.tweaks.vote.joinDelaySeconds,
+                        v -> c.tweaks.vote.joinDelaySeconds = v, 0, 60),
+                Option.intVal("ottoextra.config.tweaks.vote.toastDuration",
+                        "tweaks.vote.toastDurationSeconds",
+                        () -> c.tweaks.vote.toastDurationSeconds,
+                        v -> c.tweaks.vote.toastDurationSeconds = v, 2, 60),
+                Option.intVal("ottoextra.config.tweaks.vote.reminderInterval",
+                        "tweaks.vote.reminderIntervalMinutes",
+                        () -> c.tweaks.vote.reminderIntervalMinutes,
+                        v -> c.tweaks.vote.reminderIntervalMinutes = v, 1, 1440));
+        card(tweaksBase, "ottoextra.set.tweaks.litematica",
+                "ottoextra.set.tweaks.litematica.desc",
+                Option.bool("ottoextra.config.tweaks.litematica.localizedBlockNames",
+                        "tweaks.litematica.localizedBlockNames",
+                        () -> c.tweaks.litematica.localizedBlockNames,
+                        v -> c.tweaks.litematica.localizedBlockNames = v)
+                        .tooltip("ottoextra.set.tweaks.litematica.localizedBlockNames.tip"),
+                Option.bool("ottoextra.config.tweaks.litematica.fachwerkAutoTune",
+                        "tweaks.litematica.fachwerkAutoTune",
+                        () -> c.tweaks.litematica.fachwerkAutoTune,
+                        v -> c.tweaks.litematica.fachwerkAutoTune = v)
+                        .tooltip("ottoextra.set.tweaks.litematica.fachwerkAutoTune.tip"));
         card(tweaksBase, "ottoextra.set.tweaks.lowhealth", "ottoextra.set.tweaks.lowhealth.desc",
                 Option.bool("ottoextra.config.tweaks.lowhealth", "tweaks.lowHealth.enabled",
                         () -> c.tweaks.lowHealth.enabled, v -> c.tweaks.lowHealth.enabled = v),
@@ -674,6 +801,17 @@ public final class SettingsRegistry {
                 Option.bool("ottoextra.config.tweaks.lowhealth.calm", "tweaks.lowHealth.calmAfterNoDamage",
                         () -> c.tweaks.lowHealth.calmAfterNoDamage, v -> c.tweaks.lowHealth.calmAfterNoDamage = v)
                         .tooltip("ottoextra.set.tweaks.lowhealth.calm.tip"));
+        var tweaksAdvanced = tab(tweaks, "ottoextra.set.tab.advanced");
+        card(tweaksAdvanced, "ottoextra.set.regions.activityHudPosition",
+                "ottoextra.set.regions.activityHudPosition.desc",
+                Option.intVal("ottoextra.config.regions.activityHudOffsetX",
+                        "regions.activityHudOffsetX",
+                        () -> c.regions.activityHudOffsetX,
+                        v -> c.regions.activityHudOffsetX = v, -1000, 1000),
+                Option.intVal("ottoextra.config.regions.activityHudOffsetY",
+                        "regions.activityHudOffsetY",
+                        () -> c.regions.activityHudOffsetY,
+                        v -> c.regions.activityHudOffsetY = v, -1000, 1000));
 
         return r;
     }

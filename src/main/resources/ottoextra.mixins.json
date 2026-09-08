@@ -13,14 +13,20 @@
     "PlayerListHudMixin",
     "compat.bettertab.BetterTabToolsMixin",
     "PlayerEntityRendererMixin",
+    "EntityGlowMixin",
     "EntityRendererMixin",
     "ChatScreenMixin",
     "ChatPlayerClickMixin",
     "ChatCommandSyncMixin",
     "PlayerCustomizationAccessor",
     "GuiMapMixin",
+    "WorldMapOverlayMixin",
+    "compat.xaeroplus.XaeroPlusDrawManagerMixin",
+    "compat.litematica.LitematicaOverlayRendererMixin",
+    "compat.litematica.LitematicaInventoryUtilsMixin",
     "ChatMessageSplitMixin",
-    "GameRendererBlurMixin"
+    "GameRendererBlurMixin",
+    "HorseEntityVariantInvoker"
   ],
   "injectors": {
     "defaultRequire": 1

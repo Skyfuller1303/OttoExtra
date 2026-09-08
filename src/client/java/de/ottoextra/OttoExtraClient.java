@@ -2,17 +2,21 @@ package de.ottoextra;
 
 import de.ottoextra.api.HttpOttoExtraApiClient;
 import de.ottoextra.api.OttoExtraApiClient;
+import de.ottoextra.animalinfo.AnimalInfoModule;
 import de.ottoextra.chat.ChatModule;
 import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.letter.LetterModule;
+import de.ottoextra.horses.HorseRegistryModule;
 import de.ottoextra.logging.DebugLog;
 import de.ottoextra.map.MapModule;
 import de.ottoextra.nametags.NametagModule;
 import de.ottoextra.playerlist.PlayerListSortingModule;
 import de.ottoextra.regions.RegionsModule;
+import de.ottoextra.regions.RegionsServices;
 import de.ottoextra.resourcepack.ResourcePackModule;
 import de.ottoextra.rpnames.RpNamesModule;
 import de.ottoextra.update.UpdateChecker;
+import de.ottoextra.verify.AccountLinkModule;
 import de.ottoextra.welcome.WelcomeScreenManager;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
@@ -40,6 +44,8 @@ public final class OttoExtraClient implements ClientModInitializer {
         OttoExtraApiClient api = new HttpOttoExtraApiClient(config);
         sharedApi = api;
         this.context = new OttoExtraContext(config, api);
+        runRegionsService(() -> RegionsServices.init(
+                api, config.regions.activityHudRefreshSeconds), "init");
 
         List<OttoExtraModule> modules = List.of(
                 new ResourcePackModule(),
@@ -50,7 +56,10 @@ public final class OttoExtraClient implements ClientModInitializer {
                 new NametagModule(),
                 new LetterModule(),
                 new ChatModule(),
-                new de.ottoextra.tweaks.TweaksModule()
+                new AnimalInfoModule(),
+                new HorseRegistryModule(),
+                new de.ottoextra.tweaks.TweaksModule(),
+                new AccountLinkModule()
         );
         context.setModules(modules);
 
@@ -65,7 +74,7 @@ public final class OttoExtraClient implements ClientModInitializer {
 
         registerLifecycle(api);
         registerMenuButton();
-        WelcomeScreenManager.initialize();
+        WelcomeScreenManager.initialize(config);
         UpdateChecker.initialize();
 
         OttoExtra.LOGGER.info("{} bereit — {} Modul(e) aktiv.",
@@ -92,12 +101,14 @@ public final class OttoExtraClient implements ClientModInitializer {
                 return;
             }
             DebugLog.debug("Ottonien-Server beigetreten — aktiviere Module.");
+            runRegionsService(RegionsServices::onServerJoin, "join");
             for (OttoExtraModule module : context.activeModules()) {
                 runSafe(module, () -> module.onServerJoin(context), "join");
             }
         });
 
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+            runRegionsService(RegionsServices::onDisconnect, "disconnect");
             for (OttoExtraModule module : context.activeModules()) {
                 runSafe(module, () -> module.onDisconnect(context), "disconnect");
             }
@@ -105,6 +116,7 @@ public final class OttoExtraClient implements ClientModInitializer {
         });
 
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
+            runRegionsService(RegionsServices::shutdown, "stop");
             for (OttoExtraModule module : context.activeModules()) {
                 runSafe(module, () -> module.onClientStop(context), "stop");
             }
@@ -119,6 +131,14 @@ public final class OttoExtraClient implements ClientModInitializer {
         } catch (Throwable t) {
             OttoExtra.LOGGER.error("Modul '{}' Phase '{}' fehlgeschlagen — wird uebersprungen.",
                     module.id(), phase, t);
+        }
+    }
+
+    private static void runRegionsService(Runnable action, String phase) {
+        try {
+            action.run();
+        } catch (Throwable t) {
+            OttoExtra.LOGGER.error("Regions-Datendienst Phase '{}' fehlgeschlagen.", phase, t);
         }
     }
 }
