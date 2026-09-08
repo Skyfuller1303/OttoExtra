@@ -8,6 +8,29 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ConfigSnapshotRestoreTest {
+    @org.junit.jupiter.api.io.TempDir
+    java.nio.file.Path directory;
+
+    @Test
+    void restoreChatLoggingInBothDirectionsAndKeepItWhenSavedAgain() throws Exception {
+        for (boolean enabled : new boolean[]{false, true}) {
+            OttoExtraConfig config = new OttoExtraConfig();
+            config.repair();
+            var tweaks = config.tweaks;
+            config.tweaks.chatLog = enabled;
+            String snapshot = config.snapshotJson();
+            config.tweaks.chatLog = !enabled;
+
+            config.restoreFrom(snapshot);
+
+            assertSame(tweaks, config.tweaks);
+            assertEquals(enabled, config.tweaks.chatLog);
+            assertEquals(snapshot, config.snapshotJson());
+            java.nio.file.Path file = directory.resolve("config-" + enabled + ".json");
+            config.save(file);
+            assertEquals(enabled, OttoExtraConfig.load(file).tweaks.chatLog);
+        }
+    }
 
     @Test
     void restoreFromCopiesAllConsentValuesWithoutReplacingSharedReference() {

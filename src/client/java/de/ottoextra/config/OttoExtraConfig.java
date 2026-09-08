@@ -1198,6 +1198,7 @@ public final class OttoExtraConfig {
         copyFields(parsed.consent, consent);
         copyFields(parsed.animalInfo, animalInfo);
         tweaks.combatModeHud = parsed.tweaks.combatModeHud;
+        tweaks.chatLog = parsed.tweaks.chatLog;
         copyFields(parsed.tweaks.lowHealth, tweaks.lowHealth);
         copyFields(parsed.tweaks.toolProtect, tweaks.toolProtect);
         copyFields(parsed.tweaks.vote, tweaks.vote);
@@ -1206,6 +1207,10 @@ public final class OttoExtraConfig {
 
     private static void copyFields(Object from, Object to) {
         for (java.lang.reflect.Field f : from.getClass().getFields()) {
+            if (java.lang.reflect.Modifier.isStatic(f.getModifiers())
+                    || java.lang.reflect.Modifier.isFinal(f.getModifiers())) {
+                continue;
+            }
             try {
                 f.set(to, f.get(from));
             } catch (ReflectiveOperationException e) {
