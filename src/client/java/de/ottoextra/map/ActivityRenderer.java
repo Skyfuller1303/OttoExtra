@@ -14,6 +14,10 @@ import java.util.Map;
 public final class ActivityRenderer {
 
     private static final int SEGMENTS = 48;
+    private static final long NORMAL_PING_DURATION_MS = 1_200L;
+    private static final long VERY_HIGH_PING_DURATION_MS =
+            Math.round(NORMAL_PING_DURATION_MS / 0.70);
+    private static final float VERY_HIGH_SECOND_PING_DELAY = 0.70f;
 
     private ActivityRenderer() {
     }
@@ -28,8 +32,6 @@ public final class ActivityRenderer {
             return;
         }
         long t = System.currentTimeMillis();
-        float pulse = (float) (Math.sin(t / 900.0 * Math.PI) * 0.5 + 0.5);
-        float ringPulse = (float) (Math.sin(t / 900.0 * Math.PI + 0.9424778) * 0.5 + 0.5);
         float perA = perLehenAlpha * overallAlpha;
         float grpA = groupAlpha * overallAlpha;
 
@@ -50,7 +52,7 @@ public final class ActivityRenderer {
                     continue;
                 }
                 buf = ensureBuffer(buf);
-                emitActivity(buf, sx, sy, count, pulse, ringPulse, view.effScale(), perA);
+                emitActivity(buf, sx, sy, count, t, view.effScale(), perA);
             }
         }
 
@@ -74,9 +76,9 @@ public final class ActivityRenderer {
                         continue;
                     }
                     buf = ensureBuffer(buf);
-                    emitActivity(buf, sx, sy, count, pulse, ringPulse, view.effScale(), grpA);
+                    emitActivity(buf, sx, sy, count, t, view.effScale(), grpA);
                 } else {
-                    countByGroup.merge(group, count, Integer::sum);
+                    countByGroup.merge(group, count, ActivityRenderer::highestActivityLevel);
                 }
             }
             for (PoliticalOverlay.GroupLabel gl : labels) {
@@ -90,7 +92,7 @@ public final class ActivityRenderer {
                     continue;
                 }
                 buf = ensureBuffer(buf);
-                emitActivity(buf, sx, sy, count, pulse, ringPulse, view.effScale(), grpA);
+                emitActivity(buf, sx, sy, count, t, view.effScale(), grpA);
             }
         }
 
@@ -116,7 +118,11 @@ public final class ActivityRenderer {
     }
 
     private static void emitActivity(BufferBuilder buf, float sx, float sy, int count,
-                                     float pulse, float ringPulse, double effScale, float alpha) {
+                                     long timeMillis, double effScale, float alpha) {
+        long duration = animationDurationMs(count);
+        float pulse = (float) (Math.sin(timeMillis / (duration / 2.0) * Math.PI)
+                * 0.5 + 0.5);
+        float ringProgress = pingProgress(timeMillis, duration, 0.0f);
         float intensity = (float) (1.0 - Math.pow(0.7, count));
         float baseR = (float) Math.max(6.0, Math.min(16.0, 6 + count * 2 + effScale * 12.0));
 
@@ -133,9 +139,39 @@ public final class ActivityRenderer {
             buf.vertex(sx, sy, 0).color(1f, 1f, 1f, centerA);
         }
 
-        float ringR = baseR * 1.4f * (0.72f + 0.28f * ringPulse);
-        float ringThick = Math.max(1.5f, 2.5f * intensity);
-        float ringA = intensity * (0.6f + 0.35f * ringPulse) * alpha;
+        emitRing(buf, sx, sy, baseR, intensity, ringProgress, alpha);
+        if (pingRingCount(count) == 2) {
+            float secondRingProgress = pingProgress(timeMillis, duration,
+                    VERY_HIGH_SECOND_PING_DELAY);
+            emitRing(buf, sx, sy, baseR, intensity, secondRingProgress, alpha);
+        }
+    }
+
+    static int pingRingCount(int activityLevel) {
+        return activityLevel >= 2 ? 2 : 1;
+    }
+
+    static int highestActivityLevel(int current, int candidate) {
+        return Math.max(current, candidate);
+    }
+
+    static long animationDurationMs(int activityLevel) {
+        return activityLevel >= 2 ? VERY_HIGH_PING_DURATION_MS : NORMAL_PING_DURATION_MS;
+    }
+
+    static float pingProgress(long timeMillis, long durationMillis, float delayFraction) {
+        double cycle = Math.floorMod(timeMillis, durationMillis) / (double) durationMillis;
+        return (float) ((cycle - delayFraction + 1.0) % 1.0);
+    }
+
+    private static void emitRing(BufferBuilder buf, float sx, float sy,
+                                 float baseR, float intensity,
+                                 float progress, float alpha) {
+        float ringR = baseR * (0.82f + 0.98f * progress);
+        float ringThick = Math.max(3.0f, 4.8f * intensity) * (1.0f - 0.18f * progress);
+        float fadeIn = Math.min(1.0f, progress / 0.08f);
+        float fadeOut = (float) Math.pow(1.0f - progress, 1.45);
+        float ringA = intensity * 0.95f * fadeIn * fadeOut * alpha;
         float outerR = ringR + ringThick;
         float innerR = ringR - ringThick;
         for (int i = 0; i < SEGMENTS; i++) {

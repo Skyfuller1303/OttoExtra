@@ -162,6 +162,12 @@ public final class PaintedMapRenderer {
     private static final boolean DEBUG_SIMPLE_DRAW = false;
 
     public static void render(XaeroMapBridge.View view, int screenW, int screenH) {
+        render(view, screenW, screenH, view == null ? 0.0 : view.effScale(), false);
+    }
+
+    /** Geometry follows the active target; fades keep the final on-screen zoom. */
+    static void render(XaeroMapBridge.View view, int screenW, int screenH,
+                       double appearanceScale, boolean flippedFramebuffer) {
         if (view == null || worldmapSkipFrame()) {
             return;
         }
@@ -172,7 +178,7 @@ public final class PaintedMapRenderer {
 
             if (DEBUG_SIMPLE_DRAW
                     || de.ottoextra.config.OttoExtraConfig.active().map.paintedMapSimple) {
-                renderBackground(view, screenW, screenH);
+                renderBackground(view, screenW, screenH, appearanceScale, flippedFramebuffer);
                 return;
             }
 
@@ -202,26 +208,29 @@ public final class PaintedMapRenderer {
             }
             float uLeft = (0.0f - x1) / (x2 - x1);
             float uRight = (screenW - x1) / (x2 - x1);
-            float vTop = (0.0f - y1) / (y2 - y1);
-            float vBottom = (screenH - y1) / (y2 - y1);
+            // Xaero's intermediate framebuffer has a negative world-Z axis.
+            // Swap UV endpoints, not vertex winding (also safe with culling).
+            float vTop = ((flippedFramebuffer ? screenH : 0.0f) - y1) / (y2 - y1);
+            float vBottom = ((flippedFramebuffer ? 0.0f : screenH) - y1) / (y2 - y1);
 
             float skyBrightness = client.world != null
                     ? clamp01(1.0f - client.world.getAmbientDarkness() / 11.0f) : 1.0f;
             float night = 0.7f * (0.3f + 0.7f * skyBrightness);
-            float detailBlend = clamp01(1.0f - (float) ((eff - 0.05) / 0.1));
-            float upperAlpha = clamp01(1.0f - (float) ((eff - 0.3) / 0.2));
-            float lowerAlpha = clamp01(1.0f - (float) ((eff - 0.5) / 0.2));
-            float overallAlpha = clamp01(1.0f - (float) ((eff - 5.4) / 0.4));
+            float detailBlend = clamp01(1.0f - (float) ((appearanceScale - 0.05) / 0.1));
+            float upperAlpha = clamp01(1.0f - (float) ((appearanceScale - 0.3) / 0.2));
+            float lowerAlpha = clamp01(1.0f - (float) ((appearanceScale - 0.5) / 0.2));
+            float overallAlpha = clamp01(1.0f - (float) ((appearanceScale - 5.4) / 0.4));
             if (overallAlpha <= 0.0f) {
                 return;
             }
 
-            float hudGuard = (float) (14.0 * client.getWindow().getScaleFactor());
-            float fullCover = fullCoverBlend(eff);
+            // HUD/coordinates have not been drawn yet in Xaero's framebuffer.
+            float hudGuard = flippedFramebuffer ? 0f : (float) (14.0 * client.getWindow().getScaleFactor());
+            float fullCover = fullCoverBlend(appearanceScale);
             writeParams((float) adjScaleX, hudGuard, night, detailBlend, upperAlpha, lowerAlpha,
                     overallAlpha, fullCover);
 
-            Identifier upperTex = eff > 0.15 ? TEX_UPPER_HIRES : TEX_UPPER;
+            Identifier upperTex = appearanceScale > 0.15 ? TEX_UPPER_HIRES : TEX_UPPER;
             withGuiOrtho(client, () ->
                     drawQuad(client, upperTex, screenW, screenH, uLeft, uRight, vTop, vBottom));
         } catch (Throwable t) {
@@ -592,6 +601,11 @@ public final class PaintedMapRenderer {
     }
 
     public static void renderBackground(XaeroMapBridge.View view, int screenW, int screenH) {
+        renderBackground(view, screenW, screenH, view == null ? 0.0 : view.effScale(), false);
+    }
+
+    private static void renderBackground(XaeroMapBridge.View view, int screenW, int screenH,
+                                         double appearanceScale, boolean flippedFramebuffer) {
         if (view == null || worldmapSkipFrame()) {
             return;
         }
@@ -618,28 +632,30 @@ public final class PaintedMapRenderer {
                 return;
             }
 
-            float detailBlend = clamp01(1.0f - (float) ((eff - 0.05) / 0.1));
-            float upperAlpha = clamp01(1.0f - (float) ((eff - 0.3) / 0.2));
-            float overallAlpha = clamp01(1.0f - (float) ((eff - 5.4) / 0.4));
+            float detailBlend = clamp01(1.0f - (float) ((appearanceScale - 0.05) / 0.1));
+            float upperAlpha = clamp01(1.0f - (float) ((appearanceScale - 0.3) / 0.2));
+            float overallAlpha = clamp01(1.0f - (float) ((appearanceScale - 5.4) / 0.4));
             if (overallAlpha <= 0f) {
                 return;
             }
 
             TextureManager tm = client.getTextureManager();
             AbstractTexture lowerTex = tm.getTexture(detailBlend > 0.5f ? TEX_LOWER : TEX_NODETAILS);
-            AbstractTexture upperTex = tm.getTexture(eff > 0.15 ? TEX_UPPER_HIRES : TEX_UPPER);
+            AbstractTexture upperTex = tm.getTexture(appearanceScale > 0.15 ? TEX_UPPER_HIRES : TEX_UPPER);
+            float top = flippedFramebuffer ? screenH - y2 : y1;
+            float bottom = flippedFramebuffer ? screenH - y1 : y2;
 
             withGuiOrtho(client, () -> {
 
                 drawImmediateColorQuad(client, 0, 0, screenW, screenH,
                         packColor(0x6E, 0x7B, 0x8B, overallAlpha));
 
-                drawImmediateTexturedQuad(client, lowerTex, x1, y1, x2, y2,
-                        packColor(0xFF, 0xFF, 0xFF, overallAlpha));
+                drawImmediateTexturedQuad(client, lowerTex, x1, top, x2, bottom,
+                        packColor(0xFF, 0xFF, 0xFF, overallAlpha), flippedFramebuffer);
 
                 if (upperAlpha > 0.02f) {
-                    drawImmediateTexturedQuad(client, upperTex, x1, y1, x2, y2,
-                            packColor(0xFF, 0xFF, 0xFF, upperAlpha * overallAlpha));
+                    drawImmediateTexturedQuad(client, upperTex, x1, top, x2, bottom,
+                            packColor(0xFF, 0xFF, 0xFF, upperAlpha * overallAlpha), flippedFramebuffer);
                 }
             });
         } catch (Throwable t) {
@@ -653,17 +669,20 @@ public final class PaintedMapRenderer {
     }
 
     private static void drawImmediateTexturedQuad(MinecraftClient client, AbstractTexture tex,
-                                                  float x1, float y1, float x2, float y2, int color) {
+                                                  float x1, float y1, float x2, float y2, int color,
+                                                  boolean flippedFramebuffer) {
         float a = ((color >>> 24) & 0xFF) / 255f;
         float r = ((color >>> 16) & 0xFF) / 255f;
         float g = ((color >>> 8) & 0xFF) / 255f;
         float b = (color & 0xFF) / 255f;
         RenderPipeline pl = net.minecraft.client.gl.RenderPipelines.GUI_TEXTURED;
         BufferBuilder buf = Tessellator.getInstance().begin(VertexFormat.DrawMode.QUADS, pl.getVertexFormat());
-        buf.vertex(x1, y1, 0).texture(0f, 0f).color(r, g, b, a);
-        buf.vertex(x1, y2, 0).texture(0f, 1f).color(r, g, b, a);
-        buf.vertex(x2, y2, 0).texture(1f, 1f).color(r, g, b, a);
-        buf.vertex(x2, y1, 0).texture(1f, 0f).color(r, g, b, a);
+        float vTop = flippedFramebuffer ? 1f : 0f;
+        float vBottom = flippedFramebuffer ? 0f : 1f;
+        buf.vertex(x1, y1, 0).texture(0f, vTop).color(r, g, b, a);
+        buf.vertex(x1, y2, 0).texture(0f, vBottom).color(r, g, b, a);
+        buf.vertex(x2, y2, 0).texture(1f, vBottom).color(r, g, b, a);
+        buf.vertex(x2, y1, 0).texture(1f, vTop).color(r, g, b, a);
         drawImmediate(client, buf, pl, tex.getGlTextureView(), mapSampler);
     }
 

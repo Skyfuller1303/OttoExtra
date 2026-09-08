@@ -43,6 +43,7 @@ public final class XaeroMapBridge {
     private static Class<?> guiMapClass;
     private static Field cameraXField;
     private static Field cameraZField;
+    private static Field cameraDestinationField;
     private static Field scaleField;
     private static Field screenScaleField;
     private static Method coordScaleMethod;
@@ -112,6 +113,26 @@ public final class XaeroMapBridge {
         }
     }
 
+    /** Uses the same destination animation as Xaero's waypoint list. */
+    public static void focusSmoothly(Screen screen, double worldX, double worldZ) {
+        if (screen == null || !Double.isFinite(worldX) || !Double.isFinite(worldZ)) {
+            return;
+        }
+        try {
+            if (!resolved || guiMapClass != screen.getClass()) {
+                resolve(screen);
+            }
+            if (cameraDestinationField != null) {
+                cameraDestinationField.set(screen, new int[]{
+                        (int) Math.round(worldX), (int) Math.round(worldZ)});
+            } else {
+                setCamera(screen, worldX, worldZ);
+            }
+        } catch (Throwable t) {
+            invalidate(t);
+        }
+    }
+
     private static synchronized void resolve(Screen screen) throws ReflectiveOperationException {
         Class<?> cls = screen.getClass();
         if (resolved && cls == guiMapClass) {
@@ -122,6 +143,14 @@ public final class XaeroMapBridge {
         cameraXField.setAccessible(true);
         cameraZField = cls.getDeclaredField("cameraZ");
         cameraZField.setAccessible(true);
+        try {
+            cameraDestinationField = cls.getDeclaredField("cameraDestination");
+            cameraDestinationField.setAccessible(true);
+            if (cameraDestinationField.getType() != int[].class) cameraDestinationField = null;
+        } catch (NoSuchFieldException e) {
+            // Older/changed Xaero versions can still show the overlay and focus immediately.
+            cameraDestinationField = null;
+        }
         scaleField = cls.getDeclaredField("scale");
         scaleField.setAccessible(true);
         screenScaleField = cls.getDeclaredField("screenScale");
@@ -141,6 +170,7 @@ public final class XaeroMapBridge {
         guiMapClass = null;
         cameraXField = null;
         cameraZField = null;
+        cameraDestinationField = null;
         scaleField = null;
         screenScaleField = null;
         coordScaleMethod = null;

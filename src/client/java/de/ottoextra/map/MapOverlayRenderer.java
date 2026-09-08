@@ -389,16 +389,7 @@ public final class MapOverlayRenderer {
             return null;
         }
 
-        var region = data.regionByName(polyKey);
-        String regionBanner = region.map(r -> r.effectiveRegionBannerPath()).orElse(null);
-        if (regionBanner != null && !regionBanner.isBlank()) {
-            var id = banners.bannerForPath("region-" + polyKey, regionBanner);
-            if (id.isPresent()) {
-                return id.get();
-            }
-        }
-        Optional<FactionRecord> faction = data.factionForRegion(polyKey);
-        return faction.flatMap(banners::bannerFor).orElse(null);
+        return banners.bannerForRegion(data, polyKey).orElse(null);
     }
 
     private static boolean contains(LehenPolygon poly, double px, double pz) {

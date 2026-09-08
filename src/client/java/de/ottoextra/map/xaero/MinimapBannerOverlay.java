@@ -82,6 +82,10 @@ public final class MinimapBannerOverlay {
         String regionName = info[0];
         String stateLine = info[1];
         String factionName = info[2];
+        if (stateLine != null && !stateLine.isBlank()) {
+            stateLine = de.ottoextra.addon.OttoExtraAddons.processDisplayText(
+                    "REGION", net.minecraft.text.Text.literal(stateLine)).getString();
+        }
 
         int size = Math.max(8, cfg.minimapBannerSize);
         int dockX = sw - size - 2;

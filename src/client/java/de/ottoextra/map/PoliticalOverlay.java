@@ -94,7 +94,11 @@ public final class PoliticalOverlay {
         }
         clickedPoly = poly;
         clickTime = System.currentTimeMillis();
-        XaeroMapBridge.setCamera(screen, poly.centroidX(), poly.centroidZ());
+        XaeroMapBridge.focusSmoothly(screen, poly.centroidX(), poly.centroidZ());
+        RegionDataService data = RegionsServices.data();
+        if (data != null) {
+            data.requestRegionDetail(poly.key());
+        }
         return true;
     }
 
