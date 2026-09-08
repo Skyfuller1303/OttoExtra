@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.17-g – Alpha – 2026-09-08
+
+- Im Minimap-Layouteditor verändert der Eckgriff Breite und Höhe der Textfelder
+  unabhängig von der Schriftgröße. Das Mausrad über einem Textfeld skaliert die
+  Schrift; der Eckgriff bleibt auch am Bildschirmrand erreichbar.
+- Name, Stand/Hierarchie und Gefolge brechen bei ausreichender Höhe auf mehrere
+  Zeilen um. Die Höhen sind auch unter Karte → Erweitert numerisch einstellbar.
+- Bestehende Konfigurationen bleiben einzeilig; die neue Höhe 0 übernimmt die
+  bisherige automatische Zeilenhöhe. Beim Vergrößern bleibt die gegenüberliegende
+  Ecke auch bei rechts oder unten verankerten Feldern fest.
+- [Bedienung](docs/feature-minimap-wappen.md),
+  [Installation und Tests](release-notes-0.1.17-g.md).
+
 ## 0.1.17-f – Alpha – 2026-09-08
 
 - Tierübersicht mit wechselbaren Filtern Alle, Pferde und Esel. Rinder, Brakel,

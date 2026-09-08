@@ -8,9 +8,9 @@
 - Game version: Minecraft 1.21.11
 - Primary file: the remapped `ottoextra-<version>.jar` from the validated release
   build; verify its internal `fabric.mod.json` version before uploading.
-- The current testing version is **0.1.17-f (Alpha)**. See
-  [release validation](releases/0.1.17-f.md) and
-  [tester notes](../release-notes-0.1.17-f.md). No upload is part of this build.
+- The current testing version is **0.1.17-g (Alpha)**. See
+  [release validation](releases/0.1.17-g.md) and
+  [tester notes](../release-notes-0.1.17-g.md). No upload is part of this build.
   Do not reuse a JAR from an older `dist` build.
 
 ## Dependencies on the Modrinth version
