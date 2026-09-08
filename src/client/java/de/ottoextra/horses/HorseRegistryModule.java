@@ -21,6 +21,7 @@ public final class HorseRegistryModule implements OttoExtraModule {
 
     private KeyBinding openRecordKey;
     private KeyBinding openOverviewKey;
+    private KeyBinding genderGlowKey;
 
     @Override
     public String id() {
@@ -33,6 +34,10 @@ public final class HorseRegistryModule implements OttoExtraModule {
                 .isModLoaded("ottoextra_animalbreeding");
         HorseRegistry.initialize(context.api(), context::isOnOttonien, !addonLoaded);
         HorseFinder.initialize(context.api(), context::isOnOttonien);
+        AnimalGenderGlow.initialize(context::isOnOttonien);
+        genderGlowKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                "key.ottoextra.animal_gender_glow", InputUtil.Type.KEYSYM,
+                GLFW.GLFW_KEY_UNKNOWN, KeyBinding.Category.MISC));
         AnimalInfoEvents.OBSERVED.register(HorseRegistry::observe);
         ClientTickEvents.END_CLIENT_TICK.register(this::tick);
 
@@ -50,6 +55,9 @@ public final class HorseRegistryModule implements OttoExtraModule {
 
     private void tick(MinecraftClient client) {
         HorseFinder.tick(client);
+        while (genderGlowKey != null && genderGlowKey.wasPressed()) {
+            AnimalGenderGlow.toggle(client);
+        }
         while (openRecordKey != null && openRecordKey.wasPressed()) {
             if (client.currentScreen == null) {
                 openTargetRecord(client);

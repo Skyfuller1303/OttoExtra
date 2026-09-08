@@ -2,6 +2,7 @@ package de.ottoextra.mixin;
 
 import de.ottoextra.nametags.NametagLabelRenderer;
 import de.ottoextra.horses.HorseFinder;
+import de.ottoextra.horses.AnimalGenderGlow;
 import de.ottoextra.horses.HorseRegistryNametagRenderer;
 import net.minecraft.client.render.command.OrderedRenderCommandQueue;
 import net.minecraft.client.render.entity.EntityRenderer;
@@ -33,6 +34,7 @@ public abstract class EntityRendererMixin {
                                             CallbackInfo ci) {
         de.ottoextra.nametags.NametagService.rememberPlayer(state, entity);
         HorseRegistryNametagRenderer.prepare(entity, state, tickProgress);
+        AnimalGenderGlow.prepare(entity, state);
         HorseFinder.prepare(entity, state);
     }
 

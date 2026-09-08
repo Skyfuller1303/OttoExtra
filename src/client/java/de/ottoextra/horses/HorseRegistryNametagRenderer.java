@@ -18,7 +18,6 @@ import net.minecraft.util.hit.EntityHitResult;
 
 import java.util.Collections;
 import java.util.Map;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.WeakHashMap;
@@ -55,7 +54,7 @@ public final class HorseRegistryNametagRenderer {
         }
         if (state.nameLabelPos == null) return;
         if (registeredName != null) {
-            prepareLabel(state, registeredName, knownGender(entity.getUuid()), config);
+            prepareLabel(state, registeredName, HorseRegistry.knownGender(entity.getUuid()), config);
         } else {
             prepareUnregisteredLabel(state, entity.getUuid(), entity.getCustomName(), config);
         }
@@ -66,7 +65,7 @@ public final class HorseRegistryNametagRenderer {
         LABELS.remove(state);
         if (!config.nametagIncludeUnregistered || (!config.nametagShowGender && !config.nametagGenderColor)) return;
         var observation = HorseRegistry.observation(uuid).orElse(null);
-        if (observation == null || genderColor(observation.snapshot().gender()) == null) return;
+        if (observation == null || AnimalGender.color(observation.snapshot().gender()) == null) return;
         String gender = observation.snapshot().gender();
         if (state.displayName != null) {
             state.displayName = decorate(state.displayName, gender, config);
@@ -75,13 +74,6 @@ public final class HorseRegistryNametagRenderer {
                     : Text.literal(observation.snapshot().animalName()).formatted(Formatting.GOLD);
             LABELS.put(state, decorate(name, gender, config));
         }
-    }
-
-    /** Uses already available data only; rendering never initiates a server query. */
-    static String knownGender(UUID uuid) {
-        String observed = HorseRegistry.observation(uuid).map(value -> value.snapshot().gender()).orElse("");
-        return genderColor(observed) != null ? observed
-                : HorseRegistry.databaseSnapshot(uuid).map(value -> value.gender()).orElse("");
     }
 
     static void prepareLabel(EntityRenderState state, String name, String gender,
@@ -97,12 +89,12 @@ public final class HorseRegistryNametagRenderer {
     }
 
     static Text decorate(Text name, String gender, OttoExtraConfig.AnimalInfo config) {
-        Integer color = genderColor(gender);
+        Integer color = AnimalGender.color(gender);
         if (color == null || (!config.nametagShowGender && !config.nametagGenderColor)) return name;
         var result = config.nametagGenderColor
                 ? tintedCopy(name, color) : name.copy();
         if (config.nametagShowGender) {
-            result.append(Text.literal(color == 0xFF79B8 ? " ♀" : " ♂").withColor(color));
+            result.append(Text.literal(color == AnimalGender.FEMALE_COLOR ? " ♀" : " ♂").withColor(color));
         }
         return result;
     }
@@ -114,16 +106,6 @@ public final class HorseRegistryNametagRenderer {
             return Optional.empty();
         }, Style.EMPTY);
         return result;
-    }
-
-    private static Integer genderColor(String raw) {
-        String gender = raw == null ? "" : raw.trim().toLowerCase(Locale.ROOT);
-        boolean female = gender.contains("♀") || gender.startsWith("weib")
-                || gender.startsWith("fem") || gender.equals("stute");
-        boolean male = gender.contains("♂") || gender.startsWith("männ")
-                || gender.startsWith("maenn") || gender.equals("male")
-                || gender.equals("hengst") || gender.equals("wallach");
-        return female == male ? null : female ? 0xFF79B8 : 0x68B8FF;
     }
 
     public static void submit(EntityRenderState state, MatrixStack matrices,

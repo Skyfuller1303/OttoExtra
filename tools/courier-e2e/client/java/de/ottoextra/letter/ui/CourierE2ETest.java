@@ -194,6 +194,10 @@ public final class CourierE2ETest implements FabricClientGameTest {
                 InventoryUiChecks.run(ctx);
                 check(commands().isEmpty(), "Inventory test emitted server commands");
             });
+            test("UI-ANIMAL-GLOW", "Tier-Glow: Geschlechtsfarben, Finder-Vorrang, Menü und Tastenkürzel", () -> {
+                de.ottoextra.horses.AnimalGlowUiChecks.run(ctx);
+                check(commands().isEmpty(), "Animal glow emitted server commands");
+            });
             check(!results.isEmpty(), "No tests selected");
             String requested = System.getProperty("courier.e2e.filter", "");
             if (!requested.isBlank()) for (String id : requested.split(","))

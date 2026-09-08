@@ -228,6 +228,17 @@ public final class HorseRegistry {
         });
     }
 
+    /** Reads existing data only, without building toast snapshots or starting requests. */
+    static String knownGender(UUID entityUuid) {
+        if (entityUuid == null) return "";
+        AnimalInfoObservation observation = OBSERVATIONS.get(entityUuid);
+        if (observation != null && AnimalGender.color(observation.snapshot().gender()) != null) {
+            return observation.snapshot().gender();
+        }
+        AnimalBreedingHorse record = DATABASE_RECORDS.get(entityUuid);
+        return record == null ? "" : record.gender();
+    }
+
     /** Returns the protected database values formatted for the animal-info toast. */
     public static Optional<AnimalInfoSnapshot> databaseSnapshot(UUID entityUuid) {
         AnimalBreedingHorse horse = entityUuid == null

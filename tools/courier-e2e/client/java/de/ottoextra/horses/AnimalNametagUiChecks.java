@@ -11,6 +11,7 @@ import de.ottoextra.config.settings.SettingsRegistry;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.minecraft.client.render.command.OrderedRenderCommandQueue;
 import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.client.input.KeyInput;
 import org.lwjgl.glfw.GLFW;
 import net.minecraft.client.render.entity.state.EntityRenderState;
@@ -190,7 +191,9 @@ public final class AnimalNametagUiChecks {
                     var select = OttoExtraSettingsScreen.class.getDeclaredMethod("selectModuleTab", int.class);
                     select.setAccessible(true);
                     select.invoke(screen, index);
-                    screen.mouseScrolled(screen.width / 2.0, screen.height / 2.0, 0, -20);
+                    var search = OttoExtraSettingsScreen.class.getDeclaredField("searchField");
+                    search.setAccessible(true);
+                    ((TextFieldWidget) search.get(screen)).setText(Text.translatable("ottoextra.set.animalinfo.nametag").getString());
                     var toggles = screen.children().stream().filter(e -> e instanceof ButtonWidget)
                             .map(e -> (ButtonWidget) e).filter(b -> b.visible
                                     && b.getMessage().getString().equals(Text.translatable("ottoextra.settings.off").getString()))

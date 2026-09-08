@@ -113,13 +113,13 @@ class HorseRegistryNametagTest {
                 });
         HorseRegistry.initialize(api, () -> true, true);
         HorseRegistry.refreshDatabaseRecords().join();
-        assertEquals("Stute", HorseRegistryNametagRenderer.knownGender(uuid));
+        assertEquals("Stute", HorseRegistry.knownGender(uuid));
         HorseRegistry.observe(new AnimalInfoObservation(uuid,
                 new AnimalInfoSnapshot("Kuh", "Unbekannt", "Ja"), Instant.now()));
-        assertEquals("Stute", HorseRegistryNametagRenderer.knownGender(uuid));
+        assertEquals("Stute", HorseRegistry.knownGender(uuid));
         HorseRegistry.observe(new AnimalInfoObservation(uuid,
                 new AnimalInfoSnapshot("Kuh", "Männlich", "Ja"), Instant.now()));
-        assertEquals("Männlich", HorseRegistryNametagRenderer.knownGender(uuid));
+        assertEquals("Männlich", HorseRegistry.knownGender(uuid));
     }
 
     @Test
@@ -128,10 +128,10 @@ class HorseRegistryNametagTest {
         UUID uuid = UUID.randomUUID();
         HorseRegistry.observe(new AnimalInfoObservation(uuid,
                 new AnimalInfoSnapshot("Kuh", "Weiblich", "Ja"), Instant.now()));
-        assertEquals("Weiblich", HorseRegistryNametagRenderer.knownGender(uuid));
-        assertEquals("", HorseRegistryNametagRenderer.knownGender(UUID.randomUUID()));
+        assertEquals("Weiblich", HorseRegistry.knownGender(uuid));
+        assertEquals("", HorseRegistry.knownGender(UUID.randomUUID()));
         HorseRegistry.clearConnection();
-        assertEquals("", HorseRegistryNametagRenderer.knownGender(uuid));
+        assertEquals("", HorseRegistry.knownGender(uuid));
     }
 
     private static void assertGender(String gender, String expected, int color) {

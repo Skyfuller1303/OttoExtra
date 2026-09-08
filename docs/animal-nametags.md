@@ -1,5 +1,8 @@
 # Geschlecht in Tier-Nametags
 
+Für einen farbigen Umriss um das ganze Tier gibt es ab Alpha H zusätzlich den
+unabhängigen [Tier-Glow mit Tastenkürzel](animal-gender-glow.md).
+
 Ab Alpha 0.1.17-e unter **Einstellungen → Tierinfo → Grundlagen → Tier-Nametag**:
 
 - **Geschlecht im Nametag anzeigen** ergänzt bei bekanntem Geschlecht ein rosa

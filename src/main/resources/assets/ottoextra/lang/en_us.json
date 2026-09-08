@@ -1,4 +1,11 @@
 {
+  "key.ottoextra.animal_gender_glow": "Toggle animal gender glow",
+  "ottoextra.set.animalinfo.glow": "Animal glow",
+  "ottoextra.set.animalinfo.glow.desc": "Female: pink. Male: blue. Assign a key in Controls → Key Binds → Miscellaneous.",
+  "ottoextra.config.animalinfo.genderGlowEnabled": "Outline animals by gender",
+  "ottoextra.set.animalinfo.glow.tip": "Highlights known animals on Ottonien within 64 blocks, including through walls and without a register entry. Uses existing toast or register data. Unknown gender receives no new outline. The golden finder takes priority.",
+  "ottoextra.animalinfo.glow.enabled": "Animal glow on: ♀ pink · ♂ blue",
+  "ottoextra.animalinfo.glow.disabled": "Animal glow off",
   "ottoextra.map.bannerEdit.requiresMinimap": "This editor requires Xaero's Minimap.",
   "ottoextra.set.tweaks.chatLog": "Chat log",
   "ottoextra.set.tweaks.chatLog.desc": "Saves chat and system messages with timestamps to logs/ottoextra-chat.log.",
