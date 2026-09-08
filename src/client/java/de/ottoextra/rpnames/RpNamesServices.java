@@ -1,5 +1,7 @@
 package de.ottoextra.rpnames;
 
+import de.ottoextra.OttoExtra;
+import de.ottoextra.chat.ChatSpeakerClassifier;
 import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.rpnames.chat.ChatNameRewriter;
 import de.ottoextra.rpnames.chat.HoverIdentityParser;
@@ -114,6 +116,48 @@ public final class RpNamesServices {
 
     public static de.ottoextra.rpnames.title.TitleCatalogStore catalog() {
         return catalog;
+    }
+
+    public static synchronized boolean restoreBackup(java.util.function.BooleanSupplier restoreFiles) {
+        var currentTitles = titles;
+        var currentCatalog = catalog;
+        synchronized (currentTitles != null ? currentTitles : RpNamesServices.class) {
+            synchronized (currentCatalog != null ? currentCatalog : RpNamesServices.class) {
+                java.util.function.BooleanSupplier restoreAndReload = () -> {
+                    return restoreAndReload(restoreFiles,
+                            () -> { if (currentTitles != null) currentTitles.load(); },
+                            () -> { if (currentCatalog != null) currentCatalog.reloadAfterRestore(); });
+                };
+                try {
+                    return store == null ? restoreAndReload.getAsBoolean()
+                            : store.restoreBackup(restoreAndReload);
+                } catch (Exception e) {
+                    OttoExtra.LOGGER.error("[Backup] RP-Daten konnten nicht neu geladen werden: {}",
+                            e.toString());
+                    return false;
+                }
+            }
+        }
+    }
+
+    static boolean restoreAndReload(java.util.function.BooleanSupplier restoreFiles,
+                                    Runnable... reloads) {
+        boolean restored = false;
+        try {
+            restored = restoreFiles.getAsBoolean();
+        } catch (Exception e) {
+            OttoExtra.LOGGER.error("[Backup] Wiederherstellung fehlgeschlagen: {}", e.toString());
+        }
+        for (Runnable reload : reloads) {
+            try {
+                reload.run();
+            } catch (Exception e) {
+                restored = false;
+                OttoExtra.LOGGER.error("[Backup] RP-Daten konnten nicht neu geladen werden: {}",
+                        e.toString());
+            }
+        }
+        return restored;
     }
 
     public static OttoExtraConfig.RpNames config() {
@@ -243,6 +287,26 @@ public final class RpNamesServices {
 
         LocalRpProfile profile = currentStore.findByName(accountName).orElse(null);
         return localRpNameForLeader(profile);
+    }
+
+    /** Alle lokal/API-bekannten Identitaetsbestandteile fuer Uebersetzungsfilter. */
+    public static java.util.Set<String> translationProtectedNames() {
+        LocalRpIdentityStore currentStore = store;
+        if (currentStore == null) return java.util.Set.of();
+        java.util.LinkedHashSet<String> names = new java.util.LinkedHashSet<>();
+        for (LocalRpProfile profile : currentStore.all()) {
+            addTranslationName(names, profile.accountName);
+            if (profile.hasRpName()) addTranslationName(names, profile.rpName);
+        }
+        return java.util.Set.copyOf(names);
+    }
+
+    private static void addTranslationName(java.util.Set<String> names, String value) {
+        if (value == null) return;
+        String clean = value.trim();
+        if (clean.length() >= 2 && !LocalRpProfile.UNKNOWN_NAME.equalsIgnoreCase(clean)) {
+            names.add(clean);
+        }
     }
 
     /**
@@ -907,7 +971,10 @@ public final class RpNamesServices {
                     hoverParser.parseMessage(message, channel.isRpSpeak());
             HoverIdentityParser.ParsedIdentity speaker = speakerIdentity(identities, plain);
 
-            String forcedAccount = speaker != null ? speaker.accountName() : speakerAccount(plain);
+            String forcedAccount = ChatSpeakerClassifier.speakerComponentAccount(message);
+            if (forcedAccount == null) {
+                forcedAccount = speaker != null ? speaker.accountName() : speakerAccount(plain);
+            }
             if (forcedAccount == null) {
                 VisibleChatSpeaker visible = speakerFromVisibleChat(plain);
                 forcedAccount = visible != null ? visible.accountName() : null;
@@ -957,6 +1024,9 @@ public final class RpNamesServices {
 
             de.ottoextra.rpnames.chat.HoverDebug
                     .logParsed(identities);
+
+            String componentSpeakerAccount =
+                    ChatSpeakerClassifier.speakerComponentAccount(message);
 
             boolean markedMeetSpeaker = false;
 
@@ -1013,17 +1083,19 @@ public final class RpNamesServices {
                     && channel.isRpSpeak()
                     && !markedMeetSpeaker) {
                 markHeardInRpChat(
-                        speakerAccount(plain)
+                        componentSpeakerAccount != null
+                                ? componentSpeakerAccount
+                                : speakerAccount(plain)
                 );
             }
 
             HoverIdentityParser.ParsedIdentity speakerIdentity =
                     speakerIdentity(identities, plain);
 
-            String forcedSpeakerAccount =
-                    speakerIdentity != null
-                            ? speakerIdentity.accountName()
-                            : null;
+            String forcedSpeakerAccount = componentSpeakerAccount;
+            if (forcedSpeakerAccount == null && speakerIdentity != null) {
+                forcedSpeakerAccount = speakerIdentity.accountName();
+            }
 
             /*
              * RP-Namen aus allen echten Spieler-Chats außer OOC und
@@ -1065,7 +1137,9 @@ public final class RpNamesServices {
                             speakerFromVisibleChat(plain);
 
                     if (visibleSpeaker != null) {
-                        forcedSpeakerAccount = visibleSpeaker.accountName();
+                        if (forcedSpeakerAccount == null) {
+                            forcedSpeakerAccount = visibleSpeaker.accountName();
+                        }
 
                         store.updateImportedIdentityIfChanged(
                                 visibleSpeaker.accountName(),

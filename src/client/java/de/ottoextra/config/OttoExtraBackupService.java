@@ -4,8 +4,10 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import de.ottoextra.OttoExtra;
 import de.ottoextra.logging.DebugLog;
+import de.ottoextra.rpnames.RpNamesServices;
 
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -51,7 +53,11 @@ public final class OttoExtraBackupService {
     }
 
     private static Path backupsRoot() {
-        return OttoExtraPaths.root().resolve("backups").resolve(REWORK_REASON);
+        return backupsRoot(OttoExtraPaths.root());
+    }
+
+    private static Path backupsRoot(Path configRoot) {
+        return configRoot.resolve("backups").resolve(REWORK_REASON);
     }
 
     private static Path stateFile() {
@@ -59,8 +65,7 @@ public final class OttoExtraBackupService {
                 .resolve(REWORK_REASON + ".json");
     }
 
-    private static List<Path> sources() {
-        Path cfg = OttoExtraPaths.root();
+    private static List<Path> sources(Path cfg) {
         Path mcConfig = cfg.getParent();
         List<Path> out = new ArrayList<>(List.of(
                 cfg.resolve("ottoextra.json"),
@@ -68,7 +73,8 @@ public final class OttoExtraBackupService {
                 cfg.resolve("rpnames").resolve("title-catalog.json"),
                 cfg.resolve("rpnames").resolve("title-groups.json"),
                 cfg.resolve(".cache").resolve("letters"),
-                cfg.resolve("letters")));
+                cfg.resolve("letters"),
+                OttoExtraPaths.draftsDir(cfg)));
         if (mcConfig != null) {
             for (String legacy : new String[]{"ottonames.json", "ottoregions.json",
                     "ottoregions-menu.json", "ottochat-rpnames.json",
@@ -110,15 +116,18 @@ public final class OttoExtraBackupService {
     }
 
     public static synchronized Path createBackup() throws Exception {
+        return createBackup(OttoExtraPaths.root());
+    }
+
+    static synchronized Path createBackup(Path configRoot) throws Exception {
         String stamp = LocalDateTime.now()
                 .format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss"));
-        Path dir = backupsRoot().resolve(stamp);
-        Files.createDirectories(dir);
+        Path dir = createBackupDirectory(backupsRoot(configRoot), stamp);
         Manifest manifest = new Manifest();
         manifest.createdAt = LocalDateTime.now().toString();
         manifest.reason = REWORK_REASON;
-        Path root = OttoExtraPaths.root().getParent();
-        for (Path source : sources()) {
+        Path root = configRoot.getParent();
+        for (Path source : sources(configRoot)) {
             if (!Files.exists(source)) {
                 continue;
             }
@@ -137,9 +146,21 @@ public final class OttoExtraBackupService {
         }
         Files.writeString(dir.resolve("backup-manifest.json"), GSON.toJson(manifest),
                 StandardCharsets.UTF_8);
-        lastBackupName = stamp;
+        lastBackupName = dir.getFileName().toString();
         backupOk = true;
         return dir;
+    }
+
+    static Path createBackupDirectory(Path root, String stamp) throws Exception {
+        Files.createDirectories(root);
+        for (int suffix = 0; ; suffix++) {
+            Path dir = root.resolve(suffix == 0 ? stamp : stamp + "-" + suffix);
+            try {
+                return Files.createDirectory(dir);
+            } catch (FileAlreadyExistsException exists) {
+                // Auch das Sicherheitsbackup vor Restore darf keine Quelle überschreiben.
+            }
+        }
     }
 
     private static void copyRecursive(Path sourceDir, Path targetDir, Manifest manifest,
@@ -188,15 +209,45 @@ public final class OttoExtraBackupService {
     }
 
     public static synchronized boolean restoreBackup(Path backupDir) {
+        return RpNamesServices.restoreBackup(() -> restoreBackup(
+                backupDir, OttoExtraPaths.root(), OttoExtraConfig.active()));
+    }
+
+    static boolean restoreBackup(Path backupDir, Path configRoot, OttoExtraConfig config) {
+        synchronized (config) {
+            return restoreBackupFiles(backupDir, configRoot, config);
+        }
+    }
+
+    private static boolean restoreBackupFiles(Path backupDir, Path configRoot,
+                                              OttoExtraConfig config) {
         try {
-            createBackup();
-            Path root = OttoExtraPaths.root().getParent();
-            if (root == null) {
+            Path root = configRoot.getParent();
+            if (root == null || backupDir == null || !Files.isDirectory(backupDir)) {
                 return false;
+            }
+            Path configFile = configRoot.resolve("ottoextra.json");
+            Path backedUpConfig = backupDir.resolve(root.relativize(configFile));
+            String restoredConfig = null;
+            if (Files.exists(backedUpConfig)) {
+                OttoExtraConfig parsed = GSON.fromJson(Files.readString(
+                        backedUpConfig, StandardCharsets.UTF_8), OttoExtraConfig.class);
+                if (parsed == null) {
+                    return false;
+                }
+                parsed.repair();
+                restoredConfig = parsed.snapshotJson();
+            }
+            createBackup(configRoot);
+            if (restoredConfig != null) {
+                Files.createDirectories(configFile.getParent());
+                Files.copy(backedUpConfig, configFile, StandardCopyOption.REPLACE_EXISTING);
+                config.restoreFrom(restoredConfig);
             }
             try (Stream<Path> walk = Files.walk(backupDir)) {
                 for (Path p : walk.toList()) {
                     if (Files.isDirectory(p)
+                            || p.equals(backedUpConfig)
                             || p.getFileName().toString().equals("backup-manifest.json")) {
                         continue;
                     }

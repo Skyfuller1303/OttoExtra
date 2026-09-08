@@ -38,7 +38,15 @@ public final class OttoExtraPaths {
     }
 
     public static Path draftsDir() {
-        return root().resolve("drafts");
+        return draftsDir(root());
+    }
+
+    static Path draftsDir(Path root) {
+        return root.resolve("drafts");
+    }
+
+    public static Path letterCalibrationDir() {
+        return root().resolve("debug").resolve("letter-calibration");
     }
 
     public static Path importDir() {
