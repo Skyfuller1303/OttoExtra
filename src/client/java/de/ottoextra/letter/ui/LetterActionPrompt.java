@@ -40,6 +40,10 @@ public final class LetterActionPrompt {
             return;
         }
         draft.meta.mode = LetterOutputMode.BRIEF;
+        if (!LetterServices.hasPreparedLetter(config, draft)
+                && !LetterServices.startWrite(config, draft)) {
+            return;
+        }
 
         MinecraftClient.getInstance().setScreen(new RecipientScreen(null, config, draft));
     }
@@ -51,7 +55,6 @@ public final class LetterActionPrompt {
             return;
         }
         draft.meta.mode = LetterOutputMode.VERKUENDUNG;
-
         MinecraftClient.getInstance().setScreen(
                 new AnnouncementPreflightScreen(null, config, draft));
     }

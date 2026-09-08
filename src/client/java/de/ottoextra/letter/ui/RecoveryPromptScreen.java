@@ -31,24 +31,35 @@ public final class RecoveryPromptScreen extends Screen {
         int y = height / 2 - 10;
         addDrawableChild(ButtonWidget.builder(Text.translatable("ottoextra.letter.recovery.resume"), b -> {
             if (announcement != null) {
-                LetterServices.runAnnouncementQueue(config, announcement,
-                        announcement.sentCommands, null);
+                if (!LetterServices.runAnnouncementQueue(config, announcement,
+                        announcement.sentCommands, null)) return;
             } else if (letter != null) {
-                LetterServices.runLetterQueue(config, letter, letter.sentCommands, null);
+                if (!LetterServices.runLetterQueue(config, letter, letter.sentCommands, null)) return;
             }
             close();
         }).dimensions(cx - 154, y, 100, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.translatable("ottoextra.letter.recovery.restart"), b -> {
-            LetterServices.letterStore().clear();
-            LetterServices.announcementStore().clear();
+            var context = announcement != null ? announcement.context
+                    : letter != null ? letter.context : null;
+            if (context != null && context.draft != null) {
+                LetterDraftCache.save(context.draft);
+            }
+            clearSelectedStore();
             MinecraftClient.getInstance().setScreen(new LetterEditorScreen(null, config));
         }).dimensions(cx - 50, y, 100, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.translatable("ottoextra.letter.recovery.discard"), b -> {
-            LetterServices.letterStore().clear();
-            LetterServices.announcementStore().clear();
+            clearSelectedStore();
             LetterDraftCache.clear();
             close();
         }).dimensions(cx + 54, y, 100, 20).build());
+    }
+
+    private void clearSelectedStore() {
+        if (announcement != null) {
+            LetterServices.announcementStore().clear();
+        } else {
+            LetterServices.letterStore().clear();
+        }
     }
 
     @Override

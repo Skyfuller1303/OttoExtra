@@ -3,7 +3,10 @@ package de.ottoextra.letter.ui;
 import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.letter.LetterDraft;
 import de.ottoextra.letter.LetterDraftCache;
+import de.ottoextra.letter.LetterSendMode;
+import de.ottoextra.letter.LetterWriteItemGuard;
 import de.ottoextra.letter.paste.PageSplitter;
+import de.ottoextra.letter.send.LetterV2Planner;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.LoreComponent;
@@ -31,42 +34,20 @@ public final class WrittenLetterImport {
         if (client.player == null) {
             return null;
         }
-        for (Hand hand : Hand.values()) {
-            ItemStack stack = client.player.getStackInHand(hand);
-            if (stack.get(DataComponentTypes.WRITTEN_BOOK_CONTENT) != null) {
-                return stack;
-            }
-        }
-        return null;
+        ItemStack stack = client.player.getMainHandStack();
+        return stack.get(DataComponentTypes.WRITTEN_BOOK_CONTENT) == null ? null : stack;
     }
 
     public static boolean isOwn(ItemStack stack) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (stack == null || client.player == null) {
-            return false;
-        }
-        String me = localAccountName();
-        if (me == null || me.isBlank()) {
-            return false;
-        }
-        String needle = me.toLowerCase(Locale.ROOT);
+        // Courier permits editing any unsent letter in the main hand, irrespective of author.
+        return LetterWriteItemGuard.isWritableLetter(stack);
+    }
 
-        if (containsIgnoreCase(stack.getName(), needle)) {
-            return true;
-        }
-
-        LoreComponent lore = stack.get(DataComponentTypes.LORE);
-        if (lore != null) {
-            for (Text line : lore.lines()) {
-                if (line.getString().toLowerCase(Locale.ROOT).contains(needle)) {
-                    return true;
-                }
-            }
-        }
-
-        WrittenBookContentComponent book = stack.get(DataComponentTypes.WRITTEN_BOOK_CONTENT);
-        return book != null && book.author() != null
-                && book.author().toLowerCase(Locale.ROOT).contains(needle);
+    public static boolean hasPages(ItemStack stack, List<String> expectedPages) {
+        WrittenBookContentComponent book = stack == null
+                ? null : stack.get(DataComponentTypes.WRITTEN_BOOK_CONTENT);
+        return book != null && expectedPages != null
+                && toSectionPages(book).equals(expectedPages);
     }
 
     private static boolean containsIgnoreCase(Text text, String needleLower) {
@@ -86,6 +67,9 @@ public final class WrittenLetterImport {
     }
 
     public static void editInEditor(OttoExtraConfig config, ItemStack stack) {
+        if (!LetterWriteItemGuard.isWritableLetter(stack)) {
+            return;
+        }
         WrittenBookContentComponent book = stack == null
                 ? null : stack.get(DataComponentTypes.WRITTEN_BOOK_CONTENT);
         LetterDraft draft = new LetterDraft();
@@ -94,7 +78,14 @@ public final class WrittenLetterImport {
         draft.meta.pagesOneToOne = false;
 
         List<String> imported = book == null ? new ArrayList<>() : toSectionPages(book);
-        List<String> pages = repaginate(config, imported);
+        if (imported.isEmpty()) {
+            imported.add("");
+        }
+        draft.meta.courierInitialPages = new ArrayList<>(imported);
+        List<String> pages = LetterSendMode.from(config.letter.sendMode) == LetterSendMode.V2
+                ? new ArrayList<>(imported) : repaginate(config, imported);
+        draft.meta.pagesOneToOne = LetterSendMode.from(config.letter.sendMode)
+                == LetterSendMode.V2;
 
         int last = pages.size() - 1;
         String content = pages.get(last);
@@ -117,8 +108,16 @@ public final class WrittenLetterImport {
             }
             return fallback;
         }
-        int maxLines = "PAGE".equalsIgnoreCase(config.letter.sendMode)
-                ? config.letter.pageModeMaxLinesPerPage : config.letter.maxLinesPerPage;
+        int maxLines = switch (LetterSendMode.from(config.letter.sendMode)) {
+            case LEGACY -> config.letter.maxLinesPerPage;
+            case PAGE -> config.letter.pageModeMaxLinesPerPage;
+            case V2 -> LetterV2Planner.BOOK_MAX_LINES;
+        };
+
+        if (LetterSendMode.from(config.letter.sendMode) == LetterSendMode.V2) {
+            return new ArrayList<>(LetterV2Planner.planFlowing(config.letter.letterCommand,
+                    List.of(cleanImported(imported)), tr::getWidth).predictedPages());
+        }
 
         PageSplitter sp = new PageSplitter(tr::getWidth, 108, maxLines,
                 config.letter.pageModeEffectiveCharBudget);
@@ -140,6 +139,18 @@ public final class WrittenLetterImport {
         return pages;
     }
 
+    private static String cleanImported(List<String> imported) {
+        String[] rawLines = String.join("\n", imported).split("\n", -1);
+        StringBuilder normalized = new StringBuilder();
+        for (int i = 0; i < rawLines.length; i++) {
+            if (i > 0) {
+                normalized.append('\n');
+            }
+            normalized.append(rawLines[i].stripTrailing());
+        }
+        return normalized.toString().replaceAll("\\n+$", "");
+    }
+
     public static List<String> toSectionPages(WrittenBookContentComponent book) {
         List<String> out = new ArrayList<>();
         for (Text page : book.getPages(false)) {
@@ -148,19 +159,23 @@ public final class WrittenLetterImport {
         return out;
     }
 
-    private static String toSection(Text page) {
+    public static String toSection(Text page) {
         StringBuilder sb = new StringBuilder();
-        boolean[] prevFormatted = {false};
+        String[] previousCodes = {""};
         page.visit((style, asString) -> {
+            if (asString.isEmpty()) {
+                return Optional.empty();
+            }
             String codes = codesFor(style);
-            if (codes.isEmpty()) {
-                if (prevFormatted[0]) {
+            if (!codes.equals(previousCodes[0])) {
+                boolean startsWithColor = codes.length() >= 2
+                        && "0123456789abcdef".indexOf(codes.charAt(1)) >= 0;
+                if (!previousCodes[0].isEmpty() && !startsWithColor) {
                     sb.append("§r");
                 }
-            } else {
                 sb.append(codes);
             }
-            prevFormatted[0] = !codes.isEmpty();
+            previousCodes[0] = codes;
             sb.append(asString);
             return Optional.empty();
         }, Style.EMPTY);

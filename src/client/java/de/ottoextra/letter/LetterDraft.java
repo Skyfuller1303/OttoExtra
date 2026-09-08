@@ -28,6 +28,9 @@ public final class LetterDraft {
         if (pages == null) {
             pages = new ArrayList<>();
         }
+        if (meta.courierInitialPages == null) {
+            meta.courierInitialPages = new ArrayList<>();
+        }
         if (pages.isEmpty()) {
             pages.add("");
         }

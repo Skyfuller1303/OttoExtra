@@ -3,10 +3,14 @@ package de.ottoextra.letter.ui;
 import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.letter.LetterDraft;
 import de.ottoextra.letter.LetterDraftCache;
+import de.ottoextra.letter.LetterSendMode;
+import de.ottoextra.letter.V2DraftFlow;
 import de.ottoextra.letter.LetterServices;
+import de.ottoextra.letter.send.LetterV2Planner;
 import de.ottoextra.letter.format.LetterFormattingCodes;
 import de.ottoextra.letter.format.LetterFormattingSidebar;
 import de.ottoextra.letter.model.LetterPlaceholder;
+import de.ottoextra.letter.model.LetterOutputMode;
 import de.ottoextra.letter.model.PlaceholderResolveResult;
 import de.ottoextra.letter.paste.BookImportService;
 import de.ottoextra.letter.paste.PageSplitter;
@@ -66,6 +70,10 @@ public final class LetterEditorScreen extends Screen {
     private int page;
     private int cursor;
     private int selAnchor = -1;
+    private int firstVisibleLine;
+    private int viewportPage = -1;
+    private int viewportCursor = -1;
+    private int viewportCursorLine = -1;
     private String status = "";
     private LetterFormattingSidebar formattingSidebar;
 
@@ -79,10 +87,14 @@ public final class LetterEditorScreen extends Screen {
     private int suggestIndex = 0;
 
     public LetterEditorScreen(Screen parent, OttoExtraConfig config) {
+        this(parent, config, null);
+    }
+
+    public LetterEditorScreen(Screen parent, OttoExtraConfig config, LetterDraft suppliedDraft) {
         super(Text.translatable("ottoextra.letter.title"));
         this.parent = parent;
         this.config = config;
-        this.draft = LetterDraftCache.load();
+        this.draft = suppliedDraft == null ? LetterDraftCache.load() : suppliedDraft;
         this.draft.repair();
 
         this.page = Math.min(lockedPages(), Math.max(0, draft.pages.size() - 1));
@@ -121,14 +133,44 @@ public final class LetterEditorScreen extends Screen {
     }
 
     private int maxLinesPerPage() {
-        return "PAGE".equalsIgnoreCase(config.letter.sendMode)
-                ? config.letter.pageModeMaxLinesPerPage : config.letter.maxLinesPerPage;
+        return switch (LetterSendMode.from(config.letter.sendMode)) {
+            case LEGACY -> config.letter.maxLinesPerPage;
+            case PAGE -> config.letter.pageModeMaxLinesPerPage;
+            case V2 -> draft != null && draft.meta.importedFromBook
+                    ? LetterV2Planner.BOOK_MAX_LINES : LetterV2Planner.SERVER_PAGE_MAX_LINES;
+        };
+    }
+
+    private boolean v2Mode() {
+        return LetterSendMode.from(config.letter.sendMode) == LetterSendMode.V2;
+    }
+
+    private boolean flowingV2Draft() {
+        return v2Mode() && lockedPages() == 0 && lockedOffset() == 0
+                && !de.ottoextra.letter.calibration.LetterCalibrationService
+                .isCalibrationDraft(draft);
+    }
+
+    private int panelHeight() {
+        return Math.max(1, Math.min(PANEL_H, height - footerHeight() - 8));
+    }
+
+    private int footerHeight() {
+        return de.ottoextra.letter.calibration.LetterCalibrationService.hasActiveCase()
+                ? 56 : 34;
+    }
+
+    private int visibleLineCount() {
+        return Math.max(1, Math.min(maxLinesPerPage(),
+                (panelHeight() - TEXT_Y - 44) / LINE_H));
     }
 
     private PageSplitter splitter() {
         if (splitter == null && textRenderer != null) {
+            int effectiveBudget = LetterSendMode.from(config.letter.sendMode)
+                    == LetterSendMode.V2 ? 0 : config.letter.pageModeEffectiveCharBudget;
             splitter = new PageSplitter(textRenderer::getWidth, BOOK_PAGE_WIDTH,
-                    maxLinesPerPage(), config.letter.pageModeEffectiveCharBudget);
+                    maxLinesPerPage(), effectiveBudget);
         }
         return splitter;
     }
@@ -138,7 +180,7 @@ public final class LetterEditorScreen extends Screen {
     }
 
     private int panelY() {
-        return Math.max(4, (height - PANEL_H) / 2);
+        return Math.max(4, (height - panelHeight() - footerHeight()) / 2);
     }
 
     private StringBuilder pageBuilder() {
@@ -158,6 +200,49 @@ public final class LetterEditorScreen extends Screen {
 
     private void setText(String value) {
         draft.pages.set(page, value);
+        if (!flowingV2Draft()) {
+            invalidateFlowingDocument();
+        }
+    }
+
+    private void invalidateFlowingDocument() {
+        draft.meta.flowingDocument = null;
+        draft.meta.flowingDocumentVersion = 0;
+    }
+
+    private void replaceCurrentText(String value, int nextCursor, int nextAnchor,
+                                    boolean reflow) {
+        if (currentLocked() || !LetterEditorTextOperations.preservesLockedPrefix(
+                text(), value, editableStart())) {
+            return;
+        }
+        if (flowingV2Draft() && textRenderer != null) {
+            V2DraftFlow.EditorPosition position = V2DraftFlow.replacePage(
+                    draft, page, value, nextCursor, nextAnchor,
+                    config.letter.letterCommand, textRenderer::getWidth, reflow);
+            page = position.page();
+            cursor = position.cursor();
+            selAnchor = position.anchor();
+            normalizeEditorPosition();
+            return;
+        }
+        setText(value);
+        cursor = Math.max(0, Math.min(nextCursor, value.length()));
+        selAnchor = nextAnchor < 0 ? -1
+                : Math.max(0, Math.min(nextAnchor, value.length()));
+        normalizeEditorPosition();
+    }
+
+    private void normalizeEditorPosition() {
+        String value = text();
+        int minimum = editableStart();
+        cursor = LetterEditorTextOperations.editableCursor(value, cursor, minimum, 1);
+        if (selAnchor >= 0) {
+            selAnchor = LetterEditorTextOperations.editableCursor(value, selAnchor, minimum, 1);
+            if (selAnchor == cursor) {
+                selAnchor = -1;
+            }
+        }
     }
 
     private List<int[]> lineSpans() {
@@ -179,15 +264,22 @@ public final class LetterEditorScreen extends Screen {
                 lastSpace = i;
             }
 
+            if (isFormattingCodeAt(text, i)) {
+                i += 2;
+                continue;
+            }
+            int next = LetterEditorTextOperations.nextCharacterEnd(text, i);
+            String inherited = formattingActive()
+                    ? LetterFormattingCodes.activePrefixBefore(text, lineStart) : "";
             if (i > lineStart
-                    && textRenderer.getWidth(text.substring(lineStart, i + 1)) > BOOK_PAGE_WIDTH) {
+                    && textRenderer.getWidth(inherited + text.substring(lineStart, next)) > BOOK_PAGE_WIDTH) {
                 int breakAt = lastSpace > lineStart ? lastSpace : i;
                 spans.add(new int[]{lineStart, breakAt});
                 lineStart = lastSpace > lineStart ? breakAt + 1 : breakAt;
                 lastSpace = -1;
                 continue;
             }
-            i++;
+            i = next;
         }
         spans.add(new int[]{lineStart, text.length()});
         return spans;
@@ -206,30 +298,58 @@ public final class LetterEditorScreen extends Screen {
     }
 
     private void deleteSelection() {
-        if (!hasSelection()) {
+        if (currentLocked() || !hasSelection()) {
             return;
         }
         String t = text();
-        setText(t.substring(0, selStart()) + t.substring(selEnd()));
-        cursor = selStart();
-        selAnchor = -1;
+        int start = LetterEditorTextOperations.editableCursor(t, selStart(), editableStart(), -1);
+        int end = LetterEditorTextOperations.editableCursor(t, selEnd(), editableStart(), 1);
+        if (start >= end) {
+            return;
+        }
+        replaceCurrentText(t.substring(0, start) + t.substring(end),
+                start, -1, true);
     }
 
     private void insert(String value) {
         if (currentLocked()) {
             return;
         }
+        normalizeEditorPosition();
         recordUndo();
-        deleteSelection();
         String t = text();
-        cursor = Math.max(0, Math.min(cursor, t.length()));
-        setText(t.substring(0, cursor) + value + t.substring(cursor));
-        cursor += value.length();
-        reflowOverflow();
+        int start = hasSelection() ? selStart() : cursor;
+        int end = hasSelection() ? selEnd() : cursor;
+        start = Math.max(editableStart(), Math.min(start, t.length()));
+        end = Math.max(start, Math.min(end, t.length()));
+        String inserted = t.substring(0, start) + value + t.substring(end);
+        int nextCursor = start + value.length();
+        if (LetterSendMode.from(config.letter.sendMode) == LetterSendMode.V2
+                && value.length() > 1) {
+            int locked = editableStart();
+            String normalizedPrefix = LetterV2Planner.normalizeDocument(
+                    inserted.substring(locked, nextCursor));
+            inserted = inserted.substring(0, locked)
+                    + LetterV2Planner.normalizeDocument(inserted.substring(locked));
+            nextCursor = locked + normalizedPrefix.length();
+        }
+        // Der Server normalisiert Leerraum erst mit dem folgenden Text. Würden wir
+        // hier sofort neu paginieren, würde ein gerade eingegebenes Leerzeichen am
+        // Zeilen-/Wortende verschwinden und die Leertaste im V2-Editor wirkungslos.
+        boolean pendingV2Space = LetterSendMode.from(config.letter.sendMode)
+                == LetterSendMode.V2 && " ".equals(value);
+        replaceCurrentText(inserted, nextCursor, -1, !pendingV2Space);
+        if (!pendingV2Space && !flowingV2Draft()) {
+            reflowOverflow();
+        }
         persist();
     }
 
     private void reflowOverflow() {
+        if (LetterSendMode.from(config.letter.sendMode) == LetterSendMode.V2) {
+            reflowV2Pages();
+            return;
+        }
         int maxLines = maxLinesPerPage();
         for (int p = page; p < draft.pages.size(); p++) {
             String t = draft.pages.get(p);
@@ -260,7 +380,10 @@ public final class LetterEditorScreen extends Screen {
     }
 
     private void persist() {
-        LetterDraftCache.save(draft);
+        if (!de.ottoextra.letter.calibration.LetterCalibrationService
+                .isCalibrationDraft(draft)) {
+            LetterDraftCache.save(draft);
+        }
     }
 
     private static final class EditorState {
@@ -268,17 +391,23 @@ public final class LetterEditorScreen extends Screen {
         private final int page;
         private final int cursor;
         private final int selAnchor;
+        private final String flowingDocument;
+        private final int flowingDocumentVersion;
 
-        private EditorState(List<String> pages, int page, int cursor, int selAnchor) {
+        private EditorState(List<String> pages, int page, int cursor, int selAnchor,
+                            String flowingDocument, int flowingDocumentVersion) {
             this.pages = pages;
             this.page = page;
             this.cursor = cursor;
             this.selAnchor = selAnchor;
+            this.flowingDocument = flowingDocument;
+            this.flowingDocumentVersion = flowingDocumentVersion;
         }
     }
 
     private EditorState captureState() {
-        return new EditorState(new ArrayList<>(draft.pages), page, cursor, selAnchor);
+        return new EditorState(new ArrayList<>(draft.pages), page, cursor, selAnchor,
+                draft.meta.flowingDocument, draft.meta.flowingDocumentVersion);
     }
 
     private void recordUndo() {
@@ -311,6 +440,8 @@ public final class LetterEditorScreen extends Screen {
         draft.pages.clear();
         draft.pages.addAll(state.pages);
         draft.repair();
+        draft.meta.flowingDocument = state.flowingDocument;
+        draft.meta.flowingDocumentVersion = state.flowingDocumentVersion;
         page = Math.max(0, Math.min(state.page, draft.pages.size() - 1));
         int lo = editableStart();
         int minCursor = lo == Integer.MAX_VALUE ? text().length() : lo;
@@ -341,11 +472,33 @@ public final class LetterEditorScreen extends Screen {
         if (!LetterFormattingCodes.isValidCode(c) || c == 'k') {
             return;
         }
+        if (c == 'r') {
+            insertFormattingResetAtCursor();
+            return;
+        }
         if (hasSelection()) {
             applyFormattingToSelection(code);
         } else {
             insert(code);
         }
+    }
+
+    /** Reset ist eine Einfügemarke: Er ändert nur die Formatierung ab dem Cursor. */
+    private void insertFormattingResetAtCursor() {
+        if (currentLocked()) {
+            return;
+        }
+        String t = text();
+        int editable = editableStart();
+        int at = Math.max(editable == Integer.MAX_VALUE ? t.length() : editable,
+                Math.min(cursor, t.length()));
+        at = LetterEditorTextOperations.cursorBoundary(t, at, 1);
+        String reset = String.valueOf(LetterFormattingCodes.SECTION) + 'r';
+        recordUndo();
+        selAnchor = -1;
+        replaceCurrentText(t.substring(0, at) + reset + t.substring(at),
+                at + reset.length(), -1, true);
+        persist();
     }
 
     private void applyFormattingToSelection(String code) {
@@ -365,17 +518,15 @@ public final class LetterEditorScreen extends Screen {
 
         String suffix = LetterFormattingCodes.resetAndRestoreAt(t, end);
         recordUndo();
-        setText(t.substring(0, start) + prefix + t.substring(start, end)
-                + suffix + t.substring(end));
+        String changed = t.substring(0, start) + prefix + t.substring(start, end)
+                + suffix + t.substring(end);
 
         int newStart = start + prefix.length();
         int newEnd = end + prefix.length();
         if (forwardSelection) {
-            selAnchor = newStart;
-            cursor = newEnd;
+            replaceCurrentText(changed, newEnd, newStart, true);
         } else {
-            selAnchor = newEnd;
-            cursor = newStart;
+            replaceCurrentText(changed, newStart, newEnd, true);
         }
         persist();
     }
@@ -397,7 +548,7 @@ public final class LetterEditorScreen extends Screen {
             return;
         }
 
-        if (start > 0 && start < t.length()
+        if (start > editable && start < t.length()
                 && t.charAt(start - 1) == LetterFormattingCodes.SECTION
                 && LetterFormattingCodes.isValidCode(t.charAt(start))) {
             start--;
@@ -409,7 +560,7 @@ public final class LetterEditorScreen extends Screen {
         }
 
         int replaceStart = start;
-        while (replaceStart >= 2 && isFormattingCodeAt(t, replaceStart - 2)) {
+        while (replaceStart - 2 >= editable && isFormattingCodeAt(t, replaceStart - 2)) {
             replaceStart -= 2;
         }
         int replaceEnd = end;
@@ -430,16 +581,13 @@ public final class LetterEditorScreen extends Screen {
 
         boolean forwardSelection = selAnchor <= cursor;
         recordUndo();
-        setText(changed);
 
         int newStart = replaceStart + resetBefore.length();
         int newEnd = newStart + plain.length();
         if (forwardSelection) {
-            selAnchor = newStart;
-            cursor = newEnd;
+            replaceCurrentText(changed, newEnd, newStart, true);
         } else {
-            selAnchor = newEnd;
-            cursor = newStart;
+            replaceCurrentText(changed, newStart, newEnd, true);
         }
         persist();
         status = Text.translatable("ottoextra.letter.fmt.cleared").getString();
@@ -485,17 +633,36 @@ public final class LetterEditorScreen extends Screen {
     }
 
     private void reflowAllPages() {
+        if (v2Mode() && (lockedPages() > 0 || lockedOffset() > 0)) {
+            // Originalseiten bleiben unverändert: Courier setzt am gespeicherten Buch an.
+            invalidateFlowingDocument();
+            normalizeEditorPosition();
+            return;
+        }
+        if (flowingV2Draft() && textRenderer != null) {
+            applyFlowPosition(V2DraftFlow.reflow(draft, page, cursor, selAnchor,
+                    config.letter.letterCommand, textRenderer::getWidth));
+            persist();
+            return;
+        }
         PageSplitter sp = splitter();
         if (sp == null) {
             return;
         }
+        invalidateFlowingDocument();
         List<String> rebuilt = new ArrayList<>();
         int locked = lockedPages();
-        for (int i = 0; i < draft.pages.size(); i++) {
-            if (i < locked) {
-                rebuilt.add(draft.pages.get(i));
-            } else {
-                rebuilt.addAll(sp.split(draft.pages.get(i)));
+        if (LetterSendMode.from(config.letter.sendMode) == LetterSendMode.V2 && locked == 0) {
+            rebuilt.addAll(LetterV2Planner.planFlowing(config.letter.letterCommand,
+                    List.of(LetterV2Planner.normalizeDocument(String.join("\n", draft.pages))),
+                    textRenderer::getWidth).predictedPages());
+        } else {
+            for (int i = 0; i < draft.pages.size(); i++) {
+                if (i < locked) {
+                    rebuilt.add(draft.pages.get(i));
+                } else {
+                    rebuilt.addAll(sp.split(draft.pages.get(i)));
+                }
             }
         }
         if (rebuilt.isEmpty()) {
@@ -506,6 +673,20 @@ public final class LetterEditorScreen extends Screen {
         page = Math.max(0, Math.min(page, draft.pages.size() - 1));
         cursor = Math.min(cursor, text().length());
         persist();
+    }
+
+    private void reflowV2Pages() {
+        if (textRenderer == null || !flowingV2Draft()) {
+            return;
+        }
+        applyFlowPosition(V2DraftFlow.reflow(draft, page, cursor, selAnchor,
+                config.letter.letterCommand, textRenderer::getWidth));
+    }
+
+    private void applyFlowPosition(V2DraftFlow.EditorPosition position) {
+        page = position.page();
+        cursor = position.cursor();
+        selAnchor = position.anchor();
     }
 
     @Override
@@ -520,16 +701,19 @@ public final class LetterEditorScreen extends Screen {
 
     @Override
     public boolean keyPressed(KeyInput input) {
+        normalizeEditorPosition();
         int key = input.key();
 
         int modifiers = input.modifiers();
-        boolean ctrl = input.hasCtrlOrCmd();
         boolean shift = (modifiers & GLFW.GLFW_MOD_SHIFT) != 0;
         boolean option = (modifiers & GLFW.GLFW_MOD_ALT) != 0;
         boolean rawCtrl = (modifiers & GLFW.GLFW_MOD_CONTROL) != 0;
         boolean command = IS_MACOS && (modifiers & GLFW.GLFW_MOD_SUPER) != 0;
 
-        boolean wordJump = IS_MACOS ? (option || rawCtrl) : ctrl;
+        boolean shortcut = LetterEditorTextOperations.editorShortcut(
+                IS_MACOS, rawCtrl, command);
+        boolean wordJump = LetterEditorTextOperations.wordShortcut(
+                IS_MACOS, rawCtrl, command, option);
         boolean macLineJump = command;
         boolean macDocumentJump = command
                 && (key == GLFW.GLFW_KEY_UP || key == GLFW.GLFW_KEY_DOWN);
@@ -569,10 +753,41 @@ public final class LetterEditorScreen extends Screen {
                     deleteSelection();
                     persist();
                 } else if (cursor > editableStart()) {
-                    recordUndo();
-                    setText(t.substring(0, cursor - 1) + t.substring(cursor));
-                    cursor--;
-                    persist();
+                    LetterEditorTextOperations.Range deletion = wordJump
+                            ? LetterEditorTextOperations.previousWord(
+                                    t, cursor, editableStart())
+                            : new LetterEditorTextOperations.Range(
+                                    LetterEditorTextOperations.previousCharacterStart(t, cursor),
+                                    cursor);
+                    if (!deletion.isEmpty()) {
+                        recordUndo();
+                        replaceCurrentText(t.substring(0, deletion.start())
+                                        + t.substring(deletion.end()),
+                                deletion.start(), -1, true);
+                        persist();
+                    }
+                } else if (flowingV2Draft() && page > 0) {
+                    int previousPage = page - 1;
+                    if (!isLockedPage(previousPage)) {
+                        String previous = draft.pages.get(previousPage);
+                        int minimum = previousPage == lockedPages()
+                                ? Math.min(lockedOffset(), previous.length()) : 0;
+                        LetterEditorTextOperations.Range deletion = wordJump
+                                ? LetterEditorTextOperations.previousWord(
+                                        previous, previous.length(), minimum)
+                                : new LetterEditorTextOperations.Range(
+                                        LetterEditorTextOperations.previousCharacterStart(
+                                                previous, previous.length()), previous.length());
+                        if (!deletion.isEmpty()) {
+                            recordUndo();
+                            page = previousPage;
+                            cursor = previous.length();
+                            replaceCurrentText(previous.substring(0, deletion.start())
+                                            + previous.substring(deletion.end()),
+                                    deletion.start(), -1, true);
+                            persist();
+                        }
+                    }
                 }
                 return true;
             }
@@ -585,9 +800,40 @@ public final class LetterEditorScreen extends Screen {
                     deleteSelection();
                     persist();
                 } else if (cursor < t.length()) {
-                    recordUndo();
-                    setText(t.substring(0, cursor) + t.substring(cursor + 1));
-                    persist();
+                    LetterEditorTextOperations.Range deletion = wordJump
+                            ? LetterEditorTextOperations.nextWord(t, cursor)
+                            : new LetterEditorTextOperations.Range(cursor,
+                                    LetterEditorTextOperations.nextCharacterEnd(t, cursor));
+                    if (!deletion.isEmpty()) {
+                        recordUndo();
+                        replaceCurrentText(t.substring(0, deletion.start())
+                                        + t.substring(deletion.end()),
+                                deletion.start(), -1, true);
+                        persist();
+                    }
+                } else if (flowingV2Draft() && page + 1 < draft.pages.size()) {
+                    int nextPage = page + 1;
+                    String next = draft.pages.get(nextPage);
+                    LetterEditorTextOperations.Range deletion;
+                    if (wordJump) {
+                        deletion = LetterEditorTextOperations.nextWord(next, 0);
+                    } else {
+                        int removeAt = 0;
+                        while (isFormattingCodeAt(next, removeAt)) {
+                            removeAt += 2;
+                        }
+                        deletion = new LetterEditorTextOperations.Range(removeAt,
+                                LetterEditorTextOperations.nextCharacterEnd(next, removeAt));
+                    }
+                    if (!deletion.isEmpty()) {
+                        recordUndo();
+                        page = nextPage;
+                        cursor = 0;
+                        replaceCurrentText(next.substring(0, deletion.start())
+                                        + next.substring(deletion.end()),
+                                deletion.start(), -1, true);
+                        persist();
+                    }
                 }
                 return true;
             }
@@ -596,7 +842,11 @@ public final class LetterEditorScreen extends Screen {
                 return true;
             }
             case GLFW.GLFW_KEY_LEFT -> {
-                if (macLineJump) {
+                if (!shift && flowingV2Draft() && cursor <= editableStart() && page > 0) {
+                    page--;
+                    cursor = text().length();
+                    selAnchor = -1;
+                } else if (macLineJump) {
                     moveCursor(lineStartOf(cursor), shift);
                 } else if (wordJump) {
                     moveCursor(prevWordBoundary(cursor), shift);
@@ -606,7 +856,12 @@ public final class LetterEditorScreen extends Screen {
                 return true;
             }
             case GLFW.GLFW_KEY_RIGHT -> {
-                if (macLineJump) {
+                if (!shift && flowingV2Draft() && cursor >= t.length()
+                        && page + 1 < draft.pages.size()) {
+                    page++;
+                    cursor = 0;
+                    selAnchor = -1;
+                } else if (macLineJump) {
                     moveCursor(lineEndOf(cursor), shift);
                 } else if (wordJump) {
                     moveCursor(nextWordBoundary(cursor), shift);
@@ -632,7 +887,13 @@ public final class LetterEditorScreen extends Screen {
                 return true;
             }
             case GLFW.GLFW_KEY_Y -> {
-                if (ctrl) {
+                if (shortcut) {
+                    redo();
+                    return true;
+                }
+            }
+            case GLFW.GLFW_KEY_Z -> {
+                if (shortcut) {
                     if (shift) {
                         redo();
                     } else {
@@ -641,14 +902,8 @@ public final class LetterEditorScreen extends Screen {
                     return true;
                 }
             }
-            case GLFW.GLFW_KEY_Z -> {
-                if (ctrl) {
-                    redo();
-                    return true;
-                }
-            }
             case GLFW.GLFW_KEY_A -> {
-                if (ctrl) {
+                if (shortcut) {
 
                     int lo = editableStart();
                     selAnchor = lo == Integer.MAX_VALUE ? t.length() : lo;
@@ -657,13 +912,13 @@ public final class LetterEditorScreen extends Screen {
                 }
             }
             case GLFW.GLFW_KEY_C -> {
-                if (ctrl && hasSelection()) {
+                if (shortcut && hasSelection()) {
                     client.keyboard.setClipboard(t.substring(selStart(), selEnd()));
                     return true;
                 }
             }
             case GLFW.GLFW_KEY_X -> {
-                if (ctrl && hasSelection()) {
+                if (shortcut && hasSelection()) {
                     client.keyboard.setClipboard(t.substring(selStart(), selEnd()));
                     recordUndo();
                     deleteSelection();
@@ -672,7 +927,7 @@ public final class LetterEditorScreen extends Screen {
                 }
             }
             case GLFW.GLFW_KEY_V -> {
-                if (ctrl) {
+                if (shortcut) {
                     pasteClipboard();
                     return true;
                 }
@@ -748,13 +1003,13 @@ public final class LetterEditorScreen extends Screen {
     private void handleTab(boolean shift) {
         String t = text();
         LetterPlaceholder at = LetterPlaceholderParser.at(t, cursor);
-        if (!shift && at != null && !currentLocked()) {
+        if (!shift && at != null && !currentLocked() && at.start() >= editableStart()) {
             PlaceholderResolveResult result = placeholderService.resolve(at);
             if (result.ok()) {
                 recordUndo();
-                setText(placeholderService.apply(t, result));
-                cursor = at.start() + result.resolved().length();
-                selAnchor = -1;
+                String changed = placeholderService.apply(t, result);
+                replaceCurrentText(changed,
+                        at.start() + result.resolved().length(), -1, true);
                 status = Text.translatable("ottoextra.letter.placeholderResolved",
                         result.resolved()).getString();
                 persist();
@@ -767,13 +1022,13 @@ public final class LetterEditorScreen extends Screen {
         LetterPlaceholder target = shift
                 ? LetterPlaceholderParser.previous(t, cursor)
                 : LetterPlaceholderParser.next(t, cursor);
-        if (target != null) {
-            cursor = target.start() + 2;
-            selAnchor = -1;
+        if (target != null && target.start() >= editableStart()) {
+            moveCursor(target.start() + 2, false);
         }
     }
 
     private void moveCursor(int to, boolean shift) {
+        normalizeEditorPosition();
         if (shift && selAnchor < 0) {
             selAnchor = cursor;
         }
@@ -787,7 +1042,9 @@ public final class LetterEditorScreen extends Screen {
             cursor = hi;
             return;
         }
-        cursor = Math.max(lo, Math.max(0, Math.min(to, hi)));
+        int direction = Integer.compare(to, cursor);
+        int boundary = LetterEditorTextOperations.cursorBoundary(text(), to, direction);
+        cursor = Math.max(lo, Math.max(0, Math.min(boundary, hi)));
     }
 
     private void moveVertical(int dir, boolean shift) {
@@ -812,27 +1069,11 @@ public final class LetterEditorScreen extends Screen {
     }
 
     private int prevWordBoundary(int pos) {
-        String t = text();
-        int i = Math.min(pos, t.length());
-        while (i > 0 && !Character.isLetterOrDigit(t.charAt(i - 1))) {
-            i--;
-        }
-        while (i > 0 && Character.isLetterOrDigit(t.charAt(i - 1))) {
-            i--;
-        }
-        return i;
+        return LetterEditorTextOperations.previousWord(text(), pos, 0).start();
     }
 
     private int nextWordBoundary(int pos) {
-        String t = text();
-        int i = Math.max(pos, 0);
-        while (i < t.length() && !Character.isLetterOrDigit(t.charAt(i))) {
-            i++;
-        }
-        while (i < t.length() && Character.isLetterOrDigit(t.charAt(i))) {
-            i++;
-        }
-        return i;
+        return LetterEditorTextOperations.nextWord(text(), pos).end();
     }
 
     private int lineStartOf(int pos) {
@@ -898,18 +1139,18 @@ public final class LetterEditorScreen extends Screen {
     private boolean isInsideTextArea(double mouseX, double mouseY, List<int[]> spans) {
         int tx = panelX() + TEXT_X;
         int ty = panelY() + TEXT_Y;
-        int visibleLines = Math.max(1, Math.min(spans.size(), maxLinesPerPage()));
-        return mouseX >= tx - 4 && mouseX <= tx + 132
+        int visibleLines = Math.max(1, Math.min(spans.size(), visibleLineCount()));
+        return mouseX >= tx - 4 && mouseX <= tx + 114
                 && mouseY >= ty - 2 && mouseY <= ty + visibleLines * LINE_H + 2;
     }
 
     private int textPositionAt(double mouseX, double mouseY, List<int[]> spans) {
         int tx = panelX() + TEXT_X;
         int ty = panelY() + TEXT_Y;
-        int visibleLines = Math.max(1, Math.min(spans.size(), maxLinesPerPage()));
+        int visibleLines = Math.max(1, Math.min(spans.size(), visibleLineCount()));
         int line = Math.max(0, Math.min((int) Math.floor((mouseY - ty) / LINE_H),
                 visibleLines - 1));
-        int[] span = spans.get(line);
+        int[] span = spans.get(Math.min(spans.size() - 1, firstVisibleLine + line));
         String lineText = text().substring(span[0], span[1]);
         int col = colForX(lineText, (int) Math.round(mouseX - tx), span[0]);
         int pos = span[0] + col;
@@ -963,46 +1204,64 @@ public final class LetterEditorScreen extends Screen {
     @Override
     protected void init() {
         reflowAllPages();
+        viewportPage = -1;
         if (config.letter.formattingEnabled) {
             formattingSidebar = new LetterFormattingSidebar(
                     this::insertFormattingCode, this::clearFormattingFromSelection);
         }
         int px = panelX();
         int py = panelY();
+        int ph = panelHeight();
         addDrawableChild(ButtonWidget.builder(Text.literal("◀"), b -> switchPage(-1))
-                .dimensions(px + 8, py + PANEL_H - 26, 20, 18).build());
+                .dimensions(px + 8, py + ph - 26, 20, 18).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("▶"), b -> switchPage(1))
-                .dimensions(px + 30, py + PANEL_H - 26, 20, 18).build());
+                .dimensions(px + 30, py + ph - 26, 20, 18).build());
         addDrawableChild(ButtonWidget.builder(Text.literal("+"), b -> {
             if (currentLocked()) {
                 return;
             }
             recordUndo();
-            draft.pages.add(page + 1, "");
-            switchPage(1);
-            persist();
-        }).dimensions(px + 52, py + PANEL_H - 26, 20, 18).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("−"), b -> {
-            if (!currentLocked() && draft.pages.size() > lockedPages() + 1) {
-                recordUndo();
-                draft.pages.remove(page);
-                page = Math.max(lockedPages(), Math.min(page, draft.pages.size() - 1));
-                cursor = Math.min(cursor, text().length());
-                persist();
+            if (flowingV2Draft() && textRenderer != null) {
+                applyFlowPosition(V2DraftFlow.insertPageAfter(draft, page,
+                        config.letter.letterCommand, textRenderer::getWidth));
+            } else {
+                invalidateFlowingDocument();
+                draft.pages.add(page + 1, "");
+                switchPage(1);
             }
-        }).dimensions(px + 74, py + PANEL_H - 26, 20, 18).build());
+            persist();
+        }).dimensions(px + 52, py + ph - 26, 20, 18).build());
+        int deleteX = 74;
+        addDrawableChild(ButtonWidget.builder(Text.literal("−"), b -> deleteCurrentPage())
+                .dimensions(px + deleteX, py + ph - 26, 20, 18).build());
         addDrawableChild(ButtonWidget.builder(
                 Text.translatable("ottoextra.letter.send"), b -> {
 
                     persist();
-                    LetterServices.startWrite(config, draft);
-                    client.setScreen(null);
-                    LetterActionPrompt.show(config, draft);
+                    if (de.ottoextra.letter.calibration.LetterCalibrationService
+                            .isCalibrationDraft(draft)) {
+                        de.ottoextra.letter.calibration.LetterCalibrationService
+                                .writeFromEditor(config, draft);
+                        client.setScreen(null);
+                        return;
+                    }
+                    draft.meta.mode = LetterOutputMode.BRIEF;
+                    if (LetterServices.startWrite(config, draft, () -> {
+                        MinecraftClient minecraft = MinecraftClient.getInstance();
+                        if (minecraft.player != null && minecraft.world != null) {
+                            minecraft.setScreen(new RecipientScreen(null, config, draft));
+                        }
+                    })) {
+                        LetterServices.setPending(draft);
+                        client.setScreen(null);
+                    } else {
+                        status = Text.translatable("ottoextra.letter.write.failed").getString();
+                    }
                 })
-                .dimensions(px + PANEL_W - 64, py + PANEL_H - 26, 56, 18).build());
+                .dimensions(px + PANEL_W - 64, py + ph - 26, 56, 18).build());
 
         ButtonWidget check = ButtonWidget.builder(Text.empty(), b -> checkPlaceholders())
-                .dimensions(px, py + PANEL_H + 4, 18, 16).build();
+                .dimensions(px, py + ph + 4, 18, 16).build();
         check.setTooltip(net.minecraft.client.gui.tooltip.Tooltip.of(
                 Text.translatable("ottoextra.letter.checkPlaceholders")));
         addDrawableChild(check);
@@ -1012,15 +1271,61 @@ public final class LetterEditorScreen extends Screen {
                     Text.translatable("ottoextra.letter.preview"), b -> {
                         persist();
                         client.setScreen(new LetterPreviewScreen(this, config, draft, page));
-                    }).dimensions(secondaryX, py + PANEL_H + 4, 72, 16).build());
+                    }).dimensions(secondaryX, py + ph + 4, 72, 16).build());
             secondaryX += 76;
         }
         addDrawableChild(ButtonWidget.builder(
                 Text.translatable("ottoextra.letter.drafts"), b -> {
                     persist();
                     client.setScreen(new SavedDraftsScreen(this, config, draft));
-                }).dimensions(secondaryX, py + PANEL_H + 4,
+                }).dimensions(secondaryX, py + ph + 4,
                         px + PANEL_W - secondaryX, 16).build());
+
+        if (de.ottoextra.letter.calibration.LetterCalibrationService.hasActiveCase()) {
+            addDrawableChild(ButtonWidget.builder(
+                    Text.literal("§cDebug-Testtext in diesen Brief einsetzen"), b -> {
+                        recordUndo();
+                        String id = de.ottoextra.letter.calibration.LetterCalibrationService
+                                .populateCurrentDraft(draft);
+                        page = 0;
+                        selAnchor = -1;
+                        splitter = null;
+                        reflowAllPages();
+                        page = 0;
+                        cursor = text().length();
+                        status = id.isBlank() ? "Kalibrierung nicht aktiv"
+                                : id + " eingesetzt — jetzt Schreiben drücken";
+                    }).dimensions(px, py + ph + 24, PANEL_W, 18).build());
+        }
+    }
+
+    private void deleteCurrentPage() {
+        if (currentLocked() || hasLockedHere()) {
+            return;
+        }
+        recordUndo();
+        if (flowingV2Draft()) {
+            applyFlowPosition(V2DraftFlow.deletePage(draft, page,
+                    config.letter.letterCommand, textRenderer::getWidth));
+            persist();
+            return;
+        }
+        if (draft.pages.size() <= lockedPages() + 1) {
+            setText("");
+            cursor = 0;
+            selAnchor = -1;
+            persist();
+            return;
+        }
+        invalidateFlowingDocument();
+        draft.pages.remove(page);
+        page = Math.max(lockedPages(), Math.min(page, draft.pages.size() - 1));
+        cursor = Math.min(cursor, text().length());
+        selAnchor = -1;
+        if (v2Mode()) {
+            reflowV2Pages();
+        }
+        persist();
     }
 
     private static final net.minecraft.util.Identifier CHECK_ICON =
@@ -1034,6 +1339,7 @@ public final class LetterEditorScreen extends Screen {
         page = target;
         cursor = Math.min(cursor, text().length());
         selAnchor = -1;
+        normalizeEditorPosition();
     }
 
     private void checkPlaceholders() {
@@ -1046,15 +1352,48 @@ public final class LetterEditorScreen extends Screen {
         status = Text.translatable("ottoextra.letter.placeholderStatus", open, invalid).getString();
     }
 
+    private void updateViewport(List<int[]> spans) {
+        boolean changedPage = viewportPage != page;
+        int cursorLine = lineIndexOf(cursor, spans);
+        firstVisibleLine = LetterEditorTextOperations.firstVisibleLine(
+                changedPage ? 0 : firstVisibleLine, cursorLine,
+                spans.size(), visibleLineCount(), changedPage || viewportCursor != cursor
+                        || viewportCursorLine != cursorLine);
+        viewportPage = page;
+        viewportCursor = cursor;
+        viewportCursorLine = cursorLine;
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
+        List<int[]> spans = lineSpans();
+        if (isInsideTextArea(mouseX, mouseY, spans) && spans.size() > visibleLineCount()) {
+            updateViewport(spans);
+            firstVisibleLine = LetterEditorTextOperations.firstVisibleLine(
+                    firstVisibleLine - (int) Math.signum(vertical) * 3,
+                    lineIndexOf(cursor, spans), spans.size(), visibleLineCount(), false);
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, horizontal, vertical);
+    }
+
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
         int px = panelX();
         int py = panelY();
-        ctx.fill(px - 2, py - 2, px + PANEL_W + 2, py + PANEL_H + 2, PAPER_DARK);
-        ctx.fill(px, py, px + PANEL_W, py + PANEL_H, PAPER_COLOR);
+        int ph = panelHeight();
+        ctx.fill(px - 2, py - 2, px + PANEL_W + 2, py + ph + 2, PAPER_DARK);
+        ctx.fill(px, py, px + PANEL_W, py + ph, PAPER_COLOR);
         ctx.drawText(textRenderer, Text.translatable("ottoextra.letter.pageIndicator",
-                page + 1, draft.pages.size()), px + TEXT_X, py + 12, TEXT_COLOR, false);
-        if (hasLockedHere()) {
+                page + 1, draft.pages.size()), px + TEXT_X, py + 12,
+                TEXT_COLOR, false);
+        if (de.ottoextra.letter.calibration.LetterCalibrationService
+                .isCalibrationDraft(draft)) {
+            ctx.drawText(textRenderer, "§cKalibrierung · "
+                            + de.ottoextra.letter.calibration.LetterCalibrationService
+                            .activeSendMode() + " · nicht verändern",
+                    px + TEXT_X, py + ph - 40, TEXT_COLOR_LOCKED, false);
+        } else if (hasLockedHere()) {
             ctx.drawText(textRenderer, Text.translatable("ottoextra.letter.book.locked"),
                     px + TEXT_X + 44, py + 12, TEXT_COLOR_LOCKED, false);
         }
@@ -1062,13 +1401,14 @@ public final class LetterEditorScreen extends Screen {
         String t = text();
         int lockStart = editableStart();
         List<int[]> spans = lineSpans();
-        int maxLines = maxLinesPerPage();
-        for (int i = 0; i < Math.min(spans.size(), maxLines); i++) {
+        int maxLines = visibleLineCount();
+        updateViewport(spans);
+        for (int i = firstVisibleLine; i < Math.min(spans.size(), firstVisibleLine + maxLines); i++) {
             int[] span = spans.get(i);
             String lineText = t.substring(span[0], span[1]);
-            int y = py + TEXT_Y + i * LINE_H;
-            ctx.fill(px + TEXT_X - 2, y + LINE_H - 2, px + TEXT_X + 130, y + LINE_H - 1, PAPER_LINE);
-
+            int y = py + TEXT_Y + (i - firstVisibleLine) * LINE_H;
+            ctx.fill(px + TEXT_X - 2, y + LINE_H - 2,
+                    px + TEXT_X + 130, y + LINE_H - 1, PAPER_LINE);
             if (hasSelection() && selEnd() > span[0] && selStart() < span[1]) {
                 int s = Math.max(selStart(), span[0]) - span[0];
                 int e = Math.min(selEnd(), span[1]) - span[0];
@@ -1104,15 +1444,23 @@ public final class LetterEditorScreen extends Screen {
                 ctx.fill(cx, y - 1, cx + 1, y + 9, TEXT_COLOR);
             }
         }
+        if (spans.size() > maxLines && !de.ottoextra.letter.calibration
+                .LetterCalibrationService.isCalibrationDraft(draft)) {
+            ctx.drawText(textRenderer, Text.translatable("ottoextra.letter.editor.visibleLines",
+                    firstVisibleLine + 1, Math.min(spans.size(), firstVisibleLine + maxLines),
+                    spans.size()), px + TEXT_X, py + ph - 40, TEXT_COLOR, false);
+        }
         if (!status.isEmpty()) {
             ctx.drawCenteredTextWithShadow(textRenderer, status, width / 2,
-                    py + PANEL_H + 24, 0xFFE6C8A9);
+                    py + ph + (de.ottoextra.letter.calibration
+                            .LetterCalibrationService.hasActiveCase() ? 46 : 24),
+                    0xFFE6C8A9);
         }
         renderSuggestions(ctx, px, py, spans);
         super.render(ctx, mouseX, mouseY, delta);
 
         ctx.drawTexture(net.minecraft.client.gl.RenderPipelines.GUI_TEXTURED, CHECK_ICON,
-                px + 1, py + PANEL_H + 4, 0f, 0f, 16, 16, 16, 16);
+                px + 1, py + ph + 4, 0f, 0f, 16, 16, 16, 16);
 
         if (sidebarVisible()) {
             formattingSidebar.setBounds(sidebarX(), py);
@@ -1128,7 +1476,8 @@ public final class LetterEditorScreen extends Screen {
         suggestIndex = Math.min(suggestIndex, sugg.size() - 1);
         int line = lineIndexOf(cursor, spans);
         int x = px + TEXT_X + 8;
-        int y = py + TEXT_Y + (line + 1) * LINE_H + 2;
+        if (line < firstVisibleLine || line >= firstVisibleLine + visibleLineCount()) return;
+        int y = py + TEXT_Y + (line - firstVisibleLine + 1) * LINE_H + 2;
         int w = 64;
         int h = sugg.size() * 11 + 4;
         ctx.fill(x - 2, y - 2, x + w + 2, y + h, 0xE0201608);

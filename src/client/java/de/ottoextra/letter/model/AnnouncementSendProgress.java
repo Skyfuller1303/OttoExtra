@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class AnnouncementSendProgress {
+    public de.ottoextra.letter.recovery.LetterSendContext context;
     public String draftId = "";
     public String totalChecksum = "";
     public int pageCount = 0;

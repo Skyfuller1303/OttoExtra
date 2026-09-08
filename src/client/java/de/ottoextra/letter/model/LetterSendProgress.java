@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class LetterSendProgress {
+    public de.ottoextra.letter.recovery.LetterSendContext context;
     public String draftId = "";
     public List<String> pendingCommands = new ArrayList<>();
     public int sentCommands = 0;

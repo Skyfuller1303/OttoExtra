@@ -7,6 +7,7 @@ import de.ottoextra.letter.model.AnnouncementSendProgress;
 import de.ottoextra.letter.model.LetterSendProgress;
 import de.ottoextra.letter.ui.LetterActionPrompt;
 import de.ottoextra.letter.ui.LetterEditorScreen;
+import de.ottoextra.letter.ui.LetterCalibrationScreen;
 import de.ottoextra.letter.ui.RecoveryPromptScreen;
 import de.ottoextra.letter.ui.WrittenLetterImport;
 import de.ottoextra.logging.DebugLog;
@@ -17,6 +18,8 @@ import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import org.lwjgl.glfw.GLFW;
+
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 
 public final class LetterModule implements OttoExtraModule {
 
@@ -55,15 +58,86 @@ public final class LetterModule implements OttoExtraModule {
                                 .then(ClientCommandManager.literal("close").executes(ctx -> {
                                     LetterActionPrompt.onClose();
                                     return 1;
-                                })))));
+                                }))
+                                .then(ClientCommandManager.literal("calibrate")
+                                        .executes(ctx -> {
+                                            LetterCalibrationScreen.open(config);
+                                            return 1;
+                                        })
+                                        .then(ClientCommandManager.literal("v2")
+                                                .then(ClientCommandManager.literal("boundary")
+                                                        .then(ClientCommandManager.argument(
+                                                                        "number",
+                                                                        IntegerArgumentType
+                                                                                .integer(1, 15))
+                                                                .executes(ctx -> {
+                                                                    de.ottoextra.letter.calibration
+                                                                            .LetterCalibrationService
+                                                                            .openV2BoundaryNumbered(
+                                                                                    config,
+                                                                                    IntegerArgumentType
+                                                                                            .getInteger(
+                                                                                                    ctx,
+                                                                                                    "number"));
+                                                                    return 1;
+                                                                })))
+                                                .then(ClientCommandManager.literal("final")
+                                                        .then(ClientCommandManager.argument(
+                                                                        "number",
+                                                                        IntegerArgumentType
+                                                                                .integer(1, 8))
+                                                                .executes(ctx -> {
+                                                                    de.ottoextra.letter.calibration
+                                                                            .LetterCalibrationService
+                                                                            .openV2FinalNumbered(
+                                                                                    config,
+                                                                                    IntegerArgumentType
+                                                                                            .getInteger(
+                                                                                                    ctx,
+                                                                                                    "number"));
+                                                                    return 1;
+                                                                })))
+                                                .then(ClientCommandManager.literal("refine")
+                                                        .then(ClientCommandManager.argument(
+                                                                        "number",
+                                                                        IntegerArgumentType
+                                                                                .integer(1, 6))
+                                                                .executes(ctx -> {
+                                                                    de.ottoextra.letter.calibration
+                                                                            .LetterCalibrationService
+                                                                            .openV2RefineNumbered(
+                                                                                    config,
+                                                                                    IntegerArgumentType
+                                                                                            .getInteger(
+                                                                                                    ctx,
+                                                                                                    "number"));
+                                                                    return 1;
+                                                                })))
+                                                .then(ClientCommandManager.argument("number",
+                                                                IntegerArgumentType.integer(1, 8))
+                                                        .executes(ctx -> {
+                                                            de.ottoextra.letter.calibration
+                                                                    .LetterCalibrationService
+                                                                    .openV2Numbered(config,
+                                                                            IntegerArgumentType
+                                                                                    .getInteger(ctx,
+                                                                                            "number"));
+                                                            return 1;
+                                                        })))
+                                        .then(ClientCommandManager.argument("number",
+                                                        IntegerArgumentType.integer(1, 16))
+                                                .executes(ctx -> {
+                                                    de.ottoextra.letter.calibration
+                                                            .LetterCalibrationService.openNumbered(
+                                                                    config,
+                                                                    IntegerArgumentType.getInteger(
+                                                                            ctx, "number"));
+                                                    return 1;
+                                                }))))));
 
         net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register(
                 (client, screen, scaledWidth, scaledHeight) -> {
                     if (!(screen instanceof net.minecraft.client.gui.screen.ingame.BookScreen)) {
-                        return;
-                    }
-                    var stack = WrittenLetterImport.heldWrittenBookStack();
-                    if (stack == null || !WrittenLetterImport.isOwn(stack)) {
                         return;
                     }
                     var buttons = net.fabricmc.fabric.api.client.screen.v1.Screens
@@ -76,11 +150,26 @@ public final class LetterModule implements OttoExtraModule {
                         }
                     }
                     int y = Math.min(bottom + 4, scaledHeight - 24);
-                    buttons.add(net.minecraft.client.gui.widget.ButtonWidget.builder(
-                                    net.minecraft.text.Text.translatable(
-                                            "ottoextra.letter.book.edit"),
-                                    b -> WrittenLetterImport.editInEditor(config, stack))
-                            .dimensions(scaledWidth / 2 - 100, y, 200, 20).build());
+                    var stack = WrittenLetterImport.heldWrittenBookStack();
+                    boolean showEdit = stack != null && WrittenLetterImport.isOwn(stack);
+                    if (de.ottoextra.logging.DebugLog.isEnabled()
+                            && de.ottoextra.letter.calibration.LetterCalibrationService
+                            .canCaptureHeldBook()) {
+                        int captureY = showEdit ? Math.max(4, y - 24) : y;
+                        buttons.add(net.minecraft.client.gui.widget.ButtonWidget.builder(
+                                        net.minecraft.text.Text.literal(
+                                                "Kalibrierung erfassen + Screenshot"),
+                                        b -> de.ottoextra.letter.calibration
+                                                .LetterCalibrationService.captureHeldBook(screen))
+                                .dimensions(scaledWidth / 2 - 100, captureY, 200, 20).build());
+                    }
+                    if (showEdit) {
+                        buttons.add(net.minecraft.client.gui.widget.ButtonWidget.builder(
+                                        net.minecraft.text.Text.translatable(
+                                                "ottoextra.letter.book.edit"),
+                                        b -> WrittenLetterImport.editInEditor(config, stack))
+                                .dimensions(scaledWidth / 2 - 100, y, 200, 20).build());
+                    }
                 });
 
         net.fabricmc.fabric.api.event.player.UseItemCallback.EVENT.register(
@@ -105,6 +194,7 @@ public final class LetterModule implements OttoExtraModule {
                 });
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            de.ottoextra.letter.calibration.LetterCalibrationService.tick(config);
             while (editorKey.wasPressed()) {
                 if (client.currentScreen == null) {
                     openComposeEditor(config);
@@ -121,15 +211,16 @@ public final class LetterModule implements OttoExtraModule {
                 client.player.sendMessage(msg, true);
             }
 
-            if (!recoveryChecked && client.player != null && client.currentScreen == null) {
+            if (!recoveryChecked && !LetterServices.isSending()
+                    && client.player != null && client.currentScreen == null) {
                 recoveryChecked = true;
                 LetterSendProgress letter = LetterServices.letterStore().load();
                 AnnouncementSendProgress announcement =
                         LetterServices.announcementStore().load();
                 boolean letterOpen = letter != null
-                        && letter.sentCommands < letter.pendingCommands.size();
+                        && !letter.pendingCommands.isEmpty();
                 boolean announcementOpen = announcement != null
-                        && announcement.sentCommands < announcement.pendingCommands.size();
+                        && !announcement.pendingCommands.isEmpty();
                 if (letterOpen || announcementOpen) {
                     client.setScreen(new RecoveryPromptScreen(config,
                             letterOpen ? letter : null,
@@ -176,5 +267,11 @@ public final class LetterModule implements OttoExtraModule {
         recoveryChecked = false;
 
         LetterServices.clearSendingState();
+        de.ottoextra.letter.calibration.LetterCalibrationService.interruptSending();
+    }
+
+    @Override
+    public void onClientStop(OttoExtraContext context) {
+        onDisconnect(context);
     }
 }

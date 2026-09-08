@@ -1,5 +1,7 @@
 package de.ottoextra.letter.paste;
 
+import de.ottoextra.letter.format.LetterFormattingCodes;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.ToIntFunction;
@@ -47,13 +49,28 @@ public final class PageSplitter {
 
     private int hardCut(String word) {
         if (widthFn == null) {
-            return Math.min(maxCharsPerLine, word.length());
+            return safeFormattingBoundary(word, Math.min(maxCharsPerLine, word.length()));
         }
         int i = 1;
         while (i < word.length() && widthFn.applyAsInt(word.substring(0, i + 1)) <= maxWidthPx) {
             i++;
         }
-        return Math.max(1, i);
+        return safeFormattingBoundary(word, Math.max(1, i));
+    }
+
+    private static int safeFormattingBoundary(String word, int cut) {
+        int safe = Math.max(1, Math.min(cut, word.length()));
+        if (safe < word.length() && word.charAt(safe - 1) == LetterFormattingCodes.SECTION
+                && LetterFormattingCodes.isValidCode(word.charAt(safe))) {
+            // Ein §-Code ist atomar. Wenn möglich vor dem Paar umbrechen,
+            // andernfalls beide Zeichen gemeinsam auf diese Zeile nehmen.
+            safe = safe > 1 ? safe - 1 : Math.min(word.length(), safe + 1);
+        }
+        if (safe < word.length() && Character.isHighSurrogate(word.charAt(safe - 1))
+                && Character.isLowSurrogate(word.charAt(safe))) {
+            safe = safe > 1 ? safe - 1 : safe + 1;
+        }
+        return safe;
     }
 
     public List<String> split(String text) {

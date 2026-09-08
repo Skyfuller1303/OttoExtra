@@ -62,15 +62,28 @@ public final class RecipientScreen extends Screen {
                 Text.translatable("ottoextra.letter.recipient.send"), b -> {
                     if (selected != null) {
 
-                        LetterServices.sendPost(config, selected);
-                        LetterServices.consumePending();
-                        MinecraftClient.getInstance().setScreen(null);
+                        if (LetterServices.isSending()) {
+                            waitForWrite();
+                            return;
+                        }
+
+                        if (LetterServices.sendPost(config, selected)) {
+                            LetterServices.consumePending();
+                            MinecraftClient.getInstance().setScreen(null);
+                        }
                     }
                 }).dimensions(width / 2 - 102, height - 30, 100, 20).build();
         addDrawableChild(send);
         addDrawableChild(ButtonWidget.builder(Text.translatable("gui.back"), b -> close())
                 .dimensions(width / 2 + 2, height - 30, 100, 20).build());
         refilter();
+    }
+
+    private static void waitForWrite() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player != null) {
+            client.player.sendMessage(Text.translatable("ottoextra.letter.write.wait"), false);
+        }
     }
 
     private void refilter() {

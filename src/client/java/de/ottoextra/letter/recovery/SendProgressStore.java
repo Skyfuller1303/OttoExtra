@@ -7,6 +7,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import de.ottoextra.letter.model.LetterSendProgress;
+import de.ottoextra.letter.model.AnnouncementSendProgress;
 
 public final class SendProgressStore<T> {
 
@@ -37,7 +39,16 @@ public final class SendProgressStore<T> {
             if (!Files.exists(file)) {
                 return null;
             }
-            return GSON.fromJson(Files.readString(file, StandardCharsets.UTF_8), type);
+            T result = GSON.fromJson(Files.readString(file, StandardCharsets.UTF_8), type);
+            if (result instanceof LetterSendProgress progress
+                    && !LetterSendContext.validCommands(progress.pendingCommands, progress.sentCommands)) {
+                return null;
+            }
+            if (result instanceof AnnouncementSendProgress progress
+                    && !LetterSendContext.validCommands(progress.pendingCommands, progress.sentCommands)) {
+                return null;
+            }
+            return result;
         } catch (Exception e) {
             return null;
         }
