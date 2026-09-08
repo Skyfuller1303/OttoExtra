@@ -209,13 +209,19 @@ public final class OttoExtraSettingsScreen extends Screen {
     }
 
     private void rebuildContent() {
+        rebuildContent(false);
+    }
+
+    private void rebuildContent(boolean keepStatus) {
         for (Row row : rows) {
             for (ClickableWidget w : row.widgets) {
                 remove(w);
             }
         }
         rows.clear();
-        statusMessage = "";
+        if (!keepStatus) {
+            statusMessage = "";
+        }
 
         String query = searchField != null ? searchField.getText() : "";
         int y = 0;
@@ -493,7 +499,7 @@ public final class OttoExtraSettingsScreen extends Screen {
                                     "ottoextra.settings.backups.rpRepair.failed", true);
                         }
                     }
-                    rebuildContent();
+                    rebuildContent(true);
                 }).dimensions(contentX(), 0, 210, 18).build();
         repairRow.widgets.add(repair);
         addDrawableChild(repair);
@@ -510,7 +516,7 @@ public final class OttoExtraSettingsScreen extends Screen {
                     } catch (Exception e) {
                         status("ottoextra.settings.backups.failed", true);
                     }
-                    rebuildContent();
+                    rebuildContent(true);
                 }).dimensions(contentX(), 0, 170, 18).build();
         createRow.widgets.add(create);
         addDrawableChild(create);
@@ -543,7 +549,7 @@ public final class OttoExtraSettingsScreen extends Screen {
                 } else {
                     pendingRestore = entry.dir();
                 }
-                rebuildContent();
+                rebuildContent(confirming);
             }).dimensions(contentX() + contentW() - bw, 0, bw, 18).build();
             row.widgets.add(restore);
             addDrawableChild(restore);
