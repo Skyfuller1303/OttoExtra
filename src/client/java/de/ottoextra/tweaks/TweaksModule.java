@@ -5,11 +5,14 @@ import de.ottoextra.OttoExtraContext;
 import de.ottoextra.OttoExtraModule;
 import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.logging.DebugLog;
+import de.ottoextra.tweaks.combat.CombatModeHud;
 import de.ottoextra.tweaks.lowhealth.LowHealthHudOverlay;
 import de.ottoextra.tweaks.lowhealth.LowHealthMath;
 import de.ottoextra.tweaks.lowhealth.LowHealthSoundController;
 import de.ottoextra.tweaks.lowhealth.LowHealthState;
+import de.ottoextra.tweaks.litematica.FachwerkAutoTuneFeature;
 import de.ottoextra.tweaks.toolprotect.ToolProtectHandler;
+import de.ottoextra.tweaks.vote.VoteReminderFeature;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -35,6 +38,7 @@ public final class TweaksModule implements OttoExtraModule {
     @Override
     public void onInitializeClient(OttoExtraContext context) {
         OttoExtraConfig config = context.config();
+        de.ottoextra.logging.ChatMessageLog.initialize(config);
         activeState = lowHealth;
         activeConfig = config.tweaks.lowHealth;
 
@@ -47,10 +51,13 @@ public final class TweaksModule implements OttoExtraModule {
                 LowHealthHudOverlay.render(ctx, lowHealth, config.tweaks.lowHealth));
 
         ToolProtectHandler.register(config);
+        VoteReminderFeature.register(config);
+        FachwerkAutoTuneFeature.register(config);
+        CombatModeHud.register(context);
 
         registerCommands(config);
 
-        DebugLog.debug("[tweaks] initialisiert (Low-Health-Effekt + Werkzeugschutz + Test-Commands).");
+        DebugLog.debug("[tweaks] initialisiert (Low-Health + Werkzeugschutz + Vote + Integrationen).");
     }
 
     private void registerCommands(OttoExtraConfig config) {
@@ -102,15 +109,24 @@ public final class TweaksModule implements OttoExtraModule {
         if (client.world == null) {
             return 0;
         }
+        return lowHealthBlurPasses(state, cfg,
+                client.player == null ? Float.NaN : client.player.getHealth());
+    }
+
+    static int lowHealthBlurPasses(LowHealthState state,
+                                   OttoExtraConfig.Tweaks.LowHealth cfg, float health) {
+        if (state == null || cfg == null || (!cfg.enabled && !state.isForced())
+                || !cfg.blurEnabled || cfg.blurStrength <= 0.01f) {
+            return 0;
+        }
         float t;
         if (state.isForced()) {
             t = state.intensity();
         } else {
-            if (client.player == null) {
+            if (!Float.isFinite(health)) {
                 return 0;
             }
             float startHealth = Math.max(2.0f, cfg.blurStartHearts * 2.0f);
-            float health = client.player.getHealth();
             t = LowHealthMath.smoothstep(
                     LowHealthMath.clamp((startHealth - health) / startHealth, 0.0f, 1.0f));
         }
