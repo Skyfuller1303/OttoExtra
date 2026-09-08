@@ -36,9 +36,7 @@ public abstract class PlayerEntityRendererMixin {
                                               float tickProgress, CallbackInfo ci) {
         // NICHT state.playerName setzen — Vanilla rendert das als eigene
         // Label-Zeile (Doppel-Nametag); Accountname separat merken
-        if (entity.getName() != null) {
-            NametagService.rememberAccount(state, entity.getName().getString());
-        }
+        NametagService.rememberPlayer(state, entity);
     }
 
     @Inject(method = "hasLabel(Lnet/minecraft/entity/PlayerLikeEntity;D)Z",
@@ -46,9 +44,7 @@ public abstract class PlayerEntityRendererMixin {
     private void ottoextra$nametagVisibility(PlayerLikeEntity entity, double squaredDistance,
                                              CallbackInfoReturnable<Boolean> cir) {
         try {
-            if (cir.getReturnValueZ() && !NametagService.shouldRender(entity)) {
-                cir.setReturnValue(false);
-            }
+            cir.setReturnValue(NametagService.shouldRender(entity, cir.getReturnValueZ()));
         } catch (Throwable ignored) {
             // Nametags dürfen nie crashen
         }

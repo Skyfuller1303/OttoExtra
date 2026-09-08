@@ -1,10 +1,14 @@
 package de.ottoextra.nametags;
 
 import de.ottoextra.config.OttoExtraConfig;
+import de.ottoextra.addon.NametagContext;
+import de.ottoextra.addon.NametagPresentation;
+import de.ottoextra.addon.OttoExtraAddons;
 import de.ottoextra.logging.DebugLog;
 import de.ottoextra.rpnames.RpNamesServices;
 import de.ottoextra.rpnames.chat.ChatNameRewriter;
 import de.ottoextra.rpnames.model.LocalRpProfile;
+import de.ottoextra.rpnames.title.TitleColorResolver;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.Entity;
 import net.minecraft.text.MutableText;
@@ -37,38 +41,49 @@ public final class NametagService {
 
     private static volatile OttoExtraConfig.Nametags config;
 
-    /**
-     * Accountname je RenderState — NICHT in {@code state.playerName} schreiben:
-     * Vanilla rendert playerName als eigene Label-Zeile, sobald es gesetzt ist
-     * (Doppel-Nametag-Bug). Render-Thread only; WeakHashMap folgt dem
-     * State-Pooling.
-     */
-    private static final java.util.Map<net.minecraft.client.render.entity.state.EntityRenderState, String>
-            ACCOUNT_BY_STATE = new java.util.WeakHashMap<>();
+    private record PlayerIdentity(java.util.UUID uuid, String account) { }
 
-    private NametagService() {
+    // Render-thread only. Identity is captured from the actual entity, never a label.
+    private static final java.util.Map<net.minecraft.client.render.entity.state.EntityRenderState, PlayerIdentity>
+            PLAYER_BY_STATE = new java.util.WeakHashMap<>();
+
+    private NametagService() { }
+
+    public static void rememberPlayer(net.minecraft.client.render.entity.state.EntityRenderState state,
+                                      Entity entity) {
+        if (entity instanceof net.minecraft.entity.player.PlayerEntity player) {
+            rememberIdentity(state, player.getUuid(), player.getGameProfile().name());
+        } else {
+            rememberIdentity(state, null, null);
+        }
     }
 
+    /** Legacy account update; a label alone can never establish player identity. */
+    @Deprecated
     public static void rememberAccount(net.minecraft.client.render.entity.state.EntityRenderState state,
                                        String account) {
-        if (state != null && account != null && !account.isBlank()) {
-            ACCOUNT_BY_STATE.put(state, account);
+        PlayerIdentity identity = PLAYER_BY_STATE.get(state);
+        if (identity != null) rememberIdentity(state, identity.uuid(), account);
+    }
+
+    static void rememberIdentity(net.minecraft.client.render.entity.state.EntityRenderState state,
+                                  java.util.UUID uuid, String account) {
+        if (state == null) return;
+        if (uuid == null || account == null || account.isBlank()) {
+            PLAYER_BY_STATE.remove(state);
+        } else {
+            PLAYER_BY_STATE.put(state, new PlayerIdentity(uuid, account));
         }
     }
 
     public static String accountFor(net.minecraft.client.render.entity.state.EntityRenderState state) {
-        if (state == null) {
-            return null;
-        }
-        String remembered = ACCOUNT_BY_STATE.get(state);
-        if (remembered != null) {
-            return remembered;
-        }
-        if (state instanceof net.minecraft.client.render.entity.state.PlayerEntityRenderState p
-                && p.playerName != null) {
-            return p.playerName.getString();
-        }
-        return state.displayName != null ? state.displayName.getString() : null;
+        PlayerIdentity identity = PLAYER_BY_STATE.get(state);
+        return identity == null ? null : identity.account();
+    }
+
+    public static java.util.UUID playerUuidFor(net.minecraft.client.render.entity.state.EntityRenderState state) {
+        PlayerIdentity identity = PLAYER_BY_STATE.get(state);
+        return identity == null ? null : identity.uuid();
     }
 
     public static void init(OttoExtraConfig.Nametags cfg) {
@@ -93,15 +108,30 @@ public final class NametagService {
 
     /** Nametag dieses Spielers überhaupt rendern? (Modus + Profil-Flag) */
     public static boolean shouldRender(Entity entity) {
+        return shouldRender(entity, true);
+    }
+
+    /** Includes Vanilla's initial decision so addons can explicitly override it. */
+    public static boolean shouldRender(Entity entity, boolean vanillaVisible) {
+        if (!isOnlinePlayer(entity)) return vanillaVisible;
+        boolean baseVisible = baseShouldRender(entity, vanillaVisible);
+        String account = entity.getName() != null ? entity.getName().getString() : "";
+        NametagContext context = context(entity.getUuid(), account, entity.getName(), baseVisible);
+        NametagPresentation result = OttoExtraAddons.processNametag(context,
+                NametagPresentation.vanilla(baseVisible, entity.getName()));
+        return result.forceVisible() ? result.visible() : baseVisible && result.visible();
+    }
+
+    private static boolean baseShouldRender(Entity entity, boolean vanillaVisible) {
         OttoExtraConfig.Nametags cfg = config();
         if (cfg == null || !cfg.enabled) {
-            return true;
+            return vanillaVisible;
         }
         // PlayerEntityRenderer wird auf modernen Versionen auch fuer
         // PlayerLike-NPCs verwendet. RP-Sichtbarkeitsregeln duerfen jedoch nur
         // echte, in der Spielerliste gefuehrte Spieler beeinflussen.
         if (!isOnlinePlayer(entity)) {
-            return true;
+            return vanillaVisible;
         }
         try {
             LocalRpProfile profile = profileFor(entity);
@@ -172,6 +202,19 @@ public final class NametagService {
      * lassen (Modul aus, kein Profil/keine Änderung nötig).
      */
     public static Lines linesFor(String accountName, Text vanillaName) {
+        Lines base = baseLinesFor(accountName, vanillaName);
+        NametagPresentation initial = base == null
+                ? NametagPresentation.vanilla(true, vanillaName)
+                : new NametagPresentation(true, false, base.title(), base.name(), base.account(), true);
+        NametagContext context = context(uuidFor(accountName), accountName, vanillaName, true);
+        NametagPresentation result = OttoExtraAddons.processNametag(context, initial);
+        if (!result.custom()) return null;
+        Text name = result.name() != null ? result.name()
+                : (vanillaName != null ? vanillaName : Text.literal(accountName == null ? "" : accountName));
+        return new Lines(result.title(), name, result.account());
+    }
+
+    private static Lines baseLinesFor(String accountName, Text vanillaName) {
         OttoExtraConfig.Nametags cfg = config();
         if (cfg == null || !cfg.enabled || accountName == null || accountName.isBlank()) {
             debugOnce("null-acc", "cfg=" + (cfg != null && cfg.enabled) + " acc=" + accountName);
@@ -248,17 +291,11 @@ public final class NametagService {
         // bewusst NICHT mehr übernommen, damit der RP-Look konsistent bleibt.
         Text title = null;
         if (hasTitle) {
-            String catalogColor = catalog != null
-                    ? catalog.titleColor(profile.title).orElse(null) : null;
-            String groupColor = RpNamesServices.titles().find(profile.title)
-                    .map(r -> r.group().titleColor).orElse(null);
-            String fallback = catalog != null ? catalog.fallbackTitleColor() : "#a17f5f";
             // Angezeigten Titel auf den Katalog-Kanon abbilden (umbenannte Titel
             // greifen so auch am Namensschild).
-            String pers = profile.colors.nametagTitleColor;
-            // „Farbe überschreibt": Katalogfarbe schlägt den Personen-Override.
-            String titleColor = firstNonBlank(pers,
-                    firstNonBlank(catalogColor, firstNonBlank(groupColor, fallback)));
+            String titleColor = TitleColorResolver.resolve(profile,
+                    profile.colors.nametagTitleColor, profile.title,
+                    catalog, RpNamesServices.titles());
             title = colored(RpNamesServices.canonicalTitle(profile.title), titleColor);
         }
         // Proaktives Kennenlernen: Marker ist jetzt ein 3D-Ausrufezeichen über dem
@@ -294,6 +331,25 @@ public final class NametagService {
         }
         debugOnce(accountName, "ersetzt (rp=" + hasRp + ", titel=" + hasTitle + ")");
         return new Lines(title, name, account);
+    }
+
+    private static NametagContext context(java.util.UUID uuid, String account, Text vanilla,
+                                           boolean baseVisible) {
+        OttoExtraConfig.Nametags cfg = config();
+        return new NametagContext(uuid, account, vanilla, true,
+                cfg != null && cfg.enabled, baseVisible);
+    }
+
+    private static java.util.UUID uuidFor(String account) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client == null || client.getNetworkHandler() == null || account == null) return null;
+        for (var entry : client.getNetworkHandler().getPlayerList()) {
+            if (entry.getProfile() != null && entry.getProfile().name() != null
+                    && account.equalsIgnoreCase(entry.getProfile().name())) {
+                return entry.getProfile().id();
+            }
+        }
+        return null;
     }
 
     /** Konfigurierte Accountnamen-Farbe, Fallback Standard-Namensfarbe. */

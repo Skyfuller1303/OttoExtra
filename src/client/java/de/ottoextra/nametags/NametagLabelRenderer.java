@@ -43,7 +43,7 @@ public final class NametagLabelRenderer {
                 return false; // Vanilla überspringt dann ebenfalls
             }
             // Accountname aus der State-Map (updateRenderState-Capture);
-            // Fallback playerName/displayName (EntityCulling-Roh-States).
+            // Raw states without captured entity identity remain vanilla.
             String account = NametagService.accountFor(state);
 
             /*
@@ -53,7 +53,7 @@ public final class NametagLabelRenderer {
              * Nur eine PlayerEntity mit aktivem PlayerListEntry darf durch die
              * RP-Namenslogik laufen; alle anderen Labels bleiben bei Vanilla.
              */
-            PlayerEntity entity = findOnlinePlayer(account);
+            PlayerEntity entity = findOnlinePlayer(NametagService.playerUuidFor(state));
             if (entity == null) {
                 return false;
             }
@@ -100,13 +100,13 @@ public final class NametagLabelRenderer {
         }
     }
 
-    private static PlayerEntity findOnlinePlayer(String account) {
+    private static PlayerEntity findOnlinePlayer(java.util.UUID uuid) {
         MinecraftClient client = MinecraftClient.getInstance();
-        if (client.world == null || client.getNetworkHandler() == null || account == null) {
+        if (client.world == null || client.getNetworkHandler() == null || uuid == null) {
             return null;
         }
         for (PlayerEntity p : client.world.getPlayers()) {
-            if (account.equalsIgnoreCase(p.getName().getString())
+            if (uuid.equals(p.getUuid())
                     && NametagService.isOnlinePlayer(p)) {
                 return p;
             }

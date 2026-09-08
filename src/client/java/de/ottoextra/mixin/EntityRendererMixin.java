@@ -1,11 +1,14 @@
 package de.ottoextra.mixin;
 
 import de.ottoextra.nametags.NametagLabelRenderer;
+import de.ottoextra.horses.HorseFinder;
+import de.ottoextra.horses.HorseRegistryNametagRenderer;
 import net.minecraft.client.render.command.OrderedRenderCommandQueue;
 import net.minecraft.client.render.entity.EntityRenderer;
 import net.minecraft.client.render.entity.state.EntityRenderState;
 import net.minecraft.client.render.state.CameraRenderState;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.entity.Entity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -21,6 +24,18 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(EntityRenderer.class)
 public abstract class EntityRendererMixin {
 
+    @Inject(method = "updateRenderState(Lnet/minecraft/entity/Entity;"
+            + "Lnet/minecraft/client/render/entity/state/EntityRenderState;F)V",
+            at = @At("TAIL"))
+    private void ottoextra$prepareHorseName(Entity entity,
+                                            EntityRenderState state,
+                                            float tickProgress,
+                                            CallbackInfo ci) {
+        de.ottoextra.nametags.NametagService.rememberPlayer(state, entity);
+        HorseRegistryNametagRenderer.prepare(entity, state, tickProgress);
+        HorseFinder.prepare(entity, state);
+    }
+
     @Inject(method = "renderLabelIfPresent(Lnet/minecraft/client/render/entity/state/EntityRenderState;"
             + "Lnet/minecraft/client/util/math/MatrixStack;"
             + "Lnet/minecraft/client/render/command/OrderedRenderCommandQueue;"
@@ -35,5 +50,17 @@ public abstract class EntityRendererMixin {
         if (NametagLabelRenderer.submit(state, matrices, queue, camera, "ER")) {
             ci.cancel();
         }
+    }
+
+    @Inject(method = "renderLabelIfPresent(Lnet/minecraft/client/render/entity/state/EntityRenderState;"
+            + "Lnet/minecraft/client/util/math/MatrixStack;"
+            + "Lnet/minecraft/client/render/command/OrderedRenderCommandQueue;"
+            + "Lnet/minecraft/client/render/state/CameraRenderState;)V",
+            at = @At("TAIL"))
+    private void ottoextra$horseName(EntityRenderState state, MatrixStack matrices,
+                                     OrderedRenderCommandQueue queue,
+                                     CameraRenderState camera,
+                                     CallbackInfo ci) {
+        HorseRegistryNametagRenderer.submit(state, matrices, queue, camera);
     }
 }
