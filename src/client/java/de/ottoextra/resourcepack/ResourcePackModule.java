@@ -26,6 +26,7 @@ public final class ResourcePackModule implements OttoExtraModule {
         this.updater = new ResourcePackUpdater(context.config());
 
         ClientTickEvents.END_CLIENT_TICK.register(PackInstaller::tick);
+        ClientTickEvents.END_CLIENT_TICK.register(client -> this.updater.runAsync());
 
         this.updater.runAsync();
     }

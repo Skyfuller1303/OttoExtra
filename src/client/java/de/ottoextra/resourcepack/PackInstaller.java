@@ -2,7 +2,6 @@ package de.ottoextra.resourcepack;
 
 import de.ottoextra.OttoExtra;
 import de.ottoextra.config.OttoExtraPaths;
-import de.ottoextra.logging.DebugLog;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.resource.ResourcePackManager;
 
@@ -16,8 +15,11 @@ public final class PackInstaller {
 
     public static final String PACK_ID_PREFIX = "file/";
 
-    private static volatile boolean pendingActivation = false;
-    private static volatile boolean pendingPriorityTop = true;
+    private static boolean pendingActivation = false;
+    private static boolean pendingPriorityTop = true;
+    private static boolean pendingReload;
+    private static boolean pendingRespectDisable;
+    private static boolean pendingPreviouslyInstalled;
 
     private PackInstaller() {
     }
@@ -37,22 +39,65 @@ public final class PackInstaller {
     }
 
     public static void requestActivation(boolean priorityTop) {
+        requestActivation(priorityTop, false, false);
+    }
+
+    public static synchronized void requestActivation(boolean priorityTop, boolean respectDisable,
+                                                       boolean previouslyInstalled) {
         pendingPriorityTop = priorityTop;
+        pendingRespectDisable = respectDisable;
+        pendingPreviouslyInstalled = previouslyInstalled;
         pendingActivation = true;
     }
 
-    public static void clearPending() {
+    public static synchronized void requestReload() {
+        pendingReload = true;
+    }
+
+    public static synchronized void clearPending() {
         pendingActivation = false;
+        pendingReload = false;
+    }
+
+    private record Pending(boolean activate, boolean replaced, boolean priorityTop,
+                           boolean respectDisable, boolean previouslyInstalled) { }
+
+    private static synchronized Pending takePending() {
+        Pending result = new Pending(pendingActivation, pendingReload, pendingPriorityTop,
+                pendingRespectDisable, pendingPreviouslyInstalled);
+        clearPending();
+        return result;
+    }
+
+    private static synchronized boolean hasPending() {
+        return pendingActivation || pendingReload;
+    }
+
+    record Decision(boolean activate, boolean reload) { }
+
+    static Decision decide(boolean requested, boolean replaced, boolean respectDisable,
+                            boolean previouslyInstalled, boolean inManager, boolean inOptions) {
+        boolean activate = requested && !(respectDisable && previouslyInstalled && !inOptions);
+        boolean active = inManager && inOptions;
+        boolean changeSelection = activate && !active;
+        return new Decision(changeSelection, changeSelection || replaced && (active || activate));
+    }
+
+    static boolean usablePack(Path file) {
+        if (!Files.isRegularFile(file)) return false;
+        try (java.util.zip.ZipFile zip = new java.util.zip.ZipFile(file.toFile())) {
+            var metadata = zip.getEntry("pack.mcmeta");
+            return metadata != null && !metadata.isDirectory() && metadata.getSize() > 0;
+        } catch (IOException error) {
+            return false;
+        }
     }
 
     public static void tick(MinecraftClient client) {
-        if (!pendingActivation || client == null) {
+        if (!hasPending() || client == null) {
             return;
         }
 
-        if (client.currentScreen == null) {
-            return;
-        }
         try {
             if (client.getOverlay() != null) {
                 return;
@@ -60,7 +105,7 @@ public final class PackInstaller {
         } catch (Throwable ignored) {
 
         }
-        pendingActivation = false;
+        Pending pending = takePending();
 
         String id = packId();
         try {
@@ -72,12 +117,14 @@ public final class PackInstaller {
 
             boolean inManager = rpm.getEnabledIds().contains(id);
             boolean inOptions = client.options.resourcePacks.contains(id);
-            if (inManager && inOptions) {
-                DebugLog.debug("[resourcepack] Bereits aktiv: {} (kein Reload).", id);
-                return;
-            }
-
-            applyEnabled(client, id, pendingPriorityTop);
+            Decision decision = decide(pending.activate(), pending.replaced(), pending.respectDisable(),
+                    pending.previouslyInstalled(), inManager, inOptions);
+            // Minecraft's persisted selection is authoritative after installation.
+            PackState state = PackState.load();
+            state.enabled = inOptions || decision.activate();
+            state.save();
+            if (decision.activate()) applyEnabled(client, id, pending.priorityTop());
+            if (!decision.reload()) return;
             client.reloadResources().whenComplete((v, t) -> {
                 if (t != null) {
                     OttoExtra.LOGGER.error("[resourcepack] Reload fehlgeschlagen — Rollback.", t);

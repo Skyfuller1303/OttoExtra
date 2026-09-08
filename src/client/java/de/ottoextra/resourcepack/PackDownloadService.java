@@ -3,6 +3,7 @@ package de.ottoextra.resourcepack;
 import de.ottoextra.OttoExtra;
 import de.ottoextra.api.ApiProblem;
 import de.ottoextra.config.OttoExtraPaths;
+import de.ottoextra.config.OttoExtraConfig;
 
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -17,6 +18,7 @@ import java.time.Duration;
 import java.util.HexFormat;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.function.Supplier;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -37,6 +39,10 @@ public final class PackDownloadService {
     }
 
     public CompletableFuture<Path> download(URI zipUri, String expectedSha) {
+        if (!downloadsAllowed()) {
+            return CompletableFuture.failedFuture(
+                    new IllegalStateException("Resourcepack-Download nicht erlaubt"));
+        }
         HttpRequest request = HttpRequest.newBuilder(zipUri)
                 .timeout(requestTimeout)
                 .header("Accept", "application/zip")
@@ -48,19 +54,25 @@ public final class PackDownloadService {
     }
 
     private Path handle(URI uri, HttpResponse<InputStream> resp, String expectedSha) {
-        if (resp.statusCode() / 100 != 2) {
-            throw ApiProblem.httpStatus(uri, resp.statusCode()).toException();
-        }
-        Path tmp = OttoExtraPaths.resourcepackTmp();
-        try {
+        return handle(uri, resp, expectedSha, OttoExtraPaths::resourcepackTmp);
+    }
+
+    Path handle(URI uri, HttpResponse<InputStream> resp, String expectedSha, Supplier<Path> target) {
+        Path tmp = null;
+        try (InputStream in = resp.body()) {
+            if (resp.statusCode() / 100 != 2) {
+                throw ApiProblem.httpStatus(uri, resp.statusCode()).toException();
+            }
+            requireDownloadAllowed();
+            tmp = target.get();
             Files.createDirectories(tmp.getParent());
             MessageDigest sha = MessageDigest.getInstance("SHA-256");
             long total = 0;
-            try (InputStream in = resp.body();
-                 OutputStream out = Files.newOutputStream(tmp)) {
+            try (OutputStream out = Files.newOutputStream(tmp)) {
                 byte[] buf = new byte[BUFFER];
                 int n;
                 while ((n = in.read(buf)) != -1) {
+                    requireDownloadAllowed();
                     total += n;
                     if (total > maxBytes) {
                         throw ApiProblem.parse(uri, "Download ueberschreitet Limit (" + maxBytes + " B)").toException();
@@ -69,6 +81,8 @@ public final class PackDownloadService {
                     out.write(buf, 0, n);
                 }
             }
+
+            requireDownloadAllowed();
 
             if (expectedSha != null && !expectedSha.isBlank()) {
                 String got = HexFormat.of().formatHex(sha.digest());
@@ -89,6 +103,18 @@ public final class PackDownloadService {
         }
     }
 
+    static boolean downloadsAllowed() {
+        var config = OttoExtraConfig.active();
+        return config != null && config.resourcepack.enabled
+                && config.consent.automaticResourcePackDownloads;
+    }
+
+    private static void requireDownloadAllowed() {
+        if (!downloadsAllowed() || Thread.currentThread().isInterrupted()) {
+            throw new java.util.concurrent.CancellationException("Resourcepack-Download abgebrochen");
+        }
+    }
+
     private static void verifyZip(URI uri, Path file) {
         try (ZipFile zip = new ZipFile(file.toFile())) {
             ZipEntry mcmeta = zip.getEntry("pack.mcmeta");
@@ -103,6 +129,7 @@ public final class PackDownloadService {
     }
 
     private static void safeDelete(Path p) {
+        if (p == null) return;
         try {
             Files.deleteIfExists(p);
         } catch (Exception ignored) {

@@ -7,7 +7,6 @@ import de.ottoextra.logging.DebugLog;
 
 import java.net.URI;
 import java.net.http.HttpClient;
-import java.nio.file.Files;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
@@ -15,6 +14,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class ResourcePackUpdater {
 
@@ -24,6 +24,7 @@ public final class ResourcePackUpdater {
     private final HttpClient http;
     private final PackManifestClient manifestClient;
     private final PackDownloadService downloadService;
+    private final AtomicBoolean started = new AtomicBoolean();
 
     public ResourcePackUpdater(OttoExtraConfig config) {
         this.cfg = config.resourcepack;
@@ -50,6 +51,12 @@ public final class ResourcePackUpdater {
     }
 
     public void runAsync() {
+        if (!PackDownloadService.downloadsAllowed()) {
+            return;
+        }
+        if (!started.compareAndSet(false, true)) {
+            return;
+        }
         String source = cfg.effectiveSource();
         if (source.isBlank()) {
             DebugLog.debug("[resourcepack] Keine Quelle konfiguriert — uebersprungen.");
@@ -79,11 +86,9 @@ public final class ResourcePackUpdater {
     }
 
     private CompletableFuture<Void> manifestFlow(URI manifestUri, PackState state) {
-        return manifestClient.fetch(manifestUri, cfg.assetName).thenCompose(manifest -> {
+        return manifestClient.fetch(manifestUri, cfg.assetName).thenComposeAsync(manifest -> {
 
-            boolean upToDate = manifest.hasSha()
-                    ? state.matchesSha(manifest.sha256())
-                    : (manifest.version() != null && manifest.version().equals(state.version));
+            boolean upToDate = isCurrent(manifest, state, OttoExtraPaths.serverPackFile());
             if (upToDate) {
                 DebugLog.debug("[resourcepack] Aktuell (Version {}) — kein Download.", state.version);
                 markChecked(state, manifest.version());
@@ -106,11 +111,21 @@ public final class ResourcePackUpdater {
                     manifest.version(), state.version != null ? state.version : "keine");
             return downloadService.download(zip, manifest.sha256()).thenAccept(tmp ->
                     installAndMaybeActivate(tmp, manifest.version(), manifest.sha256(), state, manifest.notes()));
-        });
+        }, ioExecutor);
+    }
+
+    static boolean isCurrent(PackManifest manifest, PackState state, java.nio.file.Path file) {
+        if (!PackInstaller.usablePack(file)) return false;
+        return manifest.hasSha() ? state.matchesSha(manifest.sha256())
+                : manifest.version() != null && manifest.version().equals(state.version);
+    }
+
+    private static boolean previouslyInstalled(PackState state) {
+        return state.installedAt != null || state.version != null || state.sha256 != null;
     }
 
     private CompletableFuture<Void> directZipFlow(URI zipUri, PackState state) {
-        if (Files.exists(OttoExtraPaths.serverPackFile())) {
+        if (PackInstaller.usablePack(OttoExtraPaths.serverPackFile())) {
             DebugLog.debug("[resourcepack] Direkt-Modus: Pack vorhanden, kein erneuter Download (ETag-Check folgt).");
             ensureActivation(state);
             return CompletableFuture.completedFuture(null);
@@ -122,6 +137,10 @@ public final class ResourcePackUpdater {
     private void installAndMaybeActivate(java.nio.file.Path tmp, String version, String sha,
                                          PackState previous, String notes) {
         try {
+            if (!PackDownloadService.downloadsAllowed() || Thread.currentThread().isInterrupted()) {
+                java.nio.file.Files.deleteIfExists(tmp);
+                return;
+            }
             PackInstaller.install(tmp);
         } catch (Exception e) {
             OttoExtra.LOGGER.error("[resourcepack] Installation fehlgeschlagen: {}", e.getMessage());
@@ -139,11 +158,10 @@ public final class ResourcePackUpdater {
         OttoExtra.LOGGER.info("[resourcepack] Installiert: Version {}{}", version,
                 notes != null && !notes.isBlank() ? " (" + notes + ")" : "");
 
-        boolean userDisabled = cfg.respectUserDisable && !previous.enabled;
-        if (cfg.autoEnable && !userDisabled) {
-
-            PackInstaller.requestActivation(cfg.priorityTop);
-            DebugLog.debug("[resourcepack] Aktivierung vorgemerkt (greift am Titelscreen).");
+        PackInstaller.requestReload();
+        if (cfg.autoEnable) {
+            PackInstaller.requestActivation(cfg.priorityTop, cfg.respectUserDisable, previouslyInstalled(previous));
+            DebugLog.debug("[resourcepack] Aktivierung vorgemerkt (nach laufendem Ressourcenreload).");
         } else {
             DebugLog.debug("[resourcepack] Geladen, aber nicht automatisch aktiviert (Config/Spielerwunsch).");
         }
@@ -157,12 +175,11 @@ public final class ResourcePackUpdater {
     }
 
     private void ensureActivation(PackState state) {
-        boolean userDisabled = cfg.respectUserDisable && !state.enabled;
-        if (!cfg.autoEnable || userDisabled) {
+        if (!PackDownloadService.downloadsAllowed() || !cfg.autoEnable) {
             return;
         }
 
-        PackInstaller.requestActivation(cfg.priorityTop);
+        PackInstaller.requestActivation(cfg.priorityTop, cfg.respectUserDisable, previouslyInstalled(state));
     }
 
     private void markChecked(PackState state, String remoteVersion) {
