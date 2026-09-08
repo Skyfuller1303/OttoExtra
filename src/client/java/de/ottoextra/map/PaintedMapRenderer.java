@@ -146,16 +146,28 @@ public final class PaintedMapRenderer {
     private static void invalidateGpu() {
         pipeline = null;
         texturesRegistered = false;
-        if (copyTexture != null) {
-            try {
-                copyTexture.close();
-            } catch (Throwable ignored) {
+        try {
+            releaseCopyTexture();
+        } catch (Throwable ignored) {
 
+        }
+    }
+
+    private static void releaseCopyTexture() {
+        var oldView = copyView;
+        var oldTexture = copyTexture;
+        copyView = null;
+        copyTexture = null;
+        copyW = -1;
+        copyH = -1;
+        try {
+            if (oldView != null) {
+                oldView.close();
             }
-            copyTexture = null;
-            copyView = null;
-            copyW = -1;
-            copyH = -1;
+        } finally {
+            if (oldTexture != null) {
+                oldTexture.close();
+            }
         }
     }
 
@@ -305,9 +317,7 @@ public final class PaintedMapRenderer {
         if (copyTexture != null && w == copyW && h == copyH) {
             return;
         }
-        if (copyTexture != null) {
-            copyTexture.close();
-        }
+        releaseCopyTexture();
         copyTexture = RenderSystem.getDevice().createTexture(
                 () -> "ottoextra map screen copy",
                 GpuTexture.USAGE_COPY_DST | GpuTexture.USAGE_TEXTURE_BINDING,
