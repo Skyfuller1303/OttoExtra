@@ -27,7 +27,7 @@ zu diesem Versandarchiv; dafür kann der geschriebene Brief manuell exportiert w
 
 ## Empfangene oder noch unversendete Briefe exportieren
 
-Den Brief in der Haupthand öffnen und **TXT exportieren** anklicken.
+Den Brief in der Haupthand öffnen und **Brief exportieren** anklicken.
 Die Datei verwendet den im Buch gespeicherten Autor, zum Beispiel:
 
 `Skyfuller1303_2026-09-08_18-31-12.txt`
@@ -35,6 +35,9 @@ Die Datei verwendet den im Buch gespeicherten Autor, zum Beispiel:
 Der Zeitpunkt ist der lokale Exportzeitpunkt, da Courier kein verlässlich
 auswertbares Empfangsdatum liefert. Unzulässige Dateinamenszeichen werden ersetzt.
 Bei Kollisionen folgen `_1`, `_2` usw.; vorhandene Dateien werden nicht überschrieben.
+
+Die Chatbestätigung zeigt einen goldenen `[Brief]`-Präfix, den Erfolgstext grün,
+den Dateinamen gold und den Speicherort grau. Exportfehler erscheinen rot.
 
 Empfangene Briefe erhalten ausschließlich den Exportknopf. Bearbeiten und
 erneutes Versenden bleiben für sie gesperrt. Die Aktionen sind an das wirklich

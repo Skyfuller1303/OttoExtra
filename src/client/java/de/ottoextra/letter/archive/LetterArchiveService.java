@@ -7,6 +7,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.item.ItemStack;
 import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
 
 import java.time.Instant;
 import java.util.List;
@@ -68,16 +69,20 @@ public final class LetterArchiveService {
     private static void save(String prefix, List<String> pages, String author, String recipient, Instant date) {
         try {
             var file = LetterTextArchive.write(OttoExtraPaths.lettersDir(), prefix, pages, author, recipient, date);
-            hint("ottoextra.letter.txt.saved", file.getFileName().toString());
+            hint(Text.translatable("ottoextra.letter.txt.saved",
+                    Text.literal(file.getFileName().toString()).formatted(Formatting.GOLD),
+                    Text.literal("(config/ottoextra/letters)").formatted(Formatting.GRAY))
+                    .formatted(Formatting.GREEN));
         } catch (Exception e) {
             OttoExtra.LOGGER.warn("[letter] TXT archive could not be saved", e);
-            hint("ottoextra.letter.txt.failed");
+            hint(Text.translatable("ottoextra.letter.txt.failed").formatted(Formatting.RED));
         }
     }
 
-    private static void hint(String key, Object... args) {
+    private static void hint(Text message) {
         var client = MinecraftClient.getInstance();
-        if (client.player != null) client.player.sendMessage(Text.translatable(key, args), false);
+        if (client.player != null) client.player.sendMessage(
+                Text.literal("[Brief] ").formatted(Formatting.GOLD).append(message), false);
     }
 
     public static void clear() { pending.clear(); }
