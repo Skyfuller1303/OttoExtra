@@ -2,6 +2,19 @@
 
 [Zusammenfassung 0.1.16.1 bis 0.1.17-k: Features, Verbesserungen und Fixes](CHANGELOG-0.1.16.1-bis-0.1.17-k.md)
 
+## 0.1.17-l – Alpha – 2026-09-08
+
+- Neue Personen werden ohne automatische Profilsperre gespeichert. Änderungen
+  an Namen, Farben oder Titel setzen keine Sperren mehr; **Titel fest** wird
+  ausschließlich durch bewusste Auswahl aktiviert.
+- Ungesperrte Titel werden auch bei manuell gespeicherten Personen aktualisiert.
+  Persönliche RP-Namen und Farben bleiben erhalten. Sperren lassen sich dauerhaft
+  entfernen; reine Checkbox-Änderungen werden beim Schließen gespeichert.
+- Der Briefbutton heißt **Brief exportieren**. Exportmeldungen zeigen einen
+  goldenen Präfix und Dateinamen, grünen Erfolgstext und grauen Speicherort;
+  Fehlermeldungen erscheinen rot.
+- [Personensperren](docs/rpnames-explicit-locks.md), [Release-Notizen](release-notes-0.1.17-l.md).
+
 ## 0.1.17-k – Alpha – 2026-09-08
 
 - Automatisches lokales TXT-Archiv nach bestätigtem Briefversand, auch über
