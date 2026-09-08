@@ -1,5 +1,7 @@
 # Changelog
 
+[Zusammenfassung 0.1.16.1 bis 0.1.17-k: Features, Verbesserungen und Fixes](CHANGELOG-0.1.16.1-bis-0.1.17-k.md)
+
 ## 0.1.17-k – Alpha – 2026-09-08
 
 - Automatisches lokales TXT-Archiv nach bestätigtem Briefversand, auch über
@@ -11,6 +13,33 @@
 - UTF-8, Farben, Schriftstile und Seitenwechsel bleiben in den TXT-Dateien erhalten.
   Alle Funktionen aus Alpha J einschließlich des lokalen 14-Tage-Tiercaches enthalten.
 - [Bedienung](docs/briefmod/txt-archiv.md), [Installation](release-notes-0.1.17-k.md).
+
+## 0.1.17-j – Alpha – 2026-09-08
+
+- Tierart und Geschlecht anvisierter Tiere bleiben bis zu 14 Tage ab der letzten
+  erhaltenen Tierinfo lokal erhalten, auch nach Disconnect und Minecraft-Neustart.
+- Maximal 1.024 Tiere pro Serveradresse; der Cache ist standardmäßig aktiv und
+  unter Tierinfo → Erweitert abschaltbar. Er erzeugt keine Tierdatenbank-Einträge.
+- Glow und Geschlechts-Nametags verwenden die gespeicherten Identitäten.
+  Veränderliche Werte wie Paarungsbereitschaft werden weiterhin frisch abgefragt.
+- [Bedienung](docs/animal-identity-cache.md), [Release-Notizen](release-notes-0.1.17-j.md).
+
+## 0.1.17-i – Alpha – 2026-09-08
+
+- F8 ist die Standardtaste zum Umschalten des Tier-Glows. Die Belegung bleibt
+  anpassbar; eigene gespeicherte Tastenbelegungen werden erhalten.
+- Der Glow bleibt zunächst ausgeschaltet. Wer in Alpha H bereits „Unbelegt“
+  gespeichert hat, kann die Belegung zurücksetzen oder F8 selbst zuweisen.
+- [Release-Notizen](release-notes-0.1.17-i.md).
+
+## 0.1.17-h – Alpha – 2026-09-08
+
+- Optionaler Tier-Glow: weiblich rosa, männlich blau; Finder-Ziele bleiben gold.
+  Umschaltbar per Menü und frei belegbarer Taste, zunächst ausgeschaltet.
+- Verwendet bekannte Tierinfos und Registerdaten, auch für nicht eingetragene
+  Tiere. Lebende Tiere in weniger als 64 Blöcken Entfernung werden markiert.
+- Nametag-Schalter bleiben unabhängig; der Glow erzeugt keine zusätzlichen Abfragen.
+- [Bedienung](docs/animal-gender-glow.md), [Release-Notizen](release-notes-0.1.17-h.md).
 
 ## 0.1.17-g – Alpha – 2026-09-08
 
