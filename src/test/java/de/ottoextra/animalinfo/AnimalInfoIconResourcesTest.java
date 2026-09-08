@@ -5,11 +5,44 @@ import org.junit.jupiter.api.Test;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import javax.imageio.ImageIO;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AnimalInfoIconResourcesTest {
+
+    @Test
+    void toastStatusTexturesAreSixteenPixelTransparentTintMasks() throws Exception {
+        for (String name : List.of("gender_mare", "gender_stallion", "gender_unknown",
+                "speed", "jump", "feeding", "breed_ready", "shearable", "milkable")) {
+            String path = "assets/ottoextra/textures/gui/horse_overview/" + name + ".png";
+            try (InputStream stream = getClass().getClassLoader().getResourceAsStream(path)) {
+                assertNotNull(stream, path);
+                var image = ImageIO.read(stream);
+                assertNotNull(image, path);
+                assertEquals(16, image.getWidth(), path);
+                assertEquals(16, image.getHeight(), path);
+                boolean visible = false;
+                boolean transparent = false;
+                for (int y = 0; y < 16; y++) {
+                    for (int x = 0; x < 16; x++) {
+                        int pixel = image.getRGB(x, y);
+                        int alpha = pixel >>> 24;
+                        assertTrue(alpha == 0 || alpha == 255, path + " has smoothed edges");
+                        if (alpha == 255) {
+                            visible = true;
+                            assertEquals(0xFFFFFF, pixel & 0xFFFFFF, path + " cannot be tinted reliably");
+                        } else {
+                            transparent = true;
+                        }
+                    }
+                }
+                assertTrue(visible && transparent, path + " must be a transparent icon");
+            }
+        }
+    }
 
     private static final List<String> ICONS = List.of(
             "animals/sheep_ee200.png", "animals/cow_ee201.png",

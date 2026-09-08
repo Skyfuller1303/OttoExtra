@@ -3,6 +3,7 @@ package de.ottoextra.animalinfo;
 import de.ottoextra.config.OttoExtraConfig;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
+import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.ingame.InventoryScreen;
 import net.minecraft.client.render.RenderTickCounter;
@@ -39,7 +40,7 @@ public final class AnimalInfoOverlay {
     private record Layout(int width, int height, List<PartBounds> parts) {
     }
 
-    private record ExtraStatus(char glyph, String label, boolean positive) {
+    private record ExtraStatus(Identifier icon, String label, boolean positive) {
     }
 
     private static final long FADE_IN_MS = 140L;
@@ -66,13 +67,19 @@ public final class AnimalInfoOverlay {
     private static final char ICON_GOAT = '\uE205';
     private static final char ICON_CHICKEN = '\uE206';
     private static final char ICON_WOLF = '\uE207';
-    private static final char ICON_GENDER = '\uE400';
-    private static final char ICON_FEMALE = '\uE401';
-    private static final char ICON_MALE = '\uE402';
-    private static final char ICON_MAST = '\uE403';
-    private static final char ICON_SHEARABLE = '\uE405';
-    private static final char ICON_MILKABLE = '\uE406';
-    private static final char ICON_BREED_READY = '\uE407';
+    private static final char ICON_ANIMAL_UNKNOWN = '\uE400';
+    private static final int ICON_TEXTURE_SIZE = 16;
+    private static final int ICON_DISPLAY_SIZE = 8;
+    private static final int STATUS_TEXT_X = ICON_DISPLAY_SIZE + 4;
+    private static final Identifier ICON_GENDER = statusTexture("gender_unknown");
+    private static final Identifier ICON_FEMALE = statusTexture("gender_mare");
+    private static final Identifier ICON_MALE = statusTexture("gender_stallion");
+    private static final Identifier ICON_MAST = statusTexture("feeding");
+    private static final Identifier ICON_SHEARABLE = statusTexture("shearable");
+    private static final Identifier ICON_MILKABLE = statusTexture("milkable");
+    private static final Identifier ICON_BREED_READY = statusTexture("breed_ready");
+    private static final Identifier ICON_JUMP = statusTexture("jump");
+    private static final Identifier ICON_SPEED = statusTexture("speed");
 
     private static volatile AnimalInfoSnapshot snapshot;
     private static volatile AnimalEntity modelEntity;
@@ -298,7 +305,7 @@ public final class AnimalInfoOverlay {
         }
         if (config.showGenderIcon) {
             addScaled(parts, Part.GENDER_ICON, config.genderIconX, config.genderIconY,
-                    renderer.getWidth(icon(genderIcon(value.gender()))), 9,
+                    ICON_DISPLAY_SIZE, ICON_DISPLAY_SIZE,
                     config.genderIconScale);
         }
         if (config.showGenderText) {
@@ -326,12 +333,12 @@ public final class AnimalInfoOverlay {
         String jumpHeight = jumpHeightLabel(value);
         if (Boolean.TRUE.equals(config.showJumpHeight) && !jumpHeight.isEmpty()) {
             addScaled(parts, Part.JUMP_HEIGHT, config.jumpHeightX, config.jumpHeightY,
-                    renderer.getWidth(jumpHeight), 9, config.jumpHeightScale);
+                    statusWidth(renderer, jumpHeight), 9, config.jumpHeightScale);
         }
         String speed = speedLabel(value);
         if (Boolean.TRUE.equals(config.showSpeed) && !speed.isEmpty()) {
             addScaled(parts, Part.SPEED, config.speedX, config.speedY,
-                    renderer.getWidth(speed), 9, config.speedScale);
+                    statusWidth(renderer, speed), 9, config.speedScale);
         }
 
         int maxX = 1;
@@ -353,7 +360,7 @@ public final class AnimalInfoOverlay {
     }
 
     private static int statusWidth(TextRenderer renderer, String label) {
-        return renderer.getWidth(icon(ICON_BREED_READY)) + 12 + renderer.getWidth(label);
+        return STATUS_TEXT_X + renderer.getWidth(label);
     }
 
     private static void draw(DrawContext context, TextRenderer renderer,
@@ -390,15 +397,15 @@ public final class AnimalInfoOverlay {
                 case EXTRA -> {
                     if (extra != null) {
                         int color = extra.positive() ? COL_GREEN : COL_RED;
-                        drawStatus(context, renderer, px, py, extra.glyph(), extra.label(),
+                        drawStatus(context, renderer, px, py, extra.icon(), extra.label(),
                                 color, color, config.extraScale, alpha);
                     }
                 }
-                case JUMP_HEIGHT -> drawScaledText(context, renderer,
-                        jumpHeightLabel(value), px, py, COL_MUTED,
+                case JUMP_HEIGHT -> drawStatus(context, renderer, px, py,
+                        ICON_JUMP, jumpHeightLabel(value), COL_MUTED, COL_MUTED,
                         config.jumpHeightScale, alpha);
-                case SPEED -> drawScaledText(context, renderer,
-                        speedLabel(value), px, py, COL_MUTED,
+                case SPEED -> drawStatus(context, renderer, px, py,
+                        ICON_SPEED, speedLabel(value), COL_MUTED, COL_MUTED,
                         config.speedScale, alpha);
             }
         }
@@ -463,16 +470,25 @@ public final class AnimalInfoOverlay {
     private static void drawGenderIcon(DrawContext context, TextRenderer renderer,
                                        String genderValue, int x, int y,
                                        float rawScale, float alpha) {
-        char gender = genderIcon(genderValue);
+        Identifier gender = genderIcon(genderValue);
         int color = gender == ICON_FEMALE ? COL_FEMALE
                 : gender == ICON_MALE ? COL_MALE : COL_MUTED;
-        drawScaledText(context, renderer, icon(gender), x, y, color, rawScale, alpha, false);
+        float scale = clampScale(rawScale);
+        var matrices = context.getMatrices();
+        matrices.pushMatrix();
+        try {
+            matrices.translate(x, y);
+            matrices.scale(scale, scale);
+            drawStatusIcon(context, gender, withAlpha(color, alpha));
+        } finally {
+            matrices.popMatrix();
+        }
     }
 
     private static void drawGenderText(DrawContext context, TextRenderer renderer,
                                        String genderValue, int x, int y,
                                        float rawScale, float alpha) {
-        char gender = genderIcon(genderValue);
+        Identifier gender = genderIcon(genderValue);
         int color = gender == ICON_FEMALE ? COL_FEMALE
                 : gender == ICON_MALE ? COL_MALE : COL_MUTED;
         drawScaledText(context, renderer, Text.literal(genderLabel(genderValue)),
@@ -480,19 +496,31 @@ public final class AnimalInfoOverlay {
     }
 
     private static void drawStatus(DrawContext context, TextRenderer renderer,
-                                   int x, int y, char glyph, String label,
+                                   int x, int y, Identifier texture, String label,
                                    int iconColor, int textColor,
                                    float rawScale, float alpha) {
         float scale = clampScale(rawScale);
         var matrices = context.getMatrices();
         matrices.pushMatrix();
-        matrices.translate(x, y);
-        matrices.scale(scale, scale);
-        context.drawText(renderer, icon(glyph), 0, 0,
-                withAlpha(iconColor, alpha), false);
-        context.drawTextWithShadow(renderer, label, 12, 0,
-                withAlpha(textColor, alpha));
-        matrices.popMatrix();
+        try {
+            matrices.translate(x, y);
+            matrices.scale(scale, scale);
+            drawStatusIcon(context, texture, withAlpha(iconColor, alpha));
+            context.drawTextWithShadow(renderer, label, STATUS_TEXT_X, 0,
+                    withAlpha(textColor, alpha));
+        } finally {
+            matrices.popMatrix();
+        }
+    }
+
+    private static Identifier statusTexture(String name) {
+        return Identifier.of("ottoextra", "textures/gui/horse_overview/" + name + ".png");
+    }
+
+    private static void drawStatusIcon(DrawContext context, Identifier texture, int color) {
+        context.drawTexture(RenderPipelines.GUI_TEXTURED, texture, 0, 0, 0, 0,
+                ICON_DISPLAY_SIZE, ICON_DISPLAY_SIZE, ICON_TEXTURE_SIZE, ICON_TEXTURE_SIZE,
+                ICON_TEXTURE_SIZE, ICON_TEXTURE_SIZE, color);
     }
 
     private static void drawScaledText(DrawContext context, TextRenderer renderer,
@@ -530,12 +558,12 @@ public final class AnimalInfoOverlay {
 
     static String jumpHeightLabel(AnimalInfoSnapshot value) {
         return value == null || value.jumpHeight().isEmpty()
-                ? "" : "Sprunghöhe: " + value.jumpHeight();
+                ? "" : value.jumpHeight();
     }
 
     static String speedLabel(AnimalInfoSnapshot value) {
         return value == null || value.speed().isEmpty()
-                ? "" : "Geschwindigkeit: " + value.speed();
+                ? "" : value.speed();
     }
 
     private static ExtraStatus extraStatus(AnimalInfoSnapshot value, AnimalEntity entity) {
@@ -558,7 +586,7 @@ public final class AnimalInfoOverlay {
         return Text.literal(String.valueOf(glyph)).setStyle(Style.EMPTY.withFont(MENU_FONT));
     }
 
-    private static char genderIcon(String value) {
+    private static Identifier genderIcon(String value) {
         String normalized = normalize(value);
         if (normalized.startsWith("weib") || normalized.startsWith("fem")
                 || normalized.equals("stute")) {
@@ -573,11 +601,9 @@ public final class AnimalInfoOverlay {
     }
 
     static String genderLabel(String value) {
-        return switch (genderIcon(value)) {
-            case ICON_FEMALE -> "Weiblich";
-            case ICON_MALE -> "Männlich";
-            default -> value == null ? "" : value;
-        };
+        Identifier gender = genderIcon(value);
+        return gender == ICON_FEMALE ? "Weiblich" : gender == ICON_MALE ? "Männlich"
+                : value == null ? "" : value;
     }
 
     private static char animalIcon(AnimalEntity entity, AnimalInfoSnapshot value,
@@ -605,7 +631,7 @@ public final class AnimalInfoOverlay {
         if (configured != '\0') return configured;
         if (value != null && value.hasShearable()) return ICON_SHEEP;
         if (value != null && value.hasMilkable()) return ICON_COW;
-        return ICON_GENDER;
+        return ICON_ANIMAL_UNKNOWN;
     }
 
     static String animalType(AnimalEntity entity, AnimalInfoSnapshot value) {

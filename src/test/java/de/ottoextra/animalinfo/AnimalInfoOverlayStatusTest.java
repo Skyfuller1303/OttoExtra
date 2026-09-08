@@ -67,14 +67,14 @@ class AnimalInfoOverlayStatusTest {
     }
 
     @Test
-    void formatsHorseParametersAsIndependentLabels() {
+    void keepsHorseValuesAndUnitsCompactBesideTheirIcons() {
         AnimalInfoSnapshot snapshot = new AnimalInfoSnapshot(
                 "Pferd", "Hengst", "", "Ja", "", "",
                 "3,42 Blöcke", "11,87 Blöcke/s");
 
-        assertEquals("Sprunghöhe: 3,42 Blöcke",
+        assertEquals("3,42 Blöcke",
                 AnimalInfoOverlay.jumpHeightLabel(snapshot));
-        assertEquals("Geschwindigkeit: 11,87 Blöcke/s",
+        assertEquals("11,87 Blöcke/s",
                 AnimalInfoOverlay.speedLabel(snapshot));
         assertEquals("", AnimalInfoOverlay.jumpHeightLabel(new AnimalInfoSnapshot(
                 "Pferd", "Hengst", "", "Ja", "", "",

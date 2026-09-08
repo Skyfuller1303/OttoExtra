@@ -161,4 +161,55 @@ Write-PixelIcon 'collapse' {
     Add-PixelRect $g $b 12 4 2 2
 }
 
+Write-PixelIcon 'feeding' {
+    param($g, $b)
+    Add-PixelRect $g $b 6 2 2 12
+    Add-PixelRect $g $b 8 0 4 2
+    Add-PixelRect $g $b 2 2 4 2
+    Add-PixelRect $g $b 8 4 4 2
+    Add-PixelRect $g $b 2 6 4 2
+    Add-PixelRect $g $b 8 8 4 2
+    Add-PixelRect $g $b 4 14 6 2
+}
+
+Write-PixelIcon 'breed_ready' {
+    param($g, $b)
+    Add-PixelRect $g $b 2 2 4 2
+    Add-PixelRect $g $b 10 2 4 2
+    Add-PixelRect $g $b 0 4 16 4
+    Add-PixelRect $g $b 2 8 12 2
+    Add-PixelRect $g $b 4 10 8 2
+    Add-PixelRect $g $b 6 12 4 2
+}
+
+Write-PixelIcon 'shearable' {
+    param($g, $b)
+    Add-PixelRect $g $b 2 0 2 4
+    Add-PixelRect $g $b 12 0 2 4
+    Add-PixelRect $g $b 4 4 2 2
+    Add-PixelRect $g $b 10 4 2 2
+    Add-PixelRect $g $b 6 6 4 2
+    Add-PixelRect $g $b 4 8 2 2
+    Add-PixelRect $g $b 10 8 2 2
+    Add-PixelRect $g $b 0 10 6 2
+    Add-PixelRect $g $b 10 10 6 2
+    Add-PixelRect $g $b 0 12 2 2
+    Add-PixelRect $g $b 4 12 2 2
+    Add-PixelRect $g $b 10 12 2 2
+    Add-PixelRect $g $b 14 12 2 2
+    Add-PixelRect $g $b 2 14 2 2
+    Add-PixelRect $g $b 12 14 2 2
+}
+
+Write-PixelIcon 'milkable' {
+    param($g, $b)
+    Add-PixelRect $g $b 4 0 8 2
+    Add-PixelRect $g $b 2 2 2 4
+    Add-PixelRect $g $b 12 2 2 4
+    Add-PixelRect $g $b 2 6 12 2
+    Add-PixelRect $g $b 2 8 2 4
+    Add-PixelRect $g $b 12 8 2 4
+    Add-PixelRect $g $b 4 10 8 4
+}
+
 Write-Output "Horse overview icons generated in $resolvedOutput"
