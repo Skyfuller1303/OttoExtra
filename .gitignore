@@ -3,6 +3,7 @@ build/
 out/
 run/
 run2/
+run-without-ottoextra/
 .vscode/
 .idea/
 .agents/
@@ -18,7 +19,9 @@ saves/
 /config/
 
 # Dist: gebaute JARs nicht versionieren, Ordner + README behalten
-dist/*-sources.jar
+dist/*.jar
+dist/*.zip
+dist/*.sha256
 
 # Secrets
 *.env
