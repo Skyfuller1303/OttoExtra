@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "ottoextra_courier_e2e",
+  "version": "1.0.0",
+  "name": "Courier local end-to-end test driver",
+  "environment": "client",
+  "mixins": ["courier-e2e.mixins.json"],
+  "entrypoints": {
+    "fabric-client-gametest": ["de.ottoextra.letter.ui.CourierE2ETest"]
+  },
+  "depends": {"ottoextra": "*", "fabric-client-gametest-api-v1": "*"}
+}

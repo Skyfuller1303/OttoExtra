@@ -1,0 +1,7 @@
+{
+  "required": true,
+  "package": "de.ottoextra.letter.e2e.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": ["TestClipboardMixin"],
+  "injectors": {"defaultRequire": 1}
+}

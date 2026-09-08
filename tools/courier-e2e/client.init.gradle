@@ -1,0 +1,36 @@
+allprojects {
+    afterEvaluate {
+        fabricApi.configureTests {
+            createSourceSet = true
+            modId = 'ottoextra_courier_e2e'
+            enableGameTests = false
+            enableClientGameTests = true
+            clearRunDirectory = false
+            username = 'CourierAudit'
+        }
+        sourceSets.gametest.java.setSrcDirs(['tools/courier-e2e/client/java'])
+        sourceSets.gametest.resources.setSrcDirs(['tools/courier-e2e/client/resources'])
+        loom.runs.named('clientGameTest') {
+            runDir = 'build/courier-e2e/client'
+            vmArg '-Dfabric.client.gametest.disableNetworkSynchronizer'
+            vmArg '-Ddevauth.enabled=false'
+        }
+        tasks.named('runClientGameTest').configure {
+            doFirst {
+                def profile = file('build/courier-e2e/client')
+                profile.mkdirs()
+                def configFile = new File(profile, 'config/ottoextra/ottoextra.json')
+                if (!configFile.exists()) {
+                    configFile.parentFile.mkdirs()
+                    configFile.text = '{"consent":{"onboardingVersion":2},"letter":{"sendMode":"V2"}}'
+                }
+                copy { from 'libs/xaerolib-fabric-1.21.11-1.1.15.jar'; into new File(profile, 'mods') }
+                setJvmArgs(getJvmArgs().findAll { !it.startsWith('-Ddevauth.') && !it.startsWith('-Xmx') })
+                jvmArgs '-Xmx2G', '-Ddevauth.enabled=false'
+                systemProperty 'courier.e2e.reportDir', file('build/courier-e2e/results').absolutePath
+                systemProperty 'courier.e2e.filter', project.findProperty('courierE2eFilter') ?: ''
+                setArgs(['--gameDir', profile.absolutePath, '--username', 'CourierAudit', '--width', '1280', '--height', '720'])
+            }
+        }
+    }
+}

@@ -1,0 +1,6 @@
+name: Vault
+version: 0.0.1-courier-e2e-only
+main: de.ottoextra.e2e.CourierE2EServer
+api-version: '1.21.11'
+description: Test-only Courier E2E HTTP controller and deterministic Vault Economy provider; not production Vault.
+loadbefore: [Courier]
