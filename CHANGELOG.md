@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.17-d – Alpha – 2026-09-08
+
+- Der Tierinfo-Toast verwendet transparente 16 × 16-Symbole für Geschlecht,
+  Mast, Paarung, Scheren, Melken, Tempo und Sprung, mit 8 × 8 GUI-Pixeln Basisgröße.
+- Tempo und Sprung zeigen Symbol, Wert und Einheit und passen damit in ihre
+  Standardspalten. Die gespeicherten Layout-Einstellungen bleiben erhalten.
+- Die Titelbreite berücksichtigt Fettschrift und Geschlechtselemente in derselben
+  Zeile. Zu lange Namen werden mit „…“ gekürzt, statt die Symbole zu überdecken.
+- [Darstellung und Clientprüfung](docs/animal-toast-icons.md).
+- [Installation und Testerhinweise](release-notes-0.1.17-d.md).
+
 ## 0.1.17-c – Alpha – 2026-09-08
 
 - Die Buchansicht unversendeter Briefe bietet neben **Bearbeiten** den Button

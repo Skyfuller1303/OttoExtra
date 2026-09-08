@@ -18,7 +18,7 @@ Die Mod ist als clientseitige Community-Erweiterung für Ottonien gedacht und er
 | Fabric Loader | `>= 0.18.1` |
 | Fabric API | erforderlich |
 | Seite | clientseitig |
-| Version | `0.1.17-c` – Alpha mit erneutem Versandzugriff auf geschriebene Briefe |
+| Version | `0.1.17-d` – Alpha mit kompakten 16 × 16-Symbolen im Tierinfo-Toast |
 | Server-Gate | Funktionen werden nur auf Ottonien aktiv |
 | Server-Interaktion | normale Spielinteraktionen, Chat-Befehle und öffentliche APIs |
 
@@ -44,9 +44,9 @@ Die Mod ist als clientseitige Community-Erweiterung für Ottonien gedacht und er
 
 ## Installation
 
-Die aktuelle Testversion ist **0.1.17-c**. Hinweise zu Änderungen, bekannten
+Die aktuelle Testversion ist **0.1.17-d**. Hinweise zu Änderungen, bekannten
 Beobachtungen und sinnvollen Tests stehen in den
-[Alpha-Release-Notizen](release-notes-0.1.17-c.md).
+[Alpha-Release-Notizen](release-notes-0.1.17-d.md).
 
 1. Fabric Loader für Minecraft `1.21.11` installieren.
 2. Fabric API in den `mods`-Ordner legen.
