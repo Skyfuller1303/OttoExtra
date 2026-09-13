@@ -4,7 +4,6 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.PlayerListEntry;
 import net.minecraft.client.util.DefaultSkinHelper;
 import net.minecraft.entity.player.SkinTextures;
-import de.ottoextra.config.OttoExtraConfig;
 
 import java.util.UUID;
 
@@ -15,6 +14,7 @@ public final class ChatHeads {
 
     public static SkinTextures skinForUuid(UUID uuid, String account) {
         MinecraftClient mc = MinecraftClient.getInstance();
+        UUID resolvedUuid = uuid;
         if (mc.getNetworkHandler() != null) {
             for (PlayerListEntry e : mc.getNetworkHandler().getPlayerList()) {
                 var gp = e.getProfile();
@@ -27,30 +27,22 @@ public final class ChatHeads {
                                 && gp.name().equalsIgnoreCase(account));
                 if (match) {
                     SkinCache.remember(gp);
-                    return e.getSkinTextures();
+                    resolvedUuid = gp.id();
+                    break;
                 }
             }
         }
-        if (uuid == null) {
+        if (resolvedUuid == null) {
             return null;
         }
 
-        SkinTextures local = SkinCache.localSkin(uuid);
+        // SkinProvider/PlayerListEntry can initiate downloads whose lifecycle we cannot revoke.
+        // All OttoExtra-triggered skin requests use the consent-bound cache instead.
+        SkinCache.requestPng(resolvedUuid);
+        SkinTextures local = SkinCache.localSkin(resolvedUuid);
         if (local != null) {
             return local;
         }
-        if (!OttoExtraConfig.active().consent.externalImageDownloads) {
-            return DefaultSkinHelper.getSkinTextures(uuid);
-        }
-        try {
-            SkinTextures s = mc.getSkinProvider()
-                    .supplySkinTextures(SkinCache.profileFor(uuid, account), false).get();
-            if (s != null) {
-                return s;
-            }
-        } catch (Throwable ignored) {
-
-        }
-        return DefaultSkinHelper.getSkinTextures(uuid);
+        return DefaultSkinHelper.getSkinTextures(resolvedUuid);
     }
 }

@@ -1,5 +1,6 @@
 package de.ottoextra.tweaks.vote;
 
+import com.google.gson.Gson;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -55,6 +56,20 @@ class VoteReminderConfigTest {
         assertEquals(4, uris.size());
         assertEquals("https", uris.getFirst().getScheme());
         assertEquals(VoteReminderConfig.ALLOWED_VOTE_URLS.get(3), uris.getFirst().toString());
+    }
+
+    @Test
+    void openingNoticeOnlyNeedsAcceptanceOnceAndSurvivesPersistence() {
+        VoteReminderConfig config = new VoteReminderConfig();
+
+        assertTrue(config.requiresOpeningNotice());
+
+        config.acceptOpeningNotice();
+        VoteReminderConfig restored = new Gson().fromJson(
+                new Gson().toJson(config), VoteReminderConfig.class);
+        restored.resetCompletion();
+
+        assertFalse(restored.requiresOpeningNotice());
     }
 
     @Test

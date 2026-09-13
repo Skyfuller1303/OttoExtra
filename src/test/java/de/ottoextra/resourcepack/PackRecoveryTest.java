@@ -68,6 +68,6 @@ class PackRecoveryTest {
         assertEquals(new PackInstaller.Decision(false, false), PackInstaller.decide(true, false, true, true, false, false));
         assertEquals(new PackInstaller.Decision(false, false), PackInstaller.decide(true, true, true, true, false, false));
         assertEquals(new PackInstaller.Decision(true, true), PackInstaller.decide(true, true, true, false, false, false));
-        assertEquals(new PackInstaller.Decision(true, true), PackInstaller.decide(true, true, false, true, false, false));
+        assertEquals(new PackInstaller.Decision(false, false), PackInstaller.decide(true, true, false, true, false, false));
     }
 }

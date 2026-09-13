@@ -1,0 +1,35 @@
+allprojects {
+    afterEvaluate {
+        fabricApi.configureTests {
+            createSourceSet = true
+            modId = 'ottoextra_consent_smoke'
+            enableGameTests = false
+            enableClientGameTests = true
+            clearRunDirectory = false
+            username = 'ConsentAudit'
+        }
+        sourceSets.gametest.java.setSrcDirs(['tools/consent-smoke/client/java'])
+        sourceSets.gametest.resources.setSrcDirs(['tools/consent-smoke/client/resources'])
+        loom.runs.named('clientGameTest') {
+            runDir = 'build/consent-smoke/client'
+            vmArg '-Dfabric.client.gametest.disableNetworkSynchronizer'
+            vmArg '-Ddevauth.enabled=false'
+        }
+        tasks.named('runClientGameTest').configure {
+            doFirst {
+                def profile = file('build/consent-smoke/client')
+                def configFile = new File(profile, 'config/ottoextra/ottoextra.json')
+                configFile.parentFile.mkdirs()
+                // Dedicated fixture: obsolete grants must be reset before any optional transfer starts.
+                configFile.text = '{"consent":{"onboardingVersion":2,"automaticResourcePackDownloads":true,"externalImageDownloads":true,"updateChecks":true,"communityRpNameUploads":true}}'
+                new File(configFile.parentFile, 'welcome.json').text = '{"schemaVersion":1,"accepted":true,"acceptedWithVersion":"0.1.17-p"}'
+                new File(profile, 'options.txt').text = 'lang:de_de\nguiScale:2\n'
+                copy { from 'libs/xaerolib-fabric-1.21.11-1.1.15.jar'; into new File(profile, 'mods') }
+                copy { from 'libs/xaerominimap-fabric-1.21.11-25.3.12.jar'; into new File(profile, 'mods') }
+                setJvmArgs(getJvmArgs().findAll { !it.startsWith('-Ddevauth.') && !it.startsWith('-Xmx') })
+                jvmArgs '-Xmx2G', '-Ddevauth.enabled=false'
+                setArgs(['--gameDir', profile.absolutePath, '--username', 'ConsentAudit', '--width', '1280', '--height', '720'])
+            }
+        }
+    }
+}

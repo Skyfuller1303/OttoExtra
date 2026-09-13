@@ -241,8 +241,9 @@ public final class OttoExtraBackupService {
             createBackup(configRoot);
             if (restoredConfig != null) {
                 Files.createDirectories(configFile.getParent());
-                Files.copy(backedUpConfig, configFile, StandardCopyOption.REPLACE_EXISTING);
                 config.restoreFrom(restoredConfig);
+                // Persist the merged current permissions, not the old grant from the backup.
+                config.save(configFile);
             }
             try (Stream<Path> walk = Files.walk(backupDir)) {
                 for (Path p : walk.toList()) {

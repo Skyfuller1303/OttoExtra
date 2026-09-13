@@ -41,6 +41,7 @@ public final class VoteReminderConfig {
     public int reminderIntervalMinutes = 30;
     public List<String> serverAddresses = new ArrayList<>(DEFAULT_SERVER_ADDRESSES);
     public List<String> voteUrls = new ArrayList<>(ALLOWED_VOTE_URLS);
+    public boolean openingNoticeAccepted = false;
     public String lastCompletedVoteDay = "";
     public int integrationMigrationVersion = 0;
 
@@ -99,6 +100,14 @@ public final class VoteReminderConfig {
 
     public void resetCompletion() {
         lastCompletedVoteDay = "";
+    }
+
+    public boolean requiresOpeningNotice() {
+        return !openingNoticeAccepted;
+    }
+
+    public void acceptOpeningNotice() {
+        openingNoticeAccepted = true;
     }
 
     public List<URI> validatedVoteUris() {

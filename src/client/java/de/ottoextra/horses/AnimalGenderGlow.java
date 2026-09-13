@@ -23,6 +23,10 @@ public final class AnimalGenderGlow {
     static void toggle(MinecraftClient client) {
         if (client.currentScreen != null || client.world == null || client.player == null
                 || !onOttonien.getAsBoolean()) return;
+        if (!AnimalOutlinePolicy.serverAuthorized()) {
+            client.player.sendMessage(Text.translatable("ottoextra.privacy.glow.unavailable"), true);
+            return;
+        }
         var config = OttoExtraConfig.active();
         config.animalInfo.genderGlowEnabled = !config.animalInfo.genderGlowEnabled;
         config.save();
@@ -42,7 +46,7 @@ public final class AnimalGenderGlow {
     }
 
     private static int outlineColor(Entity entity) {
-        if (!(entity instanceof AnimalEntity) || !OttoExtraConfig.active().animalInfo.genderGlowEnabled
+        if (!AnimalOutlinePolicy.serverAuthorized() || !(entity instanceof AnimalEntity) || !OttoExtraConfig.active().animalInfo.genderGlowEnabled
                 || !onOttonien.getAsBoolean() || !entity.isAlive()) return EntityRenderState.NO_OUTLINE;
         var client = MinecraftClient.getInstance();
         if (client.world == null || client.player == null || entity.getEntityWorld() != client.world

@@ -102,7 +102,7 @@ public final class TweaksModule implements OttoExtraModule {
     public static int lowHealthBlurPasses() {
         LowHealthState state = activeState;
         OttoExtraConfig.Tweaks.LowHealth cfg = activeConfig;
-        if (state == null || cfg == null || !cfg.blurEnabled || cfg.blurStrength <= 0.01f) {
+        if (state == null || cfg == null || !cfg.enabled || cfg.reducedMotion || !cfg.blurEnabled || cfg.blurStrength <= 0.01f) {
             return 0;
         }
         MinecraftClient client = MinecraftClient.getInstance();
@@ -115,7 +115,7 @@ public final class TweaksModule implements OttoExtraModule {
 
     static int lowHealthBlurPasses(LowHealthState state,
                                    OttoExtraConfig.Tweaks.LowHealth cfg, float health) {
-        if (state == null || cfg == null || (!cfg.enabled && !state.isForced())
+        if (state == null || cfg == null || (!cfg.enabled || cfg.reducedMotion)
                 || !cfg.blurEnabled || cfg.blurStrength <= 0.01f) {
             return 0;
         }
@@ -140,13 +140,15 @@ public final class TweaksModule implements OttoExtraModule {
     public static float lowHealthFovBoost() {
         LowHealthState state = activeState;
         OttoExtraConfig.Tweaks.LowHealth cfg = activeConfig;
-        if (state == null || cfg == null || !cfg.fovEnabled) {
+        if (state == null || cfg == null || !cfg.enabled || cfg.reducedMotion || !cfg.fovEnabled) {
             return 0.0f;
         }
         return state.intensity() * cfg.fovMaxDegrees;
     }
 
     private void forceTest(float value) {
+        // Preview is an explicit opt-in; disabling the effect still takes precedence.
+        activeConfig.enabled = true;
         lowHealth.setForced(value);
         msg("§a[Tweaks]§7 Low-Health-Test-Intensität: §e"
                 + String.format(Locale.ROOT, "%.2f", value)

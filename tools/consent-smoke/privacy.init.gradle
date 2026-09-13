@@ -1,0 +1,52 @@
+allprojects {
+    afterEvaluate {
+        def matrix = providers.gradleProperty('privacyQaMode').getOrElse('minimal')
+        if (!(matrix in ['minimal', 'xaero', 'modpack', 'modpack-supported', 'modpack-fixed'])) throw new GradleException('Unknown privacyQaMode')
+        configurations.modLocalRuntime.dependencies.removeAll { dep ->
+            dep.group == 'me.djtheredstoner' || (dep instanceof org.gradle.api.artifacts.FileCollectionDependency && dep.files.files.any { it.name.startsWith('xaeroworldmap-') })
+        }
+        if (!(matrix in ['minimal', 'modpack-fixed'])) dependencies.add('modLocalRuntime', files(matrix.startsWith('modpack')
+                ? 'run/mods/xaeroworldmap-fabric-1.21.11-1.40.16.jar'
+                : '../Mods/input/mods/xaeroworldmap-fabric-1.21.11-1.41.0.jar'))
+        fabricApi.configureTests {
+            createSourceSet = true
+            modId = 'ottoextra_consent_smoke'
+            enableGameTests = false
+            enableClientGameTests = true
+            clearRunDirectory = false
+            username = 'ConsentAudit'
+        }
+        sourceSets.gametest.java.setSrcDirs(['tools/consent-smoke/client/java'])
+        sourceSets.gametest.resources.setSrcDirs(['tools/consent-smoke/client/resources'])
+        loom.runs.named('clientGameTest') {
+            runDir = 'build/privacy-qa/' + matrix
+            vmArg '-Dfabric.client.gametest.disableNetworkSynchronizer'
+            vmArg '-Ddevauth.enabled=false'
+        }
+        tasks.named('runClientGameTest').configure {
+            if (matrix in ['modpack-supported', 'modpack-fixed']) javaLauncher.set(javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(25) })
+            doFirst {
+                def profile = file('build/privacy-qa/' + matrix)
+                def configFile = new File(profile, 'config/ottoextra/ottoextra.json')
+                configFile.parentFile.mkdirs()
+                // Dedicated fixture: obsolete grants must be reset before any optional transfer starts.
+                configFile.text = '{"consent":{"onboardingVersion":2,"automaticResourcePackDownloads":true,"externalImageDownloads":true,"updateChecks":true,"communityRpNameUploads":true}}'
+                new File(profile, 'resourcepacks/Ottonien.zip').delete() // Only the pack created by this fixture.
+                new File(profile, 'options.txt').text = 'lang:de_de\nguiScale:2\n'
+                if (matrix != 'minimal') copy { from 'libs/xaerolib-fabric-1.21.11-1.1.15.jar'; into new File(profile, 'mods') }
+                if (matrix != 'minimal') copy { from 'libs/xaerominimap-fabric-1.21.11-25.3.12.jar'; into new File(profile, 'mods') }
+                if (matrix.startsWith('modpack')) copy {
+                    from 'run/mods'
+                    include '*.jar'
+                    if (matrix == 'modpack-supported') exclude 'OttoExtra-AnimalBreeding-*.jar'
+                    exclude 'ottoextra-*.jar', 'fabric-api-*.jar', 'xaerominimap-*.jar', 'xaerolib-*.jar'
+                    if (matrix != 'modpack-fixed') exclude 'xaeroworldmap-*.jar'
+                    into new File(profile, 'mods')
+                }
+                setJvmArgs(getJvmArgs().findAll { !it.startsWith('-Ddevauth.') && !it.startsWith('-Xmx') })
+                jvmArgs '-Xmx6G', '-Ddevauth.enabled=false', '-Dottoextra.privacyQa=true', '-Dottoextra.privacyQaMode=' + matrix
+                setArgs(['--gameDir', profile.absolutePath, '--username', 'ConsentAudit', '--width', '1280', '--height', '720'])
+            }
+        }
+    }
+}

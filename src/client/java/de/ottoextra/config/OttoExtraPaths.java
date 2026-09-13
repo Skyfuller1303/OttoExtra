@@ -53,6 +53,10 @@ public final class OttoExtraPaths {
         return root().resolve("letters");
     }
 
+    public static Path sentLettersDir() {
+        return lettersDir().resolve("sent");
+    }
+
     public static Path importDir() {
         return root().resolve("import");
     }

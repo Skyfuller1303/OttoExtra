@@ -29,7 +29,9 @@ public final class RegionsModule implements OttoExtraModule {
 
     @Override
     public boolean enabled(OttoExtraConfig config) {
-        return config.regions.enabled;
+        // Listener und HUD einmalig registrieren. Die aktuelle Config wird in
+        // den einzelnen Pfaden geprüft, damit Aus -> An keinen Neustart braucht.
+        return true;
     }
 
     @Override

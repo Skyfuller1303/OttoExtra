@@ -2,6 +2,7 @@ package de.ottoextra.resourcepack;
 
 import de.ottoextra.OttoExtra;
 import de.ottoextra.config.OttoExtraPaths;
+import de.ottoextra.privacy.ConsentPermit;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.resource.ResourcePackManager;
 
@@ -20,6 +21,7 @@ public final class PackInstaller {
     private static boolean pendingReload;
     private static boolean pendingRespectDisable;
     private static boolean pendingPreviouslyInstalled;
+    private static ConsentPermit pendingPermit;
 
     private PackInstaller() {
     }
@@ -38,33 +40,34 @@ public final class PackInstaller {
         }
     }
 
-    public static void requestActivation(boolean priorityTop) {
-        requestActivation(priorityTop, false, false);
-    }
-
     public static synchronized void requestActivation(boolean priorityTop, boolean respectDisable,
-                                                       boolean previouslyInstalled) {
+                                                       boolean previouslyInstalled, ConsentPermit permit) {
+        pendingPermit = permit;
         pendingPriorityTop = priorityTop;
         pendingRespectDisable = respectDisable;
         pendingPreviouslyInstalled = previouslyInstalled;
         pendingActivation = true;
     }
 
-    public static synchronized void requestReload() {
+    public static synchronized void requestReload(ConsentPermit permit) {
+        pendingPermit = permit;
         pendingReload = true;
     }
 
     public static synchronized void clearPending() {
         pendingActivation = false;
         pendingReload = false;
+        pendingPermit = null;
     }
 
-    private record Pending(boolean activate, boolean replaced, boolean priorityTop,
-                           boolean respectDisable, boolean previouslyInstalled) { }
+    record Pending(boolean activate, boolean replaced, boolean priorityTop,
+                   boolean respectDisable, boolean previouslyInstalled, ConsentPermit permit) {
+        boolean allowed() { return permit != null && permit.valid(); }
+    }
 
-    private static synchronized Pending takePending() {
+    static synchronized Pending takePending() {
         Pending result = new Pending(pendingActivation, pendingReload, pendingPriorityTop,
-                pendingRespectDisable, pendingPreviouslyInstalled);
+                pendingRespectDisable, pendingPreviouslyInstalled, pendingPermit);
         clearPending();
         return result;
     }
@@ -77,7 +80,7 @@ public final class PackInstaller {
 
     static Decision decide(boolean requested, boolean replaced, boolean respectDisable,
                             boolean previouslyInstalled, boolean inManager, boolean inOptions) {
-        boolean activate = requested && !(respectDisable && previouslyInstalled && !inOptions);
+        boolean activate = requested && !(previouslyInstalled && !inOptions);
         boolean active = inManager && inOptions;
         boolean changeSelection = activate && !active;
         return new Decision(changeSelection, changeSelection || replaced && (active || activate));
@@ -106,6 +109,14 @@ public final class PackInstaller {
 
         }
         Pending pending = takePending();
+        if (!pending.allowed()) return;
+
+        try {
+            pending.permit().commit(() -> applyPending(client, pending));
+        } catch (java.util.concurrent.CancellationException ignored) { }
+    }
+
+    private static void applyPending(MinecraftClient client, Pending pending) {
 
         String id = packId();
         try {

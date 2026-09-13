@@ -102,12 +102,19 @@ final class AnimalIdentityCache {
         try {
             Files.createDirectories(file.getParent());
             Path temporary = file.resolveSibling(file.getFileName() + ".tmp");
-            Files.writeString(temporary, JSON.toJson(new Stored(1, server, snapshot)), StandardCharsets.UTF_8);
-            try {
-                Files.move(temporary, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-            } catch (AtomicMoveNotSupportedException unsupported) {
-                Files.move(temporary, file, StandardCopyOption.REPLACE_EXISTING);
-            }
+            String json = JSON.toJson(new Stored(1, server, snapshot));
+            Path cacheRoot = file.getParent().getFileName().toString().equals("animals")
+                    ? file.getParent().getParent() : file.getParent();
+            de.ottoextra.privacy.CacheBudget.write(cacheRoot, file, json.getBytes(StandardCharsets.UTF_8).length, () -> {
+                try {
+                    Files.writeString(temporary, json, StandardCharsets.UTF_8);
+                    try {
+                        Files.move(temporary, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+                    } catch (AtomicMoveNotSupportedException unsupported) {
+                        Files.move(temporary, file, StandardCopyOption.REPLACE_EXISTING);
+                    }
+                } finally { Files.deleteIfExists(temporary); }
+            });
             synchronized (this) { savedRevision = writingRevision; }
         } catch (Exception error) {
             OttoExtra.LOGGER.warn("Lokaler Tiercache konnte nicht gespeichert werden: {}", error.toString());

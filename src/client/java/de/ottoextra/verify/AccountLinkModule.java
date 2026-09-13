@@ -22,6 +22,7 @@ public final class AccountLinkModule implements OttoExtraModule {
 
     private final AtomicBoolean statusInFlight = new AtomicBoolean();
     private AccountLinkConfig config;
+    private de.ottoextra.config.OttoExtraConfig rootConfig;
     private AccountLinkApi api;
     private de.ottoextra.api.OttoExtraApiClient profileApi;
     private long nextStatusCheck;
@@ -36,7 +37,8 @@ public final class AccountLinkModule implements OttoExtraModule {
     @Override
     public void onInitializeClient(OttoExtraContext context) {
         config = AccountLinkConfig.load();
-        api = new AccountLinkApi(config);
+        rootConfig = context.config();
+        api = new AccountLinkApi(config, rootConfig);
         profileApi = context.api();
 
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, access) ->
@@ -66,6 +68,12 @@ public final class AccountLinkModule implements OttoExtraModule {
     }
 
     private void start(MinecraftClient client) {
+        var permit = de.ottoextra.privacy.ConsentPolicy.capture(rootConfig,
+                de.ottoextra.privacy.ConsentPolicy.Purpose.ONLINE_SERVICES);
+        if (!permit.valid()) {
+            feedback(client, "ottoextra.consent.online.required", Formatting.YELLOW);
+            return;
+        }
         if (starting) return;
         if (client.player == null || client.player.getGameProfile() == null) {
             feedback(client, "ottoextra.verify.no_player", Formatting.RED);
@@ -89,22 +97,28 @@ public final class AccountLinkModule implements OttoExtraModule {
         api.start(uuid, name).whenComplete((result, error) -> client.execute(() -> {
             if (request != startRequest) return;
             starting = false;
+            if (!permit.valid()) return;
             if (error != null) {
                 networkError(client, "ottoextra.verify.failed", error);
                 return;
             }
-            config.deviceToken = result.deviceToken();
-            config.linkPending = true;
-            config.minecraftUuid = uuid;
-            config.minecraftName = name;
-            config.authorizationUrl = result.authorizationUrl();
-            config.save();
-            nextStatusCheck = 0L;
-            showLink(client, result.authorizationUrl());
+            permit.commit(() -> {
+                config.deviceToken = result.deviceToken();
+                config.linkPending = true;
+                config.minecraftUuid = uuid;
+                config.minecraftName = name;
+                config.authorizationUrl = result.authorizationUrl();
+                config.save();
+                nextStatusCheck = 0L;
+                showLink(client, result.authorizationUrl());
+            });
         }));
     }
 
     private void tick(MinecraftClient client) {
+        var permit = de.ottoextra.privacy.ConsentPolicy.capture(rootConfig,
+                de.ottoextra.privacy.ConsentPolicy.Purpose.ONLINE_SERVICES);
+        if (!permit.valid()) return;
         if (config == null || !config.linkPending || !config.hasDeviceToken()
                 || System.currentTimeMillis() < nextStatusCheck
                 || !statusInFlight.compareAndSet(false, true)) {
@@ -113,6 +127,7 @@ public final class AccountLinkModule implements OttoExtraModule {
         String requestedToken = config.deviceToken;
         api.status().whenComplete((status, error) -> client.execute(() -> {
             statusInFlight.set(false);
+            if (!permit.valid()) return;
             if (!Objects.equals(requestedToken, config.deviceToken)) return;
             nextStatusCheck = System.currentTimeMillis() + config.pollIntervalSeconds * 1_000L;
             if (error != null) {
@@ -125,10 +140,12 @@ public final class AccountLinkModule implements OttoExtraModule {
                 return;
             }
             if ("active".equals(status)) {
-                config.linkPending = false;
-                config.authorizationUrl = "";
-                config.save();
-                feedback(client, "ottoextra.verify.done", Formatting.GREEN);
+                permit.commit(() -> {
+                    config.linkPending = false;
+                    config.authorizationUrl = "";
+                    config.save();
+                    feedback(client, "ottoextra.verify.done", Formatting.GREEN);
+                });
             }
         }));
     }

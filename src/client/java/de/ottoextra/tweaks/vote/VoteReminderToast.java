@@ -47,16 +47,19 @@ public final class VoteReminderToast {
     private final long shownAt;
     private final long durationMillis;
     private final VoteReminderMessageCatalog.Variant message;
+    private final boolean openingNoticeRequired;
     private final boolean iconAvailable;
     private boolean hidden;
 
     public VoteReminderToast(
             long durationMillis,
-            VoteReminderMessageCatalog.Variant message
+            VoteReminderMessageCatalog.Variant message,
+            boolean openingNoticeRequired
     ) {
         this.shownAt = System.currentTimeMillis();
         this.durationMillis = Math.max(1_500L, durationMillis);
         this.message = message;
+        this.openingNoticeRequired = openingNoticeRequired;
         MinecraftClient client = MinecraftClient.getInstance();
         this.iconAvailable = client != null
                 && client.getResourceManager().getResource(ICON).isPresent();
@@ -106,7 +109,9 @@ public final class VoteReminderToast {
                         PALETTE.body()
                 ),
                 new ScaledLine(
-                        Text.translatable("ottoextra.tweaks.vote.toast.hint").asOrderedText(),
+                        Text.translatable(openingNoticeRequired
+                                ? "ottoextra.tweaks.vote.toast.hint"
+                                : "ottoextra.tweaks.vote.toast.hint.direct").asOrderedText(),
                         0.62F,
                         PALETTE.hint()
                 )

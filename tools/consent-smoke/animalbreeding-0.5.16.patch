@@ -1,0 +1,236 @@
+--- a/build.gradle
++++ b/build.gradle
+@@ -49,8 +49,9 @@
+ 
+ processResources {
+     inputs.property "version", project.version
++    inputs.property "ottoextra_version", project.ottoextra_version
+     filesMatching("fabric.mod.json") {
+-        expand "version": project.version
++        expand "version": project.version, "ottoextra_version": project.ottoextra_version
+     }
+ }
+ 
+--- a/gradle.properties
++++ b/gradle.properties
+@@ -8,9 +8,9 @@
+ loader_version=0.19.3
+ loom_version=1.17.8
+ fabric_version=0.141.4+1.21.11
+-ottoextra_version=1.16.3-r
++ottoextra_version=0.1.17-l
+ 
+ # Addon
+-mod_version=0.5.15
++mod_version=0.5.16
+ maven_group=de.ottoextra
+ archives_base_name=OttoExtra-AnimalBreeding
+--- a/src/main/resources/fabric.mod.json
++++ b/src/main/resources/fabric.mod.json
+@@ -28,6 +28,6 @@
+     "minecraft": "~1.21.11",
+     "java": ">=21",
+     "fabric-api": "*",
+-    "ottoextra": ">=1.16.3-r"
++    "ottoextra": ">=${ottoextra_version} <0.2.0"
+   }
+ }
+--- a/README.md
++++ b/README.md
+@@ -2,7 +2,7 @@
+ 
+ AnimalBreeding-Pilot für Minecraft 1.21.11 mit lokaler Akte, API und Webpanel.
+ 
+-Ab 0.5.12 wird OttoExtra 1.16.3-l benötigt. Mit `B` können auch Kühe, Schafe,
++Ab 0.5.16 wird OttoExtra `>=0.1.17-l <0.2.0` benötigt. Mit `B` können auch Kühe, Schafe,
+ Hühner, Ziegen und Schweine über OttoExtras Tierregister benannt werden;
+ dafür ist kein Züchtermodus nötig. Das Tier zuvor kurz ansehen, bis die Tierinfo
+ geladen ist. Die Übersicht im Tierregister enthält alle freigegebenen Tierakten.
+@@ -28,8 +28,7 @@
+   grauen Vorschlag;
+ - nametagfreie 35°-Pferdevorschau im AnimalInfo-Toast;
+ - persistente lokale Ablage unter `config/ottoextra/animalbreeding/horses.json`.
+-- persönlicher Web-Finder: Ein im Zuchtkalkulator ausgewähltes Pferd erhält in
+-  der Welt eine goldene Kontur; unter zwei Blöcken wird die Suche automatisch beendet.
++- persönlicher Web-Finder; die frühere goldene Kontur ist im aktuellen Core gesperrt;
+ - API-Abgleich, gemeinsamer Datenbestand, Abstammung und Web-Paarberechnung.
+ 
+ ## Build
+@@ -37,10 +36,10 @@
+ Zuerst OttoExtra bauen, danach aus dem Workspace-Root:
+ 
+ ```powershell
+-.\OttoExtra\gradlew.bat -p .\OttoExtra-AnimalBreeding clean build
++.\OttoExtra\gradlew.bat -p .\OttoExtra-AnimalBreeding test build -x dist --console=plain
+ ```
+ 
+-Das fertige Addon liegt unter `dist/OttoExtra-AnimalBreeding-0.5.12.jar`.
++Das fertige Addon liegt unter `build/libs/OttoExtra-AnimalBreeding-0.5.16.jar`.
+ 
+ ## Züchterfreigabe
+ 
+@@ -52,6 +51,11 @@
+ lokalen Züchtermodus aktivieren. Er ist bei der Erstinstallation ausgeschaltet.
+ Autofill und Zuchtakten-Sync laufen nur, wenn lokaler Modus und Serverfreigabe
+ gleichzeitig aktiv sind.
++
++Zusätzlich erfordert jeder Online-Abgleich die separate Zustimmung zu OttoExtras
++Online-Diensten. Ohne Zustimmung bleiben lokale Akten verwendbar. Ein Widerruf
++beendet die Online-Sitzung; eine spätere Freigabe startet einen neuen Abgleich.
++Der lokale Züchtermodus erteilt keine Zustimmung zu Datenübertragungen.
+ 
+ ```text
+ /animalbreeding zuechter freigeben <Minecraftname>
+@@ -72,5 +76,5 @@
+    dessen vorhandene Akte.
+ 6. In einer neuen Akte einige Buchstaben eines bekannten Herkunfts- oder
+    Hofnamens tippen. Der Rest erscheint grau; `Tab` übernimmt ihn.
+-7. Im Web-Zuchtkalkulator die Lupe eines Paarvorschlags anklicken. Sobald das
+-   Pferd im Spiel geladen ist, wird es golden hervorgehoben.
++7. Online-Zustimmung widerrufen: Die Übersicht bleibt lokal nutzbar; neue
++   API-Abgleiche bleiben gesperrt. Lokale Akten werden dabei nicht gelöscht.
+--- a/src/main/java/de/ottoextra/animalbreeding/AnimalBreedingClient.java
++++ b/src/main/java/de/ottoextra/animalbreeding/AnimalBreedingClient.java
+@@ -18,6 +18,8 @@
+ import de.ottoextra.animalinfo.AnimalInfoObservation;
+ import de.ottoextra.config.OttoExtraConfig;
+ import de.ottoextra.horses.HorseRegistryModule;
++import de.ottoextra.privacy.ConsentPermit;
++import de.ottoextra.privacy.ConsentPolicy;
+ import net.fabricmc.api.ClientModInitializer;
+ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+ import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+@@ -60,6 +62,7 @@
+     private long candidateSnoozedUntil;
+     private int detectionTick;
+     private boolean lastBreederModeEnabled;
++    private volatile ConsentPermit onlinePermit;
+ 
+     @Override
+     public void onInitializeClient() {
+@@ -70,7 +73,7 @@
+         AnimalBreedingCommands.register(remote);
+         syncService = new AnimalBreedingSyncService(store, horseNames,
+                 remote,
+-                () -> OttoExtraGate.isOnOttonien(MinecraftClient.getInstance()),
++                this::onlineAllowed,
+                 () -> OttoExtraConfig.active().animalInfo.breederModeEnabled);
+         lastBreederModeEnabled = syncService.breederModeEnabled();
+         HorseNametagRenderer.initialize(store, horseNames);
+@@ -89,13 +92,12 @@
+         AnimalInfoEvents.OBSERVED.register(this::onObserved);
+         ClientTickEvents.END_CLIENT_TICK.register(this::tick);
+         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
+-            if (OttoExtraGate.isOnOttonien(client)) {
+-                syncService.syncNow();
+-            }
++            updateOnlineSession(client);
+         });
+         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+             sessionObservations.clear();
+             resetBreedingDetection();
++            onlinePermit = null;
+             syncService.localOnly();
+         });
+ 
+@@ -140,12 +142,35 @@
+         return HorseObservation.from(observation);
+     }
+ 
++    private boolean onlineAllowed() {
++        ConsentPermit permit = onlinePermit;
++        return permit != null && permit.valid()
++                && OttoExtraGate.isOnOttonien(MinecraftClient.getInstance());
++    }
++
++    private void updateOnlineSession(MinecraftClient client) {
++        boolean onServer = OttoExtraGate.isOnOttonien(client);
++        if (onlinePermit != null && (!onServer || !onlinePermit.valid())) {
++            onlinePermit = null;
++            syncService.localOnly();
++        }
++        if (onlinePermit == null && onServer && ConsentPolicy.allowed(
++                OttoExtraConfig.active(), ConsentPolicy.Purpose.ONLINE_SERVICES)) {
++            // Invalidate the previous sync generation before capturing a new grant.
++            // Revoking and granting between ticks must never revive an old response.
++            syncService.localOnly();
++            onlinePermit = ConsentPolicy.capture(ConsentPolicy.Purpose.ONLINE_SERVICES);
++            syncService.syncNow();
++        }
++    }
++
+     private void tick(MinecraftClient client) {
++        updateOnlineSession(client);
+         boolean breederModeEnabled = syncService.breederModeEnabled();
+         if (breederModeEnabled != lastBreederModeEnabled) {
+             lastBreederModeEnabled = breederModeEnabled;
+             resetBreedingDetection();
+-            if (breederModeEnabled && OttoExtraGate.isOnOttonien(client)) {
++            if (breederModeEnabled && onlineAllowed()) {
+                 syncService.syncNow();
+             } else if (!breederModeEnabled) {
+                 syncService.localOnly();
+--- a/src/test/java/de/ottoextra/animalbreeding/sync/AnimalBreedingSyncServiceTest.java
++++ b/src/test/java/de/ottoextra/animalbreeding/sync/AnimalBreedingSyncServiceTest.java
+@@ -470,6 +470,39 @@
+         remote.names = List.of(new AnimalBreedingHorseName(HORSE.toString(), "Neu", 2));
+         service.syncNow().join();
+         oldNames.complete(List.of(new AnimalBreedingHorseName(HORSE.toString(), "Alt", 1)));
++        assertEquals("Neu", directory.find(HORSE).orElseThrow());
++    }
++
++    @Test
++    void revokedConsentDoesNotReviveDelayedNamesAfterRegrant() {
++        var config = new de.ottoextra.config.OttoExtraConfig();
++        var purpose = de.ottoextra.privacy.ConsentPolicy.Purpose.ONLINE_SERVICES;
++        String scope = de.ottoextra.privacy.ConsentPolicy.scope(config, purpose);
++        de.ottoextra.privacy.ConsentPolicy.decide(config, purpose, true, scope);
++        var permit = new java.util.concurrent.atomic.AtomicReference<>(
++                de.ottoextra.privacy.ConsentPolicy.capture(config, purpose));
++        HorseNameDirectory directory = new HorseNameDirectory(temporaryDirectory.resolve("consent-names.json"));
++        FakeRemote remote = new FakeRemote(List.of());
++        var delayed = new CompletableFuture<List<AnimalBreedingHorseName>>();
++        remote.namesReply = delayed;
++        var service = new AnimalBreedingSyncService(store(), directory, remote,
++                () -> permit.get().valid());
++        service.syncNow();
++
++        de.ottoextra.privacy.ConsentPolicy.decide(config, purpose, false, scope);
++        de.ottoextra.privacy.ConsentPolicy.decide(config, purpose, true, scope);
++        delayed.complete(List.of(new AnimalBreedingHorseName(HORSE.toString(), "Alt", 1)));
++        assertTrue(directory.find(HORSE).isEmpty());
++        assertFalse(java.nio.file.Files.exists(temporaryDirectory.resolve("consent-names.json")));
++        int calls = remote.listCalls;
++        assertEquals(AnimalBreedingSyncService.State.LOCAL_ONLY, service.syncNow().join().state());
++        assertEquals(calls, remote.listCalls);
++
++        service.localOnly();
++        permit.set(de.ottoextra.privacy.ConsentPolicy.capture(config, purpose));
++        remote.namesReply = null;
++        remote.names = List.of(new AnimalBreedingHorseName(HORSE.toString(), "Neu", 2));
++        service.syncNow().join();
+         assertEquals("Neu", directory.find(HORSE).orElseThrow());
+     }
+ 
+--- a/src/main/resources/assets/ottoextra_animalbreeding/lang/de_de.json
++++ b/src/main/resources/assets/ottoextra_animalbreeding/lang/de_de.json
+@@ -30,7 +30,7 @@
+   "ottoextra_animalbreeding.overview.sync": "Abgleichen",
+   "ottoextra_animalbreeding.overview.sort_az": "Höfe: A–Z",
+   "ottoextra_animalbreeding.overview.sort_za": "Höfe: Z–A",
+-  "ottoextra_animalbreeding.overview.sync_local": "Sync: lokal · auf Ottonien wird automatisch abgeglichen",
++  "ottoextra_animalbreeding.overview.sync_local": "Sync: lokal · online nur auf Ottonien mit Zustimmung zu Online-Diensten",
+   "ottoextra_animalbreeding.overview.sync_running": "Sync: API-Abgleich läuft …",
+   "ottoextra_animalbreeding.overview.sync_ok": "Sync: API aktuell · %s Pferde",
+   "ottoextra_animalbreeding.overview.sync_conflict": "Sync: Konflikt erkannt · lokale Akte wurde nicht überschrieben",
+--- a/src/main/resources/assets/ottoextra_animalbreeding/lang/en_us.json
++++ b/src/main/resources/assets/ottoextra_animalbreeding/lang/en_us.json
+@@ -27,7 +27,7 @@
+   "ottoextra_animalbreeding.overview.sync": "Sync",
+   "ottoextra_animalbreeding.overview.sort_az": "Farms: A–Z",
+   "ottoextra_animalbreeding.overview.sort_za": "Farms: Z–A",
+-  "ottoextra_animalbreeding.overview.sync_local": "Sync: local · connects automatically on Ottonien",
++  "ottoextra_animalbreeding.overview.sync_local": "Sync: local · online requires Ottonien and online services consent",
+   "ottoextra_animalbreeding.overview.sync_running": "Sync: API synchronization running …",
+   "ottoextra_animalbreeding.overview.sync_ok": "Sync: API current · %s horses",
+   "ottoextra_animalbreeding.overview.sync_conflict": "Sync: conflict detected · local record was not overwritten",

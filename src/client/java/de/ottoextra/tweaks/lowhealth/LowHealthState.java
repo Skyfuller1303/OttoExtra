@@ -24,6 +24,12 @@ public final class LowHealthState {
     }
 
     public void update(MinecraftClient client, OttoExtraConfig.Tweaks.LowHealth cfg) {
+        if (!cfg.enabled) {
+            forcedIntensity = -1.0f;
+            smoothedIntensity = 0.0f;
+            previousHealth = -1.0f;
+            return;
+        }
         float target;
         if (forcedIntensity >= 0.0f) {
 

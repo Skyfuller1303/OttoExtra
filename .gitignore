@@ -37,3 +37,9 @@ bin/
 
 # Fremde Mod-JARs (Xaero, nur lokal zum Kompilieren) — nicht redistribuierbar
 libs/*.jar
+
+# Offline data-tool bytecode
+tools/__pycache__/
+
+# Reversible local modpack repairs (old jars and source snapshots).
+/modpack-backups/

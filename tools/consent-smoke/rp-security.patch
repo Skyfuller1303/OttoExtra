@@ -1,0 +1,1071 @@
+diff --git "a/OttoRegions Web/includes/rp_name_retention.php" "b/OttoRegions Web/includes/rp_name_retention.php"
+--- "a/OttoRegions Web/includes/rp_name_retention.php"
++++ "b/OttoRegions Web/includes/rp_name_retention.php"
+@@ -1,6 +1,7 @@
+ <?php
+ 
+ declare(strict_types=1);
++require_once __DIR__ . '/rp_privacy.php';
+ 
+ /** Retention of RP-name mappings only; does not delete imported player accounts. */
+ function rpNameTableExists(PDO $pdo, string $table): bool
+@@ -30,6 +31,18 @@
+             }
+         }
+     }
++    if (!in_array('rp_name_source', $columns, true)) {
++        try { $pdo->exec("ALTER TABLE external_participants ADD COLUMN rp_name_source VARCHAR(16) NOT NULL DEFAULT 'legacy'"); }
++        catch (PDOException $error) {
++            $fresh = $pdo->query('SHOW COLUMNS FROM external_participants')->fetchAll(PDO::FETCH_COLUMN);
++            if (!in_array('rp_name_source', $fresh, true)) { throw $error; }
++        }
++    }
++    $pdo->exec('CREATE TABLE IF NOT EXISTS rp_name_proposals (
++        actor_uuid CHAR(32) NOT NULL, target_uuid CHAR(32) NOT NULL,
++        rp_name VARCHAR(120) NOT NULL, created_at DATETIME NOT NULL,
++        PRIMARY KEY (actor_uuid, target_uuid), INDEX idx_rp_proposal_age (created_at)
++    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+     $indexes = $pdo->query('SHOW INDEX FROM external_participants')->fetchAll(PDO::FETCH_ASSOC);
+     if (!in_array('idx_rp_name_expiry', array_column($indexes, 'Key_name'), true)) {
+         try {
+@@ -44,22 +57,32 @@
+ }
+ 
+ /** Only an explicit RP-name write renews the term, never a read or ordinary player sync. */
+-function rpNameStore(PDO $pdo, string $entityKey, ?string $name): void
++function rpNameStore(PDO $pdo, string $entityKey, ?string $name, string $source = 'admin'): void
+ {
++    $state = rpPrivacyHoldRead();
++    if (!in_array($source, ['admin', 'self'], true)) { throw new InvalidArgumentException('Invalid RP source'); }
++    $identity = $pdo->prepare('SELECT uuid FROM external_participants WHERE entity_key = ?');
++    $identity->execute([$entityKey]);
++    $uuid = $identity->fetchColumn();
++    if ($uuid === false || ($name !== null && rpPrivacyBlocked((string) $uuid, $state))) {
++        throw new RuntimeException('RP identity unavailable or blocked');
++    }
+     $stmt = $pdo->prepare('UPDATE external_participants
+         SET rp_name = :name,
++            rp_name_source = :source,
+             rp_name_expires_at = CASE WHEN :has_name = 1 THEN DATE_ADD(UTC_TIMESTAMP(), INTERVAL 6 MONTH) ELSE NULL END
+         WHERE entity_key = :entity_key');
+-    $stmt->execute([':name' => $name, ':has_name' => $name !== null ? 1 : 0, ':entity_key' => $entityKey]);
++    $stmt->execute([':name' => $name, ':source' => $source, ':has_name' => $name !== null ? 1 : 0, ':entity_key' => $entityKey]);
+ }
+ 
+ /**
+  * Bounded, transactional batches. UTC calendar months (including month-end clamping).
+- * Legacy mappings with no provenance date receive six months from their first cleanup.
++ * Legacy mappings use the original migration date from the independent privacy ledger.
+  * Dry runs neither backfill dates nor delete data. Schema changes must precede this call.
+  */
+ function rpNameCleanup(PDO $pdo, bool $apply = false, ?DateTimeImmutable $asOf = null, int $batchSize = 500, int $maxBatches = 20): array
+ {
++    if (empty($GLOBALS['rp_privacy_exclusive'])) { rpPrivacyHoldRead(); }
+     if ($pdo->inTransaction()) {
+         throw new LogicException('RP retention must run outside an existing transaction.');
+     }
+@@ -85,7 +108,7 @@
+         $jobs['legacy_initialized'] = [
+             'external_participants', 'rp_name IS NOT NULL AND rp_name_expires_at IS NULL',
+             'UPDATE external_participants SET rp_name_expires_at = DATE_ADD(:migration_now, INTERVAL 6 MONTH)',
+-            [':migration_now' => $now], [],
++            [':migration_now' => rpPrivacyState()['migration_started_at']], [],
+         ];
+         $jobs['names_expired'] = [
+             'external_participants', 'rp_name_expires_at <= :cutoff',
+@@ -93,11 +116,11 @@
+             [':cutoff' => $now], [':cutoff' => $now],
+         ];
+     }
+-    foreach (['changes_deleted' => 'external_participant_rp_name_log', 'requests_deleted' => 'external_participant_rp_name_request_log'] as $key => $table) {
++    foreach (['changes_deleted' => 'external_participant_rp_name_log', 'requests_deleted' => 'external_participant_rp_name_request_log', 'proposals_deleted' => 'rp_name_proposals'] as $key => $table) {
+         if (rpNameTableExists($pdo, $table)) {
+             $jobs[str_replace('_deleted', '_initialized', $key)] = [
+                 $table, 'created_at IS NULL', 'UPDATE ' . $table . ' SET created_at = :migration_now',
+-                [':migration_now' => $now], [],
++                [':migration_now' => rpPrivacyState()['migration_started_at']], [],
+             ];
+             // The indexed bound narrows the scan; DATE_ADD implements exact calendar months.
+             $where = 'created_at <= :candidate AND DATE_ADD(created_at, INTERVAL 6 MONTH) <= :cutoff';
+@@ -107,7 +130,7 @@
+     }
+     $result = ['as_of_utc' => $now, 'apply' => $apply, 'legacy_initialized' => 0,
+         'names_expired' => 0, 'changes_initialized' => 0, 'requests_initialized' => 0,
+-        'changes_deleted' => 0, 'requests_deleted' => 0, 'remaining' => []];
++        'changes_deleted' => 0, 'requests_deleted' => 0, 'proposals_initialized' => 0, 'proposals_deleted' => 0, 'remaining' => []];
+     foreach ($jobs as $key => [$table, $where, $mutation, $params, $countParams]) {
+         $count = $pdo->prepare('SELECT COUNT(*) FROM ' . $table . ' WHERE ' . $where);
+         $count->execute($countParams);
+diff --git "a/OttoRegions Web/includes/bootstrap.php" "b/OttoRegions Web/includes/bootstrap.php"
+--- "a/OttoRegions Web/includes/bootstrap.php"
++++ "b/OttoRegions Web/includes/bootstrap.php"
+@@ -669,6 +669,13 @@
+ {
+     $slug = strtolower(trim(preg_replace('/[^a-z0-9]+/i', '-', $text), '-'));
+     return $slug !== '' ? $slug : 'item-' . bin2hex(random_bytes(2));
++}
++
++function bootstrapTableExists(PDO $pdo, string $table): bool
++{
++    $query = $pdo->prepare('SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?');
++    $query->execute([$table]);
++    return (bool) $query->fetchColumn();
+ }
+ 
+ function ensureSchema(PDO $pdo, array $config): void
+@@ -929,7 +936,7 @@
+         }
+ 
+         $baselineRunId = 0;
+-        if (tableExists($pdo, 'external_api_runs')) {
++        if (bootstrapTableExists($pdo, 'external_api_runs')) {
+             $runStmt = $pdo->query("SELECT id FROM external_api_runs WHERE status = 'ok' AND finished_at IS NOT NULL ORDER BY id DESC LIMIT 1");
+             $baselineRunId = (int) ($runStmt ? ($runStmt->fetchColumn() ?: 0) : 0);
+             if ($baselineRunId <= 0) {
+@@ -949,7 +956,7 @@
+         );
+     }
+ 
+-    if (tableExists($pdo, 'external_participants')) {
++    if (bootstrapTableExists($pdo, 'external_participants')) {
+         $participantUuidCol = $pdo->query("SHOW COLUMNS FROM external_participants LIKE 'uuid'")->fetch();
+         if (!$participantUuidCol) {
+             $pdo->exec('ALTER TABLE external_participants ADD COLUMN uuid VARCHAR(191) NULL AFTER entity_key');
+@@ -957,7 +964,7 @@
+ 
+         $participantRpNameCol = $pdo->query("SHOW COLUMNS FROM external_participants LIKE 'rp_name'")->fetch();
+         if (!$participantRpNameCol) {
+-            $pdo->exec('ALTER TABLE external_participants ADD COLUMN rp_name VARCHAR(120) NULL AFTER name');
++            $pdo->exec('ALTER TABLE external_participants ADD COLUMN rp_name VARCHAR(120) NULL AFTER uuid');
+         }
+ 
+         $participantUuidIdx = $pdo->query("SHOW INDEX FROM external_participants WHERE Key_name = 'idx_uuid'")->fetch();
+@@ -1003,7 +1010,7 @@
+         }
+     }
+ 
+-    if (tableExists($pdo, 'external_regions')) {
++    if (bootstrapTableExists($pdo, 'external_regions')) {
+         $regionIdentityCol = null;
+         foreach (['ext_id', 'id'] as $candidate) {
+             if ($pdo->query("SHOW COLUMNS FROM external_regions LIKE '{$candidate}'")->fetch()) {
+@@ -1041,7 +1048,7 @@
+         }
+     }
+ 
+-    if (tableExists($pdo, 'external_factions')) {
++    if (bootstrapTableExists($pdo, 'external_factions')) {
+         $pdo->exec(
+             "UPDATE external_factions
+              SET uuid = CASE
+diff --git "a/OttoRegions Web/api/index.php" "b/OttoRegions Web/api/index.php"
+--- "a/OttoRegions Web/api/index.php"
++++ "b/OttoRegions Web/api/index.php"
+@@ -2,6 +2,12 @@
+ 
+ declare(strict_types=1);
+ 
++require_once dirname(__DIR__) . '/includes/rp_privacy.php';
++try { rpPrivacyHoldRead(); }
++catch (Throwable $e) {
++    http_response_code(503); header('Content-Type: application/json');
++    echo '{"ok":false,"error":"rp_privacy_unavailable"}'; exit;
++}
+ require_once dirname(__DIR__) . '/includes/bootstrap.php';
+ require_once dirname(__DIR__) . '/includes/faction_banner_mapping.php';
+ require_once dirname(__DIR__) . '/includes/public_sync_runner.php';
+@@ -43,6 +49,9 @@
+         'error' => 'Fataler Serverfehler: ' . (string) ($error['message'] ?? 'Unbekannt'),
+     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+ });
++
++try { rpPrivacyHoldRead(); }
++catch (Throwable $e) { jsonResponse(['ok' => false, 'error' => 'rp_privacy_unavailable'], 503); }
+ 
+ function allowedRolesForCurrentActor(): array
+ {
+@@ -6045,84 +6054,7 @@
+ }
+ 
+ if ($action === 'community-participant-rp-name') {
+-    $payload = requestPayload();
+-    $requestLogId = startParticipantRpNameRequestLog($pdo, $payload, $method);
+-
+-    if (!in_array($method, ['POST', 'PUT'], true)) {
+-        $error = 'Nur POST oder PUT ist fuer diese Schnittstelle erlaubt.';
+-        finishParticipantRpNameRequestLog($pdo, $requestLogId, 405, false, $error);
+-        jsonResponse(['ok' => false, 'error' => $error], 405);
+-    }
+-
+-    if (!tableExists($pdo, 'external_participants')) {
+-        $error = 'Spieler-Daten sind nicht verfuegbar.';
+-        finishParticipantRpNameRequestLog($pdo, $requestLogId, 404, false, $error);
+-        jsonResponse(['ok' => false, 'error' => $error], 404);
+-    }
+-
+-    $participantCols = tableColumns($pdo, 'external_participants');
+-    $participantSet = array_fill_keys($participantCols, true);
+-    if (!isset($participantSet['rp_name'])) {
+-        $error = 'rp_name-Spalte fehlt in external_participants.';
+-        finishParticipantRpNameRequestLog($pdo, $requestLogId, 500, false, $error);
+-        jsonResponse(['ok' => false, 'error' => $error], 500);
+-    }
+-
+-    $actorUuid = trim((string) ($payload['uuid'] ?? ($payload['actor_uuid'] ?? '')));
+-    $actorPlayerName = trim((string) ($payload['player_name'] ?? ($payload['actor_name'] ?? '')));
+-    if ($actorUuid === '' && $actorPlayerName === '') {
+-        $error = 'uuid oder player_name des absendenden Spielers fehlt.';
+-        finishParticipantRpNameRequestLog($pdo, $requestLogId, 422, false, $error);
+-        jsonResponse(['ok' => false, 'error' => $error], 422);
+-    }
+-
+-    $actorRow = findParticipantForRpNameUpdate($pdo, $participantSet, $actorUuid, $actorPlayerName);
+-    if (!$actorRow) {
+-        $error = 'Absendender Spieler nicht gefunden.';
+-        finishParticipantRpNameRequestLog($pdo, $requestLogId, 404, false, $error);
+-        jsonResponse(['ok' => false, 'error' => $error], 404);
+-    }
+-
+-    $targetUuid = trim((string) ($payload['target_uuid'] ?? ''));
+-    $targetPlayerName = trim((string) ($payload['target_player_name'] ?? ($payload['target_name'] ?? '')));
+-    if ($targetUuid === '' && $targetPlayerName === '') {
+-        $targetRow = $actorRow;
+-    } else {
+-        $targetRow = findParticipantForRpNameUpdate($pdo, $participantSet, $targetUuid, $targetPlayerName);
+-        if (!$targetRow) {
+-            $error = 'Zielspieler nicht gefunden.';
+-            finishParticipantRpNameRequestLog($pdo, $requestLogId, 404, false, $error, $actorRow);
+-            jsonResponse(['ok' => false, 'error' => $error], 404);
+-        }
+-    }
+-
+-    $rpName = normalizeOptionalParticipantRpName($payload['rp_name'] ?? null);
+-    $previousRpName = normalizeOptionalParticipantRpName($targetRow['rp_name'] ?? null);
+-    $targetEntityKey = (string) ($targetRow['entity_key'] ?? '');
+-    if ($targetEntityKey === '') {
+-        $error = 'Zielspieler hat keinen gueltigen entity_key.';
+-        finishParticipantRpNameRequestLog($pdo, $requestLogId, 500, false, $error, $actorRow, $targetRow);
+-        jsonResponse(['ok' => false, 'error' => $error], 500);
+-    }
+-
+-    rpNameStore($pdo, $targetEntityKey, $rpName);
+-
+-    writeParticipantRpNameChangeLog($pdo, $actorRow, $targetRow, $previousRpName, $rpName, 'community_api');
+-
+-    $reloadedStmt = $pdo->prepare('SELECT * FROM external_participants WHERE entity_key = :entity_key LIMIT 1');
+-    $reloadedStmt->execute([':entity_key' => $targetEntityKey]);
+-    $updatedTargetRow = $reloadedStmt->fetch() ?: $targetRow;
+-    $factionNameByUuid = loadFactionNameMap($pdo);
+-    $message = $rpName !== null ? 'RP-Name gespeichert.' : 'RP-Name entfernt.';
+-    finishParticipantRpNameRequestLog($pdo, $requestLogId, 200, true, $message, $actorRow, $updatedTargetRow);
+-
+-    jsonResponse([
+-        'ok' => true,
+-        'message' => $message,
+-        'actor' => serializePublicParticipantSlim($actorRow, $factionNameByUuid),
+-        'player' => serializePublicParticipantDetail($updatedTargetRow, $factionNameByUuid),
+-        'updated_self' => (string) ($actorRow['entity_key'] ?? '') === (string) ($updatedTargetRow['entity_key'] ?? ''),
+-    ]);
++    jsonResponse(['ok' => false, 'error' => 'legacy_rp_upload_removed'], 410);
+ }
+ 
+ if ($action === 'admin-participant-detail' && $method === 'GET') {
+diff --git "a/OttoRegions Web/v2/index.php" "b/OttoRegions Web/v2/index.php"
+--- "a/OttoRegions Web/v2/index.php"
++++ "b/OttoRegions Web/v2/index.php"
+@@ -25,6 +25,12 @@
+ 
+ define('OTTO_V2_FRONT', true);
+ 
++require_once dirname(__DIR__) . '/includes/rp_privacy.php';
++try { rpPrivacyHoldRead(); }
++catch (Throwable $e) {
++    http_response_code(503); header('Content-Type: application/json');
++    echo '{"ok":false,"error":"rp_privacy_unavailable"}'; exit;
++}
+ require_once dirname(__DIR__) . '/includes/bootstrap.php';
+ require_once dirname(__DIR__) . '/includes/v2/config.php';
+ require_once dirname(__DIR__) . '/includes/v2/keys.php';
+@@ -68,6 +74,18 @@
+     echo json_encode(['ok' => false, 'error' => 'server_error'], JSON_UNESCAPED_UNICODE);
+     exit;
+ });
++
++try { rpPrivacyHoldRead(); }
++catch (Throwable $e) { v2Error(503, 'rp_privacy_unavailable'); }
++
++if ($v2Route === 'rp-names/observations') {
++    if ($v2Method !== 'POST') { v2Error(405, 'method_not_allowed'); }
++    require_once dirname(__DIR__) . '/includes/rp_name_upload.php';
++    $raw = (string) file_get_contents('php://input', false, null, 0, 2049);
++    [$status, $result] = rpNameHandleUpload($pdo,
++        $_SERVER['HTTP_AUTHORIZATION'] ?? ($_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? null), $raw, $v2Ip);
++    v2Json($result, $status, $status === 429 ? ['Retry-After' => '60'] : []);
++}
+ 
+ function v2Json(array $payload, int $status = 200, array $headers = []): void
+ {
+diff --git "a/OttoRegions Web/includes/v2/auth.php" "b/OttoRegions Web/includes/v2/auth.php"
+--- "a/OttoRegions Web/includes/v2/auth.php"
++++ "b/OttoRegions Web/includes/v2/auth.php"
+@@ -212,7 +212,12 @@
+     }
+ 
+     // Sofort löschen — Replay-Schutz, single use (Doc 02)
+-    $pdo->prepare('DELETE FROM auth_challenges WHERE server_id = :sid')->execute([':sid' => $serverId]);
++    // The DELETE is the atomic claim: a concurrent reader may already have consumed it.
++    $consume = $pdo->prepare('DELETE FROM auth_challenges WHERE server_id = :sid');
++    $consume->execute([':sid' => $serverId]);
++    if ($consume->rowCount() !== 1) {
++        return null;
++    }
+ 
+     $createdAt = strtotime((string) $row['created_at'] . ' UTC');
+     if ($createdAt === false || time() - $createdAt > v2Config()['challenge_ttl']) {
+diff --git "a/OttoRegions Web/includes/public_sync_runner.php" "b/OttoRegions Web/includes/public_sync_runner.php"
+--- "a/OttoRegions Web/includes/public_sync_runner.php"
++++ "b/OttoRegions Web/includes/public_sync_runner.php"
+@@ -1,4 +1,5 @@
+ <?php declare(strict_types=1);
++require_once __DIR__ . '/rp_privacy.php';
+ 
+ require_once __DIR__ . '/external_change_log.php';
+ 
+@@ -868,6 +869,7 @@
+ 
+ function runPublicEndpointSync(PDO $pdo, string $baseUrl, ?callable $logger = null, array $options = []): array
+ {
++    $rpPrivacyState = rpPrivacyHoldRead();
+     $emit = static function (string $line) use ($logger): void {
+         if ($logger !== null) {
+             $logger($line);
+@@ -1037,14 +1039,19 @@
+ 
+                 foreach ($colMap as $field => $meta) {
+                     $column = $meta['column'];
+-                    if ($column === 'uuid' || $column === 'rp_name_expires_at') {
++                    if ($column === 'uuid' || in_array($column, ['rp_name_expires_at', 'rp_name_source'], true)) {
+                         continue;
+                     }
+                     $param = ':c_' . $column;
+                     $columns[] = $column;
+                     $placeholders[] = $param;
+                     $values[$param] = publicSyncNormalizeValue($row[$field] ?? null);
+-                    $updates[] = "`{$column}` = VALUES(`{$column}`)";
++                    if ($table === 'external_participants' && $column === 'rp_name' && rpPrivacyBlocked((string) $uuidValue, $rpPrivacyState)) {
++                        $values[$param] = null;
++                    }
++                    $updates[] = ($table === 'external_participants' && $column === 'rp_name')
++                        ? "`rp_name` = IF(`rp_name_source` IN ('admin', 'self'), `rp_name`, VALUES(`rp_name`))"
++                        : "`{$column}` = VALUES(`{$column}`)";
+                 }
+ 
+                 if ($table === 'external_participants' && in_array('rp_name', $columns, true)) {
+@@ -1053,7 +1060,7 @@
+                     $columns[] = 'rp_name_expires_at';
+                     $placeholders[] = 'CASE WHEN :rp_present = 1 THEN DATE_ADD(UTC_TIMESTAMP(), INTERVAL 6 MONTH) ELSE NULL END';
+                     $values[':rp_present'] = ($values[':c_rp_name'] ?? null) !== null ? 1 : 0;
+-                    $updates[] = '`rp_name_expires_at` = VALUES(`rp_name_expires_at`)';
++                    $updates[] = "`rp_name_expires_at` = IF(`rp_name_source` IN ('admin', 'self'), `rp_name_expires_at`, VALUES(`rp_name_expires_at`))";
+                 }
+ 
+                 $sql = sprintf(
+diff --git "a/OttoRegions Web/tools/rp-name-retention-selftest.php" "b/OttoRegions Web/tools/rp-name-retention-selftest.php"
+--- "a/OttoRegions Web/tools/rp-name-retention-selftest.php"
++++ "b/OttoRegions Web/tools/rp-name-retention-selftest.php"
+@@ -2,7 +2,9 @@
+ 
+ declare(strict_types=1);
+ if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
++define('OTTO_RP_STATE_DIR', sys_get_temp_dir() . '/ottoextra-rp-retention-qa-' . getmypid());
+ require_once __DIR__ . '/../includes/rp_name_retention.php';
++rpPrivacyInitialize('2026-09-11 12:00:00');
+ 
+ // Explicit disposable loopback databases only; never read the project's .env.
+ $port = (int) ($argv[1] ?? 33317);
+@@ -36,6 +38,8 @@
+             created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP, payload_json TEXT) ENGINE=InnoDB');
+     }
+     $pdo->exec("INSERT INTO external_participants VALUES ('legacy', 'Account', 'Old RP', '2026-09-11')");
++    $pdo->exec("ALTER TABLE external_participants ADD COLUMN uuid VARCHAR(36) NULL");
++    $pdo->exec("UPDATE external_participants SET uuid = MD5(entity_key)");
+     rpNameEnsureRetentionSchema($pdo);
+     rpNameEnsureRetentionSchema($pdo);
+     check(value($pdo, 'legacy', 'rp_name') === 'Old RP', 'Schema migration preserves existing names');
+@@ -109,6 +113,7 @@
+     $pdo->rollBack();
+     echo "PASS: {$passed} RP retention checks on port {$port}\n";
+ } finally {
++    rpPrivacyReleaseRead();
+     if ($pdo->inTransaction()) { $pdo->rollBack(); }
+     $pdo->exec('DROP DATABASE `' . $database . '`');
+ }
+diff --git "a/OttoExtra_Web/datenschutz.php" "b/OttoExtra_Web/datenschutz.php"
+--- "a/OttoExtra_Web/datenschutz.php"
++++ "b/OttoExtra_Web/datenschutz.php"
+@@ -73,7 +73,9 @@
+         <p>Bereits vorhandene RP-Anfrageprotokolle können zusätzlich Absender- und Zielaccount, angefragten RP-Namen, Anfragezeitpunkt, Ergebnis, IP-Adresse und User-Agent enthalten. Änderungsprotokolle können den vorherigen und neuen RP-Namen enthalten. Diese Protokolle dienen der Nachvollziehbarkeit von Änderungen und der Untersuchung fehlerhafter oder missbräuchlicher Anfragen; sie werden nicht als öffentliches Namensarchiv bereitgestellt.</p>
+         <p><strong>Aufbewahrung:</strong> Die serverseitige RP-Zuordnung wird sechs Kalendermonate ab ihrer letzten ausdrücklichen Bestätigung oder Aktualisierung aufbewahrt und anschließend beim regelmäßigen Bereinigungslauf entfernt. Reines Abrufen oder gewöhnliche Spieleraktivität verlängert diese Frist nicht. Für vorhandene Zuordnungen ohne belegbaren Zeitpunkt beginnt einmalig mit der Einführung der Bereinigung eine sechsmonatige Übergangsfrist. Änderungs- und RP-Anfrageprotokolle werden sechs Kalendermonate ab ihrem jeweiligen Eintrag aufbewahrt und danach bereinigt. Fehlende Protokollzeitpunkte erhalten ebenfalls einmalig eine sechsmonatige Übergangsfrist. Andere Spielerdaten werden durch diese RP-Namensbereinigung nicht gelöscht.</p>
+         <p>Die sechs Monate schließen eine frühere Berichtigung oder eine nach den gesetzlichen Voraussetzungen erforderliche Löschung nicht aus. Auskunft, Berichtigung, Löschung und Widerspruch können beim Kontakt in Abschnitt 1 beantragt werden. Zur Zuordnung genügt zunächst die Minecraft-UUID oder der Accountname; bei Bedarf wird ein geeigneter Nachweis der Kontozugehörigkeit angefordert. Bitte keine Minecraft-, Microsoft- oder Discord-Passwörter senden.</p>
+-        <p>Die serverseitige Bereinigung kann bereits abgerufene lokale Kopien auf Spielerrechnern nicht nachträglich entfernen. Lokale RP-Daten und selbst angelegte Exporte werden gesondert auf dem jeweiligen Gerät verwaltet. Die genannten Fristen beziehen sich auf den laufenden RP-Datenbestand und seine RP-Protokolle; Sicherungskopien müssen gesondert in die Aufbewahrungs- und Löschverwaltung einbezogen werden. Vor einer Wiederherstellung müssen bereits abgelaufene oder zu löschende RP-Daten erneut berücksichtigt werden.</p>
++        <p>Die serverseitige Bereinigung kann bereits abgerufene lokale Kopien auf Spielerrechnern nicht nachträglich entfernen. Lokale RP-Daten und selbst angelegte Exporte werden gesondert auf dem jeweiligen Gerät verwaltet. Für neu eingerichtete, verschlüsselte RP-Sicherungskopien gilt eine Aufbewahrung von 30 Tagen mit täglicher Bereinigung. Die Sicherungen enthalten nur RP-Zuordnungen, RP-Protokolle und gegebenenfalls Namensvorschläge. Sie sind getrennt vom öffentlichen Webverzeichnis gespeichert und nur für die Administration zugänglich. Diese Regel beschreibt keine noch ungeprüften zusätzlichen Sicherungen des Hosters oder manuell angelegten Kopien.</p>
++        <p>Nach einer erforderlichen Löschung oder einem akzeptierten Widerspruch kann eine minimale Sperrinformation gespeichert bleiben, um erneute Einträge durch Uploads, Imports oder die Wiederherstellung einer Datenbanksicherung zu verhindern. Sie enthält einen aus der Minecraft-UUID abgeleiteten Prüfwert und den Sperrstatus, keine gelöschten RP-Namen. Der Prüfwert ist nicht anonym. Die Sperre wird nur so lange benötigt, wie die weitere Verarbeitung verhindert werden muss; ihre Erforderlichkeit wird bei Änderungen und regelmäßig überprüft. Vor Wiederherstellungen werden der aktuelle Lösch-/Sperrstand und die ursprünglichen Ablaufdaten berücksichtigt.</p>
++        <p>Für eine spätere Freigabe ist vorgesehen: Angemeldete Minecraft-Nutzer können eigene RP-Namen bestätigen; Meldungen über andere Spieler werden zunächst als nichtöffentliche Vorschläge für die Administration gespeichert. Vorschläge enthalten Absender-UUID, Ziel-UUID, vorgeschlagenen Namen und Zeitpunkt und werden spätestens beim Bereinigungslauf nach sechs Kalendermonaten ohne erneute Aktualisierung entfernt. Eine Meldung überschreibt keinen bestätigten fremden Namen. Das automatische Teilen bleibt bis zur Klärung der oben genannten Voraussetzungen deaktiviert.</p>
+ 
+         <h2>7. Kontaktaufnahme</h2>
+         <p>Bei einer Kontaktaufnahme per E-Mail werden die übermittelten Angaben zur Bearbeitung der Anfrage verarbeitet. Rechtsgrundlage ist je nach Inhalt Art. 6 Abs. 1 lit. b DSGVO oder Art. 6 Abs. 1 lit. f DSGVO. Die Daten werden gelöscht, sobald die Anfrage abschließend bearbeitet wurde und keine gesetzlichen Aufbewahrungspflichten oder berechtigten Gründe für eine weitere Speicherung bestehen.</p>
+diff --git "a/OttoRegions Web/includes/rp_privacy.php" "b/OttoRegions Web/includes/rp_privacy.php"
+--- /dev/null
++++ "b/OttoRegions Web/includes/rp_privacy.php"
+@@ -0,0 +1,163 @@
++<?php
++declare(strict_types=1);
++
++/** Current deletion state is independent of database backups; HTTP access is denied. */
++function rpPrivacyFilePrefix(): string
++{
++    return "<?php http_response_code(404); exit; __halt_compiler();\n";
++}
++
++function rpPrivacyDirectory(): string
++{
++    return defined('OTTO_RP_STATE_DIR') ? OTTO_RP_STATE_DIR : dirname(__DIR__) . '/var/rp-private';
++}
++
++function rpPrivacyLock(bool $exclusive)
++{
++    $dir = rpPrivacyDirectory();
++    if (!is_dir($dir) || is_link($dir)) { throw new RuntimeException('RP privacy state unavailable'); }
++    $handle = fopen($dir . '/state.lock.php', $exclusive ? 'c+' : 'rb');
++    if (!$handle || !flock($handle, $exclusive ? LOCK_EX : LOCK_SH)) { throw new RuntimeException('RP privacy lock unavailable'); }
++    if ($exclusive) {
++        chmod($dir . '/state.lock.php', 0640);
++        if (fstat($handle)['size'] === 0) { fwrite($handle, rpPrivacyFilePrefix()); fflush($handle); }
++    }
++    return $handle;
++}
++
++function rpPrivacyState(): array
++{
++    $file = rpPrivacyDirectory() . '/state.php';
++    if (!is_file($file) || is_link($file) || filesize($file) > 8 * 1024 * 1024) { throw new RuntimeException('RP privacy state unavailable'); }
++    $raw = (string) file_get_contents($file);
++    $prefix = rpPrivacyFilePrefix();
++    if (!str_starts_with($raw, $prefix)) { throw new RuntimeException('Invalid private PHP envelope'); }
++    $state = json_decode(substr($raw, strlen($prefix)), true, 32, JSON_THROW_ON_ERROR);
++    if (($state['version'] ?? null) !== 1 || !is_array($state['blocked'] ?? null)
++        || !is_bool($state['maintenance'] ?? null) || !is_bool($state['uploads_enabled'] ?? null)
++        || !preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/D', $state['migration_started_at'] ?? '')) {
++        throw new RuntimeException('Invalid RP privacy state');
++    }
++    foreach ($state['blocked'] as $hash => $blocked) {
++        if (!preg_match('/^[a-f0-9]{64}$/D', $hash) || $blocked !== true) { throw new RuntimeException('Invalid RP suppression'); }
++    }
++    return $state;
++}
++
++/** Caller must hold the exclusive state.lock. Atomic replacement keeps corrupt writes closed. */
++function rpPrivacySave(array $state): void
++{
++    $path = rpPrivacyDirectory() . '/state.php';
++    $tmp = $path . '.' . bin2hex(random_bytes(8)) . '.tmp.php';
++    try {
++        $bytes = rpPrivacyFilePrefix() . json_encode($state, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR);
++        if (file_put_contents($tmp, $bytes, LOCK_EX) !== strlen($bytes)) { throw new RuntimeException('RP state write failed'); }
++        // Keep the deployment's narrowly assigned PHP read ACL effective.
++        chmod($tmp, 0640);
++        if (!rename($tmp, $path)) { throw new RuntimeException('RP state replacement failed'); }
++    } finally { if (is_file($tmp)) { unlink($tmp); } }
++}
++
++function rpPrivacyInitialize(string $migrationStart): void
++{
++    if (!preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/D', $migrationStart)) { throw new InvalidArgumentException('UTC migration time required'); }
++    $dir = rpPrivacyDirectory();
++    if (is_link($dir)) { throw new RuntimeException('Private RP directory cannot be a symlink'); }
++    if (!is_dir($dir) && !mkdir($dir, 0700, true)) { throw new RuntimeException('Cannot create private RP directory'); }
++    $lock = rpPrivacyLock(true);
++    try {
++        if (file_exists($dir . '/state.php')) { rpPrivacyState(); return; }
++        rpPrivacySave(['version' => 1, 'migration_started_at' => $migrationStart,
++            'maintenance' => false, 'uploads_enabled' => false, 'blocked' => new stdClass()]);
++    } finally { flock($lock, LOCK_UN); fclose($lock); }
++}
++
++/** Hold for the whole request/sync: deletion and restore cannot interleave with publication. */
++function rpPrivacyHoldRead(): array
++{
++    if (empty($GLOBALS['rp_privacy_exclusive']) && empty($GLOBALS['rp_privacy_read_lock'])) {
++        $GLOBALS['rp_privacy_read_lock'] = rpPrivacyLock(false);
++    }
++    $state = rpPrivacyState();
++    if ($state['maintenance']) { throw new RuntimeException('RP privacy maintenance'); }
++    return $state;
++}
++
++function rpPrivacyReleaseRead(): void
++{
++    if (!empty($GLOBALS['rp_privacy_read_lock'])) {
++        flock($GLOBALS['rp_privacy_read_lock'], LOCK_UN);
++        fclose($GLOBALS['rp_privacy_read_lock']);
++        unset($GLOBALS['rp_privacy_read_lock']);
++    }
++}
++
++function rpPrivacyUuid(string $uuid): ?string
++{
++    $uuid = strtolower(str_replace('-', '', trim($uuid)));
++    return preg_match('/^[a-f0-9]{32}$/D', $uuid) ? $uuid : null;
++}
++
++function rpPrivacyBlocked(string $uuid, ?array $state = null): bool
++{
++    $normalized = rpPrivacyUuid($uuid);
++    return $normalized === null || isset(($state ?? rpPrivacyState())['blocked'][hash('sha256', $normalized)]);
++}
++
++/** Delete only RP data, including logs identifying the affected actor or target. */
++function rpPrivacyPurgeBlocked(PDO $pdo, array $state): void
++{
++    foreach (array_keys($state['blocked']) as $hash) {
++        $accounts = $pdo->prepare("SELECT entity_key, name FROM external_participants WHERE SHA2(REPLACE(LOWER(uuid), '-', ''), 256) = ?");
++        $accounts->execute([$hash]);
++        $identities = $accounts->fetchAll(PDO::FETCH_ASSOC);
++        $pdo->prepare("UPDATE external_participants SET rp_name = NULL, rp_name_expires_at = NULL, rp_name_source = 'legacy'
++            WHERE SHA2(REPLACE(LOWER(uuid), '-', ''), 256) = ?")->execute([$hash]);
++        foreach (['external_participant_rp_name_log', 'external_participant_rp_name_request_log', 'rp_name_proposals'] as $table) {
++            if (!rpNameTableExists($pdo, $table)) { continue; }
++            $pdo->prepare("DELETE FROM {$table} WHERE SHA2(REPLACE(LOWER(actor_uuid), '-', ''), 256) = ?
++                OR SHA2(REPLACE(LOWER(target_uuid), '-', ''), 256) = ?")->execute([$hash, $hash]);
++            if ($table !== 'rp_name_proposals') {
++                $columns = $pdo->query('SHOW COLUMNS FROM ' . $table)->fetchAll(PDO::FETCH_COLUMN);
++                foreach ($identities as $identity) {
++                    foreach (['actor_name', 'target_name', 'actor_entity_key', 'target_entity_key', 'resolved_actor_entity_key', 'resolved_target_entity_key'] as $column) {
++                        $value = str_ends_with($column, '_name') ? $identity['name'] : $identity['entity_key'];
++                        if ($value !== '' && $value !== null && in_array($column, $columns, true)) {
++                            $pdo->prepare("DELETE FROM {$table} WHERE `{$column}` = ?")->execute([$value]);
++                        }
++                    }
++                }
++            }
++        }
++    }
++}
++
++/** Exclusive, recoverable operation: failures keep publication closed. */
++function rpPrivacyManage(PDO $pdo, string $operation, ?string $uuid = null): array
++{
++    if ($pdo->inTransaction() || !empty($GLOBALS['rp_privacy_read_lock'])) { throw new LogicException('Privacy management needs an independent connection'); }
++    if (!in_array($operation, ['block', 'unblock', 'restore-begin', 'restore-finish'], true)) { throw new InvalidArgumentException('Unknown privacy operation'); }
++    if (in_array($operation, ['block', 'unblock'], true) && rpPrivacyUuid((string) $uuid) === null) { throw new InvalidArgumentException('UUID required'); }
++    $lock = rpPrivacyLock(true);
++    $GLOBALS['rp_privacy_exclusive'] = true;
++    try {
++        $state = rpPrivacyState();
++        $wasMaintenance = $state['maintenance'];
++        $state['maintenance'] = true;
++        if ($operation === 'block') { $state['blocked'][hash('sha256', rpPrivacyUuid($uuid))] = true; }
++        if ($operation === 'unblock') { unset($state['blocked'][hash('sha256', rpPrivacyUuid($uuid))]); }
++        rpPrivacySave($state);
++        if ($operation !== 'restore-begin') {
++            rpNameEnsureRetentionSchema($pdo);
++            $pdo->beginTransaction();
++            try { rpPrivacyPurgeBlocked($pdo, $state); $pdo->commit(); }
++            catch (Throwable $e) { if ($pdo->inTransaction()) { $pdo->rollBack(); } throw $e; }
++            $cleanup = rpNameCleanup($pdo, true);
++            if (array_sum($cleanup['remaining']) !== 0) { throw new RuntimeException('Cleanup incomplete; maintenance remains active'); }
++            // A block/unblock must not accidentally finish an existing restore.
++            $state['maintenance'] = $operation === 'restore-finish' ? false : $wasMaintenance;
++            rpPrivacySave($state);
++        }
++        return ['ok' => true, 'maintenance' => $state['maintenance'], 'blocked_count' => count($state['blocked'])];
++    } finally { unset($GLOBALS['rp_privacy_exclusive']); flock($lock, LOCK_UN); fclose($lock); }
++}
+diff --git "a/OttoRegions Web/includes/rp_name_upload.php" "b/OttoRegions Web/includes/rp_name_upload.php"
+--- /dev/null
++++ "b/OttoRegions Web/includes/rp_name_upload.php"
+@@ -0,0 +1,55 @@
++<?php
++declare(strict_types=1);
++require_once __DIR__ . '/rp_name_retention.php';
++require_once __DIR__ . '/v2/auth.php';
++require_once __DIR__ . '/v2/security.php';
++
++/** The same tested entry point is used by the HTTP route and isolated integration tests. */
++function rpNameHandleUpload(PDO $pdo, ?string $authorization, string $raw, string $ip): array
++{
++    $state = rpPrivacyHoldRead();
++    $auth = v2ValidateJwt($pdo, $authorization);
++    if (!$auth['ok']) { return [(int) $auth['status'], ['ok' => false, 'error' => $auth['error']]]; }
++    $auth['uuid'] = rpPrivacyUuid($auth['uuid']);
++    if (!$state['uploads_enabled']) { return [503, ['ok' => false, 'error' => 'rp_uploads_unavailable']]; }
++    foreach ([['ip:' . hash('sha256', $ip), 120], ['uuid:' . $auth['uuid'], 30]] as [$key, $limit]) {
++        if (!v2RateLimitHit($pdo, 'rp-names', $key, $limit, 60)['allowed']) {
++            return [429, ['ok' => false, 'error' => 'rate_limited']];
++        }
++    }
++    if (strlen($raw) > 2048) { return [413, ['ok' => false, 'error' => 'payload_too_large']]; }
++    try { $body = json_decode($raw, true, 8, JSON_THROW_ON_ERROR); }
++    catch (JsonException $e) { return [400, ['ok' => false, 'error' => 'invalid_json']]; }
++    if (!is_array($body) || array_diff(array_keys($body), ['target_uuid', 'target_player_name', 'rp_name'])
++        || !is_string($body['rp_name'] ?? null)) { return [422, ['ok' => false, 'error' => 'invalid_fields']]; }
++    $name = trim($body['rp_name']);
++    if ($name === '' || !mb_check_encoding($name, 'UTF-8') || mb_strlen($name, 'UTF-8') > 120
++        || preg_match('/[\p{C}<>]/u', $name)) { return [422, ['ok' => false, 'error' => 'invalid_rp_name']]; }
++    $targetUuid = isset($body['target_uuid']) && is_string($body['target_uuid']) ? rpPrivacyUuid($body['target_uuid']) : null;
++    $targetName = $body['target_player_name'] ?? null;
++    if ((isset($body['target_uuid']) && $targetUuid === null)
++        || ($targetName !== null && (!is_string($targetName) || !preg_match('/^[A-Za-z0-9_]{3,16}$/D', $targetName)))) {
++        return [422, ['ok' => false, 'error' => 'invalid_target']];
++    }
++    if ($targetUuid === null && $targetName === null) { $targetUuid = $auth['uuid']; }
++    $query = $targetUuid !== null ? "REPLACE(LOWER(uuid), '-', '') = :target" : 'LOWER(name) = LOWER(:target)';
++    $stmt = $pdo->prepare('SELECT entity_key, uuid, name, rp_name FROM external_participants WHERE ' . $query . ' LIMIT 2');
++    $stmt->execute([':target' => $targetUuid ?? $targetName]);
++    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
++    if (count($rows) !== 1) { return [404, ['ok' => false, 'error' => 'target_not_unique']]; }
++    $target = $rows[0];
++    if ($targetName !== null && strcasecmp($targetName, (string) $target['name']) !== 0) { return [422, ['ok' => false, 'error' => 'target_mismatch']]; }
++    if (rpPrivacyBlocked($auth['uuid'], $state) || rpPrivacyBlocked((string) $target['uuid'], $state)) {
++        return [403, ['ok' => false, 'error' => 'rp_processing_blocked']];
++    }
++    $targetId = rpPrivacyUuid($target['uuid']);
++    if ($targetId === $auth['uuid']) {
++        rpNameStore($pdo, $target['entity_key'], $name, 'self');
++        return [200, ['ok' => true, 'message' => 'Eigener RP-Name bestaetigt.']];
++    }
++    // A logged-in observer cannot prove another player's identity; queue privately.
++    $stmt = $pdo->prepare('INSERT INTO rp_name_proposals (actor_uuid, target_uuid, rp_name, created_at)
++        VALUES (?, ?, ?, UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE rp_name = VALUES(rp_name), created_at = UTC_TIMESTAMP()');
++    $stmt->execute([$auth['uuid'], $targetId, $name]);
++    return [202, ['ok' => true, 'message' => 'Namensvorschlag zur Pruefung gespeichert.']];
++}
+diff --git "a/OttoRegions Web/includes/rp_backups.php" "b/OttoRegions Web/includes/rp_backups.php"
+--- /dev/null
++++ "b/OttoRegions Web/includes/rp_backups.php"
+@@ -0,0 +1,227 @@
++<?php
++declare(strict_types=1);
++require_once __DIR__ . '/rp_name_retention.php';
++
++function rpBackupRoot(): string
++{
++    return defined('OTTO_RP_STATE_DIR') ? OTTO_RP_STATE_DIR : dirname(__DIR__, 2) . '/ottoextra-rp-private';
++}
++
++function rpBackupBufferedAttribute(): int
++{
++    return defined('Pdo\\Mysql::ATTR_USE_BUFFERED_QUERY')
++        ? constant('Pdo\\Mysql::ATTR_USE_BUFFERED_QUERY') : constant('PDO::MYSQL_ATTR_USE_BUFFERED_QUERY');
++}
++
++function rpBackupTables(): array
++{
++    return ['external_participant_rp_name_log', 'external_participant_rp_name_request_log', 'rp_name_proposals'];
++}
++
++function rpBackupKey(): string
++{
++    $path = rpBackupRoot() . '/backup.key';
++    if (!is_file($path) || is_link($path)) { throw new RuntimeException('RP backup key unavailable'); }
++    $key = file_get_contents($path);
++    if (strlen($key) !== SODIUM_CRYPTO_SECRETBOX_KEYBYTES) { throw new RuntimeException('Invalid RP backup key'); }
++    return $key;
++}
++
++function rpBackupInitialize(): void
++{
++    $lock = rpPrivacyLock(true);
++    try {
++        rpPrivacyState();
++        $root = rpBackupRoot();
++        if (!is_dir($root) && !mkdir($root, 0700, true)) { throw new RuntimeException('Cannot create private backup root'); }
++        $dir = $root . '/backups';
++        if (!is_dir($dir) && !mkdir($dir, 0700)) { throw new RuntimeException('Cannot create RP backup directory'); }
++        if (is_link($dir)) { throw new RuntimeException('Backup symlink rejected'); }
++        if (!file_exists($root . '/backup.key')) {
++            $f = fopen($root . '/backup.key', 'xb');
++            if (!$f) { throw new RuntimeException('Cannot initialize backup key'); }
++            chmod($root . '/backup.key', 0600);
++            try { if (fwrite($f, random_bytes(SODIUM_CRYPTO_SECRETBOX_KEYBYTES)) !== SODIUM_CRYPTO_SECRETBOX_KEYBYTES) { throw new RuntimeException('Key write failed'); } }
++            finally { fclose($f); }
++        }
++        rpBackupKey();
++    } finally { flock($lock, LOCK_UN); fclose($lock); }
++}
++
++function rpBackupFile(string $name): string
++{
++    if (!preg_match('/^rp-backup-(\d{8}T\d{6}Z)-[a-f0-9]{16}\.box$/D', $name)) { throw new InvalidArgumentException('Managed RP backup filename required'); }
++    $dir = rpBackupRoot() . '/backups';
++    if (!is_dir($dir) || is_link($dir)) { throw new RuntimeException('Backup directory unavailable'); }
++    $file = $dir . '/' . $name;
++    if (is_link($file)) { throw new RuntimeException('Backup symlink rejected'); }
++    return $file;
++}
++
++function rpBackupRotate(bool $apply, ?int $now = null): array
++{
++    $now ??= time();
++    $eligible = [];
++    foreach (new DirectoryIterator(rpBackupRoot() . '/backups') as $entry) {
++        if (!$entry->isFile() || $entry->isLink()) { continue; }
++        $name = $entry->getFilename();
++        if (!preg_match('/^rp-backup-(\d{8}T\d{6}Z)-[a-f0-9]{16}\.box$/D', $name, $m)) { continue; }
++        $date = DateTimeImmutable::createFromFormat('!Ymd\THis\Z', $m[1], new DateTimeZone('UTC'));
++        if (!$date || $date->format('Ymd\THis\Z') !== $m[1]) { continue; }
++        if ($date->getTimestamp() + 30 * 86400 <= $now) {
++            $eligible[] = $name;
++            if ($apply && !unlink(rpBackupFile($name))) { throw new RuntimeException('Backup rotation failed'); }
++        }
++    }
++    return ['eligible' => count($eligible), 'deleted' => $apply ? count($eligible) : 0];
++}
++
++/** Stream encrypted rows; memory is bounded by one record, not the database size. */
++function rpBackupCreate(PDO $pdo): array
++{
++    rpPrivacyHoldRead();
++    if ($pdo->inTransaction()) { throw new LogicException('Backup requires an independent connection'); }
++    $rotation = rpBackupRotate(true);
++    $key = rpBackupKey();
++    [$cipherState, $header] = sodium_crypto_secretstream_xchacha20poly1305_init_push($key);
++    $name = 'rp-backup-' . gmdate('Ymd\THis\Z') . '-' . bin2hex(random_bytes(8)) . '.box';
++    $file = rpBackupFile($name);
++    $f = fopen($file, 'xb');
++    if (!$f) { throw new RuntimeException('Cannot create RP backup'); }
++    chmod($file, 0600);
++    $write = static function (string $bytes) use ($f): void {
++        while ($bytes !== '') {
++            $n = fwrite($f, $bytes);
++            if ($n === false || $n === 0) { throw new RuntimeException('Incomplete RP backup'); }
++            $bytes = substr($bytes, $n);
++        }
++    };
++    $frame = static function (array $value, bool $final = false) use (&$cipherState, $write): void {
++        $plain = json_encode($value, JSON_THROW_ON_ERROR);
++        if (strlen($plain) > 16 * 1024 * 1024) { throw new RuntimeException('RP backup record exceeds 16 MiB'); }
++        $encrypted = sodium_crypto_secretstream_xchacha20poly1305_push($cipherState, $plain, '', $final
++            ? SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_TAG_FINAL : SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_TAG_MESSAGE);
++        $write(pack('N', strlen($encrypted)) . $encrypted);
++    };
++    $sessionZone = (string) $pdo->query('SELECT @@session.time_zone')->fetchColumn();
++    $buffered = $pdo->getAttribute(rpBackupBufferedAttribute());
++    $completed = false;
++    $rows = 0;
++    try {
++        $write("OERP2\n" . $header);
++        $frame(['version' => 2, 'created_at' => gmdate('c'), 'tables' => array_merge(['external_participants'], rpBackupTables())]);
++        $pdo->exec("SET time_zone = '+00:00'");
++        $pdo->setAttribute(rpBackupBufferedAttribute(), false);
++        $pdo->beginTransaction();
++        $queries = ['external_participants' => 'SELECT entity_key, uuid, rp_name, rp_name_expires_at, rp_name_source FROM external_participants WHERE rp_name IS NOT NULL'];
++        foreach (rpBackupTables() as $table) { $queries[$table] = 'SELECT * FROM ' . $table; }
++        foreach ($queries as $table => $sql) {
++            if (!rpNameTableExists($pdo, $table)) { continue; }
++            $stmt = $pdo->query($sql);
++            try {
++                while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) { $frame(['table' => $table, 'row' => $row]); $rows++; }
++            } finally { $stmt->closeCursor(); }
++        }
++        $pdo->commit();
++        $frame(['end' => true, 'rows' => $rows], true);
++        fflush($f); fclose($f); $f = null;
++        foreach (rpBackupRecords($name) as $_) { } // Complete authentication, including final marker.
++        $completed = true;
++        return ['file' => $name, 'bytes' => filesize($file), 'rows' => $rows, 'rotation' => $rotation];
++    } finally {
++        if ($pdo->inTransaction()) { $pdo->rollBack(); }
++        $pdo->setAttribute(rpBackupBufferedAttribute(), $buffered);
++        $pdo->exec('SET time_zone = ' . $pdo->quote($sessionZone));
++        if (is_resource($f)) { fclose($f); }
++        if (!$completed && is_file($file)) { unlink($file); }
++    }
++}
++
++/** Authenticate ordered records and require a final marker; rejects truncation and concatenation. */
++function rpBackupRecords(string $name): Generator
++{
++    $file = rpBackupFile($name);
++    if (!is_file($file)) { throw new RuntimeException('Backup unavailable'); }
++    $f = fopen($file, 'rb');
++    if (!$f) { throw new RuntimeException('Backup unavailable'); }
++    $read = static function (int $n) use ($f): string {
++        $bytes = '';
++        while (strlen($bytes) < $n) {
++            $part = fread($f, $n - strlen($bytes));
++            if ($part === false || $part === '') { throw new RuntimeException('Truncated RP backup'); }
++            $bytes .= $part;
++        }
++        return $bytes;
++    };
++    try {
++        if ($read(6) !== "OERP2\n") { throw new RuntimeException('Unsupported RP backup format'); }
++        $state = sodium_crypto_secretstream_xchacha20poly1305_init_pull($read(SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_HEADERBYTES), rpBackupKey());
++        $first = true; $rows = 0;
++        while (true) {
++            $length = unpack('Nlength', $read(4))['length'];
++            if ($length < 17 || $length > 16 * 1024 * 1024 + 17) { throw new RuntimeException('Invalid RP backup frame'); }
++            $result = sodium_crypto_secretstream_xchacha20poly1305_pull($state, $read($length));
++            if ($result === false) { throw new RuntimeException('Backup authentication failed'); }
++            [$plain, $tag] = $result;
++            $value = json_decode($plain, true, 32, JSON_THROW_ON_ERROR);
++            if ($first) {
++                if (($value['version'] ?? null) !== 2 || ($value['tables'] ?? null) !== array_merge(['external_participants'], rpBackupTables())
++                    || $tag !== SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_TAG_MESSAGE) { throw new RuntimeException('Invalid backup schema'); }
++                $first = false; continue;
++            }
++            if ($tag === SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_TAG_FINAL) {
++                if (($value['end'] ?? null) !== true || ($value['rows'] ?? null) !== $rows || fread($f, 1) !== '') { throw new RuntimeException('Invalid final backup marker'); }
++                return;
++            }
++            if ($tag !== SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_TAG_MESSAGE || !in_array($value['table'] ?? null, array_merge(['external_participants'], rpBackupTables()), true)
++                || !is_array($value['row'] ?? null)) { throw new RuntimeException('Invalid backup record'); }
++            $rows++; yield $value;
++        }
++    } finally { fclose($f); }
++}
++
++function rpBackupRestore(PDO $pdo, string $name): array
++{
++    foreach (rpBackupRecords($name) as $_) { } // Authenticate the whole stream before maintenance.
++    if ($pdo->inTransaction() || !empty($GLOBALS['rp_privacy_read_lock'])) { throw new LogicException('Restore requires an independent connection'); }
++    $lock = rpPrivacyLock(true); $GLOBALS['rp_privacy_exclusive'] = true;
++    $sessionZone = (string) $pdo->query('SELECT @@session.time_zone')->fetchColumn();
++    try {
++        $pdo->exec("SET time_zone = '+00:00'");
++        $state = rpPrivacyState(); $state['maintenance'] = true; rpPrivacySave($state);
++        rpNameEnsureRetentionSchema($pdo);
++        $pdo->beginTransaction();
++        try {
++            $pdo->exec("UPDATE external_participants SET rp_name = NULL, rp_name_expires_at = NULL, rp_name_source = 'legacy'");
++            $update = $pdo->prepare("UPDATE external_participants SET rp_name = ?, rp_name_expires_at = ?, rp_name_source = ?
++                WHERE entity_key = ? AND REPLACE(LOWER(uuid), '-', '') = ?");
++            $columns = [];
++            foreach (rpBackupTables() as $table) {
++                if (!rpNameTableExists($pdo, $table)) { continue; }
++                $pdo->exec('DELETE FROM ' . $table);
++                $columns[$table] = $pdo->query('SHOW COLUMNS FROM ' . $table)->fetchAll(PDO::FETCH_COLUMN);
++            }
++            foreach (rpBackupRecords($name) as $record) {
++                $table = $record['table']; $row = $record['row'];
++                if ($table === 'external_participants') {
++                    if (rpPrivacyBlocked((string) ($row['uuid'] ?? ''), $state)) { continue; }
++                    $update->execute([$row['rp_name'], $row['rp_name_expires_at'], $row['rp_name_source'], $row['entity_key'], rpPrivacyUuid($row['uuid'])]);
++                } elseif (isset($columns[$table])) {
++                    $row = array_intersect_key($row, array_flip($columns[$table]));
++                    $cols = array_keys($row);
++                    if (!$cols) { continue; }
++                    $pdo->prepare('INSERT INTO ' . $table . ' (`' . implode('`,`', $cols) . '`) VALUES (' . implode(',', array_fill(0, count($cols), '?')) . ')')->execute(array_values($row));
++                }
++            }
++            rpPrivacyPurgeBlocked($pdo, $state);
++            $pdo->commit();
++        } catch (Throwable $e) { if ($pdo->inTransaction()) { $pdo->rollBack(); } throw $e; }
++        $cleanup = rpNameCleanup($pdo, true);
++        if (array_sum($cleanup['remaining']) !== 0) { throw new RuntimeException('Restore cleanup incomplete; maintenance remains active'); }
++        $state['maintenance'] = false; rpPrivacySave($state);
++        return ['ok' => true, 'maintenance' => false, 'cleanup' => $cleanup];
++    } finally {
++        unset($GLOBALS['rp_privacy_exclusive']); flock($lock, LOCK_UN); fclose($lock);
++        $pdo->exec('SET time_zone = ' . $pdo->quote($sessionZone));
++    }
++}
+diff --git "a/OttoRegions Web/tools/rp-privacy.php" "b/OttoRegions Web/tools/rp-privacy.php"
+--- /dev/null
++++ "b/OttoRegions Web/tools/rp-privacy.php"
+@@ -0,0 +1,66 @@
++<?php
++declare(strict_types=1);
++if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
++require_once __DIR__ . '/../includes/rp_backups.php';
++$args = array_slice($argv, 1);
++$operation = array_shift($args) ?? 'status';
++$apply = in_array('--apply', $args, true);
++$values = array_values(array_filter($args, static fn($arg) => $arg !== '--apply'));
++try {
++    if (!in_array($operation, ['status', 'init', 'block', 'unblock', 'restore-begin', 'restore-finish', 'backup', 'rotate', 'restore', 'proposals', 'approve-proposal', 'reject-proposal'], true)) { throw new InvalidArgumentException('Unknown operation'); }
++    $needsValue = in_array($operation, ['init', 'block', 'unblock', 'restore'], true);
++    $proposalChange = in_array($operation, ['approve-proposal', 'reject-proposal'], true);
++    if (count($values) !== ($proposalChange ? 2 : ($needsValue ? 1 : 0))) { throw new InvalidArgumentException('Unexpected arguments'); }
++    if ($operation === 'init') {
++        if (!$apply) { throw new InvalidArgumentException('init requires UTC timestamp and --apply'); }
++        rpPrivacyInitialize($values[0]); rpBackupInitialize();
++        echo json_encode(['ok' => true, 'initialized' => true]) . PHP_EOL; exit;
++    }
++    if ($operation === 'status') {
++        $lock = rpPrivacyLock(false);
++        try { $s = rpPrivacyState(); echo json_encode(['maintenance' => $s['maintenance'], 'uploads_enabled' => $s['uploads_enabled'], 'blocked_count' => count($s['blocked']), 'migration_started_at' => $s['migration_started_at']]) . PHP_EOL; }
++        finally { flock($lock, LOCK_UN); fclose($lock); }
++        exit;
++    }
++    if ($operation === 'rotate') {
++        $lock = rpPrivacyLock(true);
++        try { echo json_encode(rpBackupRotate($apply)) . PHP_EOL; }
++        finally { flock($lock, LOCK_UN); fclose($lock); }
++        exit;
++    }
++    if (!$apply && $operation !== 'proposals') { throw new InvalidArgumentException('This operation requires --apply'); }
++    require_once __DIR__ . '/../includes/bootstrap.php';
++    if (!$pdo instanceof PDO) { throw new RuntimeException('Database unavailable'); }
++    if ($operation === 'proposals') {
++        rpPrivacyHoldRead();
++        echo json_encode($pdo->query('SELECT actor_uuid, target_uuid, rp_name, created_at FROM rp_name_proposals ORDER BY created_at DESC LIMIT 200')->fetchAll(PDO::FETCH_ASSOC), JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . PHP_EOL; exit;
++    }
++    if ($proposalChange) {
++        rpPrivacyHoldRead();
++        $actor = rpPrivacyUuid($values[0]); $target = rpPrivacyUuid($values[1]);
++        if ($actor === null || $target === null) { throw new InvalidArgumentException('Actor and target UUID required'); }
++        $pdo->beginTransaction();
++        try {
++            $query = $pdo->prepare('SELECT rp_name FROM rp_name_proposals WHERE actor_uuid = ? AND target_uuid = ? FOR UPDATE');
++            $query->execute([$actor, $target]); $name = $query->fetchColumn();
++            if ($name === false) { throw new RuntimeException('Proposal not found'); }
++            if ($operation === 'approve-proposal') {
++                $find = $pdo->prepare("SELECT entity_key FROM external_participants WHERE REPLACE(LOWER(uuid), '-', '') = ? LIMIT 2");
++                $find->execute([$target]); $keys = $find->fetchAll(PDO::FETCH_COLUMN);
++                if (count($keys) !== 1) { throw new RuntimeException('Target is not unique'); }
++                rpNameStore($pdo, $keys[0], $name);
++            }
++            $pdo->prepare('DELETE FROM rp_name_proposals WHERE actor_uuid = ? AND target_uuid = ?')->execute([$actor, $target]);
++            $pdo->commit();
++        } catch (Throwable $e) { if ($pdo->inTransaction()) { $pdo->rollBack(); } throw $e; }
++        echo json_encode(['ok' => true, 'operation' => $operation]) . PHP_EOL; exit;
++    }
++    $result = match ($operation) {
++        'backup' => rpBackupCreate($pdo),
++        'restore' => rpBackupRestore($pdo, $values[0]),
++        default => rpPrivacyManage($pdo, $operation, $values[0] ?? null),
++    };
++    echo json_encode($result, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR) . PHP_EOL;
++} catch (Throwable $e) {
++    fwrite(STDERR, 'RP privacy operation failed: ' . $e->getMessage() . PHP_EOL); exit(1);
++}
+diff --git "a/OttoRegions Web/tools/rp-security-selftest.php" "b/OttoRegions Web/tools/rp-security-selftest.php"
+--- /dev/null
++++ "b/OttoRegions Web/tools/rp-security-selftest.php"
+@@ -0,0 +1,118 @@
++<?php
++declare(strict_types=1);
++if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
++$port = (int) ($argv[1] ?? 33317);
++if (!in_array($port, [33316, 33317], true)) { throw new RuntimeException('Disposable loopback database required'); }
++define('OTTO_RP_STATE_DIR', sys_get_temp_dir() . '/ottoextra-rp-security-qa-' . getmypid());
++$env = [];
++function envValue(array $unused, string $key, string $default = ''): string {
++    return match ($key) {
++        'OTTOEXTRA_JWT_CURRENT' => 'qa:' . str_repeat('ab', 32),
++        'OTTOEXTRA_SECRETS_DIR' => OTTO_RP_STATE_DIR . '/unused-secrets',
++        default => $default,
++    };
++}
++require_once __DIR__ . '/../includes/rp_name_upload.php';
++require_once __DIR__ . '/../includes/rp_backups.php';
++$pdo = new PDO("mysql:host=127.0.0.1;port={$port};charset=utf8mb4", 'root', 'local-qa-only', [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false]);
++$db = 'ottoextra_rp_security_qa_' . getmypid();
++$pdo->exec('CREATE DATABASE `' . $db . '`'); $pdo->exec('USE `' . $db . '`');
++$passed = 0;
++function check(bool $condition, string $message): void { global $passed; if (!$condition) { throw new RuntimeException($message); } $passed++; echo 'ok: ' . $message . PHP_EOL; }
++function failure(callable $fn, string $message): void { try { $fn(); } catch (Throwable $e) { check(true, $message); return; } check(false, $message); }
++function upload(PDO $pdo, ?string $jwt, array|string $body): array {
++    try { return rpNameHandleUpload($pdo, $jwt === null ? null : 'Bearer ' . $jwt, is_string($body) ? $body : json_encode($body), '127.0.0.1'); }
++    finally { rpPrivacyReleaseRead(); }
++}
++function rp(PDO $pdo, string $key): mixed { return $pdo->query('SELECT rp_name FROM external_participants WHERE entity_key = ' . $pdo->quote($key))->fetchColumn(); }
++try {
++    rpPrivacyInitialize('2026-09-11 14:10:01'); rpBackupInitialize();
++    $pdo->exec('CREATE TABLE external_participants (entity_key VARCHAR(191) PRIMARY KEY, uuid VARCHAR(36), name VARCHAR(120), rp_name VARCHAR(120)) ENGINE=InnoDB');
++    foreach (['external_participant_rp_name_log', 'external_participant_rp_name_request_log'] as $table) {
++        $pdo->exec('CREATE TABLE ' . $table . ' (id BIGINT PRIMARY KEY AUTO_INCREMENT, actor_uuid VARCHAR(36), target_uuid VARCHAR(36), actor_name VARCHAR(120), target_name VARCHAR(120), payload_json TEXT, created_at TIMESTAMP NULL) ENGINE=InnoDB');
++    }
++    rpNameEnsureRetentionSchema($pdo); v2EnsureSchema($pdo);
++    $alice = '11111111-1111-4111-8111-111111111111'; $bob = '22222222-2222-4222-8222-222222222222';
++    $insert = $pdo->prepare('INSERT INTO external_participants (entity_key, uuid, name, rp_name) VALUES (?, ?, ?, ?)');
++    $insert->execute(['alice', $alice, 'AliceQa', 'Alice Old']); $insert->execute(['bob', $bob, 'BobQa', 'Bob Original']);
++    $token = v2IssueJwt($alice, 'AliceQa')['token']; $bobToken = v2IssueJwt($bob, 'BobQa')['token'];
++    $body = ['target_uuid' => $bob, 'rp_name' => 'Proposed Bob'];
++    check(upload($pdo, null, $body)[0] === 401, 'Unauthenticated upload rejected');
++    check(upload($pdo, $token, $body)[0] === 503, 'Operator hold enforced server-side');
++    $lock = rpPrivacyLock(true); $state = rpPrivacyState(); $state['uploads_enabled'] = true; rpPrivacySave($state); flock($lock, LOCK_UN); fclose($lock);
++    check(upload($pdo, substr($token, 0, -3) . 'xyz', $body)[0] === 401, 'Forged token rejected');
++    [$h, $p] = explode('.', $token); $claims = json_decode(v2B64UrlDecode($p), true); $claims['exp'] = time() - 120;
++    $p = v2B64UrlEncode(json_encode($claims)); $expired = $h . '.' . $p . '.' . v2B64UrlEncode(hash_hmac('sha256', $h . '.' . $p, hex2bin(str_repeat('ab', 32)), true));
++    check(upload($pdo, $expired, $body)[0] === 401, 'Expired token rejected');
++    check(upload($pdo, $token, $body + ['actor_uuid' => $bob])[0] === 422, 'Claimed different actor UUID rejected');
++    check(upload($pdo, $token, str_repeat('x', 2049))[0] === 413, 'Payload size bounded');
++    check(upload($pdo, $token, '{')[0] === 400, 'Malformed JSON rejected');
++    check(upload($pdo, $token, ['rp_name' => 'bad' . "\n" . 'name'])[0] === 422, 'Control characters rejected');
++    check(upload($pdo, $token, ['rp_name' => str_repeat('Ã¤', 121)])[0] === 422, 'Unicode name length bounded');
++    check(upload($pdo, $token, ['target_uuid' => $bob, 'target_player_name' => 'AliceQa', 'rp_name' => 'Mismatch'])[0] === 422, 'Conflicting target identifiers rejected');
++    check(upload($pdo, $token, ['rp_name' => 'Alice Confirmed'])[0] === 200 && rp($pdo, 'alice') === 'Alice Confirmed', 'Verified player confirms own name');
++    check(upload($pdo, $bobToken, ['rp_name' => 'Bob Confirmed'])[0] === 200, 'Second account confirms its own name');
++    $expiry = $pdo->query("SELECT rp_name_expires_at FROM external_participants WHERE entity_key='bob'")->fetchColumn();
++    check(upload($pdo, $token, $body)[0] === 202 && rp($pdo, 'bob') === 'Bob Confirmed', 'Foreign observation is private proposal, not overwrite');
++    check($pdo->query("SELECT rp_name_expires_at FROM external_participants WHERE entity_key='bob'")->fetchColumn() === $expiry, 'Foreign proposal does not renew confirmed mapping');
++    upload($pdo, $token, $body);
++    check((int) $pdo->query('SELECT COUNT(*) FROM rp_name_proposals')->fetchColumn() === 1, 'Repeated proposal bounded to one actor-target pair');
++    check(upload($pdo, $token, ['target_uuid' => $bob, 'rp_name' => ''])[0] === 422 && rp($pdo, 'bob') === 'Bob Confirmed', 'Observer cannot delete target');
++    $pdo->prepare('INSERT INTO external_participant_rp_name_request_log (actor_name, payload_json, created_at) VALUES (?, ?, UTC_TIMESTAMP())')->execute(['BobQa', 'private synthetic history']);
++    $pdo->prepare('INSERT INTO external_participant_rp_name_log (target_uuid, created_at) VALUES (?, UTC_TIMESTAMP())')->execute([$bob]);
++    $pdo->exec("SET time_zone = '+05:00'");
++    $snapshot = rpBackupCreate($pdo); rpPrivacyReleaseRead();
++    check($pdo->query('SELECT @@session.time_zone')->fetchColumn() === '+05:00', 'Backup restores connection time zone');
++    check(!str_contains(file_get_contents(rpBackupFile($snapshot['file'])), 'Bob Confirmed'), 'Backup encrypted');
++    check(!str_contains(json_encode(iterator_to_array(rpBackupRecords($snapshot['file']))), 'blocked'), 'Backup excludes current suppression ledger');
++    rpPrivacyManage($pdo, 'block', $bob);
++    check(rp($pdo, 'bob') === null && rp($pdo, 'alice') === 'Alice Confirmed', 'Deletion preserves unrelated player');
++    check((int) $pdo->query('SELECT COUNT(*) FROM rp_name_proposals')->fetchColumn() === 0, 'Deletion removes proposals');
++    check((int) $pdo->query('SELECT COUNT(*) FROM external_participant_rp_name_request_log')->fetchColumn() === 0, 'Deletion removes legacy name-only logs');
++    check((int) $pdo->query('SELECT COUNT(*) FROM external_participant_rp_name_log')->fetchColumn() === 0, 'Deletion removes UUID-linked history');
++    check(upload($pdo, $token, $body)[0] === 403, 'Blocked target cannot be uploaded again');
++    failure(fn() => rpNameStore($pdo, 'bob', 'Admin reimport'), 'Admin writes also honor suppression'); rpPrivacyReleaseRead();
++    $restored = rpBackupRestore($pdo, $snapshot['file']);
++    check($pdo->query('SELECT @@session.time_zone')->fetchColumn() === '+05:00', 'Restore preserves connection time zone');
++    check(!$restored['maintenance'] && rp($pdo, 'bob') === null && rp($pdo, 'alice') === 'Alice Confirmed', 'Old backup cannot resurrect blocked player');
++    check((int) $pdo->query('SELECT COUNT(*) FROM external_participant_rp_name_request_log')->fetchColumn() === 0, 'Restore purges old suppressed history');
++    rpPrivacyManage($pdo, 'restore-begin');
++    failure(fn() => rpPrivacyHoldRead(), 'Maintenance blocks publication'); rpPrivacyReleaseRead();
++    $pdo->exec("UPDATE external_participants SET rp_name='Restored legacy', rp_name_expires_at=NULL WHERE entity_key='alice'");
++    rpPrivacyManage($pdo, 'restore-finish');
++    check($pdo->query("SELECT rp_name_expires_at FROM external_participants WHERE entity_key='alice'")->fetchColumn() === '2027-03-11 14:10:01', 'Pre-migration restore never starts a fresh grace period');
++    $badName = 'rp-backup-' . gmdate('Ymd\THis\Z') . '-aaaaaaaaaaaaaaaa.box'; file_put_contents(rpBackupFile($badName), str_repeat('x', 50));
++    failure(fn() => rpBackupRestore($pdo, $badName), 'Tampered backup rejected before restore');
++    check(!rpPrivacyState()['maintenance'], 'Invalid backup does not interrupt publication');
++    failure(fn() => iterator_to_array(rpBackupRecords('../state.php')), 'Backup path traversal rejected');
++    $oldName = 'rp-backup-' . gmdate('Ymd\THis\Z', time() - 30 * 86400) . '-bbbbbbbbbbbbbbbb.box'; file_put_contents(rpBackupFile($oldName), 'synthetic');
++    file_put_contents(rpPrivacyDirectory() . '/backups/unrelated.txt', 'keep');
++    check(rpBackupRotate(false)['eligible'] === 1 && is_file(rpBackupFile($oldName)), 'Backup rotation preview does not delete');
++    check(rpBackupRotate(true)['deleted'] === 1 && is_file(rpBackupFile($snapshot['file'])), 'Backup expires at thirty days, fresh snapshot survives');
++    check(is_file(rpPrivacyDirectory() . '/backups/unrelated.txt'), 'Rotation preserves unrelated files');
++    for ($i = 0; $i < 35; $i++) { $limited = upload($pdo, $token, ['rp_name' => 'Rate Test']); }
++    check($limited[0] === 429, 'Per-actor rate limit enforced');
++    check((int) $pdo->query('SELECT COUNT(*) FROM external_participant_rp_name_request_log')->fetchColumn() === 0, 'New endpoint never records raw request payload or IP in RP history');
++    rpPrivacyManage($pdo, 'restore-begin');
++    $pdo->exec("CREATE TRIGGER fail_restore BEFORE UPDATE ON external_participants FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='synthetic restore failure'");
++    failure(fn() => rpBackupRestore($pdo, $snapshot['file']), 'SQL restore failure propagates');
++    check(rpPrivacyState()['maintenance'] && !$pdo->inTransaction(), 'Failed restore rolls back SQL and keeps publication closed');
++    $pdo->exec('DROP TRIGGER fail_restore'); rpPrivacyManage($pdo, 'restore-finish');
++    check(!rpPrivacyState()['maintenance'] && rp($pdo, 'bob') === null, 'Recovery completes without resurrecting blocked player');
++    $corruptName = 'rp-backup-' . gmdate('Ymd\THis\Z') . '-cccccccccccccccc.box';
++    $cipher = file_get_contents(rpBackupFile($snapshot['file'])); $cipher[40] = chr(ord($cipher[40]) ^ 1);
++    file_put_contents(rpBackupFile($corruptName), $cipher);
++    failure(fn() => rpBackupRestore($pdo, $corruptName), 'Modified ciphertext fails authentication');
++    file_put_contents(rpBackupFile($corruptName), substr(file_get_contents(rpBackupFile($snapshot['file'])), 0, -5));
++    failure(fn() => rpBackupRestore($pdo, $corruptName), 'Truncated stream without final marker rejected');
++    file_put_contents(rpBackupFile($corruptName), file_get_contents(rpBackupFile($snapshot['file'])) . 'extra');
++    failure(fn() => rpBackupRestore($pdo, $corruptName), 'Trailing data after final marker rejected');
++    $bulk = $pdo->prepare('INSERT INTO external_participant_rp_name_request_log (payload_json, created_at) VALUES (?, UTC_TIMESTAMP())');
++    for ($i = 0; $i < 700; $i++) { $bulk->execute([str_repeat('S', 60000)]); }
++    $large = rpBackupCreate($pdo); rpPrivacyReleaseRead();
++    check($large['bytes'] > 32 * 1024 * 1024, 'Streaming backup handles more than 32 MiB');
++    rpBackupRestore($pdo, $large['file']);
++    check((int) $pdo->query('SELECT COUNT(*) FROM external_participant_rp_name_request_log')->fetchColumn() === 700, 'Large encrypted backup restores all synthetic rows');
++    check(memory_get_peak_usage(true) < 64 * 1024 * 1024, 'Backup and restore remain below 64 MiB PHP memory');
++    echo "PASS: {$passed} RP security checks on port {$port}\n";
++} finally { rpPrivacyReleaseRead(); if ($pdo->inTransaction()) { $pdo->rollBack(); } $pdo->exec('DROP DATABASE `' . $db . '`'); }
+diff --git "a/OttoRegions Web/var/rp-private/.htaccess" "b/OttoRegions Web/var/rp-private/.htaccess"
+--- /dev/null
++++ "b/OttoRegions Web/var/rp-private/.htaccess"
+@@ -0,0 +1,2 @@
++Require all denied
++Options -Indexes

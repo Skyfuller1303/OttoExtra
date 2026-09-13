@@ -13,7 +13,7 @@ public final class LowHealthHudOverlay {
 
     public static void render(DrawContext ctx, LowHealthState state,
                               OttoExtraConfig.Tweaks.LowHealth cfg) {
-        if (!cfg.vignetteEnabled) {
+        if (!cfg.enabled || !cfg.vignetteEnabled) {
             return;
         }
         float intensity = state.intensity();
@@ -25,12 +25,12 @@ public final class LowHealthHudOverlay {
         int h = client.getWindow().getScaledHeight();
 
         float time = (System.currentTimeMillis() % 100000L) / 1000.0f;
-        float pulse = 0.92f + (float) Math.sin(time * (2.0f + intensity * 5.0f)) * 0.08f;
+        float pulse = cfg.reducedMotion ? 1.0f : 0.92f + (float) Math.sin(time * (2.0f + intensity * 5.0f)) * 0.08f;
         float alpha = (cfg.vignetteMinAlpha + cfg.vignetteMaxAlpha * intensity) * pulse;
         if (cfg.reduceWhenScreenOpen && client.currentScreen != null) {
             alpha *= cfg.screenOpenMultiplier;
         }
-        alpha = LowHealthMath.clamp(alpha, 0.0f, 1.0f);
+        alpha = LowHealthMath.clamp(alpha, 0.0f, cfg.reducedMotion ? 0.18f : 1.0f);
         if (alpha <= 0.003f) {
             return;
         }

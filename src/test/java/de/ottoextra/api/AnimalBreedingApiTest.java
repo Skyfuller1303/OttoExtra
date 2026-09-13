@@ -8,6 +8,7 @@ import de.ottoextra.api.auth.SessionSnapshot;
 import de.ottoextra.api.model.AnimalBreedingHorse;
 import de.ottoextra.api.model.AnimalBreedingHorseLocation;
 import de.ottoextra.config.OttoExtraConfig;
+import de.ottoextra.privacy.ConsentPolicy;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -62,6 +63,34 @@ class AnimalBreedingApiTest {
     private final AtomicReference<String> editorBody = new AtomicReference<>();
     private final AtomicReference<String> breederAccessMethod = new AtomicReference<>();
     private final AtomicReference<String> breederAccessBody = new AtomicReference<>();
+
+    @Test void listsAndCreatesEmptyFarmsThroughAuthenticatedApi() {
+        var body = new AtomicReference<String>();
+        String farm = "{\"nameKey\":\"mühlenhof\",\"name\":\"Mühlenhof\",\"horseCount\":0,\"role\":\"owner\",\"canManage\":true}";
+        server.createContext("/v2/animal-breeding/farms", exchange -> {
+            assertEquals("Bearer player-token", exchange.getRequestHeaders().getFirst("Authorization"));
+            if ("GET".equals(exchange.getRequestMethod())) {
+                respond(exchange, 200, "{\"farms\":[" + farm + "]}");
+            } else {
+                assertEquals("POST", exchange.getRequestMethod());
+                body.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+                respond(exchange, 201, "{\"ok\":true,\"farm\":" + farm + "}");
+            }
+        });
+        var farms = client.animalBreedingFarms().join();
+        assertEquals(1, farms.size()); assertEquals(0, farms.getFirst().horseCount());
+        assertTrue(farms.getFirst().canEdit());
+        assertEquals("Mühlenhof", client.createAnimalBreedingFarm(" Mühlenhof ").join().name());
+        assertEquals("Mühlenhof", com.google.gson.JsonParser.parseString(body.get()).getAsJsonObject().get("name").getAsString());
+    }
+
+    @Test void farmApiRejectsInvalidInputAndMalformedSuccessResponses() {
+        org.junit.jupiter.api.Assertions.assertThrows(Exception.class,
+                () -> client.createAnimalBreedingFarm("a/b").join());
+        server.createContext("/v2/animal-breeding/farms", exchange -> respond(exchange, 200, "{}"));
+        org.junit.jupiter.api.Assertions.assertThrows(Exception.class, () -> client.animalBreedingFarms().join());
+        org.junit.jupiter.api.Assertions.assertThrows(Exception.class, () -> client.createAnimalBreedingFarm("Hof").join());
+    }
 
     @BeforeEach
     void start() throws Exception {
@@ -193,11 +222,15 @@ class AnimalBreedingApiTest {
         SessionSnapshot session = new SessionSnapshot("Skyfuller1303",
                 UUID.fromString("069a79f4-44e9-4726-a5be-fca90e38aaf5"),
                 "mc-token");
+        OttoExtraConfig config = new OttoExtraConfig();
+        config.api.baseUrl = base;
+        ConsentPolicy.decide(config, ConsentPolicy.Purpose.ONLINE_SERVICES, true,
+                ConsentPolicy.scope(config, ConsentPolicy.Purpose.ONLINE_SERVICES));
         ApiAuthService auth = new ApiAuthService(http, Duration.ofSeconds(5),
                 URI.create(base + "/v2/auth/challenge"),
                 URI.create(base + "/v2/auth/verify"), executor,
                 () -> session, (uuid, token, serverId) -> { }, verifier,
-                Clock.systemUTC());
+                Clock.systemUTC(), () -> ConsentPolicy.capture(config, ConsentPolicy.Purpose.ONLINE_SERVICES));
         // The test injects a pre-issued token through tiny auth endpoints.
         server.createContext("/v2/auth/challenge", exchange ->
                 respond(exchange, 200, "{\"serverId\":\"challenge\"}"));
@@ -205,8 +238,6 @@ class AnimalBreedingApiTest {
                 respond(exchange, 200, "{\"token\":\"player-token\","
                         + "\"expiresAt\":\"2099-01-01T00:00:00Z\"}"));
         server.start();
-        OttoExtraConfig config = new OttoExtraConfig();
-        config.api.baseUrl = base;
         client = new HttpOttoExtraApiClient(config, executor, http, verifier, auth);
     }
 

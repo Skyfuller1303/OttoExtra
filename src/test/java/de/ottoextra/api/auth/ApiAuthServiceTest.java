@@ -2,6 +2,8 @@ package de.ottoextra.api.auth;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
+import de.ottoextra.config.OttoExtraConfig;
+import de.ottoextra.privacy.ConsentPolicy;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,6 +38,7 @@ class ApiAuthServiceTest {
     private static final SessionSnapshot SESSION = new SessionSnapshot(
             "Skyfuller1303", UUID.fromString("069a79f4-44e9-4726-a5be-fca90e38aaf5"), "access-token");
 
+    private OttoExtraConfig config;
     private HttpServer server;
     private ExecutorService executor;
     private HttpClient http;
@@ -68,6 +71,8 @@ class ApiAuthServiceTest {
         });
         server.start();
         http = HttpClient.newBuilder().executor(executor).build();
+        config = new OttoExtraConfig();
+        decide(true);
     }
 
     @AfterEach
@@ -96,7 +101,64 @@ class ApiAuthServiceTest {
                 session,
                 joiner,
                 new ResponseVerifier(Map.of(), () -> false),
-                Clock.systemUTC());
+                Clock.systemUTC(), () -> ConsentPolicy.capture(config, ConsentPolicy.Purpose.ONLINE_SERVICES));
+    }
+
+    private void decide(boolean allow) {
+        ConsentPolicy.decide(config, ConsentPolicy.Purpose.ONLINE_SERVICES, allow,
+                ConsentPolicy.scope(config, ConsentPolicy.Purpose.ONLINE_SERVICES));
+    }
+
+    @Test void noConsentMeansNoChallengeOrSessionAccess() {
+        decide(false);
+        ApiAuthService auth = service((uuid, token, serverId) -> { throw new AssertionError(); },
+                () -> { throw new AssertionError("Session must not be read"); });
+        assertThrows(RuntimeException.class, () -> auth.tokenAsync().join());
+        assertEquals(0, challengeCalls.get());
+        assertEquals(0, verifyCalls.get());
+    }
+
+    @Test void revokingAndRegrantingDuringJoinNeverContinuesOldHandshake() throws Exception {
+        AtomicInteger joins = new AtomicInteger();
+        ApiAuthService auth = service((uuid, token, serverId) -> {
+            if (joins.incrementAndGet() == 1) { decide(false); decide(true); }
+        }, () -> SESSION);
+        assertThrows(Exception.class, () -> auth.tokenAsync().get(5, java.util.concurrent.TimeUnit.SECONDS));
+        assertEquals(0, verifyCalls.get());
+        assertNotNull(auth.tokenAsync().get(5, java.util.concurrent.TimeUnit.SECONDS));
+        assertEquals(2, challengeCalls.get());
+        assertEquals(1, verifyCalls.get());
+    }
+
+    @Test void invalidatedPendingAuthenticationCannotInstallLateToken() throws Exception {
+        AtomicReference<ApiAuthService> reference = new AtomicReference<>();
+        AtomicInteger joins = new AtomicInteger();
+        ApiAuthService auth = service((uuid, token, serverId) -> {
+            if (joins.incrementAndGet() == 1) reference.get().invalidate();
+        }, () -> SESSION);
+        reference.set(auth);
+        assertThrows(Exception.class, () -> auth.tokenAsync().get(5, java.util.concurrent.TimeUnit.SECONDS));
+        assertNotNull(auth.tokenAsync().get(5, java.util.concurrent.TimeUnit.SECONDS));
+        assertEquals(2, challengeCalls.get());
+        assertEquals(1, verifyCalls.get());
+    }
+
+    @Test void revokedCachedTokenIsNotReusedAfterNewGrant() {
+        ApiAuthService auth = service((uuid, token, serverId) -> { }, () -> SESSION);
+        auth.tokenAsync().join();
+        decide(false);
+        decide(true);
+        auth.tokenAsync().join();
+        assertEquals(2, challengeCalls.get());
+        assertEquals(2, verifyCalls.get());
+    }
+
+    @Test void sessionExceptionCannotExposeCredentials() {
+        ApiAuthService auth = service((uuid, token, serverId) -> {
+            throw new Exception("secret-access-token secret-nonce secret-cookie");
+        }, () -> SESSION);
+        var error = assertThrows(CompletionException.class, () -> auth.tokenAsync().join());
+        org.junit.jupiter.api.Assertions.assertFalse(error.getCause().getMessage().contains("secret-"));
     }
 
     @Test

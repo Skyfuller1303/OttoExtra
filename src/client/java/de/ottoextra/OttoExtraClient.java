@@ -28,6 +28,7 @@ public final class OttoExtraClient implements ClientModInitializer {
 
     private static volatile OttoExtraApiClient sharedApi;
     private OttoExtraContext context;
+    private boolean onlineServicesActive;
 
     public static OttoExtraApiClient apiClient() {
         return sharedApi;
@@ -35,6 +36,7 @@ public final class OttoExtraClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
+        de.ottoextra.privacy.LocalDataSession.initialize();
         DebugLog.registerCommand();
         DebugLog.debug("Initialisiere {} ...", OttoExtra.MOD_NAME);
 
@@ -93,6 +95,18 @@ public final class OttoExtraClient implements ClientModInitializer {
     }
 
     private void registerLifecycle(OttoExtraApiClient api) {
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            boolean allowed = context.isOnOttonien() && de.ottoextra.privacy.ConsentPolicy.allowed(
+                    context.config(), de.ottoextra.privacy.ConsentPolicy.Purpose.ONLINE_SERVICES);
+            if (allowed == onlineServicesActive) return;
+            onlineServicesActive = allowed;
+            if (allowed) {
+                runRegionsService(RegionsServices::onServerJoin, "online-enabled");
+            } else {
+                runRegionsService(RegionsServices::onDisconnect, "online-disabled");
+                if (api instanceof HttpOttoExtraApiClient http) http.invalidateAuthentication();
+            }
+        });
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
             boolean onOttonien = OttoExtraGate.isOnOttonien(client);
             context.setOnOttonien(onOttonien);
@@ -101,7 +115,9 @@ public final class OttoExtraClient implements ClientModInitializer {
                 return;
             }
             DebugLog.debug("Ottonien-Server beigetreten — aktiviere Module.");
-            runRegionsService(RegionsServices::onServerJoin, "join");
+            onlineServicesActive = de.ottoextra.privacy.ConsentPolicy.allowed(
+                    context.config(), de.ottoextra.privacy.ConsentPolicy.Purpose.ONLINE_SERVICES);
+            if (onlineServicesActive) runRegionsService(RegionsServices::onServerJoin, "join");
             for (OttoExtraModule module : context.activeModules()) {
                 runSafe(module, () -> module.onServerJoin(context), "join");
             }
@@ -113,9 +129,13 @@ public final class OttoExtraClient implements ClientModInitializer {
                 runSafe(module, () -> module.onDisconnect(context), "disconnect");
             }
             context.setOnOttonien(false);
+            onlineServicesActive = false;
+            context.config().consent.gate(de.ottoextra.privacy.ConsentPolicy.Purpose.ONLINE_SERVICES).invalidate();
+            if (api instanceof HttpOttoExtraApiClient http) http.invalidateAuthentication();
         });
 
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> {
+            de.ottoextra.privacy.ConsentPolicy.invalidateAll(context.config());
             runRegionsService(RegionsServices::shutdown, "stop");
             for (OttoExtraModule module : context.activeModules()) {
                 runSafe(module, () -> module.onClientStop(context), "stop");

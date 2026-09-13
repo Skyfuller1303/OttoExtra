@@ -4,6 +4,8 @@ import de.ottoextra.OttoExtra;
 import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.config.OttoExtraPaths;
 import de.ottoextra.logging.DebugLog;
+import de.ottoextra.privacy.ConsentPolicy;
+import de.ottoextra.privacy.ConsentPermit;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -14,31 +16,30 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class ResourcePackUpdater {
 
+    private final OttoExtraConfig config;
     private final OttoExtraConfig.ResourcePack cfg;
     private final ExecutorService httpExecutor;
     private final ExecutorService ioExecutor;
     private final HttpClient http;
     private final PackManifestClient manifestClient;
-    private final PackDownloadService downloadService;
-    private final AtomicBoolean started = new AtomicBoolean();
+    private ConsentPermit attempt;
 
     public ResourcePackUpdater(OttoExtraConfig config) {
+        this.config = config;
         this.cfg = config.resourcepack;
 
         this.httpExecutor = Executors.newFixedThreadPool(2, daemonThreads("http"));
         this.ioExecutor = Executors.newSingleThreadExecutor(daemonThreads("io"));
         this.http = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofMillis(Math.max(1_000, cfg.connectTimeoutMs)))
-                .followRedirects(HttpClient.Redirect.NORMAL)
+                .followRedirects(HttpClient.Redirect.NEVER)
                 .executor(httpExecutor)
                 .build();
         Duration reqTimeout = Duration.ofMillis(Math.max(1_000, cfg.requestTimeoutMs));
         this.manifestClient = new PackManifestClient(http, reqTimeout);
-        this.downloadService = new PackDownloadService(http, reqTimeout, cfg.maxSizeBytes, ioExecutor);
     }
 
     private static ThreadFactory daemonThreads(String role) {
@@ -50,13 +51,13 @@ public final class ResourcePackUpdater {
         };
     }
 
-    public void runAsync() {
-        if (!PackDownloadService.downloadsAllowed()) {
+    public synchronized void runAsync() {
+        if (!ConsentPolicy.allowed(config, ConsentPolicy.Purpose.RESOURCE_PACKS)) {
             return;
         }
-        if (!started.compareAndSet(false, true)) {
-            return;
-        }
+        if (attempt != null && attempt.valid()) return;
+        ConsentPermit permit = ConsentPolicy.capture(config, ConsentPolicy.Purpose.RESOURCE_PACKS);
+        attempt = permit;
         String source = cfg.effectiveSource();
         if (source.isBlank()) {
             DebugLog.debug("[resourcepack] Keine Quelle konfiguriert — uebersprungen.");
@@ -74,43 +75,44 @@ public final class ResourcePackUpdater {
         PackState state = PackState.load();
         try {
             CompletableFuture<Void> flow = cfg.usesManifest()
-                    ? manifestFlow(URI.create(source), state)
-                    : directZipFlow(URI.create(source), state);
+                    ? manifestFlow(URI.create(source), state, permit)
+                    : directZipFlow(URI.create(source), state, permit);
             flow.exceptionally(t -> {
-                handleFailure(t, state);
+                handleFailure(t, state, permit);
                 return null;
             });
         } catch (Exception e) {
-            handleFailure(e, state);
+            handleFailure(e, state, permit);
         }
     }
 
-    private CompletableFuture<Void> manifestFlow(URI manifestUri, PackState state) {
-        return manifestClient.fetch(manifestUri, cfg.assetName).thenComposeAsync(manifest -> {
+    private CompletableFuture<Void> manifestFlow(URI manifestUri, PackState state, ConsentPermit permit) {
+        return manifestClient.fetch(manifestUri, cfg.assetName, permit).thenComposeAsync(manifest -> {
 
+            permit.require();
             boolean upToDate = isCurrent(manifest, state, OttoExtraPaths.serverPackFile());
             if (upToDate) {
                 DebugLog.debug("[resourcepack] Aktuell (Version {}) — kein Download.", state.version);
-                markChecked(state, manifest.version());
-                ensureActivation(state);
+                markChecked(state, manifest.version(), permit);
+                ensureActivation(state, permit);
                 return CompletableFuture.completedFuture(null);
             }
             if (manifest.sizeBytes() != null && manifest.sizeBytes() > cfg.maxSizeBytes) {
                 OttoExtra.LOGGER.warn("[resourcepack] Manifest meldet {} B > Limit {} B — uebersprungen.",
                         manifest.sizeBytes(), cfg.maxSizeBytes);
-                markChecked(state, manifest.version());
+                markChecked(state, manifest.version(), permit);
                 return CompletableFuture.completedFuture(null);
             }
             URI zip = URI.create(manifest.url());
             if (!zip.getScheme().equalsIgnoreCase("https")) {
                 OttoExtra.LOGGER.warn("[resourcepack] Download-URL ist kein https — uebersprungen.");
-                markChecked(state, manifest.version());
+                markChecked(state, manifest.version(), permit);
                 return CompletableFuture.completedFuture(null);
             }
             OttoExtra.LOGGER.info("[resourcepack] Neue Version {} verfuegbar (lokal: {}) — lade herunter.",
                     manifest.version(), state.version != null ? state.version : "keine");
-            return downloadService.download(zip, manifest.sha256()).thenAccept(tmp ->
-                    installAndMaybeActivate(tmp, manifest.version(), manifest.sha256(), state, manifest.notes(), null));
+            return downloadService().download(zip, manifest.sha256(), permit, manifestUri).thenAccept(tmp ->
+                    installAndMaybeActivate(tmp, manifest.version(), manifest.sha256(), state, manifest.notes(), null, permit));
         }, ioExecutor);
     }
 
@@ -124,14 +126,14 @@ public final class ResourcePackUpdater {
         return state.installedAt != null || state.version != null || state.sha256 != null;
     }
 
-    private CompletableFuture<Void> directZipFlow(URI zipUri, PackState state) {
+    private CompletableFuture<Void> directZipFlow(URI zipUri, PackState state, ConsentPermit permit) {
         if (isDirectCurrent(zipUri, state, OttoExtraPaths.serverPackFile())) {
             DebugLog.debug("[resourcepack] Direkt-Modus: Pack aus derselben Quelle vorhanden.");
-            ensureActivation(state);
+            ensureActivation(state, permit);
             return CompletableFuture.completedFuture(null);
         }
-        return downloadService.download(zipUri, null).thenAccept(tmp ->
-                installAndMaybeActivate(tmp, "direct", null, state, null, zipUri.normalize().toString()));
+        return downloadService().download(zipUri, null, permit, zipUri).thenAccept(tmp ->
+                installAndMaybeActivate(tmp, "direct", null, state, null, zipUri.normalize().toString(), permit));
     }
 
     static boolean isDirectCurrent(URI source, PackState state, java.nio.file.Path file) {
@@ -139,64 +141,69 @@ public final class ResourcePackUpdater {
         return source.normalize().toString().equals(state.directSource) && PackInstaller.usablePack(file);
     }
 
-    private void installAndMaybeActivate(java.nio.file.Path tmp, String version, String sha,
-                                         PackState previous, String notes, String directSource) {
-        try {
-            if (!PackDownloadService.downloadsAllowed() || Thread.currentThread().isInterrupted()) {
-                java.nio.file.Files.deleteIfExists(tmp);
-                return;
-            }
-            PackInstaller.install(tmp);
-        } catch (Exception e) {
-            OttoExtra.LOGGER.error("[resourcepack] Installation fehlgeschlagen: {}", e.getMessage());
-            return;
-        }
-        String now = Instant.now().toString();
-        PackState ns = new PackState();
-        ns.version = version;
-        ns.sha256 = sha;
-        ns.directSource = directSource;
-        ns.installedAt = now;
-        ns.lastCheckedAt = now;
-        ns.remoteVersion = version;
-        ns.enabled = previous.enabled;
-        ns.save();
-        OttoExtra.LOGGER.info("[resourcepack] Installiert: Version {}{}", version,
-                notes != null && !notes.isBlank() ? " (" + notes + ")" : "");
+    private PackDownloadService downloadService() {
+        return new PackDownloadService(http, Duration.ofMillis(Math.max(1_000, cfg.requestTimeoutMs)),
+                cfg.maxSizeBytes, ioExecutor);
+    }
 
-        PackInstaller.requestReload();
-        if (cfg.autoEnable) {
-            PackInstaller.requestActivation(cfg.priorityTop, cfg.respectUserDisable, previouslyInstalled(previous));
-            DebugLog.debug("[resourcepack] Aktivierung vorgemerkt (nach laufendem Ressourcenreload).");
-        } else {
-            DebugLog.debug("[resourcepack] Geladen, aber nicht automatisch aktiviert (Config/Spielerwunsch).");
+    private void installAndMaybeActivate(java.nio.file.Path tmp, String version, String sha,
+                                         PackState previous, String notes, String directSource, ConsentPermit permit) {
+        try {
+            permit.commitIo(() -> {
+                PackInstaller.install(tmp);
+                String now = Instant.now().toString();
+                PackState state = new PackState();
+                state.version = version;
+                state.sha256 = sha;
+                state.directSource = directSource;
+                state.installedAt = now;
+                state.lastCheckedAt = now;
+                state.remoteVersion = version;
+                state.enabled = previous.enabled;
+                state.save();
+                PackInstaller.requestReload(permit);
+                if (cfg.autoEnable) {
+                    PackInstaller.requestActivation(cfg.priorityTop, cfg.respectUserDisable,
+                            previouslyInstalled(previous), permit);
+                }
+            });
+            OttoExtra.LOGGER.info("[resourcepack] Installiert: Version {}", version);
+        } catch (Exception error) {
+            DebugLog.debug("[resourcepack] Installation abgebrochen: {}", error.getClass().getSimpleName());
+        } finally {
+            try { java.nio.file.Files.deleteIfExists(tmp); } catch (java.io.IOException ignored) { }
         }
     }
 
-    private void handleFailure(Throwable t, PackState state) {
+    private void handleFailure(Throwable t, PackState state, ConsentPermit permit) {
+        if (!permit.valid()) return;
         Throwable cause = (t.getCause() != null) ? t.getCause() : t;
         DebugLog.debug("[resourcepack] Update nicht moeglich ({}). Gecachter Pack bleibt aktiv.",
                 cause.getMessage());
-        markChecked(state, null);
+        markChecked(state, null, permit);
     }
 
-    private void ensureActivation(PackState state) {
+    private void ensureActivation(PackState state, ConsentPermit permit) {
         if (!PackDownloadService.downloadsAllowed() || !cfg.autoEnable) {
             return;
         }
 
-        PackInstaller.requestActivation(cfg.priorityTop, cfg.respectUserDisable, previouslyInstalled(state));
+        permit.commit(() -> PackInstaller.requestActivation(cfg.priorityTop, cfg.respectUserDisable,
+                previouslyInstalled(state), permit));
     }
 
-    private void markChecked(PackState state, String remoteVersion) {
-        state.lastCheckedAt = Instant.now().toString();
-        if (remoteVersion != null) {
-            state.remoteVersion = remoteVersion;
-        }
-        state.save();
+    private void markChecked(PackState state, String remoteVersion, ConsentPermit permit) {
+        permit.commit(() -> {
+            state.lastCheckedAt = Instant.now().toString();
+            if (remoteVersion != null) {
+                state.remoteVersion = remoteVersion;
+            }
+            state.save();
+        });
     }
 
     public void close() {
+        config.consent.gate(ConsentPolicy.Purpose.RESOURCE_PACKS).invalidate();
         httpExecutor.shutdownNow();
         ioExecutor.shutdownNow();
         try {

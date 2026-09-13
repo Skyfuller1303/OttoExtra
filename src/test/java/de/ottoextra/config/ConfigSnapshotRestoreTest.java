@@ -12,53 +12,51 @@ class ConfigSnapshotRestoreTest {
     java.nio.file.Path directory;
 
     @Test
-    void restoreChatLoggingInBothDirectionsAndKeepItWhenSavedAgain() throws Exception {
+    void restorePreservesCurrentChatLoggingChoiceAndKeepsItWhenSavedAgain() throws Exception {
         for (boolean enabled : new boolean[]{false, true}) {
             OttoExtraConfig config = new OttoExtraConfig();
             config.repair();
             var tweaks = config.tweaks;
-            config.tweaks.chatLog = enabled;
+            de.ottoextra.privacy.LocalPrivacy.decideChat(config, enabled, "OTTONIEN");
             String snapshot = config.snapshotJson();
-            config.tweaks.chatLog = !enabled;
+            de.ottoextra.privacy.LocalPrivacy.decideChat(config, !enabled, "OTTONIEN");
 
             config.restoreFrom(snapshot);
 
             assertSame(tweaks, config.tweaks);
-            assertEquals(enabled, config.tweaks.chatLog);
-            assertEquals(snapshot, config.snapshotJson());
+            assertEquals(!enabled, config.tweaks.chatLog);
             java.nio.file.Path file = directory.resolve("config-" + enabled + ".json");
             config.save(file);
-            assertEquals(enabled, OttoExtraConfig.load(file).tweaks.chatLog);
+            assertEquals(!enabled, OttoExtraConfig.load(file).tweaks.chatLog);
         }
     }
 
     @Test
-    void restoreFromCopiesAllConsentValuesWithoutReplacingSharedReference() {
+    void restoreNeverImportsHistoricalConsentAndPreservesCurrentDecisions() throws Exception {
         OttoExtraConfig config = new OttoExtraConfig();
         var consent = config.consent;
         OttoExtraConfig restored = new OttoExtraConfig();
-        restored.consent.onboardingVersion = 2;
-        restored.consent.automaticResourcePackDownloads = true;
-        restored.consent.externalImageDownloads = true;
-        restored.consent.updateChecks = true;
-        restored.consent.communityRpNameUploads = true;
-
+        for (var purpose : de.ottoextra.privacy.ConsentPolicy.Purpose.values()) {
+            de.ottoextra.privacy.ConsentPolicy.decide(restored, purpose, true,
+                    de.ottoextra.privacy.ConsentPolicy.scope(restored, purpose));
+        }
+        restored.consent.onboardingVersion = 3;
         config.restoreFrom(restored.snapshotJson());
-
-        assertSame(consent, config.consent);
-        assertEquals(2, consent.onboardingVersion);
-        assertTrue(consent.automaticResourcePackDownloads);
-        assertTrue(consent.externalImageDownloads);
-        assertTrue(consent.updateChecks);
-        assertTrue(consent.communityRpNameUploads);
-
-        config.restoreFrom("{}");
-
         assertSame(consent, config.consent);
         assertEquals(0, consent.onboardingVersion);
-        assertFalse(consent.automaticResourcePackDownloads);
-        assertFalse(consent.externalImageDownloads);
-        assertFalse(consent.updateChecks);
-        assertFalse(consent.communityRpNameUploads);
+        for (var purpose : de.ottoextra.privacy.ConsentPolicy.Purpose.values()) {
+            assertFalse(de.ottoextra.privacy.ConsentPolicy.allowed(config, purpose));
+        }
+        var images = de.ottoextra.privacy.ConsentPolicy.Purpose.EXTERNAL_IMAGES;
+        de.ottoextra.privacy.ConsentPolicy.decide(config, images, true,
+                de.ottoextra.privacy.ConsentPolicy.scope(config, images));
+        config.restoreFrom("{}");
+        assertTrue(de.ottoextra.privacy.ConsentPolicy.allowed(config, images));
+        var file = directory.resolve("consent.json");
+        config.save(file);
+        var loaded = OttoExtraConfig.load(file);
+        assertTrue(de.ottoextra.privacy.ConsentPolicy.allowed(loaded, images));
+        assertFalse(de.ottoextra.privacy.ConsentPolicy.allowed(loaded,
+                de.ottoextra.privacy.ConsentPolicy.Purpose.ONLINE_SERVICES));
     }
 }

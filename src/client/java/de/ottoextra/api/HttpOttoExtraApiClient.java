@@ -12,6 +12,7 @@ import de.ottoextra.api.auth.ResponseVerifier;
 import de.ottoextra.api.auth.SpkiPinning;
 import de.ottoextra.api.model.ApiEnvelope;
 import de.ottoextra.api.model.AnimalBreedingHorse;
+import de.ottoextra.api.model.AnimalBreedingFarm;
 import de.ottoextra.api.model.AnimalBreedingHorseName;
 import de.ottoextra.api.model.AnimalBreedingHorseLocation;
 import de.ottoextra.api.model.CompactPlayer;
@@ -21,6 +22,9 @@ import de.ottoextra.api.model.RegionRecord;
 import de.ottoextra.api.model.ProtectedChatInboxEntry;
 import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.logging.DebugLog;
+import de.ottoextra.privacy.ConsentPolicy;
+import de.ottoextra.privacy.ConsentPermit;
+import de.ottoextra.privacy.ConsentHttp;
 
 import javax.net.ssl.SSLContext;
 import java.net.URI;
@@ -49,6 +53,7 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
 
     private final Gson gson = new Gson();
     private final OttoExtraConfig.Api apiConfig;
+    private final OttoExtraConfig config;
     private final OttoExtraApiRoutes routes;
     private final Duration requestTimeout;
     private final ExecutorService executor;
@@ -58,13 +63,14 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
     private final AtomicBoolean warnedInvalidSignature = new AtomicBoolean();
 
     public HttpOttoExtraApiClient(OttoExtraConfig config) {
+        this.config = config;
         this.apiConfig = config.api;
         this.routes = new OttoExtraApiRoutes(apiConfig.baseUrl);
         this.requestTimeout = Duration.ofMillis(Math.max(1_000, apiConfig.requestTimeoutMs));
         this.executor = Executors.newFixedThreadPool(3, daemonThreads());
         HttpClient.Builder builder = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofMillis(Math.max(1_000, apiConfig.connectTimeoutMs)))
-                .followRedirects(HttpClient.Redirect.NORMAL)
+                .followRedirects(HttpClient.Redirect.NEVER)
                 .executor(executor);
         SSLContext pinned = SpkiPinning.pinnedContextOrNull(apiConfig.tlsPinning);
         if (pinned != null) {
@@ -83,12 +89,13 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
                 MinecraftSessionAuth.sessionSupplier(),
                 MinecraftSessionAuth.joiner(),
                 verifier,
-                Clock.systemUTC());
+                Clock.systemUTC(), () -> capture(ConsentPolicy.Purpose.ONLINE_SERVICES));
     }
 
     HttpOttoExtraApiClient(OttoExtraConfig config, ExecutorService executor,
                            HttpClient http, ResponseVerifier verifier,
                            ApiAuthService auth) {
+        this.config = config;
         this.apiConfig = config.api;
         this.routes = new OttoExtraApiRoutes(apiConfig.baseUrl);
         this.requestTimeout = Duration.ofMillis(Math.max(1_000, apiConfig.requestTimeoutMs));
@@ -280,6 +287,45 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
         URI uri = routes.v2AnimalBreedingBreederAccess();
         return authenticatedJson(granted ? "PUT" : "DELETE", uri, body)
                 .thenApply(json -> null);
+    }
+
+    @Override
+    public CompletableFuture<List<AnimalBreedingFarm>> animalBreedingFarms() {
+        URI uri = routes.v2AnimalBreedingFarms();
+        return authenticatedJson("GET", uri, null).thenApply(json -> {
+            JsonElement farms = json.get("farms");
+            if (farms == null || !farms.isJsonArray()) {
+                throw ApiProblem.parse(uri, "farms fehlt").toException();
+            }
+            try {
+                List<AnimalBreedingFarm> parsed = gson.fromJson(farms,
+                        new TypeToken<List<AnimalBreedingFarm>>() { }.getType());
+                return List.copyOf(parsed);
+            } catch (RuntimeException error) {
+                throw ApiProblem.parse(uri, "farms ist ungültig").toException();
+            }
+        });
+    }
+
+    @Override
+    public CompletableFuture<AnimalBreedingFarm> createAnimalBreedingFarm(String name) {
+        if (!AnimalBreedingFarm.validName(name)) {
+            return CompletableFuture.failedFuture(ApiProblem.badRequest("Ungültiger Hofname").toException());
+        }
+        URI uri = routes.v2AnimalBreedingFarms();
+        JsonObject body = new JsonObject();
+        body.addProperty("name", name.trim());
+        return authenticatedJson("POST", uri, body).thenApply(json -> {
+            try {
+                AnimalBreedingFarm farm = gson.fromJson(json.get("farm"), AnimalBreedingFarm.class);
+                if (farm == null || !farm.name().equalsIgnoreCase(name.trim())) {
+                    throw new IllegalArgumentException("Hof der Antwort stimmt nicht überein");
+                }
+                return farm;
+            } catch (RuntimeException error) {
+                throw ApiProblem.parse(uri, "farm fehlt oder ist ungültig").toException();
+            }
+        });
     }
 
     @Override
@@ -531,6 +577,7 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
 
     @Override
     public CompletableFuture<byte[]> downloadBinary(URI uri) {
+        ConsentPermit permit = capture(ConsentPolicy.Purpose.EXTERNAL_IMAGES);
         if (uri == null) {
             return CompletableFuture.failedFuture(ApiProblem.badRequest("Download-URI fehlt").toException());
         }
@@ -541,7 +588,7 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
         HttpRequest request = baseRequest(uri)
                 .setHeader("Accept", "image/png")
                 .build();
-        return http.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
+        return ConsentHttp.send(http, request, de.ottoextra.privacy.BoundedBody.bytes(de.ottoextra.privacy.BoundedBody.IMAGE_BYTES), permit)
                 .thenApply(resp -> {
                     if (!isTrustedAssetUri(resp.uri())) {
                         throw ApiProblem.badRequest("Nicht vertrauenswürdige Download-Weiterleitung")
@@ -564,12 +611,23 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
 
     @Override
     public void close() {
+        auth.invalidate();
         try {
             http.close();
         } catch (Throwable ignored) {
 
         }
         executor.shutdownNow();
+    }
+
+    public void invalidateAuthentication() {
+        auth.invalidate();
+    }
+
+    private ConsentPermit capture(ConsentPolicy.Purpose purpose) {
+        // Routes are initialized at startup. A changed backend needs a new client, never an old token/host.
+        return ConsentPolicy.capture(config, purpose)
+                .restrict(() -> routes.baseUrl().equals(ConsentPolicy.apiSource(config)));
     }
 
     private HttpRequest.Builder baseRequest(URI uri) {
@@ -600,25 +658,30 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
     }
 
     private CompletableFuture<String> getString(URI v2Uri) {
+        ConsentPermit permit = capture(ConsentPolicy.Purpose.ONLINE_SERVICES);
+        if (!permit.valid()) return CompletableFuture.failedFuture(new java.util.concurrent.CancellationException("Online services disabled"));
         return auth.tokenAsync()
-                .thenCompose(token -> fetch(v2Uri, token.token())
+                .thenCompose(token -> fetch(v2Uri, token.token(), permit)
                         .exceptionallyCompose(t -> {
                             if (isHttpStatus(t, 401)) {
-
+                                permit.require();
                                 auth.invalidate();
                                 return auth.tokenAsync()
-                                        .thenCompose(fresh -> fetch(v2Uri, fresh.token()));
+                                        .thenCompose(fresh -> fetch(v2Uri, fresh.token(), permit));
                             }
                             return CompletableFuture.failedFuture(t);
                         }));
     }
 
-    private CompletableFuture<String> fetch(URI uri, String bearerToken) {
+    private CompletableFuture<String> fetch(URI uri, String bearerToken, ConsentPermit permit) {
         HttpRequest.Builder builder = baseRequest(uri);
         if (bearerToken != null) {
             builder.header("Authorization", "Bearer " + bearerToken);
         }
-        return http.sendAsync(builder.build(), HttpResponse.BodyHandlers.ofByteArray())
+        int bodyLimit = uri.equals(routes.v2Bootstrap())
+                ? de.ottoextra.privacy.BoundedBody.BOOTSTRAP_JSON_BYTES
+                : de.ottoextra.privacy.BoundedBody.JSON_BYTES;
+        return ConsentHttp.send(http, builder.build(), de.ottoextra.privacy.BoundedBody.bytes(bodyLimit), permit)
                 .thenApply(resp -> {
                     if (resp.statusCode() / 100 != 2) {
                         throw ApiProblem.httpStatus(uri, resp.statusCode()).toException();
@@ -635,20 +698,37 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
 
     private CompletableFuture<JsonObject> authenticatedJson(
             String method, URI uri, JsonObject body) {
+        ConsentPermit permit = capture(ConsentPolicy.Purpose.ONLINE_SERVICES);
+        return authenticatedJson(method, uri, body, permit);
+    }
+
+    @Override
+    public CompletableFuture<JsonObject> submitRpNameObservation(JsonObject body, ConsentPermit uploadPermit) {
+        ConsentPermit online = capture(ConsentPolicy.Purpose.ONLINE_SERVICES);
+        // The caller's captured upload generation must survive neither revocation nor re-enable.
+        ConsentPermit permit = capture(ConsentPolicy.Purpose.COMMUNITY_UPLOADS)
+                .restrict(uploadPermit::valid).restrict(online::valid);
+        return authenticatedJson("POST", routes.v2RpNameObservations(), body.deepCopy(), permit);
+    }
+
+    private CompletableFuture<JsonObject> authenticatedJson(
+            String method, URI uri, JsonObject body, ConsentPermit permit) {
+        if (!permit.valid()) return CompletableFuture.failedFuture(new java.util.concurrent.CancellationException("Online services disabled"));
         return auth.tokenAsync().thenCompose(token ->
-                sendAuthenticatedJson(method, uri, body, token.token())
+                sendAuthenticatedJson(method, uri, body, token.token(), permit)
                         .exceptionallyCompose(t -> {
                             if (!isHttpStatus(t, 401)) {
                                 return CompletableFuture.failedFuture(t);
                             }
+                            permit.require();
                             auth.invalidate();
                             return auth.tokenAsync().thenCompose(fresh ->
-                                    sendAuthenticatedJson(method, uri, body, fresh.token()));
+                                    sendAuthenticatedJson(method, uri, body, fresh.token(), permit));
                         }));
     }
 
     private CompletableFuture<JsonObject> sendAuthenticatedJson(
-            String method, URI uri, JsonObject body, String bearerToken) {
+            String method, URI uri, JsonObject body, String bearerToken, ConsentPermit permit) {
         HttpRequest.BodyPublisher publisher = body == null
                 ? HttpRequest.BodyPublishers.noBody()
                 : HttpRequest.BodyPublishers.ofString(body.toString(), StandardCharsets.UTF_8);
@@ -660,15 +740,16 @@ public final class HttpOttoExtraApiClient implements OttoExtraApiClient {
                 .header("User-Agent", USER_AGENT)
                 .method(method, publisher)
                 .build();
-        return http.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
+        return ConsentHttp.send(http, request, de.ottoextra.privacy.BoundedBody.bytes(de.ottoextra.privacy.BoundedBody.JSON_BYTES), permit)
                 .thenApply(response -> {
-                    if (response.statusCode() / 100 != 2) {
-                        throw ApiProblem.httpStatus(uri, response.statusCode()).toException();
-                    }
                     byte[] raw = response.body();
                     if (!verifier.accept(response.headers(), raw)) {
                         warnInvalidSignature(uri);
                         throw ApiProblem.parse(uri, "Signatur ungültig").toException();
+                    }
+                    // Authenticate errors too: a forged 401 must not trigger a new login.
+                    if (response.statusCode() / 100 != 2) {
+                        throw ApiProblem.httpStatus(uri, response.statusCode()).toException();
                     }
                     try {
                         return com.google.gson.JsonParser.parseString(new String(

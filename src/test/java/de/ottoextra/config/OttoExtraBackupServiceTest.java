@@ -25,6 +25,25 @@ class OttoExtraBackupServiceTest {
     Path temporaryDirectory;
 
     @Test
+    void backupWithValidGrantCannotUndoWithdrawalOnDiskOrInMemory() throws Exception {
+        Path root = temporaryDirectory.resolve("ottoextra");
+        Path file = root.resolve("ottoextra.json");
+        OttoExtraConfig config = new OttoExtraConfig();
+        var purpose = de.ottoextra.privacy.ConsentPolicy.Purpose.EXTERNAL_IMAGES;
+        String scope = de.ottoextra.privacy.ConsentPolicy.scope(config, purpose);
+        de.ottoextra.privacy.ConsentPolicy.decide(config, purpose, true, scope);
+        config.save(file);
+        Path backup = OttoExtraBackupService.createBackup(root);
+        de.ottoextra.privacy.ConsentPolicy.decide(config, purpose, false, scope);
+        config.save(file);
+        assertTrue(OttoExtraBackupService.restoreBackup(backup, root, config));
+        assertFalse(de.ottoextra.privacy.ConsentPolicy.allowed(config, purpose));
+        assertFalse(de.ottoextra.privacy.ConsentPolicy.allowed(OttoExtraConfig.load(file), purpose));
+        assertTrue(GSON.fromJson(Files.readString(backup.resolve("ottoextra/ottoextra.json")),
+                OttoExtraConfig.class).consent.externalImageDownloads);
+    }
+
+    @Test
     void restoredConfigSurvivesNextSaveAndRetainsSharedModuleReferences() throws Exception {
         Path configRoot = temporaryDirectory.resolve("ottoextra");
         Path configFile = configRoot.resolve("ottoextra.json");

@@ -1,0 +1,23 @@
+allprojects {
+    afterEvaluate {
+        configurations.modLocalRuntime.dependencies.removeAll { dep ->
+            dep.group == 'me.djtheredstoner' || (dep instanceof org.gradle.api.artifacts.FileCollectionDependency && dep.files.files.any { it.name.startsWith('xaeroworldmap-') })
+        }
+        def serverProfile = 'build/privacy-qa/dedicated-server-' + project.version
+        loom.runs.named('server') { runDir = serverProfile }
+        tasks.named('runServer').configure {
+            standardInput = System.in
+            doFirst {
+                def profile = file(serverProfile)
+                profile.mkdirs()
+                // Reuse the existing local-test EULA acceptance; never accept terms here.
+                copy { from 'build/courier-e2e/server/eula.txt'; into profile }
+                new File(profile, 'server.properties').text = 'server-ip=127.0.0.1\nserver-port=0\nonline-mode=false\nview-distance=2\nsimulation-distance=2\nlevel-type=minecraft:flat\n'
+                copy { from tasks.named('remapJar').get().archiveFile; into new File(profile, 'mods') }
+                setArgs(['nogui'])
+                setJvmArgs(getJvmArgs().findAll { !it.startsWith('-Xmx') })
+                jvmArgs '-Xmx2G'
+            }
+        }
+    }
+}

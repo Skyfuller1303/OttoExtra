@@ -8,6 +8,7 @@ import de.ottoextra.api.auth.SessionSnapshot;
 import de.ottoextra.api.model.ApiEnvelope;
 import de.ottoextra.api.model.CompactPlayer;
 import de.ottoextra.config.OttoExtraConfig;
+import de.ottoextra.privacy.ConsentPolicy;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,6 +43,8 @@ class HttpOttoExtraApiClientBootstrapTest {
             (byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A
     };
 
+    private OttoExtraConfig config;
+    private final AtomicInteger challengeCalls = new AtomicInteger();
     private HttpServer server;
     private ExecutorService executor;
     private KeyPair signingKey;
@@ -49,21 +52,25 @@ class HttpOttoExtraApiClientBootstrapTest {
     private final AtomicBoolean signBootstrap = new AtomicBoolean(true);
     private final AtomicInteger legacyRequests = new AtomicInteger();
     private final AtomicReference<String> bootstrapAuthorization = new AtomicReference<>();
+    private final AtomicReference<String> bootstrapBody = new AtomicReference<>(
+            "{\"ok\":true,\"sync_cursor\":1,\"regions\":[]}");
 
     @BeforeEach
     void start() throws Exception {
         signingKey = KeyPairGenerator.getInstance("Ed25519").generateKeyPair();
         executor = Executors.newFixedThreadPool(4);
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        server.createContext("/v2/auth/challenge", exchange ->
-                respond(exchange, 200, "{\"serverId\":\"challenge\"}", true));
+        server.createContext("/v2/auth/challenge", exchange -> {
+            challengeCalls.incrementAndGet();
+            respond(exchange, 200, "{\"serverId\":\"challenge\"}", true);
+        });
         server.createContext("/v2/auth/verify", exchange ->
                 respond(exchange, 200,
                         "{\"token\":\"player-token\",\"expiresAt\":\"2099-01-01T00:00:00Z\"}",
                         true));
         server.createContext("/v2/bootstrap", exchange -> {
             bootstrapAuthorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
-            respond(exchange, 200, "{\"ok\":true,\"sync_cursor\":1,\"regions\":[]}",
+            respond(exchange, 200, bootstrapBody.get(),
                     signBootstrap.get());
         });
         server.createContext("/v2/player-compact", exchange -> respond(exchange, 200,
@@ -88,12 +95,16 @@ class HttpOttoExtraApiClientBootstrapTest {
         HttpClient http = HttpClient.newBuilder().executor(executor).build();
         SessionSnapshot session = new SessionSnapshot("Skyfuller1303",
                 UUID.fromString("069a79f4-44e9-4726-a5be-fca90e38aaf5"), "mc-token");
+        config = new OttoExtraConfig();
+        config.api.baseUrl = base;
+        ConsentPolicy.decide(config, ConsentPolicy.Purpose.ONLINE_SERVICES, true,
+                ConsentPolicy.scope(config, ConsentPolicy.Purpose.ONLINE_SERVICES));
+        ConsentPolicy.decide(config, ConsentPolicy.Purpose.EXTERNAL_IMAGES, true,
+                ConsentPolicy.scope(config, ConsentPolicy.Purpose.EXTERNAL_IMAGES));
         ApiAuthService auth = new ApiAuthService(http, Duration.ofSeconds(5),
                 URI.create(base + "/v2/auth/challenge"),
                 URI.create(base + "/v2/auth/verify"), executor,
-                () -> session, (uuid, token, serverId) -> { }, verifier, Clock.systemUTC());
-        OttoExtraConfig config = new OttoExtraConfig();
-        config.api.baseUrl = base;
+                () -> session, (uuid, token, serverId) -> { }, verifier, Clock.systemUTC(), () -> ConsentPolicy.capture(config, ConsentPolicy.Purpose.ONLINE_SERVICES));
         client = new HttpOttoExtraApiClient(config, executor, http, verifier, auth);
     }
 
@@ -104,12 +115,64 @@ class HttpOttoExtraApiClientBootstrapTest {
         if (executor != null) executor.shutdownNow();
     }
 
+    @Test void disabledOnlineServicesStopBeforeAuthentication() {
+        ConsentPolicy.decide(config, ConsentPolicy.Purpose.ONLINE_SERVICES, false,
+                ConsentPolicy.scope(config, ConsentPolicy.Purpose.ONLINE_SERVICES));
+        assertThrows(RuntimeException.class, () -> client.bootstrap().join());
+        assertEquals(0, challengeCalls.get());
+        assertEquals(null, bootstrapAuthorization.get());
+    }
+
+    @Test void newBackendPermissionCannotAuthorizeOldClientRoutes() {
+        config.api.baseUrl = "https://changed.example.invalid";
+        ConsentPolicy.decide(config, ConsentPolicy.Purpose.ONLINE_SERVICES, true,
+                ConsentPolicy.scope(config, ConsentPolicy.Purpose.ONLINE_SERVICES));
+        assertThrows(RuntimeException.class, () -> client.bootstrap().join());
+        assertEquals(0, challengeCalls.get());
+    }
+
     @Test
     void bootstrapUsesSignedAuthenticatedV2Endpoint() {
         ApiEnvelope envelope = client.bootstrap().join();
 
         assertTrue(envelope.ok());
         assertEquals("Bearer player-token", bootstrapAuthorization.get());
+        assertEquals(0, legacyRequests.get());
+    }
+
+    @Test
+    void signedBootstrapLargerThanFourMiBLoadsFactionAndRegionData() {
+        // The production bootstrap reached 5.55 MB; the former generic 4 MiB
+        // limit prevented RegionsDataService from ever releasing tab sorting.
+        bootstrapBody.set("{\"ok\":true,\"factions\":[{\"uuid\":\"alpha\","
+                + "\"region_name\":\"Altenau\",\"description\":\""
+                + "x".repeat(5 * 1024 * 1024 + 512 * 1024)
+                + "\"}],\"regions\":[{\"id\":\"lehen_1\"}]}");
+
+        ApiEnvelope envelope = client.bootstrap().join();
+
+        assertTrue(envelope.ok());
+        assertEquals("Altenau", envelope.factions().getFirst().region_name());
+        assertEquals("lehen_1", envelope.regions().getFirst().id());
+        assertEquals("Bearer player-token", bootstrapAuthorization.get());
+        assertEquals(0, legacyRequests.get());
+    }
+
+    @Test
+    void bootstrapStillRejectsResponsesAboveSixteenMiB() {
+        bootstrapBody.set("{\"ok\":true,\"padding\":\""
+                + "x".repeat(16 * 1024 * 1024) + "\"}");
+
+        assertThrows(CompletionException.class, () -> client.bootstrap().join());
+        assertEquals(0, legacyRequests.get());
+    }
+
+    @Test
+    void ordinarySyncKeepsFourMiBResponseLimit() {
+        server.createContext("/v2/sync", exchange -> respond(exchange, 200,
+                "{\"ok\":true,\"padding\":\"" + "x".repeat(4 * 1024 * 1024) + "\"}", true));
+
+        assertThrows(CompletionException.class, () -> client.sync(1).join());
         assertEquals(0, legacyRequests.get());
     }
 

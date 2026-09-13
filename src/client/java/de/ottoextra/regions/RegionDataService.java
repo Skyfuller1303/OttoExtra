@@ -15,6 +15,8 @@ import de.ottoextra.api.model.RegionRecord;
 import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.config.OttoExtraPaths;
 import de.ottoextra.logging.DebugLog;
+import de.ottoextra.privacy.ConsentPermit;
+import de.ottoextra.privacy.ConsentPolicy;
 
 import java.io.IOException;
 import java.net.URI;
@@ -45,6 +47,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public final class RegionDataService {
 
     private static final long BOOTSTRAP_RETRY_SECONDS = 45;
+    private static final long ACTIVITY_RETRY_SECONDS = 5;
     private static final long SYNC_INTERVAL_MINUTES = 20;
     private static final long REGION_DETAIL_COOLDOWN_MS = 10 * 60_000L;
     private static final int MAX_ACTIVITY_RESPONSE_CHARS = 2_000_000;
@@ -57,10 +60,11 @@ public final class RegionDataService {
     private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
     private static final HttpClient ACTIVITY_HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(8))
-            .followRedirects(HttpClient.Redirect.NORMAL)
+            .followRedirects(HttpClient.Redirect.NEVER)
             .build();
 
     private final OttoExtraApiClient api;
+    private final java.util.function.Supplier<ConsentPermit> permits;
     private final ScheduledExecutorService scheduler;
     private final Path snapshotFile;
 
@@ -87,13 +91,22 @@ public final class RegionDataService {
     private volatile ScheduledFuture<?> syncTask;
     private volatile ScheduledFuture<?> bootstrapRetryTask;
     private volatile ScheduledFuture<?> gatheringTask;
+    private volatile ScheduledFuture<?> activityRetryTask;
 
     public RegionDataService(OttoExtraApiClient api, int activityRefreshSeconds) {
-        this(api, activityRefreshSeconds, OttoExtraPaths.apiCache().resolve("snapshot.json"));
+        this(api, activityRefreshSeconds, OttoExtraPaths.apiCache().resolve("snapshot.json"),
+                () -> ConsentPolicy.capture(ConsentPolicy.Purpose.ONLINE_SERVICES));
     }
 
+    // Filesystem/transport seam for offline fixture tests; production uses the consent supplier above.
     RegionDataService(OttoExtraApiClient api, int activityRefreshSeconds, Path snapshotFile) {
+        this(api, activityRefreshSeconds, snapshotFile, () -> new ConsentPermit.Gate().capture(() -> true));
+    }
+
+    RegionDataService(OttoExtraApiClient api, int activityRefreshSeconds, Path snapshotFile,
+                      java.util.function.Supplier<ConsentPermit> permits) {
         this.api = api;
+        this.permits = permits;
         this.snapshotFile = snapshotFile;
         this.activityRefreshSeconds = sanitizeActivityRefreshSeconds(
                 activityRefreshSeconds);
@@ -111,6 +124,7 @@ public final class RegionDataService {
     }
 
     synchronized void onServerJoin(boolean loadActivity) {
+        if (!permits.get().valid()) return;
         syncInFlightGeneration = -1;
         long activityGeneration = activityConnectionGeneration.incrementAndGet();
         long generation = bootstrapGeneration.incrementAndGet();
@@ -160,6 +174,8 @@ public final class RegionDataService {
     }
 
     private void requestBootstrap(long generation, CompletableFuture<Void> completion) {
+        ConsentPermit permit = permits.get();
+        if (!permit.valid()) { completion.cancel(false); return; }
         synchronized (this) {
             if (generation != bootstrapGeneration.get() || bootstrapReady
                     || bootstrapInFlightGeneration == generation) {
@@ -170,21 +186,31 @@ public final class RegionDataService {
 
         CompletableFuture<ApiEnvelope> request;
         try {
-            request = api.bootstrap();
+            request = permit.start(api::bootstrap);
         } catch (Throwable error) {
-            finishBootstrap(generation, completion, null, error);
+            finishBootstrap(generation, completion, null, error, permit);
             return;
         }
         if (request == null) {
             finishBootstrap(generation, completion, null,
-                    new IllegalStateException("Bootstrap-Future fehlt"));
+                    new IllegalStateException("Bootstrap-Future fehlt"), permit);
             return;
         }
         request.whenComplete((env, error) ->
-                finishBootstrap(generation, completion, env, error));
+                finishBootstrap(generation, completion, env, error, permit));
     }
 
     private synchronized void finishBootstrap(long generation, CompletableFuture<Void> completion,
+                                 ApiEnvelope env, Throwable error, ConsentPermit permit) {
+        try {
+            permit.commit(() -> finishBootstrapAllowed(generation, completion, env, error));
+        } catch (java.util.concurrent.CancellationException revoked) {
+            if (bootstrapInFlightGeneration == generation) bootstrapInFlightGeneration = -1;
+            completion.cancel(false);
+        }
+    }
+
+    private void finishBootstrapAllowed(long generation, CompletableFuture<Void> completion,
                                  ApiEnvelope env, Throwable error) {
         boolean complete = false;
         try {
@@ -269,12 +295,14 @@ public final class RegionDataService {
     }
 
     public synchronized void syncNow() {
+        ConsentPermit permit = permits.get();
+        if (!permit.valid()) return;
         long generation = bootstrapGeneration.get();
         if (!bootstrapReady || bootstrapInFlightGeneration == generation
                 || syncInFlightGeneration == generation) return;
         syncInFlightGeneration = generation;
         try {
-            api.sync(Math.max(0, syncCursor)).whenComplete((env, error) -> {
+            permit.start(() -> api.sync(Math.max(0, syncCursor))).whenComplete((env, error) -> {
                 synchronized (this) {
                     // Checking and applying share the lifecycle lock: disconnect
                     // cannot race between this check and snapshot persistence.
@@ -283,7 +311,7 @@ public final class RegionDataService {
                         if (error != null) {
                             DebugLog.debug("[regions] Sync uebersprungen: {}", rootMessage(error));
                         } else {
-                            applyEnvelope(env, false);
+                            permit.commit(() -> applyEnvelope(env, false));
                         }
                     } finally {
                         if (syncInFlightGeneration == generation) syncInFlightGeneration = -1;
@@ -306,6 +334,11 @@ public final class RegionDataService {
         if (gt != null) {
             gt.cancel(false);
             gatheringTask = null;
+        }
+        ScheduledFuture<?> retry = activityRetryTask;
+        if (retry != null) {
+            retry.cancel(false);
+            activityRetryTask = null;
         }
     }
 
@@ -337,50 +370,89 @@ public final class RegionDataService {
     }
 
     private void fetchActivityNow(long connectionGeneration) {
-        if (connectionGeneration != activityConnectionGeneration.get()
-                || !gatheringRunning.compareAndSet(false, true)) {
-            return;
-        }
-        HttpRequest request = HttpRequest.newBuilder(ACTIVITY_API)
-                .timeout(Duration.ofSeconds(12))
-                .header("Accept", "application/json, text/plain, */*")
-                .header("Accept-Language", "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7")
-                .header("Cache-Control", "no-cache")
-                .header("User-Agent", ACTIVITY_USER_AGENT)
-                .GET()
-                .build();
+        boolean acquired = false;
         try {
-            HttpResponse<String> response = ACTIVITY_HTTP.send(request,
-                    HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-            if (connectionGeneration == activityConnectionGeneration.get()) {
-                applyActivityResponse(response);
+            ConsentPermit permit = permits.get();
+            if (!permit.valid() || connectionGeneration != activityConnectionGeneration.get()
+                    || !gatheringRunning.compareAndSet(false, true)) {
+                return;
             }
-        } catch (InterruptedException interrupted) {
-            Thread.currentThread().interrupt();
+            acquired = true;
+            HttpRequest request = HttpRequest.newBuilder(ACTIVITY_API)
+                    .timeout(Duration.ofSeconds(12))
+                    .header("Accept", "application/json, text/plain, */*")
+                    .header("Accept-Language", "de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7")
+                    .header("Cache-Control", "no-cache")
+                    .header("User-Agent", ACTIVITY_USER_AGENT)
+                    .GET()
+                    .build();
+            HttpResponse<String> response = de.ottoextra.privacy.ConsentHttp.send(ACTIVITY_HTTP, request,
+                    de.ottoextra.privacy.BoundedBody.text(de.ottoextra.privacy.BoundedBody.JSON_BYTES), permit).join();
+            boolean[] applied = {false};
+            permit.commit(() -> {
+                if (connectionGeneration == activityConnectionGeneration.get()) {
+                    applied[0] = applyActivityResponse(response);
+                }
+            });
+            if (!applied[0]) {
+                scheduleActivityRetry(connectionGeneration);
+            } else {
+                cancelActivityRetry();
+            }
         } catch (Exception error) {
             DebugLog.debug("[regions] Aktivitaetsabfrage nicht moeglich: {}",
                     rootMessage(error));
+            scheduleActivityRetry(connectionGeneration);
         } finally {
-            gatheringRunning.set(false);
+            if (acquired) {
+                gatheringRunning.set(false);
+            }
         }
     }
 
-    private void applyActivityResponse(HttpResponse<String> response) {
+    private synchronized void scheduleActivityRetry(long connectionGeneration) {
+        if (scheduler.isShutdown() || connectionGeneration != activityConnectionGeneration.get()
+                || activityRetryTask != null && !activityRetryTask.isDone()) {
+            return;
+        }
+        try {
+            activityRetryTask = scheduler.schedule(() -> {
+                synchronized (RegionDataService.this) {
+                    activityRetryTask = null;
+                }
+                fetchActivityNow(connectionGeneration);
+            }, ACTIVITY_RETRY_SECONDS, TimeUnit.SECONDS);
+        } catch (java.util.concurrent.RejectedExecutionException ignored) {
+            activityRetryTask = null;
+        }
+    }
+
+    private synchronized void cancelActivityRetry() {
+        ScheduledFuture<?> retry = activityRetryTask;
+        if (retry != null) {
+            retry.cancel(false);
+            activityRetryTask = null;
+        }
+    }
+
+    private boolean applyActivityResponse(HttpResponse<String> response) {
         if (response == null || response.statusCode() != 200) {
             DebugLog.debug("[regions] Aktivitaets-API antwortete mit HTTP {}.",
                     response != null ? response.statusCode() : -1);
-            return;
+            return false;
         }
         String body = response.body();
         if (body == null || body.isBlank() || body.length() > MAX_ACTIVITY_RESPONSE_CHARS) {
             DebugLog.debug("[regions] Aktivitaets-API lieferte keine gueltigen Daten.");
-            return;
+            return false;
         }
         try {
             applyActivityJson(body);
+            return true;
         } catch (RuntimeException error) {
             DebugLog.debug("[regions] Aktivitaetsdaten konnten nicht gelesen werden: {}",
                     rootMessage(error));
+            return false;
         }
     }
 
@@ -574,6 +646,8 @@ public final class RegionDataService {
 
     /** Completes only after the requested detail (or an existing prefetch) is indexed. */
     public synchronized CompletableFuture<Void> requestRegionDetailAsync(String regionName) {
+        ConsentPermit permit = permits.get();
+        if (!permit.valid()) return CompletableFuture.failedFuture(new java.util.concurrent.CancellationException("Online services disabled"));
         String key = RegionNameKeys.normalize(regionName);
         if (key.isEmpty()) return CompletableFuture.completedFuture(null);
         CompletableFuture<Void> existing = detailRequests.get(key);
@@ -588,7 +662,7 @@ public final class RegionDataService {
         detailRequests.put(key, completion);
         detailRequestedAt.put(key, now);
         try {
-            api.regionByName(regionName).whenComplete((region, error) -> {
+            permit.start(() -> api.regionByName(regionName)).whenComplete((region, error) -> {
                 synchronized (this) {
                     detailRequests.remove(key, completion);
                     if (generation != bootstrapGeneration.get()) {
@@ -602,8 +676,10 @@ public final class RegionDataService {
                     }
                     try {
                         if (region != null) {
-                            indexRegion(region);
-                            persistSnapshot();
+                            permit.commit(() -> {
+                                indexRegion(region);
+                                persistSnapshot();
+                            });
                         }
                         completion.complete(null);
                     } catch (Exception failure) {
@@ -788,6 +864,7 @@ public final class RegionDataService {
             return;
         }
         try {
+            if (Files.size(file) > 8 * 1024 * 1024) return;
             Snapshot snap = GSON.fromJson(Files.readString(file, StandardCharsets.UTF_8), Snapshot.class);
             if (snap == null) {
                 return;
@@ -807,6 +884,7 @@ public final class RegionDataService {
     }
 
     private void persistSnapshot() {
+        ConsentPermit writePermit = permits.get();
         scheduler.execute(() -> {
             try {
                 Snapshot snap = new Snapshot();
@@ -820,12 +898,21 @@ public final class RegionDataService {
                 Path file = snapshotFile();
                 Files.createDirectories(file.getParent());
                 Path tmp = file.resolveSibling("snapshot.json.tmp");
-                Files.writeString(tmp, GSON.toJson(snap), StandardCharsets.UTF_8);
-                try {
-                    Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-                } catch (IOException atomicUnsupported) {
-                    Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING);
-                }
+                String json = GSON.toJson(snap);
+                if (json.getBytes(StandardCharsets.UTF_8).length > 8 * 1024 * 1024) return;
+                Path cacheRoot = file.getParent().getFileName().toString().equals("api")
+                        ? file.getParent().getParent() : file.getParent();
+                writePermit.commitIo(() -> de.ottoextra.privacy.CacheBudget.write(cacheRoot, file,
+                        json.getBytes(StandardCharsets.UTF_8).length, () -> {
+                    try {
+                        Files.writeString(tmp, json, StandardCharsets.UTF_8);
+                        try {
+                            Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+                        } catch (IOException atomicUnsupported) {
+                            Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING);
+                        }
+                    } finally { Files.deleteIfExists(tmp); }
+                }));
             } catch (Exception e) {
                 DebugLog.debug("[regions] Snapshot speichern fehlgeschlagen: {}", e.getMessage());
             }

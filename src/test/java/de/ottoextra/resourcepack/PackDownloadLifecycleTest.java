@@ -1,6 +1,7 @@
 package de.ottoextra.resourcepack;
 
 import de.ottoextra.config.OttoExtraConfig;
+import de.ottoextra.privacy.ConsentPolicy;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,7 +34,8 @@ class PackDownloadLifecycleTest {
         active.setAccessible(true);
         previous = active.get(null);
         config = new OttoExtraConfig();
-        config.consent.automaticResourcePackDownloads = true;
+        ConsentPolicy.decide(config, ConsentPolicy.Purpose.RESOURCE_PACKS, true,
+                ConsentPolicy.scope(config, ConsentPolicy.Purpose.RESOURCE_PACKS));
         active.set(null, config);
     }
 
@@ -79,6 +81,32 @@ class PackDownloadLifecycleTest {
         assertEquals(target, service(10000).handle(URI_VALUE, response(200, body), null, () -> target));
         assertArrayEquals(content, Files.readAllBytes(target));
         assertTrue(body.closed);
+    }
+
+    @Test void regrantBeforeDelayedResponseCannotReviveOldDownload() throws Exception {
+        var purpose = ConsentPolicy.Purpose.RESOURCE_PACKS;
+        var old = ConsentPolicy.capture(config, purpose);
+        String scope = ConsentPolicy.scope(config, purpose);
+        ConsentPolicy.decide(config, purpose, false, scope);
+        ConsentPolicy.decide(config, purpose, true, scope);
+        TrackingStream body = new TrackingStream(zip());
+        Path target = directory.resolve("late.tmp");
+        assertThrows(Exception.class, () -> service(10000).handle(URI_VALUE, response(200, body),
+                null, () -> target, old));
+        assertTrue(body.closed);
+        assertFalse(Files.exists(target));
+    }
+
+    @Test void pendingActivationIsDroppedAfterWithdrawalEvenIfPermissionReturns() {
+        var purpose = ConsentPolicy.Purpose.RESOURCE_PACKS;
+        var old = ConsentPolicy.capture(config, purpose);
+        PackInstaller.requestActivation(true, false, false, old);
+        String scope = ConsentPolicy.scope(config, purpose);
+        ConsentPolicy.decide(config, purpose, false, scope);
+        ConsentPolicy.decide(config, purpose, true, scope);
+        assertFalse(PackInstaller.takePending().allowed());
+        PackInstaller.requestActivation(true, false, false, ConsentPolicy.capture(config, purpose));
+        assertTrue(PackInstaller.takePending().allowed());
     }
 
     @Test void oversizedResponseDeletesPartialFile() {

@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "ottoextra_consent_smoke",
+  "version": "1.0.0",
+  "name": "OttoExtra consent smoke test",
+  "environment": "client",
+  "entrypoints": {
+    "fabric-client-gametest": [
+      "de.ottoextra.welcome.ReleaseWelcomeClientTest",
+      "de.ottoextra.welcome.ConsentSmokeTest",
+      "de.ottoextra.qa.PrivacyRuntimeTest",
+      "de.ottoextra.regions.BannerCacheClientTest"
+    ]
+  },
+  "depends": {
+    "ottoextra": "*",
+    "fabric-client-gametest-api-v1": "*"
+  },
+  "mixins": [
+    "ottoextra-privacy-qa.mixins.json"
+  ]
+}

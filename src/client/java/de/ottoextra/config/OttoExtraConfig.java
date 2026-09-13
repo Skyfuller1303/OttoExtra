@@ -39,11 +39,43 @@ public final class OttoExtraConfig {
      */
     public static final class Consent {
         public int onboardingVersion = 0;
-        public boolean automaticResourcePackDownloads = false;
-        public boolean externalImageDownloads = false;
-        public boolean updateChecks = false;
+        public volatile int policyVersion;
+        public volatile boolean onlineServices;
+        public volatile boolean automaticResourcePackDownloads = false;
+        public volatile boolean externalImageDownloads = false;
+        public volatile boolean updateChecks = false;
         public volatile boolean communityRpNameUploads = false;
+        public volatile java.util.Map<String, String> acceptedScopes = java.util.Map.of();
+        public volatile java.util.Map<String, Long> decidedAt = java.util.Map.of();
+        private transient java.util.Map<de.ottoextra.privacy.ConsentPolicy.Purpose,
+                de.ottoextra.privacy.ConsentPermit.Gate> gates;
         private transient volatile long uploadGeneration;
+
+        public synchronized de.ottoextra.privacy.ConsentPermit.Gate gate(
+                de.ottoextra.privacy.ConsentPolicy.Purpose purpose) {
+            if (gates == null) gates = new java.util.EnumMap<>(de.ottoextra.privacy.ConsentPolicy.Purpose.class);
+            return gates.computeIfAbsent(purpose, ignored -> new de.ottoextra.privacy.ConsentPermit.Gate());
+        }
+
+        public boolean flag(de.ottoextra.privacy.ConsentPolicy.Purpose purpose) {
+            return switch (purpose) {
+                case ONLINE_SERVICES -> onlineServices;
+                case RESOURCE_PACKS -> automaticResourcePackDownloads;
+                case EXTERNAL_IMAGES -> externalImageDownloads;
+                case UPDATE_CHECKS -> updateChecks;
+                case COMMUNITY_UPLOADS -> communityRpNameUploads;
+            };
+        }
+
+        public void flag(de.ottoextra.privacy.ConsentPolicy.Purpose purpose, boolean value) {
+            switch (purpose) {
+                case ONLINE_SERVICES -> onlineServices = value;
+                case RESOURCE_PACKS -> automaticResourcePackDownloads = value;
+                case EXTERNAL_IMAGES -> externalImageDownloads = value;
+                case UPDATE_CHECKS -> updateChecks = value;
+                case COMMUNITY_UPLOADS -> setCommunityRpNameUploads(value);
+            }
+        }
 
         public synchronized void setCommunityRpNameUploads(boolean allowed) {
             if (communityRpNameUploads && !allowed) uploadGeneration++;
@@ -326,7 +358,10 @@ public final class OttoExtraConfig {
     }
 
     public static final class Tweaks {
-        public boolean chatLog = true;
+        public volatile boolean chatLog = false;
+        public int chatLogDecisionVersion;
+        public String chatLogScope = "OTTONIEN";
+        public String chatLogAcceptedScope = "";
         public boolean combatModeHud = true;
         public LowHealth lowHealth = new LowHealth();
         public ToolProtect toolProtect = new ToolProtect();
@@ -381,6 +416,7 @@ public final class OttoExtraConfig {
         public static final class LowHealth {
 
             public boolean enabled = false;
+            public boolean reducedMotion = true;
             public boolean vignetteEnabled = true;
             public boolean heartbeatEnabled = true;
 
@@ -774,6 +810,7 @@ public final class OttoExtraConfig {
 
     public static final class Letter {
         public boolean enabled = true;
+        public boolean openRecipientAfterWrite = true;
         public String triggerItemName = "Pergament und Feder";
         public int maxLinesPerPage = 12;
         public int maxCharsPerLine = 18;
@@ -916,7 +953,7 @@ public final class OttoExtraConfig {
         public String directZipUrl = "";
         public boolean autoEnable = true;
         public boolean checkOnStartup = true;
-        public boolean respectUserDisable = false;
+        public boolean respectUserDisable = true;
         public boolean priorityTop = true;
         public long maxSizeBytes = 64L * 1024 * 1024;
         public int connectTimeoutMs = 10_000;
@@ -1201,6 +1238,8 @@ public final class OttoExtraConfig {
             return;
         }
         parsed.repair();
+        // Invalidate old jobs before any restored source can be observed.
+        de.ottoextra.privacy.ConsentPolicy.invalidateAll(this);
         copyFields(parsed.api, api);
         copyFields(parsed.map, map);
         copyFields(parsed.regions, regions);
@@ -1209,15 +1248,16 @@ public final class OttoExtraConfig {
         copyFields(parsed.letter, letter);
         copyFields(parsed.chat, chat);
         copyFields(parsed.resourcepack, resourcepack);
-        consent.setCommunityRpNameUploads(parsed.consent.communityRpNameUploads);
-        copyFields(parsed.consent, consent);
+        // Restore data/settings, never import historical permissions over a current withdrawal.
         copyFields(parsed.animalInfo, animalInfo);
         tweaks.combatModeHud = parsed.tweaks.combatModeHud;
-        tweaks.chatLog = parsed.tweaks.chatLog;
+        // Local logging decisions, like online consent, survive Cancel and backup restore.
         copyFields(parsed.tweaks.lowHealth, tweaks.lowHealth);
         copyFields(parsed.tweaks.toolProtect, tweaks.toolProtect);
         copyFields(parsed.tweaks.vote, tweaks.vote);
         copyFields(parsed.tweaks.litematica, tweaks.litematica);
+        de.ottoextra.privacy.LocalPrivacy.reconcile(this);
+        de.ottoextra.privacy.ConsentPolicy.reconcile(this);
     }
 
     private static void copyFields(Object from, Object to) {
@@ -1239,6 +1279,8 @@ public final class OttoExtraConfig {
     }
 
     synchronized void save(Path file) {
+        de.ottoextra.privacy.LocalPrivacy.reconcile(this);
+        de.ottoextra.privacy.ConsentPolicy.reconcile(this);
         if (persistenceBlocked) return;
         try {
             Files.createDirectories(file.getParent());

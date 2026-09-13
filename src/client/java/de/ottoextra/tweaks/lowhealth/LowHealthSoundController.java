@@ -10,7 +10,7 @@ public final class LowHealthSoundController {
 
     public void tick(MinecraftClient client, LowHealthState state,
                      OttoExtraConfig.Tweaks.LowHealth cfg) {
-        if (!cfg.heartbeatEnabled || client.player == null) {
+        if (!cfg.enabled || cfg.reducedMotion || !cfg.heartbeatEnabled || client.player == null) {
             nextBeatAtMs = 0L;
             return;
         }

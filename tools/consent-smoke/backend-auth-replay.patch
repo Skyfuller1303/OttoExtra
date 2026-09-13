@@ -1,0 +1,64 @@
+--- a/includes/v2/auth.php
++++ b/includes/v2/auth.php
+@@ -212,7 +212,12 @@
+     }
+ 
+     // Sofort löschen — Replay-Schutz, single use (Doc 02)
+-    $pdo->prepare('DELETE FROM auth_challenges WHERE server_id = :sid')->execute([':sid' => $serverId]);
++    // The DELETE is the atomic claim: a concurrent reader may already have consumed it.
++    $consume = $pdo->prepare('DELETE FROM auth_challenges WHERE server_id = :sid');
++    $consume->execute([':sid' => $serverId]);
++    if ($consume->rowCount() !== 1) {
++        return null;
++    }
+ 
+     $createdAt = strtotime((string) $row['created_at'] . ' UTC');
+     if ($createdAt === false || time() - $createdAt > v2Config()['challenge_ttl']) {
+--- a/tools/v2-selftest.php
++++ b/tools/v2-selftest.php
+@@ -50,6 +50,7 @@
+ class V2FakeStmt
+ {
+     protected array $params = [];
++    protected int $affectedRows = 0;
+ 
+     public function __construct(protected V2FakePdo $pdo, protected string $sql)
+     {
+@@ -66,10 +67,17 @@
+                 'created_at' => $this->params[':created_at'],
+             ];
+         } elseif (str_starts_with($sql, 'DELETE FROM auth_challenges WHERE server_id')) {
++            if ($this->pdo->loseChallengeDelete) {
++                unset($this->pdo->challenges[$this->params[':sid']]);
++                $this->pdo->loseChallengeDelete = false;
++            }
++            $this->affectedRows = isset($this->pdo->challenges[$this->params[':sid']]) ? 1 : 0;
+             unset($this->pdo->challenges[$this->params[':sid']]);
+         }
+         return true;
+     }
++
++    public function rowCount(): int { return $this->affectedRows; }
+ 
+     public function fetchColumn(): mixed
+     {
+@@ -96,6 +104,7 @@
+     public array $banned = [];
+     public array $revoked = [];
+     public array $challenges = [];
++    public bool $loseChallengeDelete = false;
+ 
+     public function __construct()
+     {
+@@ -232,4 +241,11 @@
+ check(!str_contains($securitySource, 'php://input'), 'Access-Log liest keine Request-Bodies');
+ check(str_contains($securitySource, 'v2LogRequest(string $route') && !str_contains($securitySource, '$serverId'), 'serverId und Tokens sind keine Log-Metadaten');
+ 
++
++
++// Simulate another worker consuming the selected row before this worker deletes it.
++$raceId = v2CreateChallenge($pdo, 'RaceFixture', $uuid);
++$pdo->loseChallengeDelete = true;
++check(v2ConsumeChallenge($pdo, $raceId) === null, 'concurrent challenge loser rejected');
++
+ echo "\nALLE TESTS BESTANDEN\n";

@@ -4,6 +4,10 @@ import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import de.ottoextra.api.model.PlayerRecord;
+import de.ottoextra.config.OttoExtraConfig;
+import de.ottoextra.privacy.ConsentPolicy;
+import de.ottoextra.privacy.ConsentPermit;
+import de.ottoextra.privacy.ConsentHttp;
 import net.fabricmc.loader.api.FabricLoader;
 
 import java.net.URI;
@@ -19,12 +23,14 @@ final class AccountLinkApi {
     private static final int MAX_RESPONSE_CHARS = 262_144;
 
     private final AccountLinkConfig config;
+    private final OttoExtraConfig rootConfig;
     private final HttpClient http = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(5))
             .build();
 
-    AccountLinkApi(AccountLinkConfig config) {
+    AccountLinkApi(AccountLinkConfig config, OttoExtraConfig rootConfig) {
         this.config = config;
+        this.rootConfig = rootConfig;
     }
 
     CompletableFuture<LinkStart> start(String minecraftUuid, String minecraftName) {
@@ -61,6 +67,10 @@ final class AccountLinkApi {
 
     private CompletableFuture<JsonObject> send(
             String method, String path, JsonObject body, boolean authenticated) {
+        // Unlink is an explicit user request to end processing, available even after a withdrawal.
+        ConsentPermit permit = "DELETE".equals(method)
+                ? new ConsentPermit.Gate().capture(() -> true)
+                : ConsentPolicy.capture(rootConfig, ConsentPolicy.Purpose.ONLINE_SERVICES);
         URI uri;
         try {
             uri = endpoint().resolve(path);
@@ -85,12 +95,15 @@ final class AccountLinkApi {
                     .method(method, HttpRequest.BodyPublishers.ofString(GSON.toJson(body)));
         }
 
-        return http.sendAsync(request.build(), HttpResponse.BodyHandlers.ofString())
+        return ConsentHttp.send(http, request.build(), de.ottoextra.privacy.BoundedBody.text(64 * 1024), permit)
                 .thenApply(response -> parse(response.statusCode(), response.body()));
     }
 
     private URI endpoint() {
         URI endpoint = URI.create(config.endpointUrl);
+        if (!ConsentHttp.sameOrigin(endpoint, URI.create("https://ottoextra.dev"))) {
+            throw new IllegalArgumentException("Die Konto-Freigabe gilt nur für https://ottoextra.dev");
+        }
         String host = endpoint.getHost();
         boolean local = "localhost".equalsIgnoreCase(host)
                 || "127.0.0.1".equals(host)
@@ -108,6 +121,8 @@ final class AccountLinkApi {
         URI uri = URI.create(value);
         if (!"https".equalsIgnoreCase(uri.getScheme())
                 || !"ottoextra.dev".equalsIgnoreCase(uri.getHost())
+                || uri.getUserInfo() != null || uri.getFragment() != null
+                || uri.getPort() != -1 && uri.getPort() != 443
                 || !uri.getPath().startsWith("/link/")) {
             throw new IllegalStateException("API lieferte einen ungültigen Anmeldelink");
         }

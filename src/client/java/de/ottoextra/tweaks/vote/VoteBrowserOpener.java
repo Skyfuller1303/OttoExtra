@@ -21,6 +21,8 @@ public final class VoteBrowserOpener {
         this.uriOpener = uriOpener;
     }
 
+    public List<URI> urls() { return voteUrls; }
+
     public void openAll() {
         for (URI voteUrl : voteUrls) {
             try {

@@ -6,6 +6,7 @@ import de.ottoextra.api.auth.ApiAuthService;
 import de.ottoextra.api.auth.ResponseVerifier;
 import de.ottoextra.api.auth.SessionSnapshot;
 import de.ottoextra.config.OttoExtraConfig;
+import de.ottoextra.privacy.ConsentPolicy;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -80,12 +81,14 @@ class ProtectedChatApiTest {
         HttpClient http = HttpClient.newBuilder().executor(executor).build();
         SessionSnapshot session = new SessionSnapshot("Skyfuller1303",
                 UUID.fromString("069a79f4-44e9-4726-a5be-fca90e38aaf5"), "mc-token");
+        OttoExtraConfig config = new OttoExtraConfig();
+        config.api.baseUrl = base;
+        ConsentPolicy.decide(config, ConsentPolicy.Purpose.ONLINE_SERVICES, true,
+                ConsentPolicy.scope(config, ConsentPolicy.Purpose.ONLINE_SERVICES));
         ApiAuthService auth = new ApiAuthService(http, Duration.ofSeconds(5),
                 URI.create(base + "/v2/auth/challenge"),
                 URI.create(base + "/v2/auth/verify"), executor,
-                () -> session, (uuid, token, serverId) -> { }, verifier, Clock.systemUTC());
-        OttoExtraConfig config = new OttoExtraConfig();
-        config.api.baseUrl = base;
+                () -> session, (uuid, token, serverId) -> { }, verifier, Clock.systemUTC(), () -> ConsentPolicy.capture(config, ConsentPolicy.Purpose.ONLINE_SERVICES));
         client = new HttpOttoExtraApiClient(config, executor, http, verifier, auth);
     }
 

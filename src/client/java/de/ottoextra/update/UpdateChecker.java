@@ -5,6 +5,9 @@ import com.google.gson.JsonParser;
 import de.ottoextra.OttoExtra;
 import de.ottoextra.logging.DebugLog;
 import de.ottoextra.config.OttoExtraConfig;
+import de.ottoextra.privacy.ConsentPolicy;
+import de.ottoextra.privacy.ConsentPermit;
+import de.ottoextra.privacy.ConsentHttp;
 import de.ottoextra.welcome.WelcomeScreenManager;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.loader.api.FabricLoader;
@@ -35,11 +38,11 @@ public final class UpdateChecker {
 
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(6))
-            .followRedirects(HttpClient.Redirect.NORMAL)
+            .followRedirects(HttpClient.Redirect.NEVER)
             .build();
 
     private static final AtomicReference<UpdateInfo> PENDING = new AtomicReference<>();
-    private static final AtomicBoolean STARTED = new AtomicBoolean();
+    private static ConsentPermit attempt;
     private static final AtomicBoolean SHOWN_THIS_SESSION = new AtomicBoolean();
 
     private UpdateChecker() {
@@ -49,13 +52,15 @@ public final class UpdateChecker {
         ClientTickEvents.END_CLIENT_TICK.register(UpdateChecker::tick);
     }
 
-    public static void checkAsync() {
-        if (!OttoExtraConfig.active().consent.updateChecks) {
+    public static synchronized void checkAsync() {
+        if (!ConsentPolicy.allowed(OttoExtraConfig.active(), ConsentPolicy.Purpose.UPDATE_CHECKS)) {
+            PENDING.set(null);
             return;
         }
-        if (!STARTED.compareAndSet(false, true)) {
-            return;
-        }
+        if (attempt != null && attempt.valid()) return;
+        PENDING.set(null);
+        ConsentPermit permit = ConsentPolicy.capture(ConsentPolicy.Purpose.UPDATE_CHECKS);
+        attempt = permit;
 
         String currentVersion = installedVersion();
         HttpRequest request = HttpRequest.newBuilder(LATEST_RELEASE_API)
@@ -66,15 +71,15 @@ public final class UpdateChecker {
                 .GET()
                 .build();
 
-        HTTP.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                .thenAccept(response -> handleResponse(currentVersion, response))
+        ConsentHttp.send(HTTP, request, de.ottoextra.privacy.BoundedBody.text(1024 * 1024), permit)
+                .thenAccept(response -> handleResponse(currentVersion, response, permit))
                 .exceptionally(error -> {
                     DebugLog.debug("Update-Pruefung nicht moeglich: {}", rootMessage(error));
                     return null;
                 });
     }
 
-    private static void handleResponse(String currentVersion, HttpResponse<String> response) {
+    private static void handleResponse(String currentVersion, HttpResponse<String> response, ConsentPermit permit) {
         if (response.statusCode() != 200) {
             DebugLog.debug("GitHub-Update-Pruefung antwortete mit HTTP {}.",
                     response.statusCode());
@@ -113,7 +118,9 @@ public final class UpdateChecker {
                     releaseUrl);
 
             MinecraftClient client = MinecraftClient.getInstance();
-            client.execute(() -> PENDING.set(info));
+            client.execute(() -> {
+                if (permit.valid()) permit.commit(() -> PENDING.set(info));
+            });
             OttoExtra.LOGGER.info("Neue OttoExtra-Version verfuegbar: {} (installiert: {}).",
                     info.latestVersion(), info.currentVersion());
         } catch (RuntimeException error) {
@@ -127,6 +134,7 @@ public final class UpdateChecker {
             return;
         }
         checkAsync();
+        if (attempt == null || !attempt.valid()) return;
         if (SHOWN_THIS_SESSION.get()) {
             return;
         }
@@ -141,7 +149,7 @@ public final class UpdateChecker {
         }
 
         PENDING.set(null);
-        client.setScreen(new UpdateAvailableScreen(client.currentScreen, info));
+        attempt.commit(() -> client.setScreen(new UpdateAvailableScreen(client.currentScreen, info)));
     }
 
     private static String installedVersion() {

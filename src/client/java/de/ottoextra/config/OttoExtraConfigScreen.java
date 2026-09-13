@@ -185,8 +185,7 @@ public final class OttoExtraConfigScreen extends Screen {
                         () -> config.resourcepack.autoEnable, v -> config.resourcepack.autoEnable = v);
                 y = toggle(x, y, w, "ottoextra.config.rp.checkOnStartup",
                         () -> config.resourcepack.checkOnStartup, v -> config.resourcepack.checkOnStartup = v);
-                y = toggle(x, y, w, "ottoextra.config.rp.respectUserDisable",
-                        () -> config.resourcepack.respectUserDisable, v -> config.resourcepack.respectUserDisable = v);
+
                 advanced(x, y, w, OttoExtraAdvancedScreen.resourcepack(this, config));
             }
             case REGIONS -> {

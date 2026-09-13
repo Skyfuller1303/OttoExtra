@@ -1,0 +1,437 @@
+diff --git "a/OttoRegions Web/includes/bootstrap.php" "b/OttoRegions Web/includes/bootstrap.php"
+--- "a/OttoRegions Web/includes/bootstrap.php"
++++ "b/OttoRegions Web/includes/bootstrap.php"
+@@ -1,4 +1,5 @@
+ <?php
++require_once __DIR__ . '/rp_name_retention.php';
+ date_default_timezone_set('Europe/Berlin');
+ session_start();
+ 
+@@ -1195,6 +1196,7 @@
+     );
+ 
+     $rpRequestContentTypeCol = $pdo->query("SHOW COLUMNS FROM external_participant_rp_name_request_log LIKE 'content_type'")->fetch();
++    rpNameEnsureRetentionSchema($pdo);
+     if (!$rpRequestContentTypeCol) {
+         $pdo->exec('ALTER TABLE external_participant_rp_name_request_log ADD COLUMN content_type VARCHAR(120) NULL AFTER request_method');
+     }
+diff --git "a/OttoRegions Web/api/index.php" "b/OttoRegions Web/api/index.php"
+--- "a/OttoRegions Web/api/index.php"
++++ "b/OttoRegions Web/api/index.php"
+@@ -5986,15 +5986,7 @@
+     $entityKey = (string) ($row['entity_key'] ?? '');
+     $resolvedUuid = (string) ($row['uuid'] ?? '');
+ 
+-    $stmt = $pdo->prepare('
+-        UPDATE external_participants
+-        SET rp_name = :rp_name
+-        WHERE entity_key = :entity_key
+-    ');
+-    $stmt->execute([
+-        ':rp_name' => $rpName,
+-        ':entity_key' => $entityKey,
+-    ]);
++    rpNameStore($pdo, $entityKey, $rpName);
+ 
+     $reloadedStmt = $pdo->prepare('SELECT * FROM external_participants WHERE entity_key = :entity_key LIMIT 1');
+     $reloadedStmt->execute([':entity_key' => $entityKey]);
+@@ -6113,15 +6105,7 @@
+         jsonResponse(['ok' => false, 'error' => $error], 500);
+     }
+ 
+-    $stmt = $pdo->prepare('
+-        UPDATE external_participants
+-        SET rp_name = :rp_name
+-        WHERE entity_key = :entity_key
+-    ');
+-    $stmt->execute([
+-        ':rp_name' => $rpName,
+-        ':entity_key' => $targetEntityKey,
+-    ]);
++    rpNameStore($pdo, $targetEntityKey, $rpName);
+ 
+     writeParticipantRpNameChangeLog($pdo, $actorRow, $targetRow, $previousRpName, $rpName, 'community_api');
+ 
+diff --git "a/OttoRegions Web/cron/sync_public_endpoints.php" "b/OttoRegions Web/cron/sync_public_endpoints.php"
+--- "a/OttoRegions Web/cron/sync_public_endpoints.php"
++++ "b/OttoRegions Web/cron/sync_public_endpoints.php"
+@@ -19,6 +19,9 @@
+ $baseUrl = rtrim(envValue($env ?? [], 'PUBLIC_API_BASE_URL', 'https://mcp-api.ottonien.com/api/public'), '/');
+ 
+ try {
++    $rpRetention = rpNameCleanup($pdo, true);
++    echo '[rp_names] ' . json_encode($rpRetention, JSON_UNESCAPED_UNICODE) . PHP_EOL;
++
+     $deletedHorses = v2AnimalBreedingCleanupStaleHorses($pdo);
+     echo sprintf("[animal_breeding] %d Pferdeakten nach 60 Tagen geloescht\n", $deletedHorses);
+ 
+diff --git "a/OttoRegions Web/includes/public_sync_runner.php" "b/OttoRegions Web/includes/public_sync_runner.php"
+--- "a/OttoRegions Web/includes/public_sync_runner.php"
++++ "b/OttoRegions Web/includes/public_sync_runner.php"
+@@ -1037,7 +1037,7 @@
+ 
+                 foreach ($colMap as $field => $meta) {
+                     $column = $meta['column'];
+-                    if ($column === 'uuid') {
++                    if ($column === 'uuid' || $column === 'rp_name_expires_at') {
+                         continue;
+                     }
+                     $param = ':c_' . $column;
+@@ -1045,6 +1045,15 @@
+                     $placeholders[] = $param;
+                     $values[$param] = publicSyncNormalizeValue($row[$field] ?? null);
+                     $updates[] = "`{$column}` = VALUES(`{$column}`)";
++                }
++
++                if ($table === 'external_participants' && in_array('rp_name', $columns, true)) {
++                    // Only an upstream RP-name field is a renewed observation. Generic
++                    // player activity / last_seen_at must not keep stale RP names alive.
++                    $columns[] = 'rp_name_expires_at';
++                    $placeholders[] = 'CASE WHEN :rp_present = 1 THEN DATE_ADD(UTC_TIMESTAMP(), INTERVAL 6 MONTH) ELSE NULL END';
++                    $values[':rp_present'] = ($values[':c_rp_name'] ?? null) !== null ? 1 : 0;
++                    $updates[] = '`rp_name_expires_at` = VALUES(`rp_name_expires_at`)';
+                 }
+ 
+                 $sql = sprintf(
+diff --git "a/OttoExtra_Web/datenschutz.php" "b/OttoExtra_Web/datenschutz.php"
+--- "a/OttoExtra_Web/datenschutz.php"
++++ "b/OttoExtra_Web/datenschutz.php"
+@@ -23,7 +23,7 @@
+     <main class="legal-main"><article class="legal-document">
+         <a class="legal-back" href="./">← Zurück zur Startseite</a>
+         <h1>Datenschutzerklärung</h1>
+-        <p class="legal-intro">Stand: 30. Juli 2026</p>
++        <p class="legal-intro">Stand: 11. September 2026</p>
+ 
+         <h2>1. Verantwortlicher</h2>
+         <address>
+@@ -65,18 +65,28 @@
+         <p>Der Kontobereich setzt ausschließlich ein technisch notwendiges Anmelde-Cookie namens <code>ottoextra_account</code>. Es enthält eine zufällige Sitzungskennung, ist mit Secure, HttpOnly und SameSite=Lax geschützt und wird für Anmeldung, Sitzungsverwaltung und Schutz vor gefälschten Formularanfragen benötigt. Die Gültigkeit wird bei Nutzung erneuert und beträgt höchstens sieben Tage seit dem letzten Aufruf; bei der Abmeldung wird das Cookie sofort gelöscht. Einwilligungspflichtige Analyse-, Marketing- oder Tracking-Cookies werden nicht eingesetzt.</p>
+         <p>Die Minecraft-Verknüpfung kann im Konto gelöst werden. Das vollständige Nutzerkonto kann dort nach ausdrücklicher Bestätigung gelöscht werden; dabei werden auch die Verknüpfung und zugehörige Gerätezugänge entfernt. Technisch erforderliche Server-Protokolle bleiben von den unter Abschnitt 2 genannten Fristen unberührt.</p>
+ 
+-        <h2>6. Kontaktaufnahme</h2>
++        <h2 id="rp-namen">6. RP-Namen in OttoExtra und der API</h2>
++        <p>Das RP-Verzeichnis dient dazu, Minecraft-Konten den auf Ottonien verwendeten Rollenspielnamen zuzuordnen und diese Namen in der Mod sowie in zugehörigen Spieleransichten anzuzeigen. Verarbeitet werden Minecraft-UUID, Minecraft-Accountname und zugeordneter RP-Name. Angaben können aus den Ottonien-Spielerdaten, aus manuellen Einträgen des Betreibers und aus bereits übermittelten RP-Beobachtungen stammen. Minecraft-Namen und UUIDs werden dabei nicht als anonyme Daten behandelt.</p>
++        <p>Website, OttoExtra-API und deren Datenbank werden bei netcup auf Servern in Deutschland betrieben. Verantwortlicher und Kontakt sind in Abschnitt 1 genannt. Aktuelle RP-Zuordnungen können über Spieler-API-Abfragen an die Mod und weitere abrufende Anwendungen ausgegeben werden. Die Zuordnungen sind deshalb nicht ausschließlich für den Betreiber sichtbar. Davon getrennte Änderungs- und Anfrageprotokolle sind nur im zugriffsgeschützten Verwaltungsbereich für berechtigte Administration zugänglich.</p>
++        <p>Für die technische Bereitstellung, Pflege und Absicherung des RP-Verzeichnisses ist das berechtigte Interesse an einer korrekten Namenszuordnung und einem zuverlässigen Betrieb maßgeblich (Art. 6 Abs. 1 lit. f DSGVO). Die Erforderlichkeit und die Interessen betroffener Spieler sind dabei zu berücksichtigen. Ein Widerspruch gegen die Verarbeitung kann über den Kontakt in Abschnitt 1 eingereicht werden.</p>
++        <p><strong>Automatisches Teilen beobachteter RP-Namen ist im aktuellen OttoExtra-Build deaktiviert.</strong> Vor einer erneuten Aktivierung müssen die Grundlage für die Erfassung fremder Spielernamen und die Information dieser Spieler geklärt sein. Die Zustimmung des hochladenden Mod-Nutzers ist keine Einwilligung im Namen der beobachteten Spieler. Ablehnen im Einrichtungsassistenten verhindert nicht die weitere Einrichtung der Mod.</p>
++        <p>Bereits vorhandene RP-Anfrageprotokolle können zusätzlich Absender- und Zielaccount, angefragten RP-Namen, Anfragezeitpunkt, Ergebnis, IP-Adresse und User-Agent enthalten. Änderungsprotokolle können den vorherigen und neuen RP-Namen enthalten. Diese Protokolle dienen der Nachvollziehbarkeit von Änderungen und der Untersuchung fehlerhafter oder missbräuchlicher Anfragen; sie werden nicht als öffentliches Namensarchiv bereitgestellt.</p>
++        <p><strong>Aufbewahrung:</strong> Die serverseitige RP-Zuordnung wird sechs Kalendermonate ab ihrer letzten ausdrücklichen Bestätigung oder Aktualisierung aufbewahrt und anschließend beim regelmäßigen Bereinigungslauf entfernt. Reines Abrufen oder gewöhnliche Spieleraktivität verlängert diese Frist nicht. Für vorhandene Zuordnungen ohne belegbaren Zeitpunkt beginnt einmalig mit der Einführung der Bereinigung eine sechsmonatige Übergangsfrist. Änderungs- und RP-Anfrageprotokolle werden sechs Kalendermonate ab ihrem jeweiligen Eintrag aufbewahrt und danach bereinigt. Fehlende Protokollzeitpunkte erhalten ebenfalls einmalig eine sechsmonatige Übergangsfrist. Andere Spielerdaten werden durch diese RP-Namensbereinigung nicht gelöscht.</p>
++        <p>Die sechs Monate schließen eine frühere Berichtigung oder eine nach den gesetzlichen Voraussetzungen erforderliche Löschung nicht aus. Auskunft, Berichtigung, Löschung und Widerspruch können beim Kontakt in Abschnitt 1 beantragt werden. Zur Zuordnung genügt zunächst die Minecraft-UUID oder der Accountname; bei Bedarf wird ein geeigneter Nachweis der Kontozugehörigkeit angefordert. Bitte keine Minecraft-, Microsoft- oder Discord-Passwörter senden.</p>
++        <p>Die serverseitige Bereinigung kann bereits abgerufene lokale Kopien auf Spielerrechnern nicht nachträglich entfernen. Lokale RP-Daten und selbst angelegte Exporte werden gesondert auf dem jeweiligen Gerät verwaltet. Die genannten Fristen beziehen sich auf den laufenden RP-Datenbestand und seine RP-Protokolle; Sicherungskopien müssen gesondert in die Aufbewahrungs- und Löschverwaltung einbezogen werden. Vor einer Wiederherstellung müssen bereits abgelaufene oder zu löschende RP-Daten erneut berücksichtigt werden.</p>
++
++        <h2>7. Kontaktaufnahme</h2>
+         <p>Bei einer Kontaktaufnahme per E-Mail werden die übermittelten Angaben zur Bearbeitung der Anfrage verarbeitet. Rechtsgrundlage ist je nach Inhalt Art. 6 Abs. 1 lit. b DSGVO oder Art. 6 Abs. 1 lit. f DSGVO. Die Daten werden gelöscht, sobald die Anfrage abschließend bearbeitet wurde und keine gesetzlichen Aufbewahrungspflichten oder berechtigten Gründe für eine weitere Speicherung bestehen.</p>
+         <p>Eine Kontaktaufnahme über Discord erfolgt freiwillig über einen externen Dienst. Dabei gelten zusätzlich die Datenschutzbestimmungen des jeweiligen Discord-Anbieters.</p>
+ 
+-        <h2>7. Rechte betroffener Personen</h2>
++        <h2>8. Rechte betroffener Personen</h2>
+         <p>Betroffene Personen haben nach Maßgabe der gesetzlichen Voraussetzungen insbesondere das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit und Widerspruch gegen Verarbeitungen auf Grundlage berechtigter Interessen. Erteilte Einwilligungen können jederzeit mit Wirkung für die Zukunft widerrufen werden.</p>
+         <p>Außerdem besteht das Recht, sich bei einer Datenschutzaufsichtsbehörde zu beschweren. Zuständig ist insbesondere das Unabhängige Landeszentrum für Datenschutz Schleswig-Holstein oder die Aufsichtsbehörde am eigenen Aufenthaltsort.</p>
+ 
+-        <h2>8. Verschlüsselung</h2>
++        <h2>9. Verschlüsselung</h2>
+         <p>Die Website wird über HTTPS übertragen. Dadurch werden die zwischen Browser und Server ausgetauschten Daten während der Übertragung verschlüsselt.</p>
+ 
+-        <h2>9. Änderungen dieser Erklärung</h2>
++        <h2>10. Änderungen dieser Erklärung</h2>
+         <p>Diese Datenschutzerklärung wird angepasst, wenn sich die Website, die eingesetzten Dienste oder die rechtlichen Anforderungen ändern.</p>
+     </article></main>
+     <footer class="legal-footer"><div class="container"><span>OttoExtra</span><nav class="legal-footer__links" aria-label="Rechtliches"><a href="impressum">Impressum</a><a href="datenschutz" aria-current="page">Website-Datenschutz</a><a href="datenschutz-translate">TranslateUtils-Datenschutz</a></nav></div></footer>
+diff --git "a/OttoRegions Web/includes/rp_name_retention.php" "b/OttoRegions Web/includes/rp_name_retention.php"
+--- /dev/null
++++ "b/OttoRegions Web/includes/rp_name_retention.php"
+@@ -0,0 +1,142 @@
++<?php
++
++declare(strict_types=1);
++
++/** Retention of RP-name mappings only; does not delete imported player accounts. */
++function rpNameTableExists(PDO $pdo, string $table): bool
++{
++    $stmt = $pdo->prepare('SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?');
++    $stmt->execute([$table]);
++    return (bool) $stmt->fetchColumn();
++}
++
++function rpNameEnsureRetentionSchema(PDO $pdo): void
++{
++    if (!rpNameTableExists($pdo, 'external_participants')) {
++        return;
++    }
++    $columns = $pdo->query('SHOW COLUMNS FROM external_participants')->fetchAll(PDO::FETCH_COLUMN);
++    if (!in_array('rp_name', $columns, true)) {
++        return;
++    }
++    if (!in_array('rp_name_expires_at', $columns, true)) {
++        try {
++            $pdo->exec('ALTER TABLE external_participants ADD COLUMN rp_name_expires_at DATETIME NULL');
++        } catch (PDOException $error) {
++            // Another request may have added the same column during startup.
++            $fresh = $pdo->query('SHOW COLUMNS FROM external_participants')->fetchAll(PDO::FETCH_COLUMN);
++            if (!in_array('rp_name_expires_at', $fresh, true)) {
++                throw $error;
++            }
++        }
++    }
++    $indexes = $pdo->query('SHOW INDEX FROM external_participants')->fetchAll(PDO::FETCH_ASSOC);
++    if (!in_array('idx_rp_name_expiry', array_column($indexes, 'Key_name'), true)) {
++        try {
++            $pdo->exec('CREATE INDEX idx_rp_name_expiry ON external_participants (rp_name_expires_at)');
++        } catch (PDOException $error) {
++            $fresh = $pdo->query('SHOW INDEX FROM external_participants')->fetchAll(PDO::FETCH_ASSOC);
++            if (!in_array('idx_rp_name_expiry', array_column($fresh, 'Key_name'), true)) {
++                throw $error;
++            }
++        }
++    }
++}
++
++/** Only an explicit RP-name write renews the term, never a read or ordinary player sync. */
++function rpNameStore(PDO $pdo, string $entityKey, ?string $name): void
++{
++    $stmt = $pdo->prepare('UPDATE external_participants
++        SET rp_name = :name,
++            rp_name_expires_at = CASE WHEN :has_name = 1 THEN DATE_ADD(UTC_TIMESTAMP(), INTERVAL 6 MONTH) ELSE NULL END
++        WHERE entity_key = :entity_key');
++    $stmt->execute([':name' => $name, ':has_name' => $name !== null ? 1 : 0, ':entity_key' => $entityKey]);
++}
++
++/**
++ * Bounded, transactional batches. UTC calendar months (including month-end clamping).
++ * Legacy mappings with no provenance date receive six months from their first cleanup.
++ * Dry runs neither backfill dates nor delete data. Schema changes must precede this call.
++ */
++function rpNameCleanup(PDO $pdo, bool $apply = false, ?DateTimeImmutable $asOf = null, int $batchSize = 500, int $maxBatches = 20): array
++{
++    if ($pdo->inTransaction()) {
++        throw new LogicException('RP retention must run outside an existing transaction.');
++    }
++    if ($batchSize < 1 || $batchSize > 1000 || $maxBatches < 1 || $maxBatches > 100) {
++        throw new InvalidArgumentException('Invalid RP retention batch limits.');
++    }
++    $asOf = ($asOf ?? new DateTimeImmutable('now', new DateTimeZone('UTC')))->setTimezone(new DateTimeZone('UTC'));
++    $sessionZone = (string) $pdo->query('SELECT @@session.time_zone')->fetchColumn();
++    try {
++        // TIMESTAMP log columns must be compared to the same UTC clock as DATETIME expiry.
++        $pdo->exec("SET time_zone = '+00:00'");
++        return rpNameCleanupUtc($pdo, $apply, $asOf, $batchSize, $maxBatches);
++    } finally {
++        $pdo->exec('SET time_zone = ' . $pdo->quote($sessionZone));
++    }
++}
++
++function rpNameCleanupUtc(PDO $pdo, bool $apply, DateTimeImmutable $asOf, int $batchSize, int $maxBatches): array
++{
++    $now = $asOf->format('Y-m-d H:i:s');
++    $jobs = [];
++    if (rpNameTableExists($pdo, 'external_participants')) {
++        $jobs['legacy_initialized'] = [
++            'external_participants', 'rp_name IS NOT NULL AND rp_name_expires_at IS NULL',
++            'UPDATE external_participants SET rp_name_expires_at = DATE_ADD(:migration_now, INTERVAL 6 MONTH)',
++            [':migration_now' => $now], [],
++        ];
++        $jobs['names_expired'] = [
++            'external_participants', 'rp_name_expires_at <= :cutoff',
++            'UPDATE external_participants SET rp_name = NULL, rp_name_expires_at = NULL',
++            [':cutoff' => $now], [':cutoff' => $now],
++        ];
++    }
++    foreach (['changes_deleted' => 'external_participant_rp_name_log', 'requests_deleted' => 'external_participant_rp_name_request_log'] as $key => $table) {
++        if (rpNameTableExists($pdo, $table)) {
++            $jobs[str_replace('_deleted', '_initialized', $key)] = [
++                $table, 'created_at IS NULL', 'UPDATE ' . $table . ' SET created_at = :migration_now',
++                [':migration_now' => $now], [],
++            ];
++            // The indexed bound narrows the scan; DATE_ADD implements exact calendar months.
++            $where = 'created_at <= :candidate AND DATE_ADD(created_at, INTERVAL 6 MONTH) <= :cutoff';
++            $params = [':candidate' => $asOf->modify('-5 months')->format('Y-m-d H:i:s'), ':cutoff' => $now];
++            $jobs[$key] = [$table, $where, 'DELETE FROM ' . $table, $params, $params];
++        }
++    }
++    $result = ['as_of_utc' => $now, 'apply' => $apply, 'legacy_initialized' => 0,
++        'names_expired' => 0, 'changes_initialized' => 0, 'requests_initialized' => 0,
++        'changes_deleted' => 0, 'requests_deleted' => 0, 'remaining' => []];
++    foreach ($jobs as $key => [$table, $where, $mutation, $params, $countParams]) {
++        $count = $pdo->prepare('SELECT COUNT(*) FROM ' . $table . ' WHERE ' . $where);
++        $count->execute($countParams);
++        $available = (int) $count->fetchColumn();
++        if (!$apply) {
++            $result[$key] = $available;
++            continue;
++        }
++        $stmt = $pdo->prepare($mutation . ' WHERE ' . $where . ' LIMIT ' . $batchSize);
++        for ($batch = 0; $batch < $maxBatches && $available > 0; $batch++) {
++            $pdo->beginTransaction();
++            try {
++                $stmt->execute($params);
++                $changed = $stmt->rowCount();
++                $pdo->commit();
++            } catch (Throwable $error) {
++                if ($pdo->inTransaction()) {
++                    $pdo->rollBack();
++                }
++                throw $error;
++            }
++            $result[$key] += $changed;
++            $available -= $changed;
++            if ($changed < $batchSize) {
++                break;
++            }
++        }
++        $count->execute($countParams);
++        $result['remaining'][$key] = (int) $count->fetchColumn();
++    }
++    return $result;
++}
+diff --git "a/OttoRegions Web/tools/rp-name-retention.php" "b/OttoRegions Web/tools/rp-name-retention.php"
+--- /dev/null
++++ "b/OttoRegions Web/tools/rp-name-retention.php"
+@@ -0,0 +1,29 @@
++<?php
++
++declare(strict_types=1);
++
++if (PHP_SAPI !== 'cli') {
++    http_response_code(404);
++    exit;
++}
++
++$arguments = array_slice($argv, 1);
++if (array_diff($arguments, ['--apply', '--dry-run']) !== []
++    || (in_array('--apply', $arguments, true) && in_array('--dry-run', $arguments, true))) {
++    fwrite(STDERR, "Usage: php tools/rp-name-retention.php [--dry-run|--apply]\n");
++    exit(2);
++}
++// Bootstrap includes the existing database configuration and additive schema migration.
++// Default mode previews counts; it never initializes dates or deletes RP content.
++require_once __DIR__ . '/../includes/bootstrap.php';
++if (!$pdo instanceof PDO) {
++    fwrite(STDERR, "Database connection unavailable.\n");
++    exit(1);
++}
++try {
++    $result = rpNameCleanup($pdo, in_array('--apply', $arguments, true));
++    echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . PHP_EOL;
++} catch (Throwable $error) {
++    fwrite(STDERR, 'RP retention failed: ' . $error->getMessage() . PHP_EOL);
++    exit(1);
++}
+diff --git "a/OttoRegions Web/tools/rp-name-retention-selftest.php" "b/OttoRegions Web/tools/rp-name-retention-selftest.php"
+--- /dev/null
++++ "b/OttoRegions Web/tools/rp-name-retention-selftest.php"
+@@ -0,0 +1,114 @@
++<?php
++
++declare(strict_types=1);
++if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
++require_once __DIR__ . '/../includes/rp_name_retention.php';
++
++// Explicit disposable loopback databases only; never read the project's .env.
++$port = (int) ($argv[1] ?? 33317);
++if (!in_array($port, [33316, 33317], true)) { throw new RuntimeException('QA loopback port required'); }
++$pdo = new PDO("mysql:host=127.0.0.1;port={$port};charset=utf8mb4", 'root', 'local-qa-only', [
++    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false,
++]);
++$database = 'ottoextra_rp_qa_' . getmypid();
++$pdo->exec('CREATE DATABASE `' . $database . '`');
++$pdo->exec('USE `' . $database . '`');
++$pdo->exec("SET time_zone = '+00:00'");
++$passed = 0;
++function check(bool $ok, string $message): void {
++    global $passed;
++    if (!$ok) { throw new RuntimeException($message); }
++    echo 'ok: ' . $message . PHP_EOL;
++    $passed++;
++}
++function at(string $time): DateTimeImmutable { return new DateTimeImmutable($time, new DateTimeZone('UTC')); }
++function value(PDO $pdo, string $key, string $column = 'rp_name_expires_at'): mixed {
++    if (!in_array($column, ['rp_name_expires_at', 'rp_name', 'name'], true)) { throw new LogicException('Column'); }
++    $stmt = $pdo->prepare('SELECT ' . $column . ' FROM external_participants WHERE entity_key = ?');
++    $stmt->execute([$key]);
++    return $stmt->fetchColumn();
++}
++try {
++    $pdo->exec('CREATE TABLE external_participants (entity_key VARCHAR(191) PRIMARY KEY,
++        name VARCHAR(120), rp_name VARCHAR(120), last_seen_at DATETIME) ENGINE=InnoDB');
++    foreach (['external_participant_rp_name_log', 'external_participant_rp_name_request_log'] as $table) {
++        $pdo->exec('CREATE TABLE ' . $table . ' (id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
++            created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP, payload_json TEXT) ENGINE=InnoDB');
++    }
++    $pdo->exec("INSERT INTO external_participants VALUES ('legacy', 'Account', 'Old RP', '2026-09-11')");
++    rpNameEnsureRetentionSchema($pdo);
++    rpNameEnsureRetentionSchema($pdo);
++    check(value($pdo, 'legacy', 'rp_name') === 'Old RP', 'Schema migration preserves existing names');
++    check(value($pdo, 'legacy') === null, 'Schema migration does not invent an observation time');
++    $now = at('2026-09-11 12:00:00');
++    $dry = rpNameCleanup($pdo, false, $now);
++    check($dry['legacy_initialized'] === 1 && value($pdo, 'legacy') === null, 'Dry run leaves content and dates untouched');
++    rpNameCleanup($pdo, true, $now);
++    check(value($pdo, 'legacy') === '2027-03-11 12:00:00', 'Unknown legacy age receives six calendar months');
++    rpNameCleanup($pdo, true, at('2026-09-12 12:00:00'));
++    check(value($pdo, 'legacy') === '2027-03-11 12:00:00', 'Repeated cleanup never renews the legacy grace period');
++    rpNameStore($pdo, 'legacy', 'New RP');
++    check(value($pdo, 'legacy', 'rp_name') === 'New RP', 'Explicit name writes work');
++    $seconds = (int) $pdo->query("SELECT ABS(TIMESTAMPDIFF(SECOND, rp_name_expires_at, DATE_ADD(UTC_TIMESTAMP(), INTERVAL 6 MONTH))) FROM external_participants WHERE entity_key = 'legacy'")->fetchColumn();
++    check($seconds <= 2, 'Explicit name write sets a six-calendar-month deadline');
++    rpNameStore($pdo, 'legacy', null);
++    check(value($pdo, 'legacy') === null && value($pdo, 'legacy', 'rp_name') === null, 'Manual deletion is possible before six months');
++
++    $insert = $pdo->prepare('INSERT INTO external_participants (entity_key, name, rp_name, rp_name_expires_at, last_seen_at) VALUES (?, ?, ?, ?, ?)');
++    $insert->execute(['expired', 'Preserve Account', 'Expired RP', '2026-09-11 12:00:00', '2030-01-01']);
++    $insert->execute(['fresh', 'Fresh Account', 'Fresh RP', '2026-09-11 12:00:01', '2026-09-11']);
++    $pdo->exec("SET time_zone = '+02:00'");
++    $clean = rpNameCleanup($pdo, true, $now);
++    check($clean['names_expired'] === 1, 'Deadline equality expires only the eligible mapping');
++    check(value($pdo, 'expired', 'name') === 'Preserve Account', 'Player account fields survive RP expiry');
++    check(value($pdo, 'fresh', 'rp_name') === 'Fresh RP', 'A mapping one second younger remains');
++    check($pdo->query('SELECT @@session.time_zone')->fetchColumn() === '+02:00', 'Caller session time zone is restored');
++    $pdo->exec("SET time_zone = '+00:00'");
++
++    foreach (['external_participant_rp_name_log', 'external_participant_rp_name_request_log'] as $table) {
++        $pdo->exec("INSERT INTO {$table} (created_at,payload_json) VALUES
++            ('2026-08-31 10:00:00','expired'),('2026-08-31 10:00:01','fresh'),(NULL,'undated')");
++    }
++    $pdo->exec("SET time_zone = '+02:00'");
++    $preview = rpNameCleanup($pdo, false, at('2027-02-28 10:00:00'));
++    check($preview['changes_deleted'] === 1 && $preview['requests_deleted'] === 1, 'Month-end preview uses exact UTC calendar months');
++    $clean = rpNameCleanup($pdo, true, at('2027-02-28 10:00:00'));
++    check($clean['changes_deleted'] === 1 && $clean['requests_deleted'] === 1, 'Both logs expire at the clamped February deadline');
++    check($clean['changes_initialized'] === 1 && $clean['requests_initialized'] === 1, 'Undated logs get a dated grace period');
++    $pdo->exec("SET time_zone = '+00:00'");
++    check((int) $pdo->query("SELECT COUNT(*) FROM external_participant_rp_name_log WHERE payload_json = 'fresh'")->fetchColumn() === 1, 'Newer history survives cleanup');
++    $pdo->exec("INSERT INTO external_participant_rp_name_log (created_at) VALUES ('2023-08-31 10:00:00')");
++    check(rpNameCleanup($pdo, false, at('2024-02-29 09:59:59'))['changes_deleted'] === 0, 'Leap-day boundary does not delete early');
++    check(rpNameCleanup($pdo, true, at('2024-02-29 10:00:00'))['changes_deleted'] === 1, 'Leap-year February has the correct deadline');
++
++    for ($i = 0; $i < 501; $i++) {
++        $insert->execute(['batch-' . $i, 'Synthetic', 'RP', '2020-01-01', '2030-01-01']);
++        $pdo->exec("INSERT INTO external_participant_rp_name_request_log (created_at) VALUES ('2020-01-01')");
++    }
++    $limited = rpNameCleanup($pdo, true, $now, 500, 1);
++    check($limited['names_expired'] === 500 && $limited['remaining']['names_expired'] === 1, 'Bounded name batch reports remaining work');
++    check($limited['requests_deleted'] === 500 && $limited['remaining']['requests_deleted'] === 1, 'Bounded request batch reports remaining work');
++    $rest = rpNameCleanup($pdo, true, $now);
++    check($rest['names_expired'] === 1 && $rest['requests_deleted'] === 1, 'Next run completes remaining batches');
++    $repeat = rpNameCleanup($pdo, true, $now);
++    check($repeat['names_expired'] === 0 && $repeat['requests_deleted'] === 0, 'Repeated cleanup is idempotent');
++
++    foreach (['rollback-1', 'rollback-2'] as $key) { $insert->execute([$key, 'Synthetic', 'Keep', '2020-01-01', '2020-01-01']); }
++    $pdo->exec("CREATE TRIGGER rp_qa_fail BEFORE UPDATE ON external_participants FOR EACH ROW BEGIN
++        IF OLD.entity_key = 'rollback-2' AND NEW.rp_name IS NULL THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'synthetic rollback'; END IF; END");
++    $pdo->exec("SET time_zone = '+02:00'");
++    $failed = false;
++    try { rpNameCleanup($pdo, true, $now); } catch (PDOException $error) { $failed = str_contains($error->getMessage(), 'synthetic rollback'); }
++    check($failed && value($pdo, 'rollback-1', 'rp_name') === 'Keep' && value($pdo, 'rollback-2', 'rp_name') === 'Keep', 'Failed batch rolls back all row changes');
++    check(!$pdo->inTransaction(), 'Failed cleanup leaves no open transaction');
++    check($pdo->query('SELECT @@session.time_zone')->fetchColumn() === '+02:00', 'Failure also restores the session time zone');
++    $pdo->exec('DROP TRIGGER rp_qa_fail');
++    $pdo->beginTransaction();
++    try { rpNameCleanup($pdo); check(false, 'Nested transaction must be rejected'); }
++    catch (LogicException $expected) { check($pdo->inTransaction(), 'Caller transaction is neither committed nor rolled back'); }
++    $pdo->rollBack();
++    echo "PASS: {$passed} RP retention checks on port {$port}\n";
++} finally {
++    if ($pdo->inTransaction()) { $pdo->rollBack(); }
++    $pdo->exec('DROP DATABASE `' . $database . '`');
++}

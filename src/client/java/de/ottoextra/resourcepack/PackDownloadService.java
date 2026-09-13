@@ -4,6 +4,9 @@ import de.ottoextra.OttoExtra;
 import de.ottoextra.api.ApiProblem;
 import de.ottoextra.config.OttoExtraPaths;
 import de.ottoextra.config.OttoExtraConfig;
+import de.ottoextra.privacy.ConsentPolicy;
+import de.ottoextra.privacy.ConsentPermit;
+import de.ottoextra.privacy.ConsentHttp;
 
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -39,31 +42,33 @@ public final class PackDownloadService {
     }
 
     public CompletableFuture<Path> download(URI zipUri, String expectedSha) {
-        if (!downloadsAllowed()) {
-            return CompletableFuture.failedFuture(
-                    new IllegalStateException("Resourcepack-Download nicht erlaubt"));
-        }
+        var config = OttoExtraConfig.active();
+        return download(zipUri, expectedSha, ConsentPolicy.capture(config, ConsentPolicy.Purpose.RESOURCE_PACKS),
+                URI.create(config.resourcepack.effectiveSource()));
+    }
+
+    public CompletableFuture<Path> download(URI zipUri, String expectedSha, ConsentPermit permit, URI source) {
         HttpRequest request = HttpRequest.newBuilder(zipUri)
                 .timeout(requestTimeout)
                 .header("Accept", "application/zip")
                 .header("User-Agent", "OttoExtra-resourcepack")
                 .GET()
                 .build();
-        return http.sendAsync(request, HttpResponse.BodyHandlers.ofInputStream())
-                .thenApplyAsync(resp -> handle(zipUri, resp, expectedSha), worker);
-    }
-
-    private Path handle(URI uri, HttpResponse<InputStream> resp, String expectedSha) {
-        return handle(uri, resp, expectedSha, OttoExtraPaths::resourcepackTmp);
+        return ConsentHttp.download(http, request, permit, target -> ConsentHttp.packTarget(target, source))
+                .thenApplyAsync(resp -> handle(zipUri, resp, expectedSha, OttoExtraPaths::resourcepackTmp, permit), worker);
     }
 
     Path handle(URI uri, HttpResponse<InputStream> resp, String expectedSha, Supplier<Path> target) {
+        return handle(uri, resp, expectedSha, target, ConsentPolicy.capture(ConsentPolicy.Purpose.RESOURCE_PACKS));
+    }
+
+    Path handle(URI uri, HttpResponse<InputStream> resp, String expectedSha, Supplier<Path> target, ConsentPermit permit) {
         Path tmp = null;
-        try (InputStream in = resp.body()) {
+        try (InputStream in = permit.guard(resp.body())) {
             if (resp.statusCode() / 100 != 2) {
                 throw ApiProblem.httpStatus(uri, resp.statusCode()).toException();
             }
-            requireDownloadAllowed();
+            permit.require();
             tmp = target.get();
             Files.createDirectories(tmp.getParent());
             MessageDigest sha = MessageDigest.getInstance("SHA-256");
@@ -72,7 +77,7 @@ public final class PackDownloadService {
                 byte[] buf = new byte[BUFFER];
                 int n;
                 while ((n = in.read(buf)) != -1) {
-                    requireDownloadAllowed();
+                    permit.require();
                     total += n;
                     if (total > maxBytes) {
                         throw ApiProblem.parse(uri, "Download ueberschreitet Limit (" + maxBytes + " B)").toException();
@@ -82,7 +87,7 @@ public final class PackDownloadService {
                 }
             }
 
-            requireDownloadAllowed();
+            permit.require();
 
             if (expectedSha != null && !expectedSha.isBlank()) {
                 String got = HexFormat.of().formatHex(sha.digest());
@@ -92,6 +97,7 @@ public final class PackDownloadService {
             }
 
             verifyZip(uri, tmp);
+            permit.require();
             OttoExtra.LOGGER.info("[resourcepack] Download ok ({} B) -> {}", total, tmp.getFileName());
             return tmp;
         } catch (ApiProblem.ApiException e) {
@@ -105,14 +111,7 @@ public final class PackDownloadService {
 
     static boolean downloadsAllowed() {
         var config = OttoExtraConfig.active();
-        return config != null && config.resourcepack.enabled
-                && config.consent.automaticResourcePackDownloads;
-    }
-
-    private static void requireDownloadAllowed() {
-        if (!downloadsAllowed() || Thread.currentThread().isInterrupted()) {
-            throw new java.util.concurrent.CancellationException("Resourcepack-Download abgebrochen");
-        }
+        return ConsentPolicy.allowed(config, ConsentPolicy.Purpose.RESOURCE_PACKS);
     }
 
     private static void verifyZip(URI uri, Path file) {

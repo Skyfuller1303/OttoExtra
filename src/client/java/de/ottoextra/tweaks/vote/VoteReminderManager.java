@@ -103,18 +103,15 @@ public final class VoteReminderManager {
         }
 
         if (activeToast != null && openKeyPressed && canOpenVotePages(client)) {
-            OttoExtra.LOGGER.info("Enter erkannt, öffne {} Vote-Seiten.",
-                    config.validatedVoteUris().size());
-            openVotePages(
-                    client.player.getGameProfile().name(),
-                    client.keyboard::setClipboard,
-                    browserOpener::openAll
-            );
-            config.complete(voteDay);
-            save.run();
+            String username = client.player.getGameProfile().name();
             hideToast();
-            nextReminderAt = NEVER;
-            client.player.sendMessage(Text.translatable("ottoextra.tweaks.vote.completed"), false);
+            nextReminderAt = now + minutesToMillis(config.reminderIntervalMinutes);
+            if (config.requiresOpeningNotice()) {
+                client.setScreen(new VoteConsentScreen(username, browserOpener.urls(),
+                        () -> openAndComplete(client, username, true)));
+            } else {
+                openAndComplete(client, username, false);
+            }
             return;
         }
 
@@ -171,6 +168,11 @@ public final class VoteReminderManager {
         }
 
         boolean keyDown = isOpenKeyDown(client);
+        if (client.currentScreen != null || client.getOverlay() != null) {
+            suppressOpenKeyUntilRelease = true;
+            enterKeyDown = keyDown;
+            return false;
+        }
         if (suppressOpenKeyUntilRelease) {
             enterKeyDown = keyDown;
             if (!keyDown) {
@@ -191,7 +193,7 @@ public final class VoteReminderManager {
     }
 
     private boolean canOpenVotePages(MinecraftClient client) {
-        return canOpenVotePages(
+        return config.enabled && canOpenVotePages(
                 targetServerConnected,
                 activeToast != null,
                 client.currentScreen != null,
@@ -228,6 +230,21 @@ public final class VoteReminderManager {
         browserOpener.run();
     }
 
+    private void openAndComplete(MinecraftClient client, String username, boolean acceptOpeningNotice) {
+        if (!config.enabled || !targetServerConnected || client.player == null || client.world == null
+                || !username.equals(client.player.getGameProfile().name())) {
+            return;
+        }
+        if (acceptOpeningNotice) {
+            config.acceptOpeningNotice();
+        }
+        openVotePages(username, client.keyboard::setClipboard, browserOpener::openAll);
+        config.complete(config.voteDay(clock.instant()));
+        save.run();
+        nextReminderAt = NEVER;
+        client.player.sendMessage(Text.translatable("ottoextra.tweaks.vote.completed"), false);
+    }
+
     private void refreshVoteDay(long now, boolean force) {
         if (!force && now < nextCalendarCheckAt) {
             return;
@@ -257,7 +274,11 @@ public final class VoteReminderManager {
         suppressOpenKeyUntilRelease = true;
 
         long durationMillis = secondsToMillis(config.toastDurationSeconds);
-        activeToast = new VoteReminderToast(durationMillis, messageCatalog.next());
+        activeToast = new VoteReminderToast(
+                durationMillis,
+                messageCatalog.next(),
+                config.requiresOpeningNotice()
+        );
         testToast = test;
         toastEndsAt = now + durationMillis;
         nextReminderAt = NEVER;

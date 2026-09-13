@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "package": "de.ottoextra.qa.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "SkinEndpointMixin",
+    "OverlayProbeMixin",
+    "SoundProbeMixin",
+    "ServerScopeMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

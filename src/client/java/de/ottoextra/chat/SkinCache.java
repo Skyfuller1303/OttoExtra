@@ -10,8 +10,9 @@ import de.ottoextra.OttoExtra;
 import de.ottoextra.config.OttoExtraPaths;
 import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.logging.DebugLog;
+import de.ottoextra.privacy.ConsentHttp;
+import de.ottoextra.privacy.ConsentPolicy;
 
-import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -40,7 +41,10 @@ public final class SkinCache {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
     private static final Map<UUID, Cached> MAP = new ConcurrentHashMap<>();
     private static volatile boolean dirty;
+    private static final java.util.concurrent.Semaphore DOWNLOAD_SLOTS = new java.util.concurrent.Semaphore(4);
+    private static final Map<UUID, Long> RETRY_AT = new ConcurrentHashMap<>();
 
+    private static final Set<UUID> PNG_IN_FLIGHT = ConcurrentHashMap.newKeySet();
     private static final Set<UUID> PNG_DONE = ConcurrentHashMap.newKeySet();
     private static final Set<UUID> PNG_DOWNLOAD_FAILURES = ConcurrentHashMap.newKeySet();
     private static final Set<UUID> PNG_LOAD_FAILURES = ConcurrentHashMap.newKeySet();
@@ -61,7 +65,7 @@ public final class SkinCache {
     public static void load() {
         Path f = file();
         try {
-            if (!Files.exists(f)) {
+            if (!Files.exists(f) || Files.size(f) > 8 * 1024 * 1024) {
                 return;
             }
             Map<String, Cached> raw = GSON.fromJson(Files.readString(f, StandardCharsets.UTF_8),
@@ -69,7 +73,7 @@ public final class SkinCache {
             if (raw != null) {
                 raw.forEach((id, c) -> {
                     UUID uuid = parse(id);
-                    if (uuid != null && c != null && c.value != null) {
+                    if (uuid != null && c != null && c.value != null && c.value.length() <= 16384 && MAP.size() < 4096) {
                         MAP.put(uuid, c);
                     }
                 });
@@ -87,7 +91,8 @@ public final class SkinCache {
             return;
         }
         Property prop = gp.properties().get("textures").stream().findFirst().orElse(null);
-        if (prop == null || prop.value() == null || prop.value().isBlank()) {
+        if (prop == null || prop.value() == null || prop.value().isBlank() || prop.value().length() > 16384
+                || !MAP.containsKey(gp.id()) && MAP.size() >= 4096) {
             return;
         }
         Cached old = MAP.get(gp.id());
@@ -104,14 +109,21 @@ public final class SkinCache {
         ensurePng(gp.id(), prop.value(), changed);
     }
 
+    public static void requestPng(UUID uuid) {
+        Cached cached = uuid == null ? null : MAP.get(uuid);
+        if (cached != null) ensurePng(uuid, cached.value, false);
+    }
+
     private static void ensurePng(UUID uuid, String base64Value, boolean changed) {
-        if (!OttoExtraConfig.active().consent.externalImageDownloads) {
+        var permit = ConsentPolicy.capture(ConsentPolicy.Purpose.EXTERNAL_IMAGES);
+        if (!permit.valid()) {
             return;
         }
         if (uuid == null || base64Value == null) {
             return;
         }
         Path png = pngDir().resolve(uuid + ".png");
+        if (PNG_IN_FLIGHT.contains(uuid)) return;
         if (changed) {
             PNG_DOWNLOAD_FAILURES.remove(uuid);
             PNG_LOAD_FAILURES.remove(uuid);
@@ -122,28 +134,46 @@ public final class SkinCache {
         if (!PNG_DONE.add(uuid) && !changed) {
             return;
         }
+        Long retryAt = RETRY_AT.get(uuid);
+        if (retryAt != null && System.nanoTime() < retryAt || !DOWNLOAD_SLOTS.tryAcquire()) {
+            PNG_DONE.remove(uuid);
+            return;
+        }
+        if (!PNG_IN_FLIGHT.add(uuid)) {
+            DOWNLOAD_SLOTS.release();
+            return;
+        }
         CompletableFuture.runAsync(() -> {
             try {
                 String json = new String(Base64.getDecoder().decode(base64Value), StandardCharsets.UTF_8);
                 JsonObject root = GSON.fromJson(json, JsonObject.class);
                 String url = root.getAsJsonObject("textures").getAsJsonObject("SKIN")
                         .get("url").getAsString();
-                HttpResponse<byte[]> resp = HTTP.send(
-                        HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(15)).GET().build(),
-                        HttpResponse.BodyHandlers.ofByteArray());
+                HttpResponse<byte[]> resp = ConsentHttp.send(HTTP,
+                        HttpRequest.newBuilder(ConsentHttp.skinTarget(url)).timeout(Duration.ofSeconds(15)).GET().build(),
+                        de.ottoextra.privacy.BoundedBody.bytes(1024 * 1024), permit).join();
                 if (resp.statusCode() == 200 && resp.body().length > 0) {
-                    Files.createDirectories(png.getParent());
-                    Path tmp = png.resolveSibling(uuid + ".png.tmp");
-                    Files.write(tmp, resp.body());
-                    Files.move(tmp, png, StandardCopyOption.REPLACE_EXISTING);
-                    PNG_DOWNLOAD_FAILURES.remove(uuid);
+                    de.ottoextra.privacy.PngLimits.check(resp.body(), 1024 * 1024, 256);
+                    permit.commitIo(() -> de.ottoextra.privacy.CacheBudget.write(png, resp.body().length, () -> {
+                        Files.createDirectories(png.getParent());
+                        Path tmp = png.resolveSibling(uuid + ".png.tmp");
+                        try {
+                            Files.write(tmp, resp.body());
+                            Files.move(tmp, png, StandardCopyOption.REPLACE_EXISTING);
+                        } finally { Files.deleteIfExists(tmp); }
+                        PNG_DOWNLOAD_FAILURES.remove(uuid);
+                    }));
+                } else {
+                    RETRY_AT.put(uuid, System.nanoTime() + Duration.ofSeconds(45).toNanos());
+                    PNG_DONE.remove(uuid);
                 }
             } catch (Throwable t) {
+                RETRY_AT.put(uuid, System.nanoTime() + Duration.ofSeconds(45).toNanos());
                 PNG_DONE.remove(uuid);
                 if (PNG_DOWNLOAD_FAILURES.add(uuid)) {
                     DebugLog.debug("[skins] PNG-Download fehlgeschlagen: {}", t.toString());
                 }
-            }
+            } finally { PNG_IN_FLIGHT.remove(uuid); DOWNLOAD_SLOTS.release(); }
         });
     }
 
@@ -172,15 +202,15 @@ public final class SkinCache {
         if (cached != null) {
             return cached;
         }
+        if (LOADED.size() >= 128 || PNG_LOAD_FAILURES.contains(uuid)) return null;
         Path png = pngDir().resolve(uuid + ".png");
         if (!Files.exists(png)) {
             return null;
         }
         try {
             net.minecraft.client.texture.NativeImage img;
-            try (var in = Files.newInputStream(png)) {
-                img = net.minecraft.client.texture.NativeImage.read(in);
-            }
+            img = net.minecraft.client.texture.NativeImage.read(
+                    de.ottoextra.privacy.PngLimits.read(png, 1024 * 1024, 256));
             net.minecraft.util.Identifier id =
                     OttoExtra.id("cached_skin/" + uuid.toString().toLowerCase());
             net.minecraft.client.MinecraftClient.getInstance().getTextureManager().registerTexture(id,
@@ -229,8 +259,12 @@ public final class SkinCache {
             Map<String, Cached> out = new HashMap<>();
             MAP.forEach((uuid, c) -> out.put(uuid.toString(), c));
             Path tmp = f.resolveSibling(f.getFileName() + ".tmp");
-            Files.writeString(tmp, GSON.toJson(out), StandardCharsets.UTF_8);
-            Files.move(tmp, f, StandardCopyOption.REPLACE_EXISTING);
+            String json = GSON.toJson(out);
+            if (json.getBytes(StandardCharsets.UTF_8).length > 8 * 1024 * 1024) return;
+            de.ottoextra.privacy.CacheBudget.write(f, json.getBytes(StandardCharsets.UTF_8).length, () -> {
+                Files.writeString(tmp, json, StandardCharsets.UTF_8);
+                Files.move(tmp, f, StandardCopyOption.REPLACE_EXISTING);
+            });
         } catch (Exception e) {
             OttoExtra.LOGGER.warn("[skins] skins.json speichern fehlgeschlagen: {}", e.toString());
         }

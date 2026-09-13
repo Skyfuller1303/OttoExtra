@@ -212,22 +212,25 @@ public final class SettingsRegistry {
                 "ottoextra.set.privacy.desc");
         var privacyBase = tab(privacy, "ottoextra.set.tab.base");
         card(privacyBase, "ottoextra.set.privacy.card", "ottoextra.set.privacy.card.desc",
+                Option.bool("ottoextra.consent.setting.online", "consent.onlineServices",
+                        () -> de.ottoextra.privacy.ConsentPolicy.allowed(c, de.ottoextra.privacy.ConsentPolicy.Purpose.ONLINE_SERVICES),
+                        v -> de.ottoextra.privacy.ConsentDetailsScreen.change(c, de.ottoextra.privacy.ConsentPolicy.Purpose.ONLINE_SERVICES, v)),
                 Option.bool("ottoextra.consent.setting.resourcepacks",
                         "consent.automaticResourcePackDownloads",
-                        () -> c.consent.automaticResourcePackDownloads,
-                        v -> c.consent.automaticResourcePackDownloads = v),
+                        () -> de.ottoextra.privacy.ConsentPolicy.allowed(c, de.ottoextra.privacy.ConsentPolicy.Purpose.RESOURCE_PACKS),
+                        v -> de.ottoextra.privacy.ConsentDetailsScreen.change(c, de.ottoextra.privacy.ConsentPolicy.Purpose.RESOURCE_PACKS, v)),
                 Option.bool("ottoextra.consent.setting.images",
                         "consent.externalImageDownloads",
-                        () -> c.consent.externalImageDownloads,
-                        v -> c.consent.externalImageDownloads = v),
+                        () -> de.ottoextra.privacy.ConsentPolicy.allowed(c, de.ottoextra.privacy.ConsentPolicy.Purpose.EXTERNAL_IMAGES),
+                        v -> de.ottoextra.privacy.ConsentDetailsScreen.change(c, de.ottoextra.privacy.ConsentPolicy.Purpose.EXTERNAL_IMAGES, v)),
                 Option.bool("ottoextra.consent.setting.updates",
                         "consent.updateChecks",
-                        () -> c.consent.updateChecks,
-                        v -> c.consent.updateChecks = v),
+                        () -> de.ottoextra.privacy.ConsentPolicy.allowed(c, de.ottoextra.privacy.ConsentPolicy.Purpose.UPDATE_CHECKS),
+                        v -> de.ottoextra.privacy.ConsentDetailsScreen.change(c, de.ottoextra.privacy.ConsentPolicy.Purpose.UPDATE_CHECKS, v)),
                 Option.bool("ottoextra.consent.setting.rpUpload",
                         "consent.communityRpNameUploads",
-                        () -> c.consent.communityRpNameUploads,
-                        c.consent::setCommunityRpNameUploads));
+                        () -> de.ottoextra.privacy.ConsentPolicy.allowed(c, de.ottoextra.privacy.ConsentPolicy.Purpose.COMMUNITY_UPLOADS),
+                        v -> de.ottoextra.privacy.ConsentDetailsScreen.change(c, de.ottoextra.privacy.ConsentPolicy.Purpose.COMMUNITY_UPLOADS, v)));
 
         var rp = r.module("resourcepack", "ottoextra.module.resourcepack", "ottoextra.set.rp.desc");
         var rpBase = tab(rp, "ottoextra.set.tab.base");
@@ -237,9 +240,7 @@ public final class SettingsRegistry {
                 Option.bool("ottoextra.config.rp.autoEnable", "resourcepack.autoEnable",
                         () -> c.resourcepack.autoEnable, v -> c.resourcepack.autoEnable = v),
                 Option.bool("ottoextra.config.rp.checkOnStartup", "resourcepack.checkOnStartup",
-                        () -> c.resourcepack.checkOnStartup, v -> c.resourcepack.checkOnStartup = v),
-                Option.bool("ottoextra.config.rp.respectUserDisable", "resourcepack.respectUserDisable",
-                        () -> c.resourcepack.respectUserDisable, v -> c.resourcepack.respectUserDisable = v)
+                        () -> c.resourcepack.checkOnStartup, v -> c.resourcepack.checkOnStartup = v)
                         .tooltip("ottoextra.set.rp.respect.tip"));
         var rpAdv = tab(rp, "ottoextra.set.tab.advanced");
         card(rpAdv, "ottoextra.set.rp.net", "ottoextra.set.rp.net.desc",
@@ -623,6 +624,9 @@ public final class SettingsRegistry {
                 Option.string("ottoextra.set.letter.triggerItem", "letter.triggerItemName",
                         () -> c.letter.triggerItemName, v -> c.letter.triggerItemName = v)
                         .tooltip("ottoextra.set.letter.triggerItem.tip"),
+                Option.bool("ottoextra.set.letter.openRecipientAfterWrite", "letter.openRecipientAfterWrite",
+                        () -> c.letter.openRecipientAfterWrite, v -> c.letter.openRecipientAfterWrite = v)
+                        .tooltip("ottoextra.set.letter.openRecipientAfterWrite.tip"),
                 Option.action("ottoextra.config.letter.open", "letter.open", openLetterEditor));
         card(letterBase, "ottoextra.set.letter.formatting", "ottoextra.set.letter.formatting.desc",
                 Option.bool("ottoextra.config.letter.formattingEnabled", "letter.formattingEnabled",
@@ -696,7 +700,7 @@ public final class SettingsRegistry {
                         .tooltip("ottoextra.set.animalinfo.nametagIncludeUnregistered.tip"));
         card(animalInfoBase, "ottoextra.set.animalinfo.glow", "ottoextra.set.animalinfo.glow.desc",
                 Option.bool("ottoextra.config.animalinfo.genderGlowEnabled", "animalInfo.genderGlowEnabled",
-                        () -> c.animalInfo.genderGlowEnabled, v -> c.animalInfo.genderGlowEnabled = v)
+                        () -> false, v -> c.animalInfo.genderGlowEnabled = false)
                         .tooltip("ottoextra.set.animalinfo.glow.tip"));
         var animalInfoAdvanced = tab(animalInfo, "ottoextra.set.tab.advanced");
         card(animalInfoAdvanced, "ottoextra.set.animalinfo.localCache", "ottoextra.set.animalinfo.localCache.desc",
@@ -733,8 +737,15 @@ public final class SettingsRegistry {
         var tweaksBase = tab(tweaks, "ottoextra.set.tab.base");
         card(tweaksBase, "ottoextra.set.tweaks.chatLog", "ottoextra.set.tweaks.chatLog.desc",
                 Option.bool("ottoextra.config.tweaks.chatLog", "tweaks.chatLog",
-                        () -> c.tweaks.chatLog, v -> c.tweaks.chatLog = v)
-                        .tooltip("ottoextra.set.tweaks.chatLog.tip"));
+                        () -> de.ottoextra.privacy.LocalPrivacy.chatAllowed(c, true),
+                        v -> de.ottoextra.privacy.LocalChatConsentScreen.change(c, v))
+                        .tooltip("ottoextra.set.tweaks.chatLog.tip"),
+                Option.cycle("ottoextra.privacy.chat.scope", "tweaks.chatLogScope",
+                        () -> c.tweaks.chatLogScope, v -> {
+                            c.tweaks.chatLogScope = v;
+                            de.ottoextra.privacy.LocalPrivacy.reconcile(c);
+                            c.save();
+                        }, "OTTONIEN", "ALL"));
         card(tweaksBase, "ottoextra.set.tweaks.combatMode", "ottoextra.set.tweaks.combatMode.desc",
                 Option.bool("ottoextra.config.tweaks.combatModeHud", "tweaks.combatModeHud",
                         () -> c.tweaks.combatModeHud, v -> c.tweaks.combatModeHud = v)
@@ -813,6 +824,8 @@ public final class SettingsRegistry {
         card(tweaksBase, "ottoextra.set.tweaks.lowhealth", "ottoextra.set.tweaks.lowhealth.desc",
                 Option.bool("ottoextra.config.tweaks.lowhealth", "tweaks.lowHealth.enabled",
                         () -> c.tweaks.lowHealth.enabled, v -> c.tweaks.lowHealth.enabled = v),
+                Option.bool("ottoextra.privacy.lowhealth.reduced", "tweaks.lowHealth.reducedMotion",
+                        () -> c.tweaks.lowHealth.reducedMotion, v -> c.tweaks.lowHealth.reducedMotion = v),
                 Option.bool("ottoextra.config.tweaks.lowhealth.vignette", "tweaks.lowHealth.vignetteEnabled",
                         () -> c.tweaks.lowHealth.vignetteEnabled, v -> c.tweaks.lowHealth.vignetteEnabled = v),
                 Option.bool("ottoextra.config.tweaks.lowhealth.heartbeat", "tweaks.lowHealth.heartbeatEnabled",

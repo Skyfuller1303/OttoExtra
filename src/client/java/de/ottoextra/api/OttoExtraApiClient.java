@@ -2,6 +2,7 @@ package de.ottoextra.api;
 
 import de.ottoextra.api.model.ApiEnvelope;
 import de.ottoextra.api.model.AnimalBreedingHorse;
+import de.ottoextra.api.model.AnimalBreedingFarm;
 import de.ottoextra.api.model.AnimalBreedingHorseName;
 import de.ottoextra.api.model.AnimalBreedingHorseLocation;
 import de.ottoextra.api.model.CompactPlayer;
@@ -17,6 +18,11 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 public interface OttoExtraApiClient {
+
+    default CompletableFuture<com.google.gson.JsonObject> submitRpNameObservation(
+            com.google.gson.JsonObject body, de.ottoextra.privacy.ConsentPermit permit) {
+        return CompletableFuture.failedFuture(new UnsupportedOperationException("RP-Uploads nicht verfügbar"));
+    }
 
     CompletableFuture<ApiEnvelope> bootstrap();
 
@@ -48,6 +54,14 @@ public interface OttoExtraApiClient {
 
     /** Returns the server-side AnimalBreeding role of the current player. */
     CompletableFuture<Optional<String>> animalBreedingRole();
+
+    default CompletableFuture<List<AnimalBreedingFarm>> animalBreedingFarms() {
+        return CompletableFuture.failedFuture(new UnsupportedOperationException("Höfe nicht verfügbar"));
+    }
+
+    default CompletableFuture<AnimalBreedingFarm> createAnimalBreedingFarm(String name) {
+        return CompletableFuture.failedFuture(new UnsupportedOperationException("Höfe nicht verfügbar"));
+    }
 
     /** Grants or revokes the global breeder/editor role; the API requires admin. */
     CompletableFuture<Void> setAnimalBreedingBreederAccess(

@@ -6,13 +6,14 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import de.ottoextra.api.ApiProblem;
+import de.ottoextra.privacy.ConsentPermit;
+import de.ottoextra.privacy.ConsentHttp;
 
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
-import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 
 public final class PackManifestClient {
@@ -26,7 +27,7 @@ public final class PackManifestClient {
         this.requestTimeout = requestTimeout;
     }
 
-    public CompletableFuture<PackManifest> fetch(URI manifestUri, String assetName) {
+    public CompletableFuture<PackManifest> fetch(URI manifestUri, String assetName, ConsentPermit permit) {
         boolean github = isGitHub(manifestUri);
         HttpRequest.Builder builder = HttpRequest.newBuilder(manifestUri)
                 .timeout(requestTimeout)
@@ -39,7 +40,7 @@ public final class PackManifestClient {
             builder.header("Accept", "application/json");
         }
 
-        return http.sendAsync(builder.build(), HttpResponse.BodyHandlers.ofString())
+        return ConsentHttp.send(http, builder.build(), de.ottoextra.privacy.BoundedBody.text(1024 * 1024), permit)
                 .thenApply(resp -> {
                     if (resp.statusCode() / 100 != 2) {
                         throw ApiProblem.httpStatus(manifestUri, resp.statusCode()).toException();
@@ -58,7 +59,7 @@ public final class PackManifestClient {
 
     private static boolean isGitHub(URI uri) {
         String host = uri.getHost();
-        return host != null && host.toLowerCase(Locale.ROOT).endsWith("api.github.com");
+        return "api.github.com".equalsIgnoreCase(host);
     }
 
     private PackManifest parseGitHubRelease(URI uri, String body, String assetName) {

@@ -44,7 +44,7 @@ class AnimalGlowConfigTest {
     }
 
     @Test
-    void menuOptInPersistsAndSnapshotRestoreKeepsTheConfigReference() {
+    void menuCannotEnableHeldOutlinesAndSnapshotRestoreKeepsTheConfigReference() {
         var config = new OttoExtraConfig();
         var registry = SettingsRegistry.build(config, null, null, null, null, null, null, null, null, null);
         var option = registry.modules().stream().filter(m -> m.id().equals("animalinfo"))
@@ -52,19 +52,19 @@ class AnimalGlowConfigTest {
                 .flatMap(c -> c.options().stream()).filter(o -> o.configKey.equals("animalInfo.genderGlowEnabled"))
                 .findFirst().orElseThrow();
         option.set.accept("true");
-        assertTrue(config.animalInfo.genderGlowEnabled);
+        assertFalse(config.animalInfo.genderGlowEnabled);
         assertFalse(config.animalInfo.nametagGenderColor);
         assertFalse(config.animalInfo.nametagIncludeUnregistered);
         Path file = directory.resolve("glow.json");
         config.save(file);
         var loaded = OttoExtraConfig.load(file);
-        assertTrue(loaded.animalInfo.genderGlowEnabled);
+        assertFalse(loaded.animalInfo.genderGlowEnabled);
         String snapshot = loaded.snapshotJson();
         var reference = loaded.animalInfo;
         loaded.animalInfo.genderGlowEnabled = false;
         loaded.restoreFrom(snapshot);
         assertSame(reference, loaded.animalInfo);
-        assertTrue(reference.genderGlowEnabled);
+        assertFalse(reference.genderGlowEnabled);
         option.set.accept("false");
         config.save(file);
         assertFalse(OttoExtraConfig.load(file).animalInfo.genderGlowEnabled);

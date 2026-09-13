@@ -42,7 +42,9 @@ public final class HorseRegistryModule implements OttoExtraModule {
         boolean addonLoaded = FabricLoader.getInstance()
                 .isModLoaded("ottoextra_animalbreeding");
         HorseRegistry.initialize(context.api(), context::isOnOttonien, !addonLoaded);
-        HorseFinder.initialize(context.api(), context::isOnOttonien);
+        HorseFinder.initialize(context.api(), () -> context.isOnOttonien()
+                && de.ottoextra.privacy.ConsentPolicy.allowed(context.config(),
+                de.ottoextra.privacy.ConsentPolicy.Purpose.ONLINE_SERVICES));
         AnimalGenderGlow.initialize(context::isOnOttonien);
         genderGlowKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.ottoextra.animal_gender_glow", InputUtil.Type.KEYSYM,

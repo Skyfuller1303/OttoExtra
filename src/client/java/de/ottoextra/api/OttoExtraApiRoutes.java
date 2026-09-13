@@ -82,6 +82,10 @@ public final class OttoExtraApiRoutes {
         return action("community-participant-rp-name");
     }
 
+    public URI v2RpNameObservations() {
+        return v2("rp-names/observations");
+    }
+
     private URI v2(String path) {
         return URI.create(base + "/v2/" + path);
     }
