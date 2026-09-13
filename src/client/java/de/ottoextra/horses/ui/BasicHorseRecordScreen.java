@@ -5,6 +5,7 @@ import de.ottoextra.animalinfo.AnimalInfoObservation;
 import de.ottoextra.api.ApiProblem;
 import de.ottoextra.api.model.AnimalBreedingHorseLocation;
 import de.ottoextra.horses.HorseRegistry;
+import de.ottoextra.horses.AnimalNameCatalog;
 import de.ottoextra.horses.RegistryAnimals;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
@@ -22,6 +23,7 @@ import java.util.concurrent.CompletionException;
 
 /** Compact identity editor shipped by Core when AnimalBreeding is absent. */
 public final class BasicHorseRecordScreen extends Screen {
+    private static final AnimalNameCatalog NAME_CATALOG = AnimalNameCatalog.loadDefault();
 
     private static final int PANEL = 0xF018202A;
     private static final int INNER = 0xD0202B35;
@@ -39,7 +41,10 @@ public final class BasicHorseRecordScreen extends Screen {
 
     private TextFieldWidget nameField;
     private String nameDraft;
+    private de.ottoextra.api.model.AnimalBreedingFarm farmDraft;
     private ButtonWidget saveButton;
+    private ButtonWidget farmButton;
+    private ButtonWidget diceButton;
     private boolean saving;
     private boolean errorStatus;
     private boolean accessRequested;
@@ -70,16 +75,34 @@ public final class BasicHorseRecordScreen extends Screen {
         int formW = panelW() - 140;
 
         nameField = null;
+        diceButton = null;
         saveButton = null;
         if (canEditName()) {
             nameField = new TextFieldWidget(textRenderer, formX, py + 61,
-                    formW, 18, Text.translatable("ottoextra.horses.record.name"));
+                    formW - 24, 18, Text.translatable("ottoextra.horses.record.name"));
             nameField.setMaxLength(64);
             nameField.setText(nameDraft != null ? nameDraft : HorseRegistry.name(entityUuid).orElse(""));
             nameField.setPlaceholder(Text.translatable("ottoextra.horses.record.name_hint"));
             nameField.setChangedListener(value -> updateSaveButton());
             addDrawableChild(nameField);
+            diceButton = addDrawableChild(new AnimalNameDiceButton(formX + formW - 20, py + 61, () -> {
+                var unavailable = HorseRegistry.names().stream()
+                        .map(de.ottoextra.api.model.AnimalBreedingHorseName::registryName).toList();
+                String coat = animal instanceof HorseEntity horse ? horse.getHorseColor().name() : "";
+                String marking = animal instanceof HorseEntity horse ? horse.getMarking().name() : "";
+                nameField.setText(NAME_CATALOG.next(observation.snapshot().gender(), coat, marking,
+                        nameField.getText(), unavailable));
+            }));
         }
+
+        farmButton = addDrawableChild(ButtonWidget.builder(Text.empty(), button -> {
+            if (client != null) {
+                if (nameField != null) nameDraft = nameField.getText();
+                client.setScreen(HorseFarmScreen.selectForSave(this,
+                        farmDraft == null ? null : farmDraft.nameKey(), farm -> farmDraft = farm));
+            }
+        }).dimensions(formX, py + 161, formW, 18).build());
+        updateFarmButton();
 
         addDrawableChild(ButtonWidget.builder(
                         Text.translatable("ottoextra.horses.record.overview"),
@@ -109,9 +132,24 @@ public final class BasicHorseRecordScreen extends Screen {
         if (!saving && (nameField != null) != canEditName()) {
             clearAndInit();
         }
+        updateFarmButton();
+    }
+
+    private void updateFarmButton() {
+        if (farmButton == null) return;
+        var record = HorseRegistry.databaseRecord(entityUuid);
+        String farm = farmDraft != null ? farmDraft.name()
+                : record.map(de.ottoextra.api.model.AnimalBreedingHorse::currentFarm).orElse("");
+        farmButton.setMessage(Text.literal(textRenderer.trimToWidth(Text.translatable(farm.isBlank()
+                ? "ottoextra.horses.farms.choose" : "ottoextra.horses.farms.current", farm).getString(),
+                farmButton.getWidth() - 8)));
+        farmButton.active = !saving && canEditName();
+        farmButton.setTooltip(net.minecraft.client.gui.tooltip.Tooltip.of(
+                Text.translatable("ottoextra.horses.farms.select_for_save")));
     }
 
     private void updateSaveButton() {
+        if (diceButton != null) diceButton.active = !saving && canEditName();
         if (saveButton != null) {
             saveButton.active = !saving && canEditName() && nameField != null
                     && !nameField.getText().trim().isEmpty();
@@ -133,8 +171,9 @@ public final class BasicHorseRecordScreen extends Screen {
             coat = vanillaHorse.getHorseColor().name();
             marking = vanillaHorse.getMarking().name();
         }
-        HorseRegistry.saveName(entityUuid, nameField.getText(), currentLocation(),
-                        coat, marking)
+        updateFarmButton();
+        HorseRegistry.saveNameAndFarm(entityUuid, nameField.getText(), currentLocation(),
+                        coat, marking, farmDraft == null ? null : farmDraft.nameKey())
                 .whenComplete((saved, error) -> {
                     if (client == null) return;
                     client.execute(() -> {
@@ -144,7 +183,9 @@ public final class BasicHorseRecordScreen extends Screen {
                         if (error != null) {
                             Throwable cause = unwrap(error);
                             errorStatus = true;
-                            status = errorMessage(cause);
+                            status = cause instanceof HorseRegistry.FarmAssignmentException
+                                    ? Text.translatable("ottoextra.horses.farms.partial_save").getString()
+                                    : errorMessage(cause);
                             OttoExtra.LOGGER.warn("Tiername {} konnte nicht gespeichert werden: {}",
                                     entityUuid, cause.toString());
                             return;
@@ -226,8 +267,8 @@ public final class BasicHorseRecordScreen extends Screen {
                 rightColumn, py + 141, columnWidth,
                 "ottoextra.animalinfo.editor.part.breeding", mouseX, mouseY);
         if (!status.isBlank()) {
-            context.drawTextWithShadow(textRenderer, Text.literal(status),
-                    x, py + ph - 45, errorStatus ? ERROR : GOLD);
+            HorseUiIcons.smallText(context, textRenderer, status,
+                    x, py + ph - 45, errorStatus ? ERROR : GOLD, formWidth, 0.8F);
         }
         super.render(context, mouseX, mouseY, delta);
     }
@@ -293,7 +334,7 @@ public final class BasicHorseRecordScreen extends Screen {
     }
 
     private int panelH() {
-        return Math.min(205, Math.max(188, height - 24));
+        return Math.min(239, Math.max(225, height - 24));
     }
 
     private int panelX() {

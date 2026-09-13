@@ -47,15 +47,22 @@ GUI-Pixel**, multipliziert mit der jeweiligen Elementskalierung im Layout-Editor
 [Details und Clientprüfung](animal-toast-icons.md).
 
 Hofnamen/Anzahl anklicken zum Auf-/Zuklappen. Tempo oder Sprung im Hofkopf anklicken:
-absteigend → aufsteigend → aus. Mehrere Kriterien bleiben gleichzeitig aktiv;
-Auswahlreihenfolge bestimmt Priorität 1/2. Beispiel: Tempo absteigend, bei gleichem
-Tempo Sprunghöhe absteigend. Richtung ändern behält die Priorität. Hofsortierung
-bleibt unabhängig davon erhalten; die Messwerte werden innerhalb aller Höfe sortiert.
-Fehlende Werte stehen für jedes Kriterium in beiden Richtungen am Ende.
+höchste zuerst **↑** → niedrigste zuerst **↓** → aus. Ein einzelnes Kriterium
+sortiert numerisch; zwei Kriterien sortieren nach einem gleich gewichteten
+Durchschnitt. Die Auswahlreihenfolge hat keinen Einfluss mehr.
+
+Bei beiden Pfeilen nach oben ist der Wert
+`(Tempo / höchstes Tempo + Sprung / höchster Sprung) / 2` maßgeblich.
+Die Referenzen stammen aus den vollständig vermessenen Tieren desselben Hofes
+im aktiven Tierartenfilter. Eine Textsuche verändert die Referenzen nicht.
+Bei einem Pfeil nach unten wird der jeweilige Anteil durch `1 - Anteil` ersetzt;
+bei ausschließlich Nullwerten sind die Tiere für dieses Kriterium gleichwertig.
+So lassen sich auch hohes Tempo und niedriger Sprung kombinieren. Tiere mit einem
+fehlenden Messwert stehen bei kombinierter Sortierung am Ende. Gleichstand wird
+nach Name und UUID aufgelöst; Höfe bleiben unabhängig davon nach A–Z bzw. Z–A sortiert.
 
 Im Sortiermenü lassen sich mehrere Kriterien nacheinander wählen. Ein bereits
-aktives Kriterium erneut anklicken entfernt es. Der Pfeil rechts setzt das zweite
-Kriterium an erste Stelle. „Sortierung zurücksetzen“ stellt Höfe A–Z und Tiernamen
+aktives Kriterium erneut anklicken entfernt es. „Sortierung zurücksetzen“ stellt Höfe A–Z und Tiernamen
 A–Z wieder her. Klappzustände bleiben beim Sortieren, Filtern und Abgleichen erhalten,
 solange diese Übersicht geöffnet bleibt.
 

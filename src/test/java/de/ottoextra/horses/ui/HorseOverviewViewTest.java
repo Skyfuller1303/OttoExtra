@@ -110,7 +110,7 @@ class HorseOverviewViewTest {
     }
 
     @Test
-    void appliesSecondaryMetricBeforeNameAndAllowsReorderingPriority() {
+    void combinesMetricsEquallyInsteadOfGivingTheFirstMetricPriority() {
         var records = List.of(
                 metricHorse(1, "Alpha", "Hof", "14,2 Blöcke/s", "1.1 Blöcke"),
                 metricHorse(2, "Zulu", "Hof", "14.20 Blöcke/s", "1,8 Blöcke"),
@@ -119,11 +119,11 @@ class HorseOverviewViewTest {
         var sorting = new HorseOverviewView.SortSelection();
         sorting.select(SPEED_DESCENDING);
         sorting.select(JUMP_DESCENDING);
-        assertEquals(List.of("Schnell", "Zulu", "Alpha", "Springer"), sortedNames(records, sorting));
-        sorting.promote(JUMP_DESCENDING);
         assertEquals(List.of("Springer", "Zulu", "Schnell", "Alpha"), sortedNames(records, sorting));
-        assertEquals(1, sorting.priority(JUMP_DESCENDING));
-        assertEquals(2, sorting.priority(SPEED_DESCENDING));
+        var reversedSelection = new HorseOverviewView.SortSelection();
+        reversedSelection.select(JUMP_DESCENDING);
+        reversedSelection.select(SPEED_DESCENDING);
+        assertEquals(sortedNames(records, sorting), sortedNames(records, reversedSelection));
     }
 
     @Test
@@ -137,7 +137,7 @@ class HorseOverviewViewTest {
         var sorting = new HorseOverviewView.SortSelection();
         sorting.select(SPEED_DESCENDING);
         sorting.select(JUMP_ASCENDING);
-        assertEquals(List.of("Alpha", "Zulu", "Sprung unbekannt", "Langsam", "Tempo unbekannt"),
+        assertEquals(List.of("Langsam", "Alpha", "Zulu", "Sprung unbekannt", "Tempo unbekannt"),
                 sortedNames(records, sorting));
         sorting.select(SPEED_ASCENDING);
         assertEquals(List.of("Langsam", "Alpha", "Zulu", "Sprung unbekannt", "Tempo unbekannt"),
@@ -156,7 +156,6 @@ class HorseOverviewViewTest {
         assertEquals(FARMS_DESCENDING, sorting.farmOrder());
         sorting.select(JUMP_ASCENDING);
         assertEquals(List.of(SPEED_DESCENDING), sorting.criteria());
-        assertEquals(1, sorting.priority(SPEED_DESCENDING));
         var records = List.of(metricHorse(1, "A", "Apfelhof", "14", "1"),
                 metricHorse(2, "B", "Birkenhof", "13", "2"), metricHorse(3, "C", "", "15", "3"));
         assertEquals(List.of("Birkenhof", "Apfelhof", ""), HorseOverviewView.groups(records, "", sorting)
@@ -178,6 +177,30 @@ class HorseOverviewViewTest {
         assertEquals(List.of(JUMP_DESCENDING), sorting.criteria());
         sorting.cycle(true);
         assertEquals(List.of(JUMP_DESCENDING, SPEED_DESCENDING), sorting.criteria());
+    }
+
+    @Test void combinedSortKeepsItsScaleWhenSearchingAndBalancesDifferentUnits() {
+        var records = List.of(metricHorse(1, "Ziel Tempo", "Hof", "20", "1"),
+                metricHorse(2, "Ziel Balance", "Hof", "16", "4"),
+                metricHorse(3, "Referenz", "Hof", "10", "5"),
+                metricHorse(4, "Fehlend", "Hof", "1000", ""));
+        var sort = new HorseOverviewView.SortSelection();
+        sort.select(SPEED_DESCENDING);
+        sort.select(JUMP_DESCENDING);
+        assertEquals(List.of("Ziel Balance", "Referenz", "Ziel Tempo", "Fehlend"), sortedNames(records, sort));
+        assertEquals(List.of("Ziel Balance", "Ziel Tempo"), HorseOverviewView.groups(records, "Ziel", sort)
+                .getFirst().horses().stream().map(AnimalBreedingHorse::registryName).toList());
+        sort.select(SPEED_ASCENDING);
+        sort.select(JUMP_ASCENDING);
+        assertEquals(List.of("Ziel Tempo", "Referenz", "Ziel Balance", "Fehlend"), sortedNames(records, sort));
+    }
+
+    @Test void combinedSortHandlesZeroAndMissingValuesWithoutNaN() {
+        var sort = new HorseOverviewView.SortSelection();
+        sort.select(SPEED_DESCENDING); sort.select(JUMP_DESCENDING);
+        assertEquals(List.of("Null", "Fehlend"), sortedNames(List.of(
+                metricHorse(1, "Fehlend", "Hof", "", "0"),
+                metricHorse(2, "Null", "Hof", "0", "0")), sort));
     }
 
     private static List<String> sortedNames(List<AnimalBreedingHorse> records, HorseOverviewView.SortSelection sorting) {

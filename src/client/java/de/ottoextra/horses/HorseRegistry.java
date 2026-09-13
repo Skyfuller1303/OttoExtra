@@ -5,6 +5,7 @@ import de.ottoextra.animalinfo.AnimalInfoObservation;
 import de.ottoextra.animalinfo.AnimalInfoSnapshot;
 import de.ottoextra.api.OttoExtraApiClient;
 import de.ottoextra.api.model.AnimalBreedingHorse;
+import de.ottoextra.api.model.AnimalBreedingFarm;
 import de.ottoextra.api.model.AnimalBreedingHorseLocation;
 import de.ottoextra.api.model.AnimalBreedingHorseName;
 import de.ottoextra.api.model.PlayerRecord;
@@ -40,6 +41,8 @@ public final class HorseRegistry {
             new ConcurrentHashMap<>();
     private static final Map<UUID, AnimalBreedingHorse> DATABASE_RECORDS =
             new ConcurrentHashMap<>();
+    private static volatile List<AnimalBreedingFarm> farms = List.of();
+    private static long farmsRequest;
     private static final ScheduledExecutorService IDENTITY_IO = Executors.newSingleThreadScheduledExecutor(task -> {
         Thread thread = new Thread(task, "OttoExtra-AnimalCache");
         thread.setDaemon(true);
@@ -406,6 +409,120 @@ public final class HorseRegistry {
         }
     }
 
+    /** Saves identity first, then applies an explicitly selected farm using its permissions. */
+    public static synchronized CompletableFuture<AnimalBreedingHorse> saveNameAndFarm(
+            UUID entityUuid, String registryName, AnimalBreedingHorseLocation location,
+            String coatColor, String marking, String farmKey) {
+        if (farmKey != null && farms.stream().noneMatch(f -> f.nameKey().equals(farmKey) && f.canEdit())) {
+            return CompletableFuture.failedFuture(new IllegalStateException("Keine Freigabe für den ausgewählten Hof"));
+        }
+        long generation = connectionGeneration;
+        return saveName(entityUuid, registryName, location, coatColor, marking).thenCompose(saved -> {
+            synchronized (HorseRegistry.class) {
+                requireCurrentConnection(generation);
+                if (farmKey == null) return CompletableFuture.completedFuture(saved);
+                return assignFarm(entityUuid, farmKey, location).handle((assigned, error) -> {
+                    if (error != null) throw new FarmAssignmentException(error);
+                    return assigned;
+                });
+            }
+        });
+    }
+
+    public static final class FarmAssignmentException extends RuntimeException {
+        private FarmAssignmentException(Throwable cause) {
+            super("Tier gespeichert; Hofzuordnung fehlgeschlagen", cause);
+        }
+    }
+
+    public static List<AnimalBreedingFarm> farms() { return farms; }
+
+    public static Optional<AnimalBreedingHorse> databaseRecord(UUID uuid) {
+        return uuid == null ? Optional.empty() : Optional.ofNullable(DATABASE_RECORDS.get(uuid));
+    }
+
+    public static synchronized CompletableFuture<List<AnimalBreedingFarm>> refreshFarms() {
+        if (api == null || !onOttonien.getAsBoolean()) {
+            return CompletableFuture.failedFuture(new IllegalStateException("Keine Ottonien-Verbindung"));
+        }
+        long generation = connectionGeneration;
+        long request = ++farmsRequest;
+        farms = List.of();
+        return api.animalBreedingFarms().thenApply(loaded -> {
+            synchronized (HorseRegistry.class) {
+                requireCurrentConnection(generation);
+                if (request == farmsRequest) farms = sortedFarms(loaded);
+                return farms;
+            }
+        });
+    }
+
+    public static synchronized CompletableFuture<AnimalBreedingFarm> createFarm(String name) {
+        if (api == null || !onOttonien.getAsBoolean() || !AnimalBreedingFarm.validName(name)) {
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Hofname oder Verbindung fehlt"));
+        }
+        long generation = connectionGeneration;
+        return api.createAnimalBreedingFarm(name.trim()).thenApply(created -> {
+            synchronized (HorseRegistry.class) {
+                requireCurrentConnection(generation);
+                if (created == null || !created.name().equalsIgnoreCase(name.trim())) {
+                    throw new IllegalStateException("Hof der Antwort stimmt nicht überein");
+                }
+                farmsRequest++;
+                var updated = new ArrayList<>(farms);
+                updated.removeIf(farm -> farm.nameKey().equals(created.nameKey()));
+                updated.add(created);
+                farms = sortedFarms(updated);
+                return created;
+            }
+        });
+    }
+
+    public static synchronized CompletableFuture<AnimalBreedingHorse> assignFarm(UUID uuid, String farmKey,
+                                                     AnimalBreedingHorseLocation location) {
+        AnimalBreedingHorse horse = uuid == null ? null : DATABASE_RECORDS.get(uuid);
+        AnimalBreedingFarm farm = farms.stream().filter(f -> f.nameKey().equals(farmKey)).findFirst().orElse(null);
+        if (api == null || !onOttonien.getAsBoolean() || horse == null
+                || !(horse.canEdit() || horse.canManage()) || farm == null || !farm.canEdit()) {
+            return CompletableFuture.failedFuture(new IllegalStateException("Keine Freigabe für Tier oder Hof"));
+        }
+        // Advance only the version we actually read. Concurrent changes then conflict
+        // on the API instead of being overwritten by an arbitrary current timestamp.
+        long version = Math.addExact(horse.updatedAtEpochMillis(), 1);
+        AnimalBreedingHorse draft = new AnimalBreedingHorse(horse.entityUuid(), horse.registryName(),
+                horse.origin(), farm.name(), horse.animalType(), horse.gender(), horse.coatColor(), horse.marking(),
+                horse.life(), horse.jumpHeight(), horse.speed(), horse.mast(), horse.breedingReady(),
+                horse.observedAtEpochMillis(), version, horse.revision(), horse.ownerUuid(), horse.ownerName(),
+                horse.canEdit(), horse.canManage(), horse.updatedByUuid(), horse.serverUpdatedAt());
+        long generation = connectionGeneration;
+        return api.putAnimalBreedingHorse(draft, location).thenApply(stored -> {
+            synchronized (HorseRegistry.class) {
+                requireCurrentConnection(generation);
+                if (stored == null || !uuid.equals(stored.uuid()) || !farm.name().equals(stored.currentFarm())) {
+                    throw new IllegalStateException("Hofzuordnung der Antwort stimmt nicht überein");
+                }
+                AnimalBreedingHorse known = DATABASE_RECORDS.get(uuid);
+                if (known != null && known.revision() > stored.revision()) return stored;
+                invalidateReadRequests();
+                DATABASE_RECORDS.put(uuid, stored);
+                NAMES.put(uuid, new AnimalBreedingHorseName(stored.entityUuid(), stored.registryName(), stored.revision()));
+                farmsRequest++;
+                farms = farms.stream().map(f -> {
+                    int change = f.name().equalsIgnoreCase(horse.currentFarm()) ? -1 : 0;
+                    if (f.nameKey().equals(farmKey)) change++;
+                    return new AnimalBreedingFarm(f.nameKey(), f.name(), f.horseCount() + change,
+                            f.ownerUuid(), f.legacy(), f.role(), f.canManage());
+                }).toList();
+                return stored;
+            }
+        });
+    }
+
+    private static List<AnimalBreedingFarm> sortedFarms(List<AnimalBreedingFarm> values) {
+        return values.stream().sorted(Comparator.comparing(AnimalBreedingFarm::name,
+                String.CASE_INSENSITIVE_ORDER)).toList();
+    }
+
     private static void invalidateReadRequests() {
         namesRequest++;
         databaseRequest++;
@@ -440,6 +557,8 @@ public final class HorseRegistry {
     static synchronized void clearConnection() {
         closeIdentityCache();
         connectionGeneration++;
+        farmsRequest++;
+        farms = List.of();
         namingPlayer = null;
         namingPlayerRequest++;
         databaseLoaded = false;

@@ -140,6 +140,10 @@ public final class BasicHorseOverviewScreen extends Screen {
                         button -> sortMenuOpen = !sortMenuOpen)
                 .dimensions(sortX(), sortY(), sortWidth(), 18)
                 .build());
+        sortButton.setTooltip(Tooltip.of(Text.translatable("ottoextra.horses.overview.sort.combined.tip")));
+        addDrawableChild(ButtonWidget.builder(Text.translatable("ottoextra.horses.farms.open"),
+                        button -> client.setScreen(new HorseFarmScreen(this)))
+                .dimensions(px + panelW() - 92, py + 50, 80, 18).build());
         addDrawableChild(ButtonWidget.builder(Text.translatable("gui.done"),
                         button -> close())
                 .dimensions(px + panelW() - 72, py + panelH() - 27, 60, 18)
@@ -218,14 +222,14 @@ public final class BasicHorseOverviewScreen extends Screen {
 
     private Text sortButtonText() {
         var criteria = sorting.criteria();
-        var description = Text.empty();
+        var description = criteria.size() == 2 ? Text.literal("Ø ") : Text.empty();
         if (criteria.isEmpty()) description.append(Text.translatable(sorting.farmOrder().translationKey()));
         for (int i = 0; i < criteria.size(); i++) {
             SortOrder order = criteria.get(i);
             if (i > 0) description.append(" · ");
-            description.append((i + 1) + ". ").append(Text.translatable(order.isSpeed()
+            description.append(Text.translatable(order.isSpeed()
                     ? "ottoextra.horses.overview.speed" : "ottoextra.horses.overview.jump"))
-                    .append(order.ascending() ? " ↑" : " ↓");
+                    .append(order.ascending() ? " ↓" : " ↑");
         }
         return Text.translatable("ottoextra.horses.overview.sort.label",
                 description);
@@ -265,12 +269,7 @@ public final class BasicHorseOverviewScreen extends Screen {
         if (click.button() == 0 && sortMenuOpen) {
             SortOrder selected = sortOptionAt(click.x(), click.y());
             if (selected != null) {
-                if (sorting.priority(selected) > 1 && click.x() >= sortX() + sortWidth() - 20) {
-                    sorting.promote(selected);
-                    updateSorting();
-                } else {
-                    selectSort(selected);
-                }
+                selectSort(selected);
                 return true;
             }
             if (inside(click.x(), click.y(), sortX(), sortResetY(), sortWidth(), 18)) {
@@ -508,19 +507,18 @@ public final class BasicHorseOverviewScreen extends Screen {
         context.fill(x, y + 3, x + w, y + HEADER_HEIGHT - 1, active ? 0xB080632E : 0x663C3932);
         HorseUiIcons.draw(context, icon, x + 3, y + 7, 8, 16, active ? GOLD : MUTED);
         if (w >= 48) {
-            String priority = active ? sorting.priority(order) + ". " : "";
-            String text = priority + Text.translatable(label).getString();
-            if (textRenderer.getWidth(text) > w - 32 && active) text = priority.trim();
+            String text = Text.translatable(label).getString();
             context.drawTextWithShadow(textRenderer, textRenderer.trimToWidth(
                     text, w - 32), x + 17, y + 7, BODY);
         }
-        Identifier direction = !active ? SORT_NONE_ICON : order.ascending() ? SORT_ASC_ICON : SORT_DESC_ICON;
+        Identifier direction = !active ? SORT_NONE_ICON : order.ascending() ? SORT_DESC_ICON : SORT_ASC_ICON;
         HorseUiIcons.draw(context, direction, x + w - 11, y + 7, 8, 16, active ? GOLD : MUTED);
     }
 
     private Text metricTooltip(boolean speed) {
         return Text.translatable("ottoextra.horses.overview.sort.cycle", Text.translatable(speed
-                ? "ottoextra.horses.overview.speed" : "ottoextra.horses.overview.jump"));
+                ? "ottoextra.horses.overview.speed" : "ottoextra.horses.overview.jump"))
+                .append("\n").append(Text.translatable("ottoextra.horses.overview.sort.combined.tip"));
     }
 
     private void renderHorse(DrawContext context, AnimalBreedingHorse horse,
@@ -649,23 +647,17 @@ public final class BasicHorseOverviewScreen extends Screen {
         for (SortOrder option : SortOrder.values()) {
             boolean hovered = inside(mouseX, mouseY, x, y, sortWidth(), 18);
             boolean active = sorting.active(option);
-            int priority = sorting.priority(option);
             context.fill(x - 1, y - 1, x + sortWidth() + 1, y + 19, BORDER);
             context.fill(x, y, x + sortWidth(), y + 18,
                     active ? 0xFF80632E
                             : hovered ? 0xFF3A4650 : 0xFF202B25);
             context.fill(x + 4, y + 7, x + 8, y + 11, active ? GOLD : MUTED);
-            String label = (priority > 0 ? priority + ". " : "") + Text.translatable(option.translationKey()).getString();
+            String label = Text.translatable(option.translationKey()).getString();
             context.drawTextWithShadow(textRenderer,
                     textRenderer.trimToWidth(label, sortWidth() - 35),
                     x + 13, y + 5, active ? GOLD : BODY);
-            if (priority > 1) {
-                context.fill(x + sortWidth() - 19, y + 1, x + sortWidth() - 1, y + 17, 0xFF3A4650);
-                HorseUiIcons.draw(context, SORT_ASC_ICON, x + sortWidth() - 17, y + 2, 14, 16, GOLD);
-            }
             if (hovered && (option.isSpeed() || option.isJump())) {
-                String action = priority > 1 && mouseX >= x + sortWidth() - 20 ? "promote"
-                        : active ? "remove" : "select";
+                String action = active ? "remove" : "select";
                 context.drawTooltip(textRenderer, Text.translatable("ottoextra.horses.overview.sort." + action,
                         Text.translatable(option.translationKey())), mouseX, mouseY);
             }
@@ -792,7 +784,7 @@ public final class BasicHorseOverviewScreen extends Screen {
     }
 
     private int sortWidth() {
-        return Math.min(225, panelW() - 24);
+        return Math.min(225, panelW() - 112);
     }
 
     private int speedX() {

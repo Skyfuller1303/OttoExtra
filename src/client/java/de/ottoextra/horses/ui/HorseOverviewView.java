@@ -82,6 +82,16 @@ final class HorseOverviewView {
         String query = rawQuery == null ? ""
                 : rawQuery.trim().toLowerCase(Locale.ROOT);
         Map<String, List<AnimalBreedingHorse>> grouped = new LinkedHashMap<>();
+        // Keep the reference values independent of the search text.
+        Map<String, double[]> maxima = new LinkedHashMap<>();
+        for (AnimalBreedingHorse horse : records) {
+            double[] max = maxima.computeIfAbsent(horse.currentFarm().trim(), ignored -> new double[2]);
+            Double speed = numericValue(horse.speed()), jump = numericValue(horse.jumpHeight());
+            if (speed != null && jump != null) {
+                max[0] = Math.max(max[0], speed);
+                max[1] = Math.max(max[1], jump);
+            }
+        }
         records.stream()
                 .filter(record -> matches(record, query))
                 .forEach(record -> grouped.computeIfAbsent(
@@ -97,15 +107,6 @@ final class HorseOverviewView {
                 .comparing(AnimalBreedingHorse::registryName,
                         String.CASE_INSENSITIVE_ORDER)
                 .thenComparing(AnimalBreedingHorse::entityUuid);
-        Comparator<AnimalBreedingHorse> metrics = (left, right) -> 0;
-        for (SortOrder order : selection.criteria()) {
-            Comparator<Double> values = order.ascending()
-                    ? Comparator.naturalOrder() : Comparator.reverseOrder();
-            metrics = metrics.thenComparing(horse -> numericValue(
-                    order.isSpeed() ? horse.speed() : horse.jumpHeight()), Comparator.nullsLast(values));
-        }
-        Comparator<AnimalBreedingHorse> horses = metrics.thenComparing(byName);
-
         return grouped.entrySet().stream()
                 .sorted((left, right) -> {
                     if (left.getKey().isBlank()) {
@@ -117,8 +118,31 @@ final class HorseOverviewView {
                     return namedFarms.compare(left.getKey(), right.getKey());
                 })
                 .map(entry -> new FarmGroup(entry.getKey(),
-                        entry.getValue().stream().sorted(horses).toList()))
+                        entry.getValue().stream().sorted(metricComparator(selection, maxima.get(entry.getKey()))
+                                .thenComparing(byName)).toList()))
                 .toList();
+    }
+
+    private static Comparator<AnimalBreedingHorse> metricComparator(SortSelection selection, double[] maxima) {
+        if (selection.criteria().size() == 2) {
+            return Comparator.comparing(horse -> combinedScore(horse, selection, maxima),
+                    Comparator.nullsLast(Comparator.reverseOrder()));
+        }
+        if (selection.criteria().isEmpty()) return (left, right) -> 0;
+        SortOrder order = selection.criteria().getFirst();
+        Comparator<Double> values = order.ascending() ? Comparator.naturalOrder() : Comparator.reverseOrder();
+        return Comparator.comparing(horse -> numericValue(order.isSpeed() ? horse.speed() : horse.jumpHeight()),
+                Comparator.nullsLast(values));
+    }
+
+    private static Double combinedScore(AnimalBreedingHorse horse, SortSelection selection, double[] maxima) {
+        Double speed = numericValue(horse.speed()), jump = numericValue(horse.jumpHeight());
+        if (speed == null || jump == null) return null;
+        double speedPart = maxima[0] == 0 ? 1 : speed / maxima[0];
+        double jumpPart = maxima[1] == 0 ? 1 : jump / maxima[1];
+        if (selection.metric(true).ascending()) speedPart = 1 - speedPart;
+        if (selection.metric(false).ascending()) jumpPart = 1 - jumpPart;
+        return (speedPart + jumpPart) / 2;
     }
 
     private static Double numericValue(String raw) {
@@ -151,7 +175,7 @@ final class HorseOverviewView {
     record FarmGroup(String farm, List<AnimalBreedingHorse> horses) {
     }
 
-    /** Farm grouping is independent; metric selection order defines tie-break priority. */
+    /** Farm grouping is independent; two metrics contribute equally to the combined score. */
     static final class SortSelection {
         private SortOrder farmOrder = SortOrder.FARMS_ASCENDING;
         private final List<SortOrder> criteria = new ArrayList<>();
@@ -164,10 +188,6 @@ final class HorseOverviewView {
                 if (order.isSpeed() == speed) return order;
             }
             return null;
-        }
-
-        int priority(SortOrder order) {
-            return criteria.indexOf(order) + 1;
         }
 
         boolean active(SortOrder order) {
@@ -190,14 +210,6 @@ final class HorseOverviewView {
             if (previous == null) select(speed ? SortOrder.SPEED_DESCENDING : SortOrder.JUMP_DESCENDING);
             else if (previous.ascending()) select(previous); // ascending -> off
             else select(speed ? SortOrder.SPEED_ASCENDING : SortOrder.JUMP_ASCENDING);
-        }
-
-        void promote(SortOrder order) {
-            int index = criteria.indexOf(order);
-            if (index > 0) {
-                criteria.remove(index);
-                criteria.add(0, order);
-            }
         }
 
         void reset() {
