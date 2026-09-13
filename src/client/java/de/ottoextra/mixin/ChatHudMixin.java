@@ -1,13 +1,16 @@
 package de.ottoextra.mixin;
 
+import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
 import de.ottoextra.animalinfo.AnimalInfoService;
 import de.ottoextra.chat.ChatMessagePipeline;
 import de.ottoextra.rpnames.chat.ChatHistoryRefresh;
 import net.minecraft.client.gui.hud.ChatHud;
+import net.minecraft.client.gui.hud.ChatHudLine;
 import net.minecraft.client.gui.hud.MessageIndicator;
 import net.minecraft.network.message.MessageSignatureData;
 import net.minecraft.text.Text;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArgs;
@@ -16,6 +19,11 @@ import org.spongepowered.asm.mixin.injection.invoke.arg.Args;
 
 @Mixin(ChatHud.class)
 public abstract class ChatHudMixin {
+
+    @Shadow
+    private void logChatMessage(ChatHudLine message) {
+        throw new AssertionError("Mixin shadow");
+    }
 
     @Inject(
             method = "addMessage(Lnet/minecraft/text/Text;Lnet/minecraft/network/message/MessageSignatureData;Lnet/minecraft/client/gui/hud/MessageIndicator;)V",
@@ -26,6 +34,9 @@ public abstract class ChatHudMixin {
                                          MessageIndicator indicator,
                                          CallbackInfo ci) {
         if (!ChatMessagePipeline.isReplay(original)) {
+            // Vanilla owns latest.log and its dated .log.gz archives. Log before
+            // rewriting, hiding or deferring; the creation tick is unused here.
+            logChatMessage(new ChatHudLine(0, original, signature, indicator));
             de.ottoextra.logging.ChatMessageLog.recordIncoming(original);
         }
         // Gemeinsame Main-Thread-Grenze fuer Game-, profilfreien und signierten
@@ -40,6 +51,15 @@ public abstract class ChatHudMixin {
                 () -> self.addMessage(original, signature, indicator))) {
             ci.cancel();
         }
+    }
+
+    @WrapWithCondition(
+            method = "addMessage(Lnet/minecraft/text/Text;Lnet/minecraft/network/message/MessageSignatureData;Lnet/minecraft/client/gui/hud/MessageIndicator;)V",
+            at = @At(value = "INVOKE",
+                    target = "Lnet/minecraft/client/gui/hud/ChatHud;logChatMessage(Lnet/minecraft/client/gui/hud/ChatHudLine;)V"))
+    private boolean ottoextra$skipDuplicateChatLog(ChatHud hud, ChatHudLine message) {
+        // Already logged at initial receipt, including delayed addon replays.
+        return false;
     }
 
     @ModifyArgs(

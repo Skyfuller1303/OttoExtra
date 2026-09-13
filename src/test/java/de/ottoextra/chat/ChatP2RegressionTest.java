@@ -37,7 +37,7 @@ class ChatP2RegressionTest {
     void legitimateRepeatedSuffixesPreserveTextAndStyle() {
         for (String body : List.of("*nickt*??", "*lacht* hahaha", "(1+1)=22")) {
             Text message = Text.literal("[RP] Alice: ").append(Text.literal(body).styled(s -> s.withBold(true)));
-            assertSame(message, RpChatCorruptionRepair.repair(message));
+            assertSame(message, RpChatCorruptionRepair.repair(message, null, null));
         }
     }
 

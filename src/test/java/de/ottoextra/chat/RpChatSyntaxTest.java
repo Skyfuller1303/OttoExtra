@@ -93,7 +93,7 @@ class RpChatSyntaxTest {
                 "[Sprechen] Ordenspriester Matthias: (dann schauen wir ob ooc "
                         + "*emotes erkannt werden*)*emotes erkannt werden*)");
 
-        Text repaired = RpChatCorruptionRepair.repair(corrupted);
+        Text repaired = RpChatCorruptionRepair.repair(corrupted, null, null);
 
         assertTrue(repaired == corrupted);
     }
@@ -103,8 +103,8 @@ class RpChatSyntaxTest {
         Text corrupted = Text.literal("[Sprechen] Prior Tabris: (*test*)*test*)");
         Text normal = Text.literal("[Sprechen] Prior Tabris: ((*test*))");
 
-        assertTrue(RpChatCorruptionRepair.repair(corrupted) == corrupted);
-        assertTrue(RpChatCorruptionRepair.repair(normal) == normal);
+        assertTrue(RpChatCorruptionRepair.repair(corrupted, null, null) == corrupted);
+        assertTrue(RpChatCorruptionRepair.repair(normal, null, null) == normal);
     }
 
     @Test
@@ -114,8 +114,8 @@ class RpChatSyntaxTest {
         Text inverse = Text.literal("[Sprechen] Matthias: "
                 + "*Emote mit (OOC) darin*(OOC) darin*");
 
-        assertTrue(RpChatCorruptionRepair.repair(multiple) == multiple);
-        assertTrue(RpChatCorruptionRepair.repair(inverse) == inverse);
+        assertTrue(RpChatCorruptionRepair.repair(multiple, null, null) == multiple);
+        assertTrue(RpChatCorruptionRepair.repair(inverse, null, null) == inverse);
     }
 
     @Test

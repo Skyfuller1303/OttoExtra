@@ -1,0 +1,20 @@
+allprojects {
+    afterEvaluate {
+        configurations.modLocalRuntime.dependencies.removeAll { dep ->
+            dep.hasProperty('files') && dep.files.files.any { it.name.toLowerCase().contains('xaero') }
+        }
+        fabricApi.configureTests {
+            createSourceSet = true
+            modId = 'chat_archive_test'
+            enableClientGameTests = true
+        }
+        sourceSets.gametest.java.srcDirs = [file('tools/chat-log-regression/java')]
+        sourceSets.gametest.resources.srcDirs = [file('tools/chat-log-regression/resources')]
+        dependencies.add('gametestImplementation', sourceSets.client.output)
+        loom.runs.clientGameTest {
+            runDir 'build/chat-log-regression/run'
+            vmArg '-Ddevauth.enabled=false'
+            vmArg '-Xmx2G'
+        }
+    }
+}

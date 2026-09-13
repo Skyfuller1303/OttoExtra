@@ -115,7 +115,10 @@ public final class RpChatSyntax {
                 index++;
                 continue;
             }
-            State after = step(state, c, state.emote() || closingStars[index] >= 0).after();
+            boolean delimiter = state.emote()
+                    ? isClosingEmoteDelimiter(text, index)
+                    : closingStars[index] >= 0;
+            State after = step(state, c, delimiter).after();
             if (!state.emote() && after.emote()) {
                 opening = index;
             } else if (state.emote() && !after.emote()) {
@@ -145,8 +148,12 @@ public final class RpChatSyntax {
             if (formattingCodes.get(i)) continue;
             switch (text.charAt(i)) {
                 case '*' -> {
-                    closing[i] = nextStar;
-                    nextStar = i;
+                    if (isOpeningEmoteDelimiter(text, i)) {
+                        closing[i] = nextStar;
+                    }
+                    if (isClosingEmoteDelimiter(text, i)) {
+                        nextStar = i;
+                    }
                 }
                 case ')' -> afterParenthesis.push(nextStar);
                 case '(' -> nextStar = afterParenthesis.isEmpty() ? -1 : afterParenthesis.pop();
@@ -154,6 +161,48 @@ public final class RpChatSyntax {
             }
         }
         return closing;
+    }
+
+    /** Öffner stehen nicht direkt hinter einem Wort und benötigen sichtbaren Inhalt. */
+    private static boolean isOpeningEmoteDelimiter(String text, int index) {
+        int next = nextVisibleIndex(text, index);
+        if (next < 0 || Character.isWhitespace(text.charAt(next))
+                || text.charAt(next) == '*') {
+            return false;
+        }
+        int previous = previousVisibleIndex(text, index);
+        return previous < 0 || !isWordCharacter(text.charAt(previous));
+    }
+
+    /** Schließer folgen sichtbarem Inhalt und stehen nicht mitten in einem Wort. */
+    private static boolean isClosingEmoteDelimiter(String text, int index) {
+        int previous = previousVisibleIndex(text, index);
+        if (previous < 0 || Character.isWhitespace(text.charAt(previous))
+                || text.charAt(previous) == '*') {
+            return false;
+        }
+        int next = nextVisibleIndex(text, index);
+        return next < 0 || !isWordCharacter(text.charAt(next));
+    }
+
+    private static boolean isWordCharacter(char c) {
+        return Character.isLetterOrDigit(c) || c == '_';
+    }
+
+    private static int previousVisibleIndex(String text, int index) {
+        int cursor = index - 1;
+        while (cursor >= 1 && text.charAt(cursor - 1) == '§') {
+            cursor -= 2;
+        }
+        return cursor;
+    }
+
+    private static int nextVisibleIndex(String text, int index) {
+        int cursor = index + 1;
+        while (cursor + 1 < text.length() && text.charAt(cursor) == '§') {
+            cursor += 2;
+        }
+        return cursor < text.length() ? cursor : -1;
     }
 
     /** Liest einen Präfix, dessen Emote-Paare anhand der ganzen Nachricht feststehen. */

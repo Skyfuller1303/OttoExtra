@@ -213,15 +213,16 @@ class ChatChannelFormatterTest {
     }
 
     @Test
-    void unmatchedStarDoesNotStartAnEmote() {
-        Text original = Text.literal("Hallo *winkt ohne Ende").formatted(Formatting.WHITE);
+    void trailingCorrectionStarDoesNotStartAnEmote() {
+        Text original = Text.literal("*nickt* Fehlr - Fehler*").formatted(Formatting.WHITE);
 
         Text formatted = RpChatFormatter.formatContent(original);
 
         assertEquals(original.getString(), formatted.getString());
-        assertFalse(styleFor(formatted, "winkt ohne Ende").isItalic());
+        assertTrue(styleFor(formatted, "nickt").isItalic());
+        assertFalse(styleFor(formatted, "Fehlr - Fehler*").isItalic());
         assertEquals(Formatting.WHITE.getColorValue(),
-                styleFor(formatted, "winkt ohne Ende").getColor().getRgb());
+                styleFor(formatted, "Fehlr - Fehler*").getColor().getRgb());
     }
 
     @Test
@@ -296,13 +297,32 @@ class ChatChannelFormatterTest {
     }
 
     @Test
-    void unmatchedOuterStarDoesNotSuppressClosedEmoteInsideOoc() {
+    void earlierUnmatchedOuterStarDoesNotSuppressLaterClosedEmoteInsideOoc() {
         Text original = Text.literal("*offen ((OOC *winkt* weiter)) normal");
         Text formatted = RpChatFormatter.formatContent(original);
         assertEquals(original.getString(), formatted.getString());
         assertFalse(styleFor(formatted, "offen").isItalic());
         assertTrue(styleFor(formatted, "winkt").isItalic());
         assertFalse(styleFor(formatted, "normal").isItalic());
+    }
+
+    @Test
+    void correctionStarBeforeRealEmoteDoesNotStealItsOpeningStar() {
+        Text formatted = RpChatFormatter.formatContent(
+                Text.literal("Fehler* und *nickt*").formatted(Formatting.WHITE));
+
+        assertFalse(styleFor(formatted, "Fehler").isItalic());
+        assertFalse(styleFor(formatted, " und ").isItalic());
+        assertTrue(styleFor(formatted, "nickt").isItalic());
+    }
+
+    @Test
+    void emptyOrWhitespaceOnlyStarPairIsNotAnEmote() {
+        Text formatted = RpChatFormatter.formatContent(
+                Text.literal("leer ** und *   * fertig").formatted(Formatting.WHITE));
+
+        assertFalse(styleFor(formatted, "**").isItalic());
+        assertFalse(styleFor(formatted, "*   *").isItalic());
     }
 
     private static Style styleFor(Text text, String needle) {

@@ -96,7 +96,7 @@ public final class ChatMessagePipeline {
                     : RpNamesServices.rewriteChatDisplay(original);
             displayed = keepOnlyIfBodyPreserved(original, renamed);
         }
-        displayed = RpChatCorruptionRepair.repair(displayed);
+        displayed = RpChatCorruptionRepair.repair(displayed, signature, indicator);
         Text colored = ChatChannelFormatter.format(displayed, speakerKind);
         displayed = RpChatFormatter.keepOnlyIfTextPreserved(displayed, colored);
         displayed = RpChatFormatter.format(displayed);

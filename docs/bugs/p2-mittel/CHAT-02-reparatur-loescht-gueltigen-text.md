@@ -27,3 +27,28 @@ Mehrdeutige Suffix-Kürzung entfernen oder auf eindeutige Protokollmerkmale besc
 Die mehrdeutige Suffix-Heuristik wurde entfernt. Wiederholungen, Zahlen, Satzzeichen und Textstile bleiben erhalten. Auch zuvor als Serverkorruption eingestufte, allein anhand des Textes nicht beweisbare Duplikate werden jetzt unverändert angezeigt.
 
 Regression: [ChatP2RegressionTest.java](../../../src/test/java/de/ottoextra/chat/ChatP2RegressionTest.java). Vollständiger Testlauf und Build erfolgreich; Details und verbleibende Ingame-Prüfungen: [P2-UMSETZUNG.md](../P2-UMSETZUNG.md). Die Codebelege oben beschreiben den Auditstand vor diesem Fix.
+
+## Ergänzung am 09.09.2026: Originalabgleich statt Suffix-Heuristik
+
+Ein erneut gemeldeter OOC-/Emote-Fehler war bereits im unveränderten
+`ottoextra-chat.log` vorhanden. Minecraft kennzeichnete die Nachricht als
+`Modified`. Dessen `MessageIndicator.modified(signedContent)` enthält den
+signierten Originaltext als separates Textobjekt; die Struktur wurde gegen
+die lokalen Minecraft-1.21.11-Sources geprüft.
+
+Die Reparatur greift jetzt nur bei signiertem RP-Chat mit diesen unveränderten
+Originalmetadaten und aktiver RP-Formatierung. Der Anhang muss eine exakte
+Wiederholung ab einem inneren Emote bis zum Ende eines abgeschlossenen
+OOC-Blocks sein. Der verbleibende Inhalt muss mit dem Original übereinstimmen;
+äußere OOC-Klammerpaare und deren Randabstände dürfen in der Serverdarstellung
+abweichen. Ohne Originalabgleich wird nichts entfernt, auch nicht beim bekannten
+Fehlermuster. Übersetzte/gefilterte Inhalte und absichtliche Wiederholungen werden
+nicht durch den Originaltext ersetzt.
+
+Nur eine Kopie der Anzeige wird gekürzt. Kopf-/Wappen-Komponenten, Stile,
+Signatur, Original-Hinweis und Empfangslogs bleiben erhalten. Unbekannte
+Komponentenstrukturen fallen unverändert zurück.
+
+Regression: [RpChatCorruptionRepairTest.java](../../../src/test/java/de/ottoextra/chat/RpChatCorruptionRepairTest.java).
+Zusätzlich bestätigt ein isolierter Fabric-Client den tatsächlichen ChatHud-Pfad,
+Verlaufsaktualisierung, verzögerte Addon-Verarbeitung und unverändertes Logging.
