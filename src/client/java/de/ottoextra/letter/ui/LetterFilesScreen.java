@@ -56,8 +56,11 @@ public final class LetterFilesScreen extends Screen {
     private void reload() {
         try {
             Files.createDirectories(OttoExtraPaths.lettersDir());
-            try (var stream = Files.list(OttoExtraPaths.lettersDir())) {
-                files = stream.filter(path -> Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)
+            try (var rootFiles = Files.list(OttoExtraPaths.lettersDir());
+                 var sentFiles = Files.isDirectory(OttoExtraPaths.sentLettersDir(), LinkOption.NOFOLLOW_LINKS)
+                         ? Files.list(OttoExtraPaths.sentLettersDir()) : java.util.stream.Stream.<Path>empty()) {
+                files = java.util.stream.Stream.concat(rootFiles, sentFiles)
+                        .filter(path -> Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)
                                 && path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".txt"))
                         .sorted(Comparator.comparing((Path p) -> p.getFileName().toString()).reversed()).toList();
             }
@@ -126,7 +129,8 @@ public final class LetterFilesScreen extends Screen {
             Path file = files.get(scroll + i);
             int y = 66 + i * 16;
             if (file.equals(selected)) context.fill(left() - 2, y - 2, left() + listWidth() + 2, y + 12, 0x557A5A3A);
-            context.drawTextWithShadow(textRenderer, textRenderer.trimToWidth(file.getFileName().toString(), listWidth()),
+            String name = OttoExtraPaths.lettersDir().relativize(file).toString().replace('\\', '/');
+            context.drawTextWithShadow(textRenderer, textRenderer.trimToWidth(name, listWidth()),
                     left(), y, file.equals(selected) ? 0xFFFFD479 : 0xFFE6C8A9);
         }
         context.drawCenteredTextWithShadow(textRenderer, textRenderer.trimToWidth(status, width - 16),

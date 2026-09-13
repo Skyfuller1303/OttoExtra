@@ -60,7 +60,7 @@ public final class V2DraftFlow {
         Layout before = align(draft.meta.flowingDocument, draft.pages);
         PageSpan span = before.span(page);
         String previous = span.page();
-        int commonPrefix = commonPrefix(previous, value);
+        int commonPrefix = editStart(previous, value, cursor);
         int commonSuffix = commonSuffix(previous, value, commonPrefix);
         int oldChangeEnd = previous.length() - commonSuffix;
         int newChangeEnd = value.length() - commonSuffix;
@@ -223,7 +223,7 @@ public final class V2DraftFlow {
             }
             Match match = findPage(source, searchable, searchFrom, page,
                     i == safePages.size() - 1);
-            spans.add(new PageSpan(page, match.start(), match.end(), match.prefixChars()));
+            spans.add(new PageSpan(page, match.start(), match.end(), match.prefixChars(), match.sourceBoundaries()));
             searchFrom = Math.max(searchFrom, match.end());
         }
         return new Layout(source, spans);
@@ -236,7 +236,7 @@ public final class V2DraftFlow {
             int start = Math.min(searchFrom, source.length());
             int nextBreak = source.indexOf(PAGE_BREAK, start);
             int end = nextBreak >= 0 ? nextBreak : lastPage ? source.length() : start;
-            return new Match(start, end, 0);
+            return new Match(start, end, 0, null);
         }
         int prefixChars = 0;
         int found = document.indexOf(semantic, Math.min(searchFrom, document.length()));
@@ -246,15 +246,51 @@ public final class V2DraftFlow {
             found = document.indexOf(withoutPrefix, Math.min(searchFrom, document.length()));
         }
         if (found >= 0) {
-            return new Match(found, found + semantic.length() - prefixChars, prefixChars);
+            return new Match(found, found + semantic.length() - prefixChars, prefixChars, null);
         }
+
+        Match wrapped = findHardWrappedPage(source, searchFrom, page);
+        if (wrapped != null) return wrapped;
 
         int start = Math.min(searchFrom, document.length());
         while (start < document.length() && document.charAt(start) == ' ') {
             start++;
         }
         int length = Math.max(0, semantic.length() - prefixChars);
-        return new Match(start, Math.min(document.length(), start + length), prefixChars);
+        return new Match(start, Math.min(document.length(), start + length), prefixChars, null);
+    }
+
+    private static Match findHardWrappedPage(String source, int searchFrom, String page) {
+        // A wrap inside a long word adds a display newline without consuming a
+        // source character. Keep an explicit offset map instead of counting it
+        // as a space; otherwise all following edits and the caret drift apart.
+        int start = Math.min(searchFrom, source.length());
+        do {
+            int prefixChars = 0;
+            while (true) {
+                int[] boundaries = new int[page.length() + 1];
+                java.util.Arrays.fill(boundaries, 0, prefixChars + 1, start);
+                int sourceOffset = start;
+                boolean matches = true;
+                for (int local = prefixChars; local < page.length(); local++) {
+                    char shown = page.charAt(local);
+                    if (sourceOffset < source.length() && (shown == source.charAt(sourceOffset)
+                            || shown == '\n' && source.charAt(sourceOffset) == ' ')) {
+                        sourceOffset++;
+                    } else if (shown != '\n') {
+                        matches = false;
+                        break;
+                    }
+                    boundaries[local + 1] = sourceOffset;
+                }
+                if (matches) return new Match(start, sourceOffset, prefixChars, boundaries);
+                if (!isFormattingCodeAt(page, prefixChars)) break;
+                prefixChars += 2;
+            }
+            if (start >= source.length() || source.charAt(start) != ' ' && source.charAt(start) != '\n') break;
+            start++;
+        } while (true);
+        return null;
     }
 
     private static int alignedPrefixLength(String value, int rawOffset) {
@@ -273,6 +309,21 @@ public final class V2DraftFlow {
             i++;
         }
         return i;
+    }
+
+    private static int editStart(String before, String after, int cursor) {
+        int delta = after.length() - before.length();
+        int start = cursor - Math.max(0, delta);
+        int oldEnd = start + Math.max(0, -delta);
+        int newEnd = start + Math.max(0, delta);
+        // An entered newline can equal the existing soft wrap beside it. For
+        // an exact insertion/deletion, the caret identifies which one changed.
+        if (delta != 0 && start >= 0 && oldEnd <= before.length() && newEnd <= after.length()
+                && before.regionMatches(0, after, 0, start)
+                && before.substring(oldEnd).equals(after.substring(newEnd))) {
+            return start;
+        }
+        return commonPrefix(before, after);
     }
 
     private static int commonSuffix(String before, String after, int prefix) {
@@ -341,12 +392,15 @@ public final class V2DraftFlow {
         }
     }
 
-    private record Match(int start, int end, int prefixChars) {
+    private record Match(int start, int end, int prefixChars, int[] sourceBoundaries) {
     }
 
     private record PageSpan(String page, int sourceStart, int sourceEnd,
-                            int injectedPrefixChars) {
+                            int injectedPrefixChars, int[] sourceBoundaries) {
         int toGlobal(int localOffset) {
+            if (sourceBoundaries != null) {
+                return sourceBoundaries[Math.max(0, Math.min(localOffset, page.length()))];
+            }
             int prefix = Math.min(injectedPrefixChars, page.length());
             int local = Math.max(prefix, Math.min(localOffset, page.length()));
             return Math.min(sourceEnd, sourceStart

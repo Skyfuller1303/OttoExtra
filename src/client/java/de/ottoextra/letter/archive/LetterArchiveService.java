@@ -9,10 +9,11 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 
-/** Captures the actual book before /post consumes it; archives only Courier's matching acknowledgement. */
+/** Keeps completed books and acknowledged sends in letters/sent; manual exports stay in letters. */
 public final class LetterArchiveService {
     private static final java.util.Deque<Pending> pending = new java.util.ArrayDeque<>();
     private record Pending(List<String> pages, String author, String recipient, Instant date,
@@ -45,7 +46,7 @@ public final class LetterArchiveService {
         String body = text.substring(text.indexOf("] ") + 2);
         if (body.equalsIgnoreCase("Der Brief wurde " + entry.recipient + " gesendet.")) {
             pending.removeFirst();
-            save("letter", entry.pages, entry.author, entry.recipient, entry.date);
+            save(OttoExtraPaths.sentLettersDir(), "letter", entry.pages, entry.author, entry.recipient, entry.date);
         } else if (body.startsWith("Du hast keine Erlaubnis ")
                 || body.equals("Bitte halte ein beschreibbares Buch in der Hand.")
                 || body.equals("Dieser Brief wurde bereits gesendet.")
@@ -63,19 +64,37 @@ public final class LetterArchiveService {
 
     public static void exportBook(ItemStack stack) {
         var book = stack.get(DataComponentTypes.WRITTEN_BOOK_CONTENT);
-        if (book != null) save(book.author(), WrittenLetterImport.toSectionPages(book), book.author(), "", Instant.now());
+        if (book != null) save(OttoExtraPaths.lettersDir(), book.author(),
+                WrittenLetterImport.toSectionPages(book), book.author(), "", Instant.now());
     }
 
-    private static void save(String prefix, List<String> pages, String author, String recipient, Instant date) {
+    /** Called only after the write queue has verified the complete held book. */
+    public static boolean archiveWrittenBook() {
+        var client = MinecraftClient.getInstance();
+        if (client.player == null
+                || !de.ottoextra.letter.LetterWriteItemGuard.isWritableLetter(client.player.getMainHandStack())) {
+            return false;
+        }
+        var book = client.player.getMainHandStack().get(DataComponentTypes.WRITTEN_BOOK_CONTENT);
+        return save(OttoExtraPaths.sentLettersDir(), "written", WrittenLetterImport.toSectionPages(book),
+                book.author(), "", Instant.now());
+    }
+
+    private static boolean save(Path directory, String prefix, List<String> pages, String author,
+                                String recipient, Instant date) {
         try {
-            var file = LetterTextArchive.write(OttoExtraPaths.lettersDir(), prefix, pages, author, recipient, date);
+            var file = LetterTextArchive.write(directory, prefix, pages, author, recipient, date);
+            String location = "(config/ottoextra/"
+                    + OttoExtraPaths.root().relativize(directory).toString().replace('\\', '/') + ")";
             hint(Text.translatable("ottoextra.letter.txt.saved",
                     Text.literal(file.getFileName().toString()).formatted(Formatting.GOLD),
-                    Text.literal("(config/ottoextra/letters)").formatted(Formatting.GRAY))
+                    Text.literal(location).formatted(Formatting.GRAY))
                     .formatted(Formatting.GREEN));
+            return true;
         } catch (Exception e) {
             OttoExtra.LOGGER.warn("[letter] TXT archive could not be saved", e);
             hint(Text.translatable("ottoextra.letter.txt.failed").formatted(Formatting.RED));
+            return false;
         }
     }
 

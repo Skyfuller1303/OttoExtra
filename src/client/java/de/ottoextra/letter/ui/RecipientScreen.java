@@ -93,8 +93,8 @@ public final class RecipientScreen extends Screen {
         }
         String q = searchField == null ? ""
                 : searchField.getText().toLowerCase(Locale.ROOT).trim();
-        for (LocalRpProfile p : RpNamesServices.store().all()) {
-            if (p.accountName == null) {
+        for (LocalRpProfile p : RpNamesServices.store().currentAccounts()) {
+            if (p.accountName == null || p.accountName.isBlank()) {
                 continue;
             }
             if (q.isEmpty() || p.accountName.toLowerCase(Locale.ROOT).contains(q)
@@ -142,7 +142,7 @@ public final class RecipientScreen extends Screen {
             }
         }
         if (entry != null) {
-            return entry.getSkinTextures();
+            return de.ottoextra.chat.ChatHeads.skinForUuid(entry.getProfile().id(), entry.getProfile().name());
         }
 
         if (p.uuid != null && !p.uuid.isBlank()) {

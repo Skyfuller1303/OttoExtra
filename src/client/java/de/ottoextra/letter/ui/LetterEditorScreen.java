@@ -55,6 +55,7 @@ public final class LetterEditorScreen extends Screen {
     private static final int TEXT_X = 28;
     private static final int TEXT_Y = 48;
     private static final int LINE_H = 12;
+    private static final int TEXT_LINE_OFFSET = 2;
 
     private static final int BOOK_PAGE_WIDTH = 108;
 
@@ -1163,7 +1164,7 @@ public final class LetterEditorScreen extends Screen {
 
     private boolean isInsideTextArea(double mouseX, double mouseY, List<int[]> spans) {
         int tx = panelX() + TEXT_X;
-        int ty = panelY() + TEXT_Y;
+        int ty = panelY() + TEXT_Y + TEXT_LINE_OFFSET;
         int visibleLines = Math.max(1, Math.min(spans.size(), visibleLineCount()));
         return mouseX >= tx - 4 && mouseX <= tx + 114
                 && mouseY >= ty - 2 && mouseY <= ty + visibleLines * LINE_H + 2;
@@ -1171,7 +1172,7 @@ public final class LetterEditorScreen extends Screen {
 
     private int textPositionAt(double mouseX, double mouseY, List<int[]> spans) {
         int tx = panelX() + TEXT_X;
-        int ty = panelY() + TEXT_Y;
+        int ty = panelY() + TEXT_Y + TEXT_LINE_OFFSET;
         int visibleLines = Math.max(1, Math.min(spans.size(), visibleLineCount()));
         int line = Math.max(0, Math.min((int) Math.floor((mouseY - ty) / LINE_H),
                 visibleLines - 1));
@@ -1275,7 +1276,8 @@ public final class LetterEditorScreen extends Screen {
                     draft.meta.mode = LetterOutputMode.BRIEF;
                     if (LetterServices.startWrite(config, draft, () -> {
                         MinecraftClient minecraft = MinecraftClient.getInstance();
-                        if (minecraft.player != null && minecraft.world != null) {
+                        if (config.letter.openRecipientAfterWrite
+                                && minecraft.player != null && minecraft.world != null) {
                             minecraft.setScreen(new RecipientScreen(null, config, draft));
                         }
                     })) {
@@ -1440,9 +1442,10 @@ public final class LetterEditorScreen extends Screen {
         for (int i = firstVisibleLine; i < Math.min(spans.size(), firstVisibleLine + maxLines); i++) {
             int[] span = spans.get(i);
             String lineText = t.substring(span[0], span[1]);
-            int y = py + TEXT_Y + (i - firstVisibleLine) * LINE_H;
-            ctx.fill(px + TEXT_X - 2, y + LINE_H - 2,
-                    px + TEXT_X + 130, y + LINE_H - 1, PAPER_LINE);
+            int rowY = py + TEXT_Y + (i - firstVisibleLine) * LINE_H;
+            int y = rowY + TEXT_LINE_OFFSET;
+            ctx.fill(px + TEXT_X - 2, rowY + LINE_H - 2,
+                    px + TEXT_X + 130, rowY + LINE_H - 1, PAPER_LINE);
             if (hasSelection() && selEnd() > span[0] && selStart() < span[1]) {
                 int s = Math.max(selStart(), span[0]) - span[0];
                 int e = Math.min(selEnd(), span[1]) - span[0];

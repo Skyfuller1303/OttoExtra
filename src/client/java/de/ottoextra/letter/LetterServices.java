@@ -395,7 +395,7 @@ public final class LetterServices {
             letterStore().save(progress);
         }, () -> {
             letterStore().clear();
-            clearWrittenDraftCache(progress.context);
+            archiveWrittenDraftAndClearCache(progress.context);
             preparedLetter = progress.context;
             DebugLog.debug("[letter] {} {} geschrieben ({} Befehle).",
                     purpose == SendPurpose.ANNOUNCEMENT ? "Verkündung" : "Brief",
@@ -421,9 +421,13 @@ public final class LetterServices {
         return recipient != null && recipient.matches("[A-Za-z0-9_]{1,16}");
     }
 
-    private static void clearWrittenDraftCache(LetterSendContext context) {
+    private static void archiveWrittenDraftAndClearCache(LetterSendContext context) {
         // /post and /verkünden have no ACK here; permission/money errors must retain the draft.
         if (context.submitted) {
+            return;
+        }
+        // Keep the draft available if the permanent copy could not be saved.
+        if (!de.ottoextra.letter.archive.LetterArchiveService.archiveWrittenBook()) {
             return;
         }
         LetterDraft cached = LetterDraftCache.load();
@@ -530,7 +534,7 @@ public final class LetterServices {
             letterStore().save(progress);
         }, () -> {
             letterStore().clear();
-            clearWrittenDraftCache(progress.context);
+            archiveWrittenDraftAndClearCache(progress.context);
             preparedLetter = progress.context.submitted ? null : progress.context;
             DebugLog.debug("[letter] Briefbefehle an {} gesendet.",
                     progress.recipient);
@@ -653,7 +657,7 @@ public final class LetterServices {
             announcementStore().save(progress);
         }, () -> {
             announcementStore().clear();
-            clearWrittenDraftCache(progress.context);
+            archiveWrittenDraftAndClearCache(progress.context);
             preparedLetter = progress.context.submitted ? null : progress.context;
 
             if (manualSubmit) {

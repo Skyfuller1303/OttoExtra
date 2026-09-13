@@ -6,6 +6,8 @@ Vom OttoExtra-Verzeichnis aus:
 ./tools/courier-e2e/run.ps1
 # Einzelne Fälle wiederholen:
 ./tools/courier-e2e/run.ps1 -Filter 'V201,I01,P01,A01'
+# Automatische Abschriften in letters/sent, Versand und TXT-Import:
+./tools/courier-e2e/run.ps1 -Filter 'TXT01,TXT02,TXT03,TXT04,TXT05,TXT06,TXT07,I01,R01-runtime'
 ```
 
 Das Skript startet einen isolierten Paper-1.21.11-Server und einen echten Minecraft-Fabric-Client mit OttoExtra aus dem aktuellen Quellstand. Die originale Courier-2.1.0-JAR bleibt unverändert. Details zu Paper, EULA, Abhängigkeiten und Testmaterial stehen in [server/README.md](server/README.md).

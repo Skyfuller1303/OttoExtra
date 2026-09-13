@@ -124,6 +124,8 @@ public final class CourierE2ETest implements FabricClientGameTest {
             test("RP07", "Laufendes Schreiben wird durch erneutes Öffnen nicht ersetzt", this::reopenPostWhileWriting);
             test("RP08", "Nach abgelehntem Versand erneut öffnen und zustellen", this::reopenRejectedPost);
             test("RP09", "Anderes angezeigtes Buch bietet keinen Versand der Haupthand an", this::reopenDisplayedBookGuard);
+            test("RP10", "Automatisches Versandmenü abschaltbar; Abschrift und späterer Versand bleiben verfügbar",
+                    () -> reopenWrittenPost(false));
             test("P02", "Post ohne Berechtigung", () -> submitDenied(false, false));
             test("P03", "Post ohne Geld", () -> submitDenied(false, true));
             test("A01", "Verkündung aus frischem Entwurf", () -> announce(false));
@@ -199,10 +201,11 @@ public final class CourierE2ETest implements FabricClientGameTest {
                 check(commands().isEmpty(), "Animal glow emitted server commands");
             });
             test("TXT01", "Versand archivieren, empfangenen Brief exportieren und als neuen Brief importieren", this::textArchiveRoundTrip);
-            test("TXT02", "Abgelehnter Versand erzeugt kein TXT-Archiv", () -> {
+            test("TXT02", "Abgelehnter Versand bewahrt die Schreibkopie und erzeugt keine Versandkopie", () -> {
                 var before = textFiles();
                 submitDenied(false, false);
-                check(textFiles().equals(before), "Denied post was archived");
+                writtenCopySince(before);
+                before = textFiles();
                 // Replace the rejected book to detect a stale snapshot surviving its error reply.
                 api("POST", "/permissions&post=true", null);
                 installUnsentBook(List.of("Neuer Brief nach Ablehnung"));
@@ -211,10 +214,10 @@ public final class CourierE2ETest implements FabricClientGameTest {
                 check(added.size() == 1, "Successful retry did not archive exactly once");
                 equalPages(List.of("Neuer Brief nach Ablehnung"), readText(added.iterator().next()));
             });
-            test("TXT03", "Geldfehler und Lesen normaler Bücher erzeugen keine TXT-Datei", () -> {
+            test("TXT03", "Geldfehler bewahrt die Schreibkopie; normale Bücher bleiben ohne Export", () -> {
                 var before = textFiles();
                 submitDenied(false, true);
-                check(textFiles().equals(before), "Unpaid letter was archived");
+                writtenCopySince(before);
                 api("POST", "/book", Map.of("pages", List.of("Buch"), "title", "Tagebuch"));
                 pause(300); openHeldBook();
                 check(!hasButton("ottoextra.letter.txt.export"), "Ordinary book gained letter export");
@@ -229,6 +232,8 @@ public final class CourierE2ETest implements FabricClientGameTest {
                 });
                 await(() -> textFiles().size() == before.size() + 1, 5000, "Manual post was not archived");
                 var added = new HashSet<>(textFiles()); added.removeAll(before);
+                check(added.iterator().next().getParent().equals(
+                        de.ottoextra.config.OttoExtraPaths.lettersDir().resolve("sent")), "Manual post used wrong directory");
                 equalPages(List.of("Manuell versendet"), readText(added.iterator().next()));
                 installUnsentBook(List.of("Nicht bestätigt"));
                 ctx.runOnClient(c -> {
@@ -260,6 +265,25 @@ public final class CourierE2ETest implements FabricClientGameTest {
                 installUnsentBook(List.of("Anderer Brief"));
                 click("ottoextra.letter.txt.export");
                 check(textFiles().equals(before), "Stale export action adopted a different book");
+            });
+            test("TXT06", "Schreiben ohne Versand sichert alle Buchseiten in letters/sent und bleibt importierbar", () -> {
+                var before = textFiles();
+                LetterDraft draft = editor("§6Abschrift§r\nGrüße 😀\n" + "Mehrseitiger Brief. ".repeat(20));
+                List<String> predicted = preview();
+                click("ottoextra.letter.send"); written(draft, predicted);
+                Path copy = writtenCopySince(before);
+                check(commands().stream().noneMatch(command -> command.startsWith("/post ")),
+                        "Writing a copy submitted the letter");
+                editor("Neuer Entwurf");
+                click("ottoextra.letter.drafts"); click("ottoextra.letter.txt.title");
+                selectTextFile(copy); click("ottoextra.letter.txt.import");
+                check(ctx.computeOnClient(c -> c.currentScreen instanceof LetterEditorScreen),
+                        "Copy from sent directory was not importable");
+            });
+            test("TXT07", "Abgelehntes Schreiben erzeugt keine unvollständige Abschrift", () -> {
+                var before = textFiles();
+                permissionFailure();
+                check(textFiles().equals(before), "Rejected write created an archive");
             });
             test("UI-PEOPLE-LOCKS", "Personen speichern ohne automatische Sperren; Titel nur ausdrücklich sperren", () -> {
                 de.ottoextra.rpnames.store.PeopleLockUiChecks.run(ctx);
@@ -529,6 +553,7 @@ public final class CourierE2ETest implements FabricClientGameTest {
     }
 
     private void importAppend() {
+        var before = textFiles();
         List<String> original = List.of("§6Alte Seite", String.join("\n", java.util.stream.IntStream.rangeClosed(1, 12).mapToObj(i -> "Alt " + i).toList()));
         api("POST", "/book", Map.of("pages", original, "title", "§7Brief von §6CourierAudit", "author", "CourierAudit")); pause(500);
         ctx.runOnClient(c -> WrittenLetterImport.editInEditor(config, c.player.getMainHandStack()));
@@ -543,9 +568,11 @@ public final class CourierE2ETest implements FabricClientGameTest {
         List<String> predicted = preview();
         click("ottoextra.letter.send"); written(draft, predicted);
         check(rawPages().getFirst().equals(original.getFirst()), "Earlier page changed");
+        writtenCopySince(before);
     }
 
     private void recovery() {
+        var before = textFiles();
         ctx.runOnClient(c -> { config.letter.pageModeSendDelayMs = 5000; config.letter.letterPageDelayMinMs = config.letter.letterPageDelayMaxMs = 5000; });
         LetterDraft draft = editor(LetterCalibrationCorpus.byId("V207").pages().getFirst());
         List<String> predicted = preview(); click("ottoextra.letter.send");
@@ -558,6 +585,7 @@ public final class CourierE2ETest implements FabricClientGameTest {
         ctx.runOnClient(c -> fastTiming()); click("ottoextra.letter.recovery.resume");
         written(draft, predicted);
         check(commands().size() == progress.pendingCommands.size(), "Recovery duplicated/skipped commands");
+        writtenCopySince(before);
     }
 
     private void post() {
@@ -586,9 +614,22 @@ public final class CourierE2ETest implements FabricClientGameTest {
     private Set<Path> textFiles() {
         Path directory = de.ottoextra.config.OttoExtraPaths.lettersDir();
         if (!Files.isDirectory(directory)) return Set.of();
-        try (var files = Files.list(directory)) {
-            return files.filter(path -> path.toString().endsWith(".txt")).collect(java.util.stream.Collectors.toSet());
+        try (var files = Files.walk(directory, 2)) {
+            return files.filter(path -> Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)
+                    && path.toString().endsWith(".txt")).collect(java.util.stream.Collectors.toSet());
         } catch (Exception e) { throw new RuntimeException(e); }
+    }
+
+    private Path writtenCopySince(Set<Path> before) {
+        var added = new HashSet<>(textFiles()); added.removeAll(before);
+        check(added.size() == 1, "Writing must create exactly one copy, got " + added.size());
+        Path copy = added.iterator().next();
+        check(copy.getParent().equals(de.ottoextra.config.OttoExtraPaths.lettersDir().resolve("sent"))
+                && copy.getFileName().toString().startsWith("written_"), "Wrong written copy path");
+        List<String> actual = ctx.computeOnClient(c -> WrittenLetterImport.toSectionPages(
+                c.player.getMainHandStack().get(DataComponentTypes.WRITTEN_BOOK_CONTENT)));
+        equalPages(actual, readText(copy));
+        return copy;
     }
 
     private List<String> readText(Path file) {
@@ -608,15 +649,18 @@ public final class CourierE2ETest implements FabricClientGameTest {
         List<String> expected = ctx.computeOnClient(c -> WrittenLetterImport.toSectionPages(
                 c.player.getMainHandStack().get(DataComponentTypes.WRITTEN_BOOK_CONTENT)));
         var added = new HashSet<>(textFiles()); added.removeAll(before);
-        check(added.size() == 1, "Post did not create exactly one TXT file");
-        Path sent = added.iterator().next();
-        check(sent.getFileName().toString().startsWith("letter_"), "Unexpected sent filename");
+        check(added.size() == 2, "Writing and post must create one TXT copy each");
+        Path sent = added.stream().filter(path -> path.getFileName().toString().startsWith("letter_")).findFirst().orElseThrow();
+        Path written = added.stream().filter(path -> path.getFileName().toString().startsWith("written_")).findFirst().orElseThrow();
+        check(added.stream().allMatch(path -> path.getParent().equals(
+                de.ottoextra.config.OttoExtraPaths.lettersDir().resolve("sent"))), "Automatic copy used wrong directory");
         equalPages(expected, readText(sent));
+        equalPages(expected, readText(written));
         openHeldBook();
         check(!hasBookSendButton() && hasButton("ottoextra.letter.txt.export"), "Received letter export or send guard wrong");
         screenshot("letter-txt-received-export");
         click("ottoextra.letter.txt.export");
-        var received = new HashSet<>(textFiles()); received.removeAll(before); received.remove(sent);
+        var received = new HashSet<>(textFiles()); received.removeAll(before); received.removeAll(added);
         check(received.size() == 1, "Received export missing");
         Path exported = received.iterator().next();
         check(exported.getFileName().toString().startsWith("CourierAudit_"), "Received filename lacks author");
@@ -695,19 +739,46 @@ public final class CourierE2ETest implements FabricClientGameTest {
     }
 
     private void reopenWrittenPost() {
-        LetterDraft draft = editor("§6Brief später versenden§r\nGrüße 😀");
-        List<String> predicted = preview(); click("ottoextra.letter.send"); written(draft, predicted);
-        int writes = commands().size();
-        click("gui.back"); openHeldBook(); screenshot("courier-book-send-button");
-        click("ottoextra.letter.book.send");
-        check(ctx.computeOnClient(c -> c.currentScreen instanceof RecipientScreen), "Cannot reopen freshly written letter");
-        click("gui.back");
-        check(ctx.computeOnClient(c -> c.currentScreen instanceof net.minecraft.client.gui.screen.ingame.BookScreen), "Back lost book view");
-        click("ottoextra.letter.book.send");
-        check(commands().size() == writes, "Reopening rewrote the letter");
-        equalPages(predicted, LetterV2Planner.displayPages(rawPages()));
-        submitReopenedPost();
-        check(commands().size() == writes + 1, "Reopened post sent duplicate commands");
+        reopenWrittenPost(true);
+    }
+
+    private void reopenWrittenPost(boolean autoOpen) {
+        boolean previous = config.letter.openRecipientAfterWrite;
+        var before = textFiles();
+        try {
+            ctx.runOnClient(c -> {
+                var registry = de.ottoextra.config.settings.SettingsRegistry.build(
+                        config, null, null, null, null, null, null, null, null, null);
+                var option = registry.search("letter.openRecipientAfterWrite", key -> key).getFirst().option();
+                option.set.accept(Boolean.toString(autoOpen));
+                String saved = config.snapshotJson();
+                option.set.accept(Boolean.toString(!autoOpen));
+                config.restoreFrom(saved);
+                check(option.get.get().equals(Boolean.toString(autoOpen)), "Setting was not restored");
+            });
+            LetterDraft draft = editor("§6Brief später versenden§r\nGrüße 😀");
+            List<String> predicted = preview(); click("ottoextra.letter.send"); written(draft, predicted);
+            writtenCopySince(before);
+            int writes = commands().size();
+            if (autoOpen) {
+                check(ctx.computeOnClient(c -> c.currentScreen instanceof RecipientScreen), "Send menu did not open automatically");
+                click("gui.back");
+            } else {
+                check(ctx.computeOnClient(c -> c.currentScreen == null), "Disabled send menu opened after writing");
+            }
+            openHeldBook(); screenshot("courier-book-send-button-" + autoOpen);
+            click("ottoextra.letter.book.send");
+            check(ctx.computeOnClient(c -> c.currentScreen instanceof RecipientScreen), "Cannot reopen freshly written letter");
+            click("gui.back");
+            check(ctx.computeOnClient(c -> c.currentScreen instanceof net.minecraft.client.gui.screen.ingame.BookScreen), "Back lost book view");
+            click("ottoextra.letter.book.send");
+            check(commands().size() == writes, "Reopening rewrote the letter");
+            equalPages(predicted, LetterV2Planner.displayPages(rawPages()));
+            submitReopenedPost();
+            check(commands().size() == writes + 1, "Reopened post sent duplicate commands");
+        } finally {
+            ctx.runOnClient(c -> config.letter.openRecipientAfterWrite = previous);
+        }
     }
 
     private void reopenPostAfterLogin() {

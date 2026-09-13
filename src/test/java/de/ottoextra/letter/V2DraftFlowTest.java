@@ -252,6 +252,54 @@ class V2DraftFlowTest {
     }
 
     @Test
+    void paragraphAfterHardWrappedWordsKeepsTheCursorWithTheNewText() {
+        String original = "Selbstverständlichkeit ".repeat(25) + "Schlusszeile";
+        LetterDraft draft = LetterDraft.empty();
+        draft.pages = new ArrayList<>(List.of(original));
+        V2DraftFlow.ensureDocument(draft);
+        V2DraftFlow.reflow(draft, 0, 0, -1, "letter", value -> value.length() * 6);
+        int targetPage = draft.pages.size() - 1;
+        int local = draft.pages.get(targetPage).indexOf("Schlusszeile");
+        assertTrue(local >= 0);
+        int global = original.indexOf("Schlusszeile");
+        var position = new V2DraftFlow.EditorPosition(targetPage, local, -1);
+        for (String character : List.of("\n", "\n", "N", "e", "u")) {
+            String page = draft.pages.get(position.page());
+            position = V2DraftFlow.replacePage(draft, position.page(),
+                    page.substring(0, position.cursor()) + character + page.substring(position.cursor()),
+                    position.cursor() + 1, -1, "letter", value -> value.length() * 6, true);
+        }
+        assertEquals(de.ottoextra.letter.send.LetterV2Planner.normalizeDocument(
+                original.substring(0, global) + "\n\nNeu" + original.substring(global)),
+                draft.meta.flowingDocument);
+        assertEquals("Neu", draft.pages.get(position.page()).substring(position.cursor() - 3, position.cursor()));
+    }
+
+    @Test
+    void editingEveryPositionAfterHardWrapDoesNotMoveOrDuplicateParagraphs() {
+        String original = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        LetterDraft laidOut = LetterDraft.empty();
+        laidOut.pages = new ArrayList<>(List.of(original));
+        V2DraftFlow.ensureDocument(laidOut);
+        V2DraftFlow.reflow(laidOut, 0, 0, -1, "letter", value -> value.length() * 6);
+        String page = laidOut.pages.getFirst();
+        assertTrue(page.contains("\n"));
+        for (int offset = 0; offset <= page.length(); offset++) {
+            var draft = LetterDraft.empty();
+            draft.pages = new ArrayList<>(laidOut.pages);
+            draft.meta.flowingDocument = original;
+            draft.meta.flowingDocumentVersion = V2DraftFlow.DOCUMENT_VERSION;
+            int global = page.substring(0, offset).replace("\n", "").length();
+            var position = V2DraftFlow.replacePage(draft, 0,
+                    page.substring(0, offset) + "\nX" + page.substring(offset),
+                    offset + 2, -1, "letter", value -> value.length() * 6, true);
+            assertEquals(original.substring(0, global) + "\nX" + original.substring(global),
+                    draft.meta.flowingDocument, "Insertion at " + offset);
+            assertEquals('X', draft.pages.get(position.page()).charAt(position.cursor() - 1), "Cursor at " + offset);
+        }
+    }
+
+    @Test
     void emptySecondPageWithOnlyLineBreaksCanBeRemoved() {
         LetterDraft draft = LetterDraft.empty();
         draft.meta.flowingDocument = "\n\f\n\n\n\n \n";
