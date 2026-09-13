@@ -98,8 +98,8 @@ class RoleplayChoicesTest {
         OttoExtraConfig config = new OttoExtraConfig();
         var names = config.rpnames;
         var tags = config.nametags;
-        config.consent.externalImageDownloads = true;
-        config.consent.communityRpNameUploads = true;
+        de.ottoextra.privacy.ConsentPolicy.decide(config, de.ottoextra.privacy.ConsentPolicy.Purpose.EXTERNAL_IMAGES,
+                true, de.ottoextra.privacy.ConsentPolicy.scope(config, de.ottoextra.privacy.ConsentPolicy.Purpose.EXTERNAL_IMAGES));
         config.tweaks.chatLog = false;
         config.rpnames.syncFromPublicApi = false;
         config.rpnames.unknownPlaceholder = "Fremder";
@@ -118,7 +118,7 @@ class RoleplayChoicesTest {
         assertEquals("#123456", config.rpnames.globalRpNameColor);
         assertFalse(config.rpnames.syncFromPublicApi);
         assertTrue(config.consent.externalImageDownloads);
-        assertTrue(config.consent.communityRpNameUploads);
+        assertFalse(config.consent.communityRpNameUploads);
         assertFalse(config.tweaks.chatLog);
         assertEquals(1.8f, config.nametags.titleScale);
     }
