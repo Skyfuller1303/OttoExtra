@@ -171,13 +171,13 @@ public final class BasicHorseOverviewScreen extends Screen {
                 return;
             }
             client.execute(() -> {
-                if (client.currentScreen != this) {
-                    return;
-                }
                 refreshing = false;
                 status = Text.translatable(error == null
                         ? "ottoextra.horses.overview.current"
                         : "ottoextra.horses.overview.failed").getString();
+                if (client.currentScreen != this) {
+                    return;
+                }
                 rebuildRows();
                 scroll = Math.min(scroll, maxScroll());
                 updateButtons();

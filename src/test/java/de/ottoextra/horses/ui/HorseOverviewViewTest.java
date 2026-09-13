@@ -14,6 +14,16 @@ import static de.ottoextra.horses.ui.HorseOverviewView.SortOrder.*;
 
 class HorseOverviewViewTest {
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"Kuh", "Brakel", "Schwein", "Ziege", "Schaf"})
+    void allShowsStoredFarmAnimalsEvenWithDefaultFilterSettings(String type) {
+        var record = new com.google.gson.Gson().fromJson("{\"entityUuid\":\"00000000-0000-0000-0000-000000000001\","
+                + "\"registryName\":\"Lotte\",\"animalType\":\"" + type + "\"}", AnimalBreedingHorse.class);
+        var config = new de.ottoextra.config.OttoExtraConfig.AnimalInfo();
+        assertEquals(List.of(record), HorseOverviewView.filter(List.of(record), HorseOverviewView.AnimalKind.ALL, config));
+        assertEquals(List.of(), HorseOverviewView.filter(List.of(record), HorseOverviewView.AnimalKind.HORSES, config));
+    }
+
     @Test
     void sortsFarmGroupsBothWaysAndKeepsBlankFarmLast() {
         List<AnimalBreedingHorse> records = List.of(

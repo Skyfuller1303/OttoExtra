@@ -30,7 +30,7 @@ final class HorseOverviewView {
                                            OttoExtraConfig.AnimalInfo config) {
         return records.stream().filter(record -> {
             AnimalKind kind = kind(record);
-            return kind.enabled(config) && (selected == AnimalKind.ALL || selected == kind);
+            return selected == AnimalKind.ALL || (kind.enabled(config) && selected == kind);
         }).toList();
     }
 

@@ -25,15 +25,15 @@ class HorseOverviewFilterTest {
     }
 
     @Test
-    void optionalTypesFilterIndependentlyWithoutChangingSourceRecords() {
+    void optionalTypeFiltersStayIndependentWhileAllIncludesEveryRecord() {
         var config = new OttoExtraConfig.AnimalInfo();
         var records = List.of(record("Reitpferd"), record("Packesel"), record("Rotvieh Rind"), record("Brakel"),
                 record("Hausschwein"), record("Ziege"), record("Zaupel"));
-        assertEquals(2, HorseOverviewView.filter(records, ALL, config).size());
+        assertEquals(records, HorseOverviewView.filter(records, ALL, config));
         assertEquals(List.of(records.get(1)), HorseOverviewView.filter(records, DONKEYS, config));
         config.overviewShowCows = true;
         assertEquals(List.of(ALL, HORSES, DONKEYS, COWS), HorseOverviewView.filters(config));
-        assertEquals(3, HorseOverviewView.filter(records, ALL, config).size());
+        assertEquals(records, HorseOverviewView.filter(records, ALL, config));
         config.overviewShowChickens = config.overviewShowPigs = config.overviewShowGoats = config.overviewShowSheep = true;
         assertEquals(8, HorseOverviewView.filters(config).size());
         assertEquals(7, HorseOverviewView.filter(records, ALL, config).size());

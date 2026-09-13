@@ -1204,7 +1204,7 @@
   "ottoextra.horses.filter.sheep": "Zaupel",
   "ottoextra.horses.filter.other": "Other",
   "ottoextra.set.animalinfo.overview": "Animal types in the overview",
-  "ottoextra.set.animalinfo.overview.desc": "Show additional animal types under All and as separate filters. Horses and donkeys are always available. Stored records are retained.",
+  "ottoextra.set.animalinfo.overview.desc": "Offer additional animal types as separate filters. All shows every stored animal type. Horse and donkey filters are always available.",
   "ottoextra.horses.overview.add": "Register animal…",
   "ottoextra.horses.overview.add.tip": "Target an animal until its info appears before opening this overview. Opens its record to register or rename it; existing farm and owner permissions still apply.",
   "ottoextra.horses.overview.search": "Search name, farm, origin or UUID …",

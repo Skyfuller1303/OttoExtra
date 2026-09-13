@@ -1204,7 +1204,7 @@
   "ottoextra.horses.filter.sheep": "Zaupel",
   "ottoextra.horses.filter.other": "Sonstige",
   "ottoextra.set.animalinfo.overview": "Tierarten in der Übersicht",
-  "ottoextra.set.animalinfo.overview.desc": "Zusätzliche Tierarten unter Alle und als eigene Filter anzeigen. Pferde und Esel sind immer verfügbar. Gespeicherte Akten bleiben erhalten.",
+  "ottoextra.set.animalinfo.overview.desc": "Zusätzliche Tierarten als eigene Filter anbieten. Alle zeigt sämtliche gespeicherten Tierarten. Pferde und Esel sind immer als Filter verfügbar.",
   "ottoextra.horses.overview.add": "Tier eintragen…",
   "ottoextra.horses.overview.add.tip": "Vor dem Öffnen ein Tier anvisieren, bis die Tierinfo erscheint. Öffnet dessen Akte zum Eintragen oder Umbenennen; bestehende Hof- und Besitzerrechte gelten weiterhin.",
   "ottoextra.horses.overview.search": "Name, Hof, Herkunft oder UUID suchen …",

@@ -13,6 +13,8 @@ Ein erneuter Klick auf den markierten Hof und **Keine Änderung** entfernt den
 Hofentwurf. Abbrechen speichert keine Tierdaten. Scheitert nur die Hofzuordnung,
 bleibt das Tier gespeichert und das Formular zeigt den Teilerfolg an.
 
+**Alle** in der Tierübersicht zeigt sämtliche gespeicherten Tierarten. Die
+Artenschalter in den Einstellungen bestimmen die zusätzlichen Einzelfilter.
 Höfe werden nach dem vorhandenen API-Modell dem Besitzer zugeordnet. Sie haben
 keine eigene Lehens-ID oder Kartengrenze. Lehenszugehörigkeit, Sichtbarkeit und
 Hof-/Tierrechte prüft die bestehende API. Erstregistrierungen von Tieren bleiben
