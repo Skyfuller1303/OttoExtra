@@ -1,5 +1,98 @@
 # Changelog
 
+## 0.1.17 – 2026-09-13
+
+[Release-Changelog seit 0.1.16.1](release-notes-0.1.17.md)
+
+- Release-Version und JAR ohne Alpha-/Buchstabenzusatz: `ottoextra-0.1.17.jar`.
+- RP-Identitäten in Chat, Kennenlernen und Personenbuch konsistent nach UUID
+  auflösen; vorhandene Namen und Titel vorfüllen, alte Vorschläge beim
+  Verbindungswechsel entfernen und aktuelle Namensbesitzer erhalten.
+- Tierübersicht: **Alle** enthält sämtliche gespeicherten Tierarten.
+  Aktualisierungen werden auch beim Wechsel in Unterfenster abgeschlossen.
+- Finder-Umrisse für ausgewählte unterstützte Tiere bei aktiver Verbindung;
+  automatische Geschlechtsumrisse bleiben deaktiviert.
+- Hof direkt vor dem Speichern eines neuen Tiers auswählen. Zuweisung erfolgt
+  nach erfolgreicher Registrierung; Fehler zeigen einen möglichen Teilerfolg.
+- Enthält die unten dokumentierten Erweiterungen an Briefen, Höfen, Chat,
+  Karten, Banner-Cache, Freigaben und der überspringbaren Startseite.
+- Prüfstand und verbleibende Live-Prüfungen: [Release-Nachweis](docs/releases/0.1.17.md).
+
+## Entwicklungsstände vor 0.1.17
+
+- **0.1.17-q:** Einmalige Startseite für die Versionsreihe 0.1.17 mit Schild-Logo,
+  Funktionsübersicht und „Berechtigungen prüfen“. „Überspringen“ oder Escape
+  öffnen das Hauptmenü ohne neue Zustimmung; gültige Freigaben bleiben erhalten.
+  Zurück/Escape im geöffneten Assistenten kehrt ohne Speicherung zur Startseite
+  zurück. Die Release-Anzeige ist getrennt von der Version der Datenschutzzwecke.
+- **0.1.17-p:** Banner bleiben nach den ersten 32 geladenen Bildern nicht mehr
+  dauerhaft leer. Der Cache hält bis zu 256 Banner bei maximal 32 MiB dekodierten
+  Bilddaten und gibt selten verwendete dynamische Texturen bei Bedarf frei.
+  Aktivitätenanzeige und Karte verwenden dieselben Regionsbanner und Cache-Schlüssel;
+  auch Auffrischungen beachten die Grenze von vier gleichzeitigen Ladevorgängen.
+- **0.1.17-o:** Lehen-Sortierung lädt wieder ihre Grunddaten: Der signierte
+  API-Bootstrap darf bis zu 16 MiB groß sein, da der aktuelle Gesamtstand das
+  bisherige 4-MiB-Limit überschreitet. Andere JSON-Abrufe bleiben auf 4 MiB
+  begrenzt; Signaturprüfung und Online-Zustimmung gelten unverändert.
+- **0.1.17-n:** Beobachtete RP-Namen lassen sich nach dem Datenschutzhinweis
+  wieder einzeln zum Teilen freigeben. Standard bleibt aus; Online- und
+  Upload-Freigabe werden beide benötigt. Alte Upload-Freigaben werden nicht
+  übernommen. Fremde Namensmeldungen sind private Vorschläge zur Prüfung;
+  Widerruf stoppt weitere Übermittlungen und Wiederholungen.
+- Die erste Assistentenseite bietet **Alles erlauben**, **Alles ablehnen** und
+  **Einzeln entscheiden**. Eine Gesamtauswahl schließt die Einrichtung direkt ab;
+  vorhandene RP-/Anzeigeeinstellungen bleiben erhalten. Die Übersicht zeigt alle
+  Zwecke und Dienste; eine nachträglich geänderte Quelle wird nicht mitfreigegeben.
+- Unter Briefe → Basis → Editor lässt sich einstellen, ob das Versandmenü nach
+  dem Schreiben automatisch geöffnet wird. Standardmäßig an; ausgeschaltet
+  kann der fertige Brief später über seinen Verschicken-Button versendet werden.
+- Automatische Briefabschriften liegen unter `config/ottoextra/letters/sent`:
+  bereits nach dem abgeschlossenen Schreiben als `written_…txt` sowie nach
+  bestätigtem Versand als `letter_…txt`. Alle Buchseiten bleiben erhalten und
+  die Abschriften lassen sich über die bestehende TXT-Importliste öffnen.
+- Chatprotokolle liegen eigenständig unter `logs/chat/ottoextra-chat-JJJJ-MM-TT-X.log`.
+  Jede Sitzung und jeder Datumswechsel erhalten eine neue, fortlaufend nummerierte
+  Datei. Nachrichten werden sofort gespeichert, unabhängig von Minecrafts
+  `.log.gz`-Archivierung. Alte Protokolle bleiben erhalten.
+- Doppelte Emote-Anhänge in OOC-Nachrichten werden anhand des von Minecraft
+  mitgelieferten signierten Originaltexts korrigiert. Absichtliche Wiederholungen
+  und Nachrichten ohne eindeutigen Originalabgleich bleiben erhalten.
+- RP-Chat wird beim Eingang auch an den normalen Minecraft-Chatlogger übergeben.
+  Originaltexte bleiben auch bei
+  verzögerter Addon-Verarbeitung und ausgeblendeten Antworten erhalten;
+  spätere Anzeige und Namensaktualisierung erzeugen keine Doppeleinträge.
+- Die Brief-Empfängerauswahl zeigt jeden Minecraft-Account nur einmal. Ältere
+  UUID-Profile desselben Namens erzeugen keine doppelten Empfänger mehr; die
+  gespeicherten Identitäten und ihre Notizen bleiben erhalten.
+- Briefeditor: Absätze und Cursor bleiben nach automatisch getrennten langen
+  Wörtern an der richtigen Stelle. Eingegebene und automatische Zeilenumbrüche
+  werden beim Bearbeiten korrekt unterschieden. Text, Cursor und Markierung
+  sitzen zwei GUI-Pixel näher an den Schreiblinien.
+- „Development“ verwendet dieselbe Team-Titelfarbe wie „Gamemaster“. Bestehende
+  Standardkataloge erhalten den fehlenden Titel beim nächsten Start automatisch.
+- Bei Lehen mit hinterlegtem NPC-Dorf nennt die Lehenskarte zusätzlich dessen
+  Namen und weist auf die vielen Aufgaben und Aktivitäten im Gebiet hin.
+- Die Lehenskarte zeigt Anführer, Rang, Bewohner und Zugehörigkeit auch bei
+  bespielbaren Lehen mit der Markierung „NPC-Siedlung“. Vorhandene Angaben
+  wurden dort bisher ausgeblendet und durch einen irreführenden Platzhalter ersetzt.
+- Hofverwaltung direkt in OttoExtra: **Höfe…** in der Tierübersicht öffnet die
+  eigenen/freigegebenen Höfe, einschließlich leerer Höfe. **Hof anlegen** erstellt
+  einen Hof; in der Tierakte lässt sich ein gespeichertes Tier einem Hof zuweisen.
+  AnimalBreeding und ein eingeschalteter Züchtermodus sind dafür nicht erforderlich.
+- Die Tierakte hat einen Würfel-Button neben dem Namen. Die Zufallsliste enthält
+  166 weibliche und 167 männliche Grundnamen sowie Vorschläge passend zu Fell und
+  Zeichnung. Würfeln ändert den Entwurf; erst **Speichern** übernimmt den Namen.
+- Tempo und Sprung zusammen sortieren nach einem gleich gewichteten Durchschnitt
+  relativ zu den Bestwerten des jeweiligen Hofes. **↑** bedeutet höchste Werte
+  zuerst, **↓** niedrigste. Die bisherige Priorität nach Auswahlreihenfolge entfällt.
+  [Höfe und Namenswürfel](docs/core-farms.md), [Sortierung](docs/horse-overview-icons.md).
+- Linksklick oder Shift-Linksklick auf „Unbekannt“ im Chat öffnet das Kennenlernfenster,
+  auch bei deaktiviertem Personenbuch-Schnellzugriff. Ein Hover-Hinweis erklärt
+  die Aktion. Abbrechen und Bestätigen kehren zum Chat mit erhaltenem Entwurf
+  zurück; gelernte Namen aktualisieren bestehende Nachrichten.
+- Die Kampfsperre gilt auch für das Kennenlernen aus dem Chat. Verspätete
+  Profilantworten öffnen kein Fenster nach einem Chat- oder Weltwechsel.
+
 [Zusammenfassung 0.1.16.1 bis 0.1.17-k: Features, Verbesserungen und Fixes](CHANGELOG-0.1.16.1-bis-0.1.17-k.md)
 
 ## 0.1.17-l – Alpha – 2026-09-08

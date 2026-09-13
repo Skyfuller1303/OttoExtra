@@ -18,9 +18,9 @@ Die Mod ist als clientseitige Community-Erweiterung für Ottonien gedacht und er
 | Fabric Loader | `>= 0.18.1` |
 | Fabric API | erforderlich |
 | Seite | clientseitig |
-| Version | `0.1.17-g` – Alpha mit Tierartenfiltern und mehrzeiligen Minimap-Textfeldern |
-| Server-Gate | Funktionen werden nur auf Ottonien aktiv |
-| Server-Interaktion | normale Spielinteraktionen, Chat-Befehle und öffentliche APIs |
+| Version | `0.1.17` |
+| Server-Gate | Ottonien-spezifische Module sind kontextgebunden; optionale Webdienste brauchen eigene Freigabe |
+| Server-Interaktion | Spielinteraktionen, Chat-Befehle und nach Freigabe authentifizierte Webdienste |
 
 ## Features
 
@@ -44,9 +44,10 @@ Die Mod ist als clientseitige Community-Erweiterung für Ottonien gedacht und er
 
 ## Installation
 
-Die aktuelle Testversion ist **0.1.17-g**. Hinweise zu Änderungen, bekannten
-Beobachtungen und sinnvollen Tests stehen in den
-[Alpha-Release-Notizen](release-notes-0.1.17-g.md).
+Die Release-JAR heißt **ottoextra-0.1.17.jar**. Downloads stehen unter
+[GitHub Releases](https://github.com/Skyfuller1303/OttoExtra/releases).
+Alle Änderungen seit 0.1.16.1 und bekannte Einschränkungen stehen in den
+[Release-Notizen zu 0.1.17](release-notes-0.1.17.md).
 
 1. Fabric Loader für Minecraft `1.21.11` installieren.
 2. Fabric API in den `mods`-Ordner legen.
@@ -73,10 +74,16 @@ Geplant beziehungsweise enthalten:
 
 ## Diagnose-Logs
 
-Der standardmäßig aktive Tweak **Chatprotokoll** schreibt Chat- und
-Systemnachrichten mit Zeitstempel separat nach `logs/ottoextra-chat.log`.
-Die Datei bleibt über Neustarts erhalten. Unter **Tweaks → Basis** lässt sich
-das Speichern ausschalten. [Details zum Chatprotokoll](docs/chat-log.md).
+Das zusätzliche **Chatprotokoll** ist standardmäßig aus; alte ungeklärte
+`true`-Werte werden zurückgesetzt. Aktivieren unter **Tweaks → Basis** erklärt
+Inhalt und Serverumfang. Es schreibt Originalnachrichten einschließlich
+unterdrückter Antworten lokal nach `logs/chat/`; Minecrafts Logs bleiben separat.
+[Chatlog und Grenzen](docs/chat-log.md) · [Lokale Daten: Liste, Export, Löschen](docs/lokale-daten.md).
+
+Downloads und Webdienste benötigen getrennte Freigaben. Deaktivierte Packs bleiben
+deaktiviert. Vote-Erinnerungen öffnen vor Browser/Clipboard einen Bestätigungsdialog.
+Low-Health ist standardmäßig aus und bietet reduzierte Effekte; zusätzliche
+Tier-Umrisse sind bis zur geklärten Serverfreigabe gesperrt.
 
 OttoExtra-Diagnosen sind nach jedem Start deaktiviert. Bei Bedarf lassen sie sich
 für die laufende Sitzung einschalten:

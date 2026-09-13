@@ -1,9 +1,10 @@
 # Lokale Release-Artefakte
 
-Die Alpha zum Weitergeben heißt `ottoextra-0.1.17-l.jar`.
+Die JAR zum Weitergeben heißt `ottoextra-0.1.17.jar`.
 Installation, Testschwerpunkte und bekannte Beobachtungen stehen in
-[den Release-Notizen](../release-notes-0.1.17-l.md).
+[den Release-Notizen](../release-notes-0.1.17.md).
 
 JARs und ZIPs werden lokal erzeugt und nicht in Git versioniert.
-Der Alpha-Build verwendet `gradlew.bat build -x dist`; anschließend wird die
-remappte JAR aus `build/libs/` hierher kopiert. So bleiben ältere Artefakte erhalten.
+`gradlew.bat build` kopiert die remappte JAR und das Sources-Archiv nach `dist/`.
+Dabei werden vorhandene JARs in diesem Ausgabeordner ersetzt. Für die Installation
+nur `ottoextra-0.1.17.jar` verwenden, nicht das Sources-Archiv.

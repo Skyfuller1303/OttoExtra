@@ -3,7 +3,7 @@
   "id": "ottoextra",
   "version": "${version}",
   "name": "OttoExtra",
-  "description": "Ottonien Client-Komfort: Karte, Regionen, RP-Namen, Nametags, Briefe und Chatkanaele. Optionale Downloads und Datenuebertragungen nur nach Einwilligung.",
+  "description": "Client conveniences for Ottonien: maps, regions, roleplay names, letters and chat channels. Optional downloads and online services require informed consent.",
   "authors": [
     "Skyfuller1303"
   ],

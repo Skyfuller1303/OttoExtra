@@ -94,8 +94,8 @@ dependencies {
     // aus dem Modpack. Loom remappt die lokale Mod-JAR nach Yarn.
     modCompileOnly files("libs/xaerominimap-fabric-1.21.11-25.3.12.jar")
     modCompileOnly files("libs/xaerolib-fabric-1.21.11-1.1.15.jar")
-    // Xaero World Map wird nur in der Dev-Instanz geladen und bleibt optional.
-    modLocalRuntime files("../Mods/input/mods/xaeroworldmap-fabric-1.21.11-1.41.0.jar")
+    // World Map comes from run/mods. Adding a second version here conflicts
+    // with XaeroPlus, which requires the modpack's exact World Map version.
 
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
     testImplementation sourceSets.client.output
@@ -123,6 +123,14 @@ processResources {
     inputs.property "version", project.version
     filesMatching("fabric.mod.json") {
         expand "version": project.version
+    }
+}
+
+// Only client launches use the modpack runtime; do not change the compiler,
+// server or unit-test JVM requirements of the core mod.
+tasks.matching { it.name in ['runClient', 'runClient2'] }.configureEach {
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(project.modpack_java_version as int)
     }
 }
 
