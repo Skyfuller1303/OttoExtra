@@ -43,8 +43,8 @@ public final class TablistNameFormatter {
         // Scoreboard-Team. Auch nach Rejoins dessen Wappen/Prefix/Suffix erhalten,
         // bevor ein RP-Name den Vanilla-Fallback durch einen Anzeigenamen ersetzt.
         Text base = original != null ? original : Team.decorateName(team, Text.literal(account));
-        LocalRpProfile profile = RpNamesServices.store()
-                .find(gameProfile.id() != null ? gameProfile.id().toString() : null, account)
+        LocalRpProfile profile = RpNamesServices
+                .displayProfile(gameProfile.id() != null ? gameProfile.id().toString() : null, account)
                 .orElse(null);
 
         if (profile != null && !profile.showInTablist) {
@@ -139,8 +139,8 @@ public final class TablistNameFormatter {
             return account;
         }
         OttoExtraConfig.RpNames cfg = RpNamesServices.config();
-        LocalRpProfile profile = RpNamesServices.store()
-                .find(gameProfile.id() != null ? gameProfile.id().toString() : null, account)
+        LocalRpProfile profile = RpNamesServices
+                .displayProfile(gameProfile.id() != null ? gameProfile.id().toString() : null, account)
                 .orElse(null);
         if (profile != null && !profile.showInTablist) {
             return account;
@@ -158,8 +158,8 @@ public final class TablistNameFormatter {
         if (gameProfile == null || !RpNamesServices.isActive()) {
             return fallbackTitle;
         }
-        LocalRpProfile profile = RpNamesServices.store()
-                .find(gameProfile.id() != null ? gameProfile.id().toString() : null,
+        LocalRpProfile profile = RpNamesServices
+                .displayProfile(gameProfile.id() != null ? gameProfile.id().toString() : null,
                         gameProfile.name())
                 .orElse(null);
         if (profile == null || !profile.showInTablist || !profile.hasTitle()) {

@@ -1,12 +1,12 @@
 package de.ottoextra.mixin;
 
 import de.ottoextra.rpnames.RpNamesServices;
+import de.ottoextra.rpnames.chat.ChatMeetLink;
 import de.ottoextra.rpnames.ui.RpNamesPeopleBookScreen;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.DrawnTextConsumer;
 import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.screen.ChatScreen;
-import net.minecraft.client.util.InputUtil;
 import net.minecraft.text.HoverEvent;
 import net.minecraft.text.Style;
 import org.lwjgl.glfw.GLFW;
@@ -20,28 +20,33 @@ public abstract class ChatPlayerClickMixin {
 
     @Inject(method = "mouseClicked(Lnet/minecraft/client/gui/Click;Z)Z",
             at = @At("HEAD"), cancellable = true)
-    private void ottoextra$shiftClickPlayer(Click click, boolean doubled,
+    private void ottoextra$clickPlayer(Click click, boolean doubled,
                                             CallbackInfoReturnable<Boolean> cir) {
         try {
             if (click.button() != GLFW.GLFW_MOUSE_BUTTON_LEFT
-                    || !RpNamesServices.openBookOnClickEnabled()) {
+                    || (!RpNamesServices.openBookOnClickEnabled() && !RpNamesServices.proactiveMeetEnabled())) {
                 return;
             }
             MinecraftClient mc = MinecraftClient.getInstance();
-            boolean shift = InputUtil.isKeyPressed(mc.getWindow(), GLFW.GLFW_KEY_LEFT_SHIFT)
-                    || InputUtil.isKeyPressed(mc.getWindow(), GLFW.GLFW_KEY_RIGHT_SHIFT);
-            if (!shift) {
+            boolean shift = (click.modifiers() & GLFW.GLFW_MOD_SHIFT) != 0;
+            if (!shift && !RpNamesServices.proactiveMeetEnabled()) {
                 return;
             }
 
             DrawnTextConsumer.ClickHandler handler = new DrawnTextConsumer.ClickHandler(
-                    mc.textRenderer, (int) click.x(), (int) click.y()).insert(false);
+                    mc.textRenderer, (int) click.x(), (int) click.y()).insert(true);
             mc.inGameHud.getChatHud().render(handler, mc.getWindow().getScaledHeight(),
                     mc.inGameHud.getTicks(), true);
             Style style = handler.getStyle();
             if (style == null) {
                 return;
             }
+            String meetAccount = ChatMeetLink.account(style);
+            if (meetAccount != null && RpNamesServices.meetFromChat((ChatScreen) (Object) this, meetAccount)) {
+                cir.setReturnValue(true);
+                return;
+            }
+            if (!shift || !RpNamesServices.openBookOnClickEnabled()) return;
             String account = null;
             if (style.getInsertion() != null && !style.getInsertion().isBlank()) {
                 account = style.getInsertion().trim();

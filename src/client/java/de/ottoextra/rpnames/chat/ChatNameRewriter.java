@@ -35,7 +35,7 @@ public final class ChatNameRewriter {
         try {
             SpeakerBounds bounds = SpeakerBounds.from(message);
             LocalRpProfile forced = forcedAccount == null || forcedAccount.isBlank()
-                    ? null : store.findByName(forcedAccount).orElse(null);
+                    ? null : profileForAccount(forcedAccount);
             SpeakerInfo si = findSpeaker(message, cfg, bounds, forced, false);
             if (si == null) {
                 return message;
@@ -261,10 +261,20 @@ public final class ChatNameRewriter {
             }
             int sp = firstLine.lastIndexOf(' ');
             String account = sp >= 0 ? firstLine.substring(sp + 1) : firstLine;
-            return store.findByName(account).orElse(null);
+            return profileForAccount(account);
         } catch (Throwable t) {
             return null;
         }
+    }
+
+    private LocalRpProfile profileForAccount(String account) {
+        LocalRpProfile indexed = store.findByName(account).orElse(null);
+        if (store != de.ottoextra.rpnames.RpNamesServices.store()) {
+            return indexed;
+        }
+        // Chat must use the same local-player/proxy fallback as tablist and nametags.
+        return de.ottoextra.rpnames.RpNamesServices.displayProfile(
+                indexed == null ? null : indexed.uuid, account).orElse(indexed);
     }
 
     private Text rebuild(Text node, SpeakerInfo si, int[] flatPos, boolean titleOnly) {
@@ -369,7 +379,12 @@ public final class ChatNameRewriter {
                             si.profile().colors.chatNameColor, si.profile().title)
                     : de.ottoextra.rpnames.RpNamesServices.rpNameColor(
                             si.profile().colors.chatNameColor, si.profile().title);
-            out.append(colored(unknown, color));
+            MutableText unknownName = colored(unknown, color);
+            if (de.ottoextra.rpnames.RpNamesServices.proactiveMeetEnabled()) {
+                unknownName.setStyle(ChatMeetLink.decorate(unknownName.getStyle(),
+                        si.profile().accountName, unknown));
+            }
+            out.append(unknownName);
         } else {
             out.append(displayName(si.profile(), Style.EMPTY, renderOurTitle));
         }
@@ -519,7 +534,11 @@ public final class ChatNameRewriter {
             return null;
         }
         ProfileMatch best = null;
-        for (LocalRpProfile p : store.all()) {
+        for (LocalRpProfile indexed : store.all()) {
+            if (matchIdentity(speaker, indexed) == null) {
+                continue;
+            }
+            LocalRpProfile p = profileForAccount(indexed.accountName);
             if (!profileAllowed(p, cfg, titleOnly)) {
                 continue;
             }

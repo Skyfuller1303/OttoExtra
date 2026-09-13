@@ -81,6 +81,21 @@ class TitleColorResolverTest {
     }
 
     @Test
+    void developmentUsesTheSameTeamColorAsGamemasterForEveryEstate() throws Exception {
+        var catalog = bundled();
+        assertEquals("#bc4296", color(catalog, "", "Development", false));
+        assertEquals("Development", catalog.displayForm("Development"));
+        for (String state : new String[]{"Adliger", "Gemeiner", "Kleriker", "Teamler", ""}) {
+            for (boolean legacy : new boolean[]{false, true}) {
+                assertEquals(color(catalog, state, "Gamemaster", legacy),
+                        color(catalog, state, "  DEVELOPMENT  ", legacy), state + " / " + legacy);
+            }
+        }
+        catalog.categories().get("system").color = "#112233";
+        assertEquals("#112233", color(catalog, "Gemeiner", "Development", false));
+    }
+
+    @Test
     void unknownApiTitlesMayStillUseNonNobleEstateFallbackWithoutChangingCatalog() {
         var catalog = new TitleCatalogStore();
         putCategory(catalog, "system", "#101010");

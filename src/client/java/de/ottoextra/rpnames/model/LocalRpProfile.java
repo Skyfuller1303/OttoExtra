@@ -45,7 +45,11 @@ public final class LocalRpProfile {
     public long lastUpdatedAt;
 
     public boolean hasRpName() {
-        return rpName != null && !rpName.isBlank() && !UNKNOWN_NAME.equalsIgnoreCase(rpName);
+        return isKnownRpName(rpName);
+    }
+
+    public static boolean isKnownRpName(String name) {
+        return name != null && !name.isBlank() && !UNKNOWN_NAME.equalsIgnoreCase(name.trim());
     }
 
     public boolean hasTitle() {

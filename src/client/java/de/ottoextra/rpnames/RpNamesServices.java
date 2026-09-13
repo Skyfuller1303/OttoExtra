@@ -22,6 +22,12 @@ public final class RpNamesServices {
     private static volatile ChatNameRewriter rewriter;
     private static volatile OttoExtraConfig.RpNames config;
     private static volatile boolean active = false;
+    private static volatile String cachedLocalAccount;
+    private static volatile LocalRpProfile cachedLocalProfile;
+    private static volatile long tablistIdentityCacheAt;
+    private static volatile java.util.Map<String, java.util.List<String>>
+            tablistIdentityCache = java.util.Map.of();
+    private static java.util.function.BiConsumer<net.minecraft.client.gui.screen.Screen, LocalRpProfile> chatMeetHandler;
 
     /*
      * Die Ottonien-Chatzeile enthält vor dem sichtbaren RP-Namen einen
@@ -86,6 +92,10 @@ public final class RpNamesServices {
                 new ChatNameRewriter(newStore, newTitles);
 
         store = newStore;
+        cachedLocalAccount = null;
+        cachedLocalProfile = null;
+        tablistIdentityCacheAt = 0L;
+        tablistIdentityCache = java.util.Map.of();
         titles = newTitles;
         catalog = newCatalog;
         hoverParser = newHoverParser;
@@ -94,6 +104,14 @@ public final class RpNamesServices {
 
     static void setActive(boolean value) {
         active = value;
+        if (!value) {
+            pendingMeet.clear();
+            suggestions.clear();
+            cachedLocalAccount = null;
+            cachedLocalProfile = null;
+            tablistIdentityCacheAt = 0L;
+            tablistIdentityCache = java.util.Map.of();
+        }
     }
 
     static void shutdown() {
@@ -103,7 +121,7 @@ public final class RpNamesServices {
             currentStore.shutdown();
         }
 
-        active = false;
+        setActive(false);
     }
 
     public static LocalRpIdentityStore store() {
@@ -285,8 +303,189 @@ public final class RpNamesServices {
             return java.util.Optional.empty();
         }
 
-        LocalRpProfile profile = currentStore.findByName(accountName).orElse(null);
+        LocalRpProfile profile = displayProfile(null, accountName).orElse(null);
         return localRpNameForLeader(profile);
+    }
+
+    /**
+     * Anzeigeprofil mit Schutz gegen Proxy-/Offline-UUIDs des eigenen Spielers.
+     * Der echte Account kann serverseitig eine zweite UUID bekommen; dann darf
+     * ein neuer "Unbekannt"-Datensatz das vorhandene eigene RP-Profil nicht verdecken.
+     */
+    public static java.util.Optional<LocalRpProfile> displayProfile(
+            String uuid, String accountName) {
+        LocalRpIdentityStore currentStore = store;
+        if (currentStore == null) {
+            return java.util.Optional.empty();
+        }
+        LocalRpProfile resolved = currentStore.find(uuid, accountName).orElse(null);
+        if (resolved != null && resolved.hasRpName()) {
+            return java.util.Optional.ofNullable(resolved);
+        }
+
+        LocalRpProfile activeAlias = preferKnownActiveAlias(
+                accountName, uuid == null || uuid.isBlank()
+                        ? (resolved == null ? null : resolved.uuid) : uuid, resolved, currentStore.all(),
+                activeTablistUuids(accountName));
+        if (activeAlias != null && activeAlias.hasRpName()) {
+            return java.util.Optional.of(activeAlias);
+        }
+        if (!isLocalAccount(accountName)) {
+            return java.util.Optional.ofNullable(resolved);
+        }
+
+        LocalRpProfile cached = cachedLocalProfile;
+        if (cached != null && cached.hasRpName() && cachedLocalAccount != null
+                && cachedLocalAccount.equalsIgnoreCase(accountName)
+                && accountName.equalsIgnoreCase(cached.accountName)
+                && currentStore.find(cached.uuid, cached.accountName).orElse(null) == cached) {
+            return java.util.Optional.of(cached);
+        }
+        LocalRpProfile preferred = preferKnownLocalProfile(
+                accountName, resolved, currentStore.all());
+        if (preferred != null && preferred.hasRpName()) {
+            cachedLocalAccount = accountName;
+            cachedLocalProfile = preferred;
+        }
+        return java.util.Optional.ofNullable(preferred);
+    }
+
+    /** Erkennt gleichzeitig sichtbare Liege-/Pose-Proxies desselben Accounts. */
+    static LocalRpProfile preferKnownActiveAlias(
+            String accountName, String requestedUuid, LocalRpProfile resolved,
+            java.util.Collection<LocalRpProfile> profiles,
+            java.util.Collection<String> activeUuids) {
+        if (resolved != null && resolved.hasRpName()) {
+            return resolved;
+        }
+        if (accountName == null || accountName.isBlank()
+                || requestedUuid == null || requestedUuid.isBlank()
+                || profiles == null || activeUuids == null
+                || activeUuids.stream().noneMatch(requestedUuid::equalsIgnoreCase)) {
+            return resolved;
+        }
+
+        LocalRpProfile best = resolved;
+        for (LocalRpProfile candidate : profiles) {
+            if (candidate == null || candidate.accountName == null
+                    || !accountName.equalsIgnoreCase(candidate.accountName)
+                    || candidate.uuid == null || candidate.uuid.isBlank()
+                    || requestedUuid.equalsIgnoreCase(candidate.uuid)
+                    || !candidate.hasRpName()
+                    || activeUuids.stream().noneMatch(candidate.uuid::equalsIgnoreCase)) {
+                continue;
+            }
+            if (best == null || !best.hasRpName()
+                    || localProfileStrength(candidate) > localProfileStrength(best)
+                    || localProfileStrength(candidate) == localProfileStrength(best)
+                    && candidate.lastUpdatedAt > best.lastUpdatedAt) {
+                best = candidate;
+            }
+        }
+        return best;
+    }
+
+    static java.util.Optional<LocalRpProfile> concurrentTablistAlias(
+            String uuid, String accountName) {
+        LocalRpIdentityStore currentStore = store;
+        if (currentStore == null) {
+            return java.util.Optional.empty();
+        }
+        LocalRpProfile resolved = currentStore.find(uuid, accountName).orElse(null);
+        LocalRpProfile preferred = preferKnownActiveAlias(
+                accountName, uuid, resolved, currentStore.all(),
+                activeTablistUuids(accountName));
+        return preferred != null && preferred != resolved && preferred.hasRpName()
+                ? java.util.Optional.of(preferred) : java.util.Optional.empty();
+    }
+
+    private static java.util.List<String> activeTablistUuids(String accountName) {
+        if (accountName == null || accountName.isBlank()) {
+            return java.util.List.of();
+        }
+        long now = System.nanoTime();
+        if (tablistIdentityCacheAt == 0L
+                || now - tablistIdentityCacheAt > 250_000_000L) {
+            refreshTablistIdentityCache(now);
+        }
+        return tablistIdentityCache.getOrDefault(
+                accountName.toLowerCase(java.util.Locale.ROOT), java.util.List.of());
+    }
+
+    private static synchronized void refreshTablistIdentityCache(long now) {
+        if (tablistIdentityCacheAt != 0L
+                && now - tablistIdentityCacheAt <= 250_000_000L) {
+            return;
+        }
+        net.minecraft.client.MinecraftClient client =
+                net.minecraft.client.MinecraftClient.getInstance();
+        if (client == null || client.getNetworkHandler() == null) {
+            tablistIdentityCache = java.util.Map.of();
+            tablistIdentityCacheAt = now;
+            return;
+        }
+        java.util.Map<String, java.util.List<String>> identities =
+                new java.util.HashMap<>();
+        for (var entry : client.getNetworkHandler().getPlayerList()) {
+            var profile = entry.getProfile();
+            if (profile == null || profile.name() == null || profile.name().isBlank()
+                    || profile.id() == null) {
+                continue;
+            }
+            identities.computeIfAbsent(
+                            profile.name().toLowerCase(java.util.Locale.ROOT),
+                            ignored -> new java.util.ArrayList<>())
+                    .add(profile.id().toString());
+        }
+        identities.replaceAll((ignored, uuids) -> uuids.stream().distinct().toList());
+        tablistIdentityCache = java.util.Map.copyOf(identities);
+        tablistIdentityCacheAt = now;
+    }
+
+    static LocalRpProfile preferKnownLocalProfile(
+            String accountName, LocalRpProfile resolved,
+            java.util.Collection<LocalRpProfile> profiles) {
+        LocalRpProfile best = resolved;
+        if (accountName == null || accountName.isBlank() || profiles == null) {
+            return best;
+        }
+        for (LocalRpProfile candidate : profiles) {
+            if (candidate == null || candidate.accountName == null
+                    || !accountName.equalsIgnoreCase(candidate.accountName)
+                    || !candidate.hasRpName()) {
+                continue;
+            }
+            if (best == null || !best.hasRpName()
+                    || localProfileStrength(candidate) > localProfileStrength(best)
+                    || localProfileStrength(candidate) == localProfileStrength(best)
+                    && candidate.lastUpdatedAt > best.lastUpdatedAt) {
+                best = candidate;
+            }
+        }
+        return best;
+    }
+
+    private static int localProfileStrength(LocalRpProfile profile) {
+        if (profile == null || !profile.hasRpName()) return 0;
+        if (profile.locked || profile.knowledgeState == KnowledgeState.MANUAL_LOCKED) return 3;
+        return profile.source == RpNameSource.API_IMPORTED ? 1 : 2;
+    }
+
+    private static boolean isLocalAccount(String accountName) {
+        if (accountName == null || accountName.isBlank()) return false;
+        try {
+            net.minecraft.client.MinecraftClient client =
+                    net.minecraft.client.MinecraftClient.getInstance();
+            if (client == null) return false;
+            if (client.player != null && client.player.getGameProfile() != null
+                    && accountName.equalsIgnoreCase(client.player.getGameProfile().name())) {
+                return true;
+            }
+            return client.getSession() != null
+                    && accountName.equalsIgnoreCase(client.getSession().getUsername());
+        } catch (Throwable ignored) {
+            return false;
+        }
     }
 
     /** Alle lokal/API-bekannten Identitaetsbestandteile fuer Uebersetzungsfilter. */
@@ -370,6 +569,19 @@ public final class RpNamesServices {
         return isActive() && config.proactiveMeet;
     }
 
+    static void setChatMeetHandler(java.util.function.BiConsumer<net.minecraft.client.gui.screen.Screen, LocalRpProfile> handler) {
+        chatMeetHandler = handler;
+    }
+
+    public static boolean meetFromChat(net.minecraft.client.gui.screen.Screen parent, String account) {
+        var handler = chatMeetHandler;
+        if (!proactiveMeetEnabled() || handler == null || store == null) return false;
+        LocalRpProfile profile = displayProfile(null, account).orElse(null);
+        if (profile == null || isKnownForDisplay(profile)) return false;
+        handler.accept(parent, profile);
+        return true;
+    }
+
     private static final java.util.Set<String> pendingMeet =
             java.util.concurrent.ConcurrentHashMap.newKeySet();
 
@@ -382,6 +594,10 @@ public final class RpNamesServices {
     }
 
     public static boolean isPendingMeet(String account) {
+        return isPendingMeet(account, null);
+    }
+
+    public static boolean isPendingMeet(String account, String uuid) {
         if (account == null
                 || store == null
                 || !pendingMeet.contains(
@@ -391,7 +607,7 @@ public final class RpNamesServices {
         }
 
         LocalRpProfile profile =
-                store.findByName(account).orElse(null);
+                displayProfile(uuid, account).orElse(null);
 
         return profile == null || !isKnownForDisplay(profile);
     }
@@ -417,7 +633,7 @@ public final class RpNamesServices {
         }
 
         boolean hasName =
-                rpName != null && !rpName.isBlank();
+                LocalRpProfile.isKnownRpName(rpName);
 
         boolean hasTitle =
                 title != null && !title.isBlank();

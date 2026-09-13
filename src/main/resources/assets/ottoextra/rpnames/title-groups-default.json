@@ -6,7 +6,7 @@
       "priority": 1000,
       "defaultTitleColor": "#FF5555",
       "defaultNameColor": "#FFD6D6",
-      "titles": ["Developer", "Dev", "Gamemaster"]
+      "titles": ["Developer", "Dev", "Gamemaster", "Development"]
     },
     "ADEL": {
       "label": "Adel",

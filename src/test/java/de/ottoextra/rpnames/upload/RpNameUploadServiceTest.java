@@ -17,7 +17,8 @@ final class RpNameUploadServiceTest {
                 ACTOR_UUID, "TheLXNCE", "TheLXNCE", ACTOR_UUID, "Lance");
         var json = data.toJson();
 
-        assertEquals(ACTOR_UUID, json.get("uuid").getAsString());
+        assertFalse(json.has("uuid"));
+        assertFalse(json.has("player_name"));
         assertEquals("Lance", json.get("rp_name").getAsString());
         assertFalse(json.has("target_uuid"));
         assertFalse(json.has("target_player_name"));
@@ -31,7 +32,8 @@ final class RpNameUploadServiceTest {
                 "Roman von Marienburg");
         var json = data.toJson();
 
-        assertEquals(ACTOR_UUID, json.get("uuid").getAsString());
+        assertFalse(json.has("uuid"));
+        assertFalse(json.has("player_name"));
         assertEquals(TARGET_UUID, json.get("target_uuid").getAsString());
         assertEquals("Roman von Marienburg", json.get("rp_name").getAsString());
         assertFalse(json.has("target_player_name"));

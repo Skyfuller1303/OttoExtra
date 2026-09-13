@@ -36,6 +36,15 @@ class RpNamesModuleTest {
     }
 
     @Test
+    void unknownPlaceholderCannotSuppressIdentityLookup() {
+        var profile = new de.ottoextra.rpnames.model.LocalRpProfile();
+        profile.rpName = " Unbekannt ";
+        assertFalse(RpNamesModule.hasLocalMeetPrefill(profile, null));
+        assertFalse(RpNamesModule.hasLocalMeetPrefill(null,
+                new RpNamesServices.MeetSuggestion(" Unbekannt ", "Graf")));
+    }
+
+    @Test
     void unrelatedOrIncompleteBossBarsDoNotMatch() {
         assertFalse(RpNamesModule.isCombatBossBarName(null));
         assertFalse(RpNamesModule.isCombatBossBarName(""));

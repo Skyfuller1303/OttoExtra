@@ -2,6 +2,7 @@ package de.ottoextra.rpnames.store;
 
 import de.ottoextra.rpnames.model.KnowledgeState;
 import de.ottoextra.rpnames.model.LocalRpProfile;
+import de.ottoextra.rpnames.model.RpNameSource;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -11,9 +12,29 @@ import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LocalRpIdentityStoreTest {
+
+    @Test
+    void removesOnlyUnknownSyntheticTablistAliasAndRestoresKnownNameOwner() {
+        LocalRpIdentityStore store = new LocalRpIdentityStore(false);
+        LocalRpProfile known = new LocalRpProfile();
+        known.accountName = "countdacson";
+        known.uuid = "0cc97e4d-bee7-4f3a-ba34-690607a54a4a";
+        known.rpName = "Wilhelm Dacson";
+        known.source = RpNameSource.MANUAL_EDIT;
+        store.insert(known);
+        LocalRpProfile proxy = store.ensureSeen(
+                "countdacson", "cdad3a02-77aa-467b-856e-9ce565f44e09",
+                RpNameSource.SEEN_TABLIST);
+
+        assertTrue(store.removeSyntheticTablistAlias(
+                proxy.accountName, proxy.uuid, known));
+        assertSame(known, store.findByName("countdacson").orElseThrow());
+        assertTrue(store.find(proxy.uuid, proxy.accountName).isEmpty());
+    }
 
     @TempDir
     Path temporaryDirectory;

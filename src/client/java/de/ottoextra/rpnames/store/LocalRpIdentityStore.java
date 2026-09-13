@@ -430,6 +430,11 @@ public final class LocalRpIdentityStore {
         return new ArrayList<>(profiles);
     }
 
+    /** One current name owner per Minecraft account, for account-addressed actions. */
+    public synchronized List<LocalRpProfile> currentAccounts() {
+        return new ArrayList<>(byNameLower.values());
+    }
+
     public int size() {
         return all().size();
     }
@@ -472,6 +477,11 @@ public final class LocalRpIdentityStore {
             }
         }
         profile.lastSeenAt = now;
+        // Re-observing an existing UUID must agree with the owner selected on reload.
+        index(profile);
+        if (previousNameOwner != profile) {
+            saveSoon();
+        }
         return profile;
     }
 
@@ -581,14 +591,21 @@ public final class LocalRpIdentityStore {
     public synchronized LocalRpProfile updateManual(String accountName,
                                                     java.util.function.Consumer<LocalRpProfile> edit,
                                                     boolean lock) {
-        LocalRpProfile profile = ensureSeen(accountName, null, RpNameSource.SEEN_ONLINE);
+        return updateManual(accountName, null, edit, lock);
+    }
+
+    public synchronized LocalRpProfile updateManual(String accountName, String uuid,
+                                                    java.util.function.Consumer<LocalRpProfile> edit,
+                                                    boolean lock) {
+        // Editing an existing record is not a new observation of the name owner.
+        LocalRpProfile profile = find(uuid, accountName)
+                .orElseGet(() -> ensureSeen(accountName, uuid, RpNameSource.SEEN_ONLINE));
         edit.accept(profile);
         profile.repair();
         profile.knowledgeState = lock ? KnowledgeState.MANUAL_LOCKED : KnowledgeState.MANUAL;
         profile.locked = lock;
         profile.source = RpNameSource.MANUAL_EDIT;
         profile.lastUpdatedAt = System.currentTimeMillis();
-        index(profile);
         dirty = true;
         saveNow();
         de.ottoextra.rpnames.chat.ChatHistoryRefresh.request();
@@ -730,6 +747,32 @@ public final class LocalRpIdentityStore {
             byUuid.remove(profile.uuid.toLowerCase(Locale.ROOT), profile);
         }
         saveSoon();
+    }
+
+    /** Entfernt nur automatisch erzeugte, unbekannte Tablisten-Proxies. */
+    public synchronized boolean removeSyntheticTablistAlias(
+            String accountName, String aliasUuid, LocalRpProfile canonical) {
+        if (accountName == null || accountName.isBlank()
+                || aliasUuid == null || aliasUuid.isBlank()
+                || canonical == null || !canonical.hasRpName()
+                || canonical.accountName == null
+                || !accountName.equalsIgnoreCase(canonical.accountName)
+                || canonical.uuid == null || canonical.uuid.isBlank()
+                || aliasUuid.equalsIgnoreCase(canonical.uuid)) {
+            return false;
+        }
+        LocalRpProfile alias = byUuid.get(aliasUuid.toLowerCase(Locale.ROOT));
+        if (alias == null || alias == canonical || alias.hasRpName()
+                || alias.source != RpNameSource.SEEN_TABLIST
+                || alias.accountName == null
+                || !accountName.equalsIgnoreCase(alias.accountName)) {
+            return false;
+        }
+        byUuid.remove(aliasUuid.toLowerCase(Locale.ROOT), alias);
+        byNameLower.remove(accountName.toLowerCase(Locale.ROOT), alias);
+        index(canonical);
+        saveSoon();
+        return true;
     }
 
     private void index(LocalRpProfile profile) {

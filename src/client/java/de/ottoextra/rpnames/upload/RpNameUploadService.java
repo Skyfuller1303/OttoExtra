@@ -4,19 +4,10 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import de.ottoextra.OttoExtra;
-import de.ottoextra.api.OttoExtraApiRoutes;
 import de.ottoextra.config.OttoExtraConfig;
-import de.ottoextra.logging.DebugLog;
 import de.ottoextra.logging.FailureLogGate;
-import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -27,7 +18,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 public final class RpNameUploadService {
 
     private static final int MAX_RP_NAME_CODE_POINTS = 120;
-    private static final int MAX_RESPONSE_CHARS = 16_384;
 
     private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor(
             daemonThreads());
@@ -35,11 +25,6 @@ public final class RpNameUploadService {
     private static final ConcurrentHashMap<String, ObservedIdentity> OBSERVED_IDENTITIES =
             new ConcurrentHashMap<>();
     private static final FailureLogGate FAILURE_LOG = new FailureLogGate();
-
-    private static final HttpClient HTTP = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(10))
-            .followRedirects(HttpClient.Redirect.NORMAL)
-            .build();
 
     private RpNameUploadService() {
     }
@@ -64,7 +49,8 @@ public final class RpNameUploadService {
         }
 
         OttoExtraConfig config = OttoExtraConfig.active();
-        if (!config.consent.communityRpNameUploads) {
+        if (!de.ottoextra.privacy.ConsentPolicy.allowed(config,
+                de.ottoextra.privacy.ConsentPolicy.Purpose.COMMUNITY_UPLOADS)) {
             return CompletableFuture.completedFuture(Result.skipped());
         }
         UploadData data;
@@ -180,76 +166,26 @@ public final class RpNameUploadService {
 
     private static Result send(OttoExtraConfig config, UploadData data,
                                java.util.function.BooleanSupplier allowed) {
-        if (!allowed.getAsBoolean()) return Result.skipped();
-        URI uri = new OttoExtraApiRoutes(config.api.baseUrl).communityParticipantRpName();
-        if (!"https".equalsIgnoreCase(uri.getScheme())) {
-            return Result.failed("Unsichere API-Adresse wurde abgelehnt");
-        }
-
-        JsonObject json = data.toJson();
-        String requestUserAgent = userAgent();
-        Duration timeout = Duration.ofMillis(Math.max(1_000, config.api.requestTimeoutMs));
-        HttpRequest request = HttpRequest.newBuilder(uri)
-                .timeout(timeout)
-                .header("Content-Type", "application/json; charset=UTF-8")
-                .header("Accept", "application/json")
-                .header("User-Agent", requestUserAgent)
-                .POST(HttpRequest.BodyPublishers.ofString(json.toString(), StandardCharsets.UTF_8))
-                .build();
-
+        var permit = de.ottoextra.privacy.ConsentPolicy.capture(config,
+                de.ottoextra.privacy.ConsentPolicy.Purpose.COMMUNITY_UPLOADS).restrict(allowed);
+        if (!permit.valid()) return Result.skipped();
+        var api = de.ottoextra.OttoExtraClient.apiClient();
+        if (api == null) return Result.failed("API nicht verfügbar");
         try {
-            if (!allowed.getAsBoolean()) return Result.skipped();
-            HttpResponse<String> response = HTTP.send(
-                    request,
-                    HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-            String body = response.body() == null ? "" : response.body();
-            if (body.length() > MAX_RESPONSE_CHARS) {
-                body = body.substring(0, MAX_RESPONSE_CHARS);
-            }
-
-            String apiMessage = responseMessage(body);
-            boolean httpSuccess = response.statusCode() >= 200 && response.statusCode() < 300;
-            boolean apiSuccess = !explicitApiFailure(body);
-            if (httpSuccess && apiSuccess) {
-                if (FAILURE_LOG.onSuccess()) {
-                    DebugLog.debug("[rpnames] RP-Namen-Übertragung nach Fehler wieder möglich.");
-                }
-                return new Result(true, true, response.statusCode(), apiMessage);
-            }
-
-            String message = !apiMessage.isBlank()
-                    ? apiMessage
-                    : "HTTP " + response.statusCode();
-            if (FAILURE_LOG.onFailure()) {
-                OttoExtra.LOGGER.warn("[rpnames] RP-Namen-Upload abgelehnt (HTTP {}).",
-                        response.statusCode());
-            }
-            return new Result(true, false, response.statusCode(), message);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            if (FAILURE_LOG.onFailure()) {
-                OttoExtra.LOGGER.warn("[rpnames] RP-Namen-Upload wurde unterbrochen.");
-            }
-            return Result.failed("Übertragung wurde unterbrochen");
+            permit.require();
+            JsonObject result = api.submitRpNameObservation(data.toJson(), permit).join();
+            boolean success = result.has("ok") && result.get("ok").getAsBoolean();
+            return new Result(true, success, 0, responseMessage(result.toString()));
+        } catch (java.util.concurrent.CancellationException e) {
+            return Result.skipped();
         } catch (Exception e) {
+            if (!allowed.getAsBoolean() || !permit.valid()) return Result.skipped();
             if (FAILURE_LOG.onFailure()) {
-                OttoExtra.LOGGER.warn("[rpnames] HTTP-Fehler beim RP-Namen-Upload: {}",
-                        e.getClass().getSimpleName());
+                OttoExtra.LOGGER.warn("[rpnames] Authentifizierter Upload fehlgeschlagen: {}", e.getClass().getSimpleName());
             }
-            return Result.failed(e.getClass().getSimpleName() + ": " + safeMessage(e.getMessage()));
+            return Result.failed("RP-Upload fehlgeschlagen");
         }
     }
-    private static boolean explicitApiFailure(String body) {
-        try {
-            JsonElement parsed = JsonParser.parseString(body);
-            return parsed.isJsonObject()
-                    && parsed.getAsJsonObject().has("ok")
-                    && !parsed.getAsJsonObject().get("ok").getAsBoolean();
-        } catch (Exception ignored) {
-            return false;
-        }
-    }
-
     private static String responseMessage(String body) {
         try {
             JsonElement parsed = JsonParser.parseString(body);
@@ -266,13 +202,6 @@ public final class RpNameUploadService {
             // A successful endpoint is allowed to return an empty/non-JSON body.
         }
         return "";
-    }
-
-    private static String userAgent() {
-        String version = FabricLoader.getInstance().getModContainer("ottoextra")
-                .map(container -> container.getMetadata().getVersion().getFriendlyString())
-                .orElse("client");
-        return "OttoExtra/" + version;
     }
 
     private static String normalizeUuid(String value) {
@@ -350,11 +279,6 @@ public final class RpNameUploadService {
 
         JsonObject toJson() {
             JsonObject json = new JsonObject();
-            if (actorUuid != null) {
-                json.addProperty("uuid", actorUuid);
-            } else {
-                json.addProperty("player_name", actorName);
-            }
             if (targetUuid != null) {
                 json.addProperty("target_uuid", targetUuid);
             } else if (targetName != null) {

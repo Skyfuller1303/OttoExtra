@@ -124,21 +124,24 @@ public final class MeetPersonScreen extends Screen {
     }
 
     private void loadPrefill() {
-        if (hasApiPrefill) {
-            String name = apiPrefillName == null ? "" : apiPrefillName.trim();
-            String title = apiPrefillTitle == null ? "" : apiPrefillTitle.trim();
-            if (name.isBlank()) {
-                title = "";
-            }
-            prefillName = name;
-            prefillTitle = RpNamesServices.canonicalTitle(title);
-            return;
-        }
+        Prefill prefill = hasApiPrefill
+                ? apiPrefill(apiPrefillName, apiPrefillTitle) : localPrefill(account, uuid);
+        prefillName = prefill.name();
+        prefillTitle = prefill.title();
+    }
 
+    record Prefill(String name, String title) { }
+
+    static Prefill apiPrefill(String apiName, String apiTitle) {
+        String name = de.ottoextra.rpnames.model.LocalRpProfile.isKnownRpName(apiName) ? apiName.trim() : "";
+        String title = apiTitle == null ? "" : apiTitle.trim();
+        return new Prefill(name, RpNamesServices.canonicalTitle(name.isBlank() ? "" : title));
+    }
+
+    static Prefill localPrefill(String account, String uuid) {
         RpNamesServices.MeetSuggestion s = RpNamesServices.meetSuggestion(account);
-        var p = RpNamesServices.store() != null
-                ? RpNamesServices.store().findByName(account).orElse(null) : null;
-        String name = s != null && s.rpName() != null && !s.rpName().isBlank() ? s.rpName()
+        var p = RpNamesServices.displayProfile(uuid, account).orElse(null);
+        String name = s != null && de.ottoextra.rpnames.model.LocalRpProfile.isKnownRpName(s.rpName()) ? s.rpName()
                 : (p != null && p.hasRpName() ? p.rpName : "");
 
         String title = s != null && s.title() != null && !s.title().isBlank() ? s.title()
@@ -147,9 +150,7 @@ public final class MeetPersonScreen extends Screen {
         if (name.isBlank()) {
             title = "";
         }
-        prefillName = name;
-
-        prefillTitle = RpNamesServices.canonicalTitle(title);
+        return new Prefill(name, RpNamesServices.canonicalTitle(title));
     }
 
     private String liveName() {
@@ -172,23 +173,26 @@ public final class MeetPersonScreen extends Screen {
     }
 
     private void save(String rp, String title) {
+        saveIdentity(account, uuid, rp, title);
+        close();
+    }
+
+    static void saveIdentity(String account, String uuid, String rp, String title) {
         LocalRpIdentityStore store = RpNamesServices.store();
         if (store == null || account == null || account.isBlank()) {
-            close();
             return;
         }
         final String rpName = rp == null ? "" : rp.trim();
         final String t = title == null ? "" : title.trim();
-        var previous = store.ensureSeen(account, uuid, de.ottoextra.rpnames.model.RpNameSource.MANUAL_EDIT);
+        var previous = RpNamesServices.displayProfile(uuid, account).orElse(null);
 
-        store.updateManual(account, p -> {
+        store.updateManual(account, previous == null ? uuid : previous.uuid, p -> {
             if (!rpName.isEmpty()) {
                 p.rpName = rpName;
             }
             p.title = t;
-        }, previous.locked || previous.knowledgeState == de.ottoextra.rpnames.model.KnowledgeState.MANUAL_LOCKED);
-
-        close();
+        }, previous != null && (previous.locked
+                || previous.knowledgeState == de.ottoextra.rpnames.model.KnowledgeState.MANUAL_LOCKED));
     }
 
     private void ensureEntity() {
@@ -216,8 +220,14 @@ public final class MeetPersonScreen extends Screen {
                                         java.nio.charset.StandardCharsets.UTF_8));
                 profile = new com.mojang.authlib.GameProfile(id, account);
             }
+            final java.util.UUID previewUuid = profile.id();
+            final String previewAccount = profile.name();
             net.minecraft.client.network.OtherClientPlayerEntity dummy =
-                    new net.minecraft.client.network.OtherClientPlayerEntity(client.world, profile);
+                    new net.minecraft.client.network.OtherClientPlayerEntity(client.world, profile) {
+                        @Override public net.minecraft.entity.player.SkinTextures getSkin() {
+                            return de.ottoextra.chat.ChatHeads.skinForUuid(previewUuid, previewAccount);
+                        }
+                    };
             dummy.getDataTracker().set(
                     de.ottoextra.mixin.PlayerCustomizationAccessor.ottoextra$customization(),
                     (byte) 0x7F);
@@ -253,8 +263,7 @@ public final class MeetPersonScreen extends Screen {
 
     private int titleColorArgb(String title) {
         var catalog = RpNamesServices.catalog();
-        var p = RpNamesServices.store() != null
-                ? RpNamesServices.store().findByName(account).orElse(null) : null;
+        var p = RpNamesServices.displayProfile(uuid, account).orElse(null);
         String pers = p != null ? p.colors.nametagTitleColor : null;
         String hex = TitleColorResolver.resolve(p, pers, title,
                 catalog, RpNamesServices.titles());
@@ -262,8 +271,7 @@ public final class MeetPersonScreen extends Screen {
     }
 
     private int nameColorArgb() {
-        var p = RpNamesServices.store() != null
-                ? RpNamesServices.store().findByName(account).orElse(null) : null;
+        var p = RpNamesServices.displayProfile(uuid, account).orElse(null);
         String hex = RpNamesServices.rpNameColor(
                 p != null ? p.colors.nametagNameColor : null, liveTitle());
         return argb(hex, 0xFFC7A87F);

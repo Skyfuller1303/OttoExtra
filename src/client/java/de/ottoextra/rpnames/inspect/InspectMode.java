@@ -237,9 +237,7 @@ public final class InspectMode {
     private static InspectionTarget playerTarget(PlayerEntity player, OttoExtraConfig.RpNames config) {
         String account = player.getGameProfile().name();
         String uuid = player.getUuidAsString();
-        LocalRpProfile profile = RpNamesServices.store() == null
-                ? null
-                : RpNamesServices.store().find(uuid, account).orElse(null);
+        LocalRpProfile profile = RpNamesServices.displayProfile(uuid, account).orElse(null);
         boolean known = profile != null && RpNamesServices.isKnownForDisplay(profile);
 
         List<Text> lines = new ArrayList<>();

@@ -54,7 +54,7 @@ public final class TitleCatalogStore {
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
     private static final String BUNDLED = "/assets/ottoextra/rpnames/title-catalog-default.json";
-    private static final int BUNDLED_REVISION = 1;
+    private static final int BUNDLED_REVISION = 2;
     private static final String WIKI_SOURCE = "https://wiki.ottonien.com/w/St%C3%A4nde_und_Titel";
 
     private FileModel model = new FileModel();
@@ -125,7 +125,7 @@ public final class TitleCatalogStore {
                 changed = true;
             }
         }
-        if (model.bundledRevision < BUNDLED_REVISION && WIKI_SOURCE.equals(model.wikiSource)) {
+        if (model.bundledRevision < 1 && WIKI_SOURCE.equals(model.wikiSource)) {
             // Upgrade only the shipped wiki catalog, once. Custom catalogs and edited colors stay local.
             migrateRankColor("vorkoster", "vorkoster", "#e97749");
             migrateRankColor("chronist", "allgemein", "#a17f5f");
@@ -147,6 +147,18 @@ public final class TitleCatalogStore {
                         || matchKeys(e).stream().anyMatch(key -> bundled.variants.stream()
                         .anyMatch(v -> TitleRegistry.normalize(v).equals(TitleRegistry.normalize(key)))));
                 if (!exists) model.titles.add(GSON.fromJson(GSON.toJson(bundled), Entry.class));
+            }
+            model.bundledRevision = 1;
+            changed = true;
+        }
+        if (model.bundledRevision < BUNDLED_REVISION && WIKI_SOURCE.equals(model.wikiSource)) {
+            // Existing installations also need the server title "Development".
+            // Preserve personal aliases and disabled entries; do not repeat older upgrades.
+            Entry development = bundledDefault("development").orElse(null);
+            boolean exists = model.titles.stream().anyMatch(e -> "development".equals(e.id)
+                    || matchKeys(e).stream().anyMatch(key -> "development".equals(TitleRegistry.normalize(key))));
+            if (development != null && !exists) {
+                model.titles.add(GSON.fromJson(GSON.toJson(development), Entry.class));
             }
             model.bundledRevision = BUNDLED_REVISION;
             changed = true;

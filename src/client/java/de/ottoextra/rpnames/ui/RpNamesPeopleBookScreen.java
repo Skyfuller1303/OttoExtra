@@ -166,6 +166,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
     private String titleAutofill;
 
     private String pendingSelectAccount;
+    private String pendingSelectUuid;
 
     public RpNamesPeopleBookScreen(Screen parent) {
         super(Text.translatable("ottoextra.rpbook.title"));
@@ -177,21 +178,37 @@ public final class RpNamesPeopleBookScreen extends Screen {
     }
 
     public RpNamesPeopleBookScreen(Screen parent, String selectAccount) {
+        this(parent, selectAccount, null);
+    }
+
+    private RpNamesPeopleBookScreen(Screen parent, String selectAccount, String selectUuid) {
         this(parent);
         this.pendingSelectAccount = selectAccount;
+        this.pendingSelectUuid = selectUuid;
     }
 
     public static void openFor(Screen parent, String rawName, String uuid) {
         RpNamesServices.ensureInitialized(OttoExtraConfig.active().rpnames);
+        LocalRpProfile profile = resolveOpenProfile(rawName, uuid);
+        if (profile != null) {
+            MinecraftClient.getInstance().setScreen(
+                    new RpNamesPeopleBookScreen(parent, profile.accountName, profile.uuid));
+        }
+    }
+
+    static LocalRpProfile resolveOpenProfile(String rawName, String uuid) {
         LocalRpIdentityStore store = RpNamesServices.store();
         if (store == null || rawName == null || rawName.isBlank()) {
-            return;
+            return null;
         }
-        LocalRpProfile existing = RpNamesServices.findProfileByAnyName(rawName.trim());
+        LocalRpProfile existing = uuid != null && !uuid.isBlank()
+                ? store.find(uuid, rawName.trim()).orElse(null)
+                : RpNamesServices.findProfileByAnyName(rawName.trim());
         String account = existing != null ? existing.accountName : rawName.trim();
-        store.ensureSeen(account, uuid,
-                de.ottoextra.rpnames.model.RpNameSource.SEEN_ONLINE);
-        MinecraftClient.getInstance().setScreen(new RpNamesPeopleBookScreen(parent, account));
+        String targetUuid = uuid != null && !uuid.isBlank() ? uuid : existing == null ? null : existing.uuid;
+        return RpNamesServices.displayProfile(targetUuid, account)
+                .orElseGet(() -> store.ensureSeen(account, targetUuid,
+                        de.ottoextra.rpnames.model.RpNameSource.SEEN_ONLINE));
     }
 
     private int panelW() {
@@ -300,8 +317,9 @@ public final class RpNamesPeopleBookScreen extends Screen {
         if (pendingSelectAccount == null) {
             return;
         }
-        LocalRpProfile p = store != null ? store.findByName(pendingSelectAccount).orElse(null) : null;
+        LocalRpProfile p = store != null ? store.find(pendingSelectUuid, pendingSelectAccount).orElse(null) : null;
         pendingSelectAccount = null;
+        pendingSelectUuid = null;
         if (p == null) {
             return;
         }
@@ -837,7 +855,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         boolean showTab = selected.showInTablist;
         boolean showTag = selected.showInNametag;
         boolean lock = lockCheckbox.isChecked();
-        LocalRpProfile updated = store.updateManual(selected.accountName, p -> {
+        LocalRpProfile updated = store.updateManual(selected.accountName, selected.uuid, p -> {
             p.rpName = rpName.isEmpty() ? LocalRpProfile.UNKNOWN_NAME : rpName;
             p.title = title;
             p.rawTitleDisplay = forceRawTitleDisplay;
@@ -880,7 +898,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
         }
         if (takeApi) {
             String apiName = selected.apiConflict;
-            store.updateManual(selected.accountName, p -> {
+            store.updateManual(selected.accountName, selected.uuid, p -> {
                 p.rpName = apiName;
                 p.apiConflict = null;
             }, selected.locked);
@@ -1953,6 +1971,7 @@ public final class RpNamesPeopleBookScreen extends Screen {
             }
             final boolean useFallback = fallback;
             final java.util.UUID previewUuid = profile.id();
+            final String previewAccount = profile.name();
             net.minecraft.client.network.OtherClientPlayerEntity entity =
                     new net.minecraft.client.network.OtherClientPlayerEntity(client.world, profile) {
                         @Override
@@ -1961,13 +1980,8 @@ public final class RpNamesPeopleBookScreen extends Screen {
                                 return fallbackSkin();
                             }
 
-                            if (!online) {
-                                var local = de.ottoextra.chat.SkinCache.localSkin(previewUuid);
-                                if (local != null) {
-                                    return local;
-                                }
-                            }
-                            return super.getSkin();
+                            var skin = de.ottoextra.chat.ChatHeads.skinForUuid(previewUuid, previewAccount);
+                            return skin != null ? skin : fallbackSkin();
                         }
                     };
 

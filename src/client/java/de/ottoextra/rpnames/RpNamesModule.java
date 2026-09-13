@@ -10,6 +10,7 @@ import de.ottoextra.rpnames.model.RpNameSource;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.network.PlayerListEntry;
 
 import java.nio.charset.StandardCharsets;
@@ -90,6 +91,9 @@ public final class RpNamesModule implements OttoExtraModule {
                 net.minecraft.client.option.KeyBinding.Category.MISC);
         net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper.registerKeyBinding(peopleKey);
 
+        RpNamesServices.setChatMeetHandler((parent, profile) ->
+                openMeet(context, parent, profile.accountName, profile.uuid));
+
         net.fabricmc.fabric.api.event.player.UseEntityCallback.EVENT.register(
                 (player, world, hand, entity, hitResult) -> {
                     boolean meet = RpNamesServices.proactiveMeetEnabled();
@@ -105,15 +109,10 @@ public final class RpNamesModule implements OttoExtraModule {
                     }
                     String account = target.getGameProfile().name();
                     String uuid = target.getUuid() != null ? target.getUuid().toString() : null;
-                    var p = RpNamesServices.store() != null
-                            ? RpNamesServices.store().findByName(account).orElse(null) : null;
+                    var p = RpNamesServices.displayProfile(uuid, account).orElse(null);
                     boolean unknown = p == null || !RpNamesServices.isKnownForDisplay(p);
                     if (meet && unknown) {
-                        if (hasLocalMeetPrefill(p, RpNamesServices.meetSuggestion(account))) {
-                            client.execute(() -> openLocalMeetScreen(client, account, uuid));
-                        } else {
-                            requestCurrentIdentityAndOpenMeetScreen(context, account, uuid);
-                        }
+                        openMeet(context, null, account, uuid);
                     } else if (book) {
                         client.execute(() -> {
                             if (!isCombatBossBarActive(client)) {
@@ -132,13 +131,30 @@ public final class RpNamesModule implements OttoExtraModule {
                 RpNamesServices.store().size());
     }
 
+    private void openMeet(OttoExtraContext context, Screen parent, String account, String uuid) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.world == null || client.player == null || client.currentScreen != parent
+                || !RpNamesServices.proactiveMeetEnabled() || isCombatBossBarActive(client)) return;
+        if (uuid == null || uuid.isBlank()) {
+            var entry = client.getNetworkHandler() == null ? null : client.getNetworkHandler().getPlayerListEntry(account);
+            if (entry != null) uuid = entry.getProfile().id().toString();
+        }
+        var profile = RpNamesServices.displayProfile(uuid, account).orElse(null);
+        if (profile != null && RpNamesServices.isKnownForDisplay(profile)) return;
+        if (hasLocalMeetPrefill(profile, RpNamesServices.meetSuggestion(account)) || uuid == null || uuid.isBlank()) {
+            openLocalMeetScreen(client, parent, account, uuid);
+        } else {
+            requestCurrentIdentityAndOpenMeetScreen(context, parent, account, uuid);
+        }
+    }
+
     /**
-     * Lädt beim Shift-Rechtsklick zuerst den aktuellen Spielerstand über
-     * public-player (beziehungsweise v2 mit Public-Fallback). Erst nachdem die
+     * Lädt beim Kennenlernen ohne lokale Namensdaten den aktuellen Spielerstand über
+     * die authentifizierte v2-Spielerabfrage. Erst nachdem die
      * Antwort vorliegt, wird das Kennenlernfenster geöffnet.
      */
     private void requestCurrentIdentityAndOpenMeetScreen(
-            OttoExtraContext context, String account, String uuidText) {
+            OttoExtraContext context, Screen parent, String account, String uuidText) {
         if (account == null || account.isBlank() || uuidText == null || uuidText.isBlank()) {
             showMeetLookupError("Spieler-UUID fehlt");
             return;
@@ -161,13 +177,16 @@ public final class RpNamesModule implements OttoExtraModule {
                 "[rpnames] Lade aktuellen API-Stand für {} ({}) vor dem Kennenlernen.",
                 account, uuid);
 
+        var requestedWorld = MinecraftClient.getInstance().world;
+
         context.api().player(uuid).whenComplete((profile, error) -> {
             MinecraftClient client = MinecraftClient.getInstance();
             client.execute(() -> {
                 pendingMeetApiRequests.remove(requestKey);
 
                 if (client.world == null || client.player == null
-                        || !RpNamesServices.isActive()
+                        || client.world != requestedWorld || client.currentScreen != parent
+                        || !RpNamesServices.proactiveMeetEnabled()
                         || isCombatBossBarActive(client)) {
                     return;
                 }
@@ -176,13 +195,13 @@ public final class RpNamesModule implements OttoExtraModule {
                     DebugLog.debug(
                             "[rpnames] Aktueller API-Stand nicht verfügbar — nutze lokale Daten ({}).",
                             summarizeError(error));
-                    openLocalMeetScreen(client, account, uuid.toString());
+                    openLocalMeetScreen(client, parent, account, uuid.toString());
                     return;
                 }
                 if (profile == null) {
                     DebugLog.debug(
                             "[rpnames] API-Spielerprofil leer — nutze lokale Daten.");
-                    openLocalMeetScreen(client, account, uuid.toString());
+                    openLocalMeetScreen(client, parent, account, uuid.toString());
                     return;
                 }
 
@@ -190,7 +209,7 @@ public final class RpNamesModule implements OttoExtraModule {
                 if (apiUuid != null && !apiUuid.equalsIgnoreCase(uuid.toString())) {
                     DebugLog.debug(
                             "[rpnames] Fremde UUID in API-Antwort — nutze lokale Daten.");
-                    openLocalMeetScreen(client, account, uuid.toString());
+                    openLocalMeetScreen(client, parent, account, uuid.toString());
                     return;
                 }
 
@@ -198,7 +217,7 @@ public final class RpNamesModule implements OttoExtraModule {
                 if (apiAccount != null && !apiAccount.equalsIgnoreCase(account)) {
                     DebugLog.debug(
                             "[rpnames] Fremder Account in API-Antwort — nutze lokale Daten.");
-                    openLocalMeetScreen(client, account, uuid.toString());
+                    openLocalMeetScreen(client, parent, account, uuid.toString());
                     return;
                 }
 
@@ -218,7 +237,7 @@ public final class RpNamesModule implements OttoExtraModule {
                 // Direkte API-Werte werden an das Fenster übergeben. Dadurch
                 // kann kein älterer lokaler Chat-Vorschlag die Anzeige ersetzen.
                 client.setScreen(new de.ottoextra.rpnames.ui.MeetPersonScreen(
-                        null, account, responseUuid, rpName, title));
+                        parent, account, responseUuid, rpName, title));
 
                 DebugLog.debug(
                         "[rpnames] API-Spielerprofil geladen: account={}, rpName={}, title={}",
@@ -232,18 +251,18 @@ public final class RpNamesModule implements OttoExtraModule {
             de.ottoextra.rpnames.model.LocalRpProfile profile,
             RpNamesServices.MeetSuggestion suggestion) {
         return (profile != null && profile.hasRpName())
-                || (suggestion != null && suggestion.rpName() != null
-                && !suggestion.rpName().isBlank());
+                || (suggestion != null && de.ottoextra.rpnames.model.LocalRpProfile
+                .isKnownRpName(suggestion.rpName()));
     }
 
     private static void openLocalMeetScreen(
-            MinecraftClient client, String account, String uuid) {
+            MinecraftClient client, Screen parent, String account, String uuid) {
         if (client == null || client.world == null || client.player == null
-                || !RpNamesServices.isActive() || isCombatBossBarActive(client)) {
+                || client.currentScreen != parent || !RpNamesServices.proactiveMeetEnabled() || isCombatBossBarActive(client)) {
             return;
         }
         client.setScreen(new de.ottoextra.rpnames.ui.MeetPersonScreen(
-                null, account, uuid));
+                parent, account, uuid));
     }
 
     static boolean isCombatBossBarName(String displayName) {
@@ -375,13 +394,26 @@ public final class RpNamesModule implements OttoExtraModule {
                 }
 
                 de.ottoextra.chat.SkinCache.remember(profile);
-                if (client.player != null
-                        && profile.id() != null
-                        && profile.id().equals(client.player.getUuid())) {
+                if (client.player != null) {
+                    var ownProfile = client.player.getGameProfile();
+                    boolean ownUuid = profile.id() != null
+                            && profile.id().equals(client.player.getUuid());
+                    boolean ownAccount = ownProfile != null && ownProfile.name() != null
+                            && profile.name().equalsIgnoreCase(ownProfile.name());
+                    if (ownUuid || ownAccount) {
+                        continue;
+                    }
+                }
+                String uuid = profile.id() != null ? profile.id().toString() : null;
+                var canonical = RpNamesServices.concurrentTablistAlias(
+                        uuid, profile.name()).orElse(null);
+                if (canonical != null) {
+                    RpNamesServices.store().removeSyntheticTablistAlias(
+                            profile.name(), uuid, canonical);
                     continue;
                 }
                 RpNamesServices.store().ensureSeen(profile.name(),
-                        profile.id() != null ? profile.id().toString() : null,
+                        uuid,
                         RpNameSource.SEEN_TABLIST);
             }
             de.ottoextra.chat.SkinCache.flush();

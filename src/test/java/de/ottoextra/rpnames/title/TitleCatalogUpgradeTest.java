@@ -86,6 +86,55 @@ class TitleCatalogUpgradeTest {
         assertEquals(original, Files.readString(file));
     }
 
+    @Test
+    void revisionOneAddsDevelopmentWithoutReapplyingOldUpgrades() throws Exception {
+        Path file = revisionOne();
+        var catalog = new TitleCatalogStore();
+        catalog.reloadAfterRestore(file);
+        assertEquals("#112233", catalog.titleColor("Development").orElseThrow());
+        assertEquals(catalog.titleColor("Gamemaster"), catalog.titleColor("Development"));
+        assertEquals("Development", catalog.displayForm("Development"));
+        assertTrue(catalog.find("Legende").isEmpty(), "Previously removed titles must stay removed");
+        assertEquals("#a17f5f", catalog.titleColor("Chronist").orElseThrow(), "Earlier color migrations must not run again");
+        String upgraded = Files.readString(file);
+        catalog.reloadAfterRestore(file);
+        assertEquals(upgraded, Files.readString(file));
+        JsonObject model = JsonParser.parseString(upgraded).getAsJsonObject();
+        model.getAsJsonArray("titles").asList().removeIf(e -> "development".equals(e.getAsJsonObject().get("id").getAsString()));
+        Files.writeString(file, model.toString());
+        catalog.reloadAfterRestore(file);
+        assertTrue(catalog.find("Development").isEmpty());
+    }
+
+    @Test
+    void developmentUpgradeRespectsExistingAliasesColorsAndDisabledEntries() throws Exception {
+        for (boolean enabled : new boolean[]{true, false}) {
+            Path file = revisionOne();
+            JsonObject model = JsonParser.parseString(Files.readString(file)).getAsJsonObject();
+            JsonObject custom = JsonParser.parseString("""
+                    {"id":"my_development","title":"Mein Teamtitel","aliases":["Development"],
+                     "variants":["Mein Teamtitel"],"category":"custom","colorOverride":"#123abc"}
+                    """).getAsJsonObject();
+            custom.addProperty("enabled", enabled);
+            model.getAsJsonArray("titles").add(custom);
+            Files.writeString(file, model.toString());
+            var catalog = new TitleCatalogStore();
+            catalog.reloadAfterRestore(file);
+            assertTrue(catalog.all().stream().noneMatch(e -> "development".equals(e.id)));
+            if (enabled) assertEquals("#123abc", catalog.titleColor("Development").orElseThrow());
+            else assertTrue(catalog.find("Development").isEmpty());
+        }
+    }
+
+    private Path revisionOne() throws Exception {
+        Path file = legacy(false, false);
+        JsonObject model = JsonParser.parseString(Files.readString(file)).getAsJsonObject();
+        model.addProperty("bundledRevision", 1);
+        model.getAsJsonObject("categories").getAsJsonObject("system").addProperty("color", "#112233");
+        Files.writeString(file, model.toString());
+        return file;
+    }
+
     private Path legacy(boolean edited, boolean editedCategory) throws Exception {
         JsonObject model;
         try (var input = TitleCatalogStore.class.getResourceAsStream("/assets/ottoextra/rpnames/title-catalog-default.json")) {
@@ -95,7 +144,7 @@ class TitleCatalogUpgradeTest {
         model.remove("bundledRevision");
         var titles = model.getAsJsonArray("titles");
         Set<String> additions = Set.of("kreuzfahrer", "federzunge", "komplementaer",
-                "gildenmitglied", "verwaltungsnonne", "legende");
+                "gildenmitglied", "verwaltungsnonne", "legende", "development");
         titles.asList().removeIf(e -> additions.contains(e.getAsJsonObject().get("id").getAsString()));
         for (var value : titles) {
             var entry = value.getAsJsonObject();

@@ -66,7 +66,8 @@ public final class NametagLabelRenderer {
             if (!NametagService.shouldRender(entity)) {
                 return true; // unterdrücken
             }
-            NametagService.Lines lines = NametagService.linesFor(account, state.displayName);
+            NametagService.Lines lines = NametagService.linesFor(
+                    NametagService.playerUuidFor(state), account, state.displayName);
             if (lines == null) {
                 return false; // Vanilla
             }

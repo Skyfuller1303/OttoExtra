@@ -202,11 +202,15 @@ public final class NametagService {
      * lassen (Modul aus, kein Profil/keine Änderung nötig).
      */
     public static Lines linesFor(String accountName, Text vanillaName) {
-        Lines base = baseLinesFor(accountName, vanillaName);
+        return linesFor(uuidFor(accountName), accountName, vanillaName);
+    }
+
+    public static Lines linesFor(java.util.UUID uuid, String accountName, Text vanillaName) {
+        Lines base = baseLinesFor(uuid, accountName, vanillaName);
         NametagPresentation initial = base == null
                 ? NametagPresentation.vanilla(true, vanillaName)
                 : new NametagPresentation(true, false, base.title(), base.name(), base.account(), true);
-        NametagContext context = context(uuidFor(accountName), accountName, vanillaName, true);
+        NametagContext context = context(uuid, accountName, vanillaName, true);
         NametagPresentation result = OttoExtraAddons.processNametag(context, initial);
         if (!result.custom()) return null;
         Text name = result.name() != null ? result.name()
@@ -214,7 +218,7 @@ public final class NametagService {
         return new Lines(result.title(), name, result.account());
     }
 
-    private static Lines baseLinesFor(String accountName, Text vanillaName) {
+    private static Lines baseLinesFor(java.util.UUID uuid, String accountName, Text vanillaName) {
         OttoExtraConfig.Nametags cfg = config();
         if (cfg == null || !cfg.enabled || accountName == null || accountName.isBlank()) {
             debugOnce("null-acc", "cfg=" + (cfg != null && cfg.enabled) + " acc=" + accountName);
@@ -225,7 +229,8 @@ public final class NametagService {
             return null;
         }
         var catalog = RpNamesServices.catalog();
-        LocalRpProfile profile = RpNamesServices.store().findByName(accountName).orElse(null);
+        LocalRpProfile profile = RpNamesServices.displayProfile(
+                uuid != null ? uuid.toString() : null, accountName).orElse(null);
 
         // Das persönliche Ausblenden bleibt bindend. NametagLabelRenderer ruft
         // shouldRender(...) zusätzlich auf und unterdrückt dadurch auch Vanilla.
@@ -389,6 +394,6 @@ public final class NametagService {
         if (name == null || name.isBlank()) {
             return null;
         }
-        return RpNamesServices.store().findByName(name).orElse(null);
+        return RpNamesServices.displayProfile(entity.getUuidAsString(), name).orElse(null);
     }
 }

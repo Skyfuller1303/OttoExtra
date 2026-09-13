@@ -66,7 +66,7 @@ public final class MeetMarkerRenderer {
                     continue;
                 }
                 String name = p.getGameProfile() != null ? p.getGameProfile().name() : null;
-                if (name == null || !RpNamesServices.isPendingMeet(name)) {
+                if (name == null || !RpNamesServices.isPendingMeet(name, p.getUuidAsString())) {
                     continue;
                 }
                 if (p.squaredDistanceTo(mc.player) > RANGE * RANGE) {

@@ -20,8 +20,6 @@ import java.util.concurrent.CompletableFuture;
 
 public final class RegionsApiRpNameImporter {
 
-    private static final String URL =
-            "https://api.ottoextra.dev/api/index.php?action=public-player-compact";
     private static final Gson GSON = new Gson();
 
     public record Result(int total, int updated, int created, int conflicts, String error) {
@@ -53,27 +51,35 @@ public final class RegionsApiRpNameImporter {
     }
 
     public static CompletableFuture<Result> run(LocalRpIdentityStore store, boolean createMissing) {
-        return CompletableFuture.supplyAsync(() -> doImport(store, createMissing, true));
+        return start(store, createMissing, true);
     }
 
     public static CompletableFuture<Result> runAuto(LocalRpIdentityStore store) {
-        return CompletableFuture.supplyAsync(() -> doImport(store, false, false));
+        return start(store, false, false);
     }
 
-    private static Result doImport(LocalRpIdentityStore store, boolean createMissing, boolean backup) {
+    private static CompletableFuture<Result> start(LocalRpIdentityStore store, boolean createMissing, boolean backup) {
+        var permit = de.ottoextra.privacy.ConsentPolicy.capture(de.ottoextra.privacy.ConsentPolicy.Purpose.ONLINE_SERVICES);
+        return permit.start(() -> CompletableFuture.supplyAsync(() -> doImport(store, createMissing, backup, permit,
+                new de.ottoextra.api.OttoExtraApiRoutes(de.ottoextra.privacy.ConsentPolicy.apiSource(
+                        de.ottoextra.config.OttoExtraConfig.active())).compactPlayers())));
+    }
+
+    private static Result doImport(LocalRpIdentityStore store, boolean createMissing, boolean backup,
+                                  de.ottoextra.privacy.ConsentPermit permit, URI source) {
         Envelope env;
         try {
             HttpClient http = HttpClient.newBuilder()
                     .connectTimeout(Duration.ofSeconds(10))
-                    .followRedirects(HttpClient.Redirect.NORMAL)
+                    .followRedirects(HttpClient.Redirect.NEVER)
                     .build();
-            HttpRequest request = HttpRequest.newBuilder(URI.create(URL))
+            HttpRequest request = HttpRequest.newBuilder(source)
                     .timeout(Duration.ofSeconds(20))
                     .header("Accept", "application/json")
                     .GET()
                     .build();
-            HttpResponse<String> response = http.send(request,
-                    HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            HttpResponse<String> response = de.ottoextra.privacy.ConsentHttp.send(http, request,
+                    de.ottoextra.privacy.BoundedBody.text(de.ottoextra.privacy.BoundedBody.JSON_BYTES), permit).join();
             if (response.statusCode() != 200) {
                 return Result.failure("HTTP " + response.statusCode());
             }
@@ -86,6 +92,12 @@ public final class RegionsApiRpNameImporter {
             return Result.failure("Antwort unbrauchbar");
         }
 
+        java.util.concurrent.atomic.AtomicReference<Result> result = new java.util.concurrent.atomic.AtomicReference<>();
+        permit.commit(() -> result.set(applyImport(store, createMissing, backup, env)));
+        return result.get();
+    }
+
+    private static Result applyImport(LocalRpIdentityStore store, boolean createMissing, boolean backup, Envelope env) {
         if (backup) {
             store.backup();
         }

@@ -586,6 +586,19 @@
       "matchMode": "NORMALIZED_UMLAUTS"
     },
     {
+      "id": "development",
+      "title": "Development",
+      "variants": [
+        "Development"
+      ],
+      "category": "system",
+      "colorOverride": null,
+      "source": "SERVER_DEFAULT",
+      "sourceCategory": "ALLGEMEIN",
+      "enabled": true,
+      "matchMode": "NORMALIZED_UMLAUTS"
+    },
+    {
       "id": "vorkoster",
       "title": "Vorkoster",
       "variants": [
@@ -1877,5 +1890,5 @@
       "matchMode": "NORMALIZED_UMLAUTS"
     }
   ],
-  "bundledRevision": 1
+  "bundledRevision": 2
 }

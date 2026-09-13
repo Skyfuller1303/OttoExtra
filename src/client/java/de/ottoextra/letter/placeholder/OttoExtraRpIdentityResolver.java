@@ -26,6 +26,6 @@ public final class OttoExtraRpIdentityResolver implements RpIdentityResolver {
         if (RpNamesServices.store() == null || playerName == null || playerName.isBlank()) {
             return Optional.empty();
         }
-        return RpNamesServices.store().findByName(playerName.trim());
+        return RpNamesServices.displayProfile(null, playerName.trim());
     }
 }
