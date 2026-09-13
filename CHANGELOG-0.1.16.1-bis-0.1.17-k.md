@@ -27,7 +27,7 @@ Stand von 0.1.17-k; die Versionsübersicht ordnet die einzelnen Schritte ein.
   Farben, Schriftstile und Seitenwechsel bleiben im Archiv erhalten; gleiche
   Dateinamen werden durch einen zusätzlichen Zähler unterschieden.
 
-### Tierübersicht, Nametags und Glow
+### Tierübersicht und Nametags
 
 - **Tierübersicht direkt in OttoExtra:** Eigene und ausdrücklich freigegebene
   Tierakten mit Suche nach Name, Hof, Herkunft und UUID, Modellvorschau, Finder
@@ -43,9 +43,6 @@ Stand von 0.1.17-k; die Versionsübersicht ordnet die einzelnen Schritte ein.
 - **Geschlecht im Nametag:** Geschlechtssymbol und Geschlechtsfarbe des Namens
   lassen sich unabhängig voneinander aktivieren – auch für nicht eingetragene
   Tiere, deren Tierinfo bereits bekannt ist.
-- **Optionaler Tier-Glow:** Weibliche Tiere erhalten eine rosa, männliche eine
-  blaue Umrandung. Ein Finder-Ziel bleibt gold. Umschalten über **F8** oder das
-  Menü; die Taste ist frei belegbar. Der Glow ist zunächst ausgeschaltet.
 - **Lokaler 14-Tage-Tiercache:** Erkannte Tierart und Geschlecht bleiben über
   Disconnects und Neustarts erhalten, höchstens 1.024 Tiere je Serveradresse.
   Neue Tierinfos erneuern die Frist. Die Funktion ist abschaltbar und erzeugt
@@ -186,8 +183,6 @@ Stand von 0.1.17-k; die Versionsübersicht ordnet die einzelnen Schritte ein.
 | **0.1.17-e** | Geschlechtssymbol und Namensfarbe im Tier-Nametag getrennt einstellbar. |
 | **0.1.17-f** | Esel, Tierartenfilter, kompakte Liste und Nametags für lokal bekannte, ungespeicherte Tiere. |
 | **0.1.17-g** | Minimap-Texthöhe und mehrzeilige Angaben per Drag & Drop. |
-| **0.1.17-h** | Optionaler Tier-Glow nach Geschlecht. |
-| **0.1.17-i** | F8 als Standardtaste für den Tier-Glow. |
 | **0.1.17-j** | Lokaler Tiercache über Disconnects und Neustarts, bis zu 14 Tage. |
 | **0.1.17-k** | Automatisches TXT-Versandarchiv, Export empfangener Briefe und erneuter TXT-Import. |
 

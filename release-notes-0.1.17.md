@@ -37,8 +37,6 @@ einschließlich der Entwicklungsstände 1.16.3 bis 1.16.3-w und 0.1.17-a bis 0.1
 - Geschlechtssymbol und Namensfarbe unabhängig einstellbar, auch für lokal
   bekannte, noch nicht registrierte Tiere. Abschaltbarer Cache für Tierart und
   Geschlecht: bis zu 14 Tage und 1.024 Tiere je Serveradresse.
-- Ausgewählte Finder-Ziele erhalten eine goldene Umrandung bei aktiver
-  Ottonien-Verbindung. Automatische Geschlechtsumrisse bleiben deaktiviert.
 
 ### RP, Karte und Bedienung
 
@@ -83,7 +81,7 @@ einschließlich der Entwicklungsstände 1.16.3 bis 1.16.3-w und 0.1.17-a bis 0.1
   **Development** erhält dieselbe Team-Titelfarbe wie **Gamemaster**.
 - Gespeicherte Nutztiere verschwinden nicht mehr durch Standardfilter aus
   **Alle**. Die Aktualisierung der Übersicht endet auch beim Wechsel in
-  Unterfenster; Such-Glow berücksichtigt ausgewählte unterstützte Tiere.
+  Unterfenster.
 - Briefempfänger ohne doppelte Account-Einträge. Korrekte Pergamentprüfung bei
   zusätzlichem Vorrat, stabilere Cursorpositionen, Absätze und lange Wörter.
   Alte oder ausgetauschte Bücher werden nicht versehentlich weiterverarbeitet.
@@ -118,8 +116,7 @@ Build- und Laufzeitnachweise für diesen Stand stehen in
 [docs/releases/0.1.17.md](https://github.com/Skyfuller1303/OttoExtra/blob/0.1.17/docs/releases/0.1.17.md).
 Die neuesten Chat-/Tier-/Hof-Fixes sind durch Regressionstests abgesichert;
 eine vollständige Prüfung auf dem produktiven Ottonien-Server steht aus.
-Der Finder-Wandtest und die Prüfung technischer Serverkontrolle sind weiterhin
-offen. Frühere Alpha-Nachweise gelten nicht automatisch als neue Live-Abnahme.
+Frühere Alpha-Nachweise gelten nicht automatisch als neue Live-Abnahme.
 
 Die frühere lokale Mouse-Wheelie-Korrektur und Reparaturen fremder
 Modpack-JARs sind **nicht** Bestandteil dieser OttoExtra-JAR. Nicht jede
