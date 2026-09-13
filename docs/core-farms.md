@@ -15,6 +15,9 @@ bleibt das Tier gespeichert und das Formular zeigt den Teilerfolg an.
 
 **Alle** in der Tierübersicht zeigt sämtliche gespeicherten Tierarten. Die
 Artenschalter in den Einstellungen bestimmen die zusätzlichen Einzelfilter.
+Der Finder zeichnet ausgewählte unterstützte Tiere wieder mit goldener Umrandung;
+automatische Geschlechtsumrisse bleiben unverändert deaktiviert.
+
 Höfe werden nach dem vorhandenen API-Modell dem Besitzer zugeordnet. Sie haben
 keine eigene Lehens-ID oder Kartengrenze. Lehenszugehörigkeit, Sichtbarkeit und
 Hof-/Tierrechte prüft die bestehende API. Erstregistrierungen von Tieren bleiben

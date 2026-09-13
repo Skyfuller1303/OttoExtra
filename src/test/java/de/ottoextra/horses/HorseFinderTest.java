@@ -12,7 +12,7 @@ class HorseFinderTest {
 
     @AfterEach
     void resetFinder() {
-        HorseFinder.reset();
+        HorseFinder.shutdown();
     }
 
     @Test
@@ -48,5 +48,26 @@ class HorseFinderTest {
         HorseFinder.remove(first).join();
         assertFalse(HorseFinder.isTarget(first));
         assertTrue(HorseFinder.isTarget(second));
+    }
+
+    @Test
+    void selectedAnimalGetsOutlineBeforeRemoteSaveAndStopsOnDeselect() {
+        HorseFinder.initialize(null, () -> true);
+        UUID cow = UUID.randomUUID();
+        HorseFinder.select(cow).join();
+        assertTrue(HorseFinder.shouldOutline(cow, net.minecraft.entity.passive.CowEntity.class));
+        assertTrue(HorseFinder.shouldOutline(cow, net.minecraft.entity.passive.HorseEntity.class));
+        assertFalse(HorseFinder.shouldOutline(UUID.randomUUID(), net.minecraft.entity.passive.CowEntity.class));
+        assertFalse(HorseFinder.shouldOutline(cow, net.minecraft.entity.player.PlayerEntity.class));
+        HorseFinder.remove(cow).join();
+        assertFalse(HorseFinder.shouldOutline(cow, net.minecraft.entity.passive.CowEntity.class));
+    }
+
+    @Test
+    void inactiveConnectionNeverAddsFinderOutline() {
+        HorseFinder.initialize(null, () -> false);
+        UUID cow = UUID.randomUUID();
+        HorseFinder.select(cow).join();
+        assertFalse(HorseFinder.shouldOutline(cow, net.minecraft.entity.passive.CowEntity.class));
     }
 }

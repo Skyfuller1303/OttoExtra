@@ -52,7 +52,12 @@ public final class HorseFinder {
     }
 
     public static boolean isTarget(Entity entity) {
-        return RegistryAnimals.supports(entity) && isTarget(entity.getUuid());
+        return entity != null && shouldOutline(entity.getUuid(), entity.getClass());
+    }
+
+    static boolean shouldOutline(UUID uuid, Class<? extends Entity> type) {
+        return onOttonien.getAsBoolean()
+                && type != null && RegistryAnimals.supportsType(type) && isTarget(uuid);
     }
 
     public static CompletableFuture<Void> toggle(UUID entityUuid) {
