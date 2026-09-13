@@ -7,10 +7,13 @@ import de.ottoextra.api.model.CompactPlayer;
 import de.ottoextra.api.model.FactionRecord;
 import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.logging.DebugLog;
+import de.ottoextra.mixin.PlayerListEntryAccessor;
 import de.ottoextra.regions.RegionDataService;
 import de.ottoextra.rpnames.tablist.TablistNameFormatter;
 import de.ottoextra.rpnames.title.TitleRegistry;
 import net.minecraft.client.network.PlayerListEntry;
+import net.minecraft.scoreboard.Team;
+import net.minecraft.text.Text;
 import net.minecraft.util.Util;
 import net.minecraft.world.GameMode;
 
@@ -167,7 +170,7 @@ final class PlayerListSortingService {
 
     Comparator<PlayerListEntry> wrap(Comparator<PlayerListEntry> vanilla) {
         Snapshot current = snapshot;
-        if (!isSortingRequested() || !current.active || current.players.isEmpty()) {
+        if (!isSortingRequested() || !current.active) {
             return vanilla;
         }
         if (activationLogged.compareAndSet(false, true)) {
@@ -225,7 +228,16 @@ final class PlayerListSortingService {
         GameProfile profile = entry.getProfile();
         UUID uuid = profile != null ? profile.id() : null;
         PlayerData data = uuid != null ? current.players.get(uuid) : null;
-        if (profile == null || uuid == null || data == null) {
+        if (profile == null || uuid == null) {
+            return unknownKey(uuid);
+        }
+
+        FactionRecord wappenFaction = TablistWappenResolver.resolve(
+                rawTablistName(entry, profile), regions);
+        if (wappenFaction != null) {
+            data = playerData(wappenFaction, data);
+        }
+        if (data == null) {
             return unknownKey(uuid);
         }
 
@@ -249,6 +261,24 @@ final class PlayerListSortingService {
                 normalize(profile.name()),
                 uuid
         );
+    }
+
+    private static Text rawTablistName(PlayerListEntry entry, GameProfile profile) {
+        Text raw = ((PlayerListEntryAccessor) (Object) entry).ottoextra$rawDisplayName();
+        return raw != null
+                ? raw
+                : Team.decorateName(entry.getScoreboardTeam(), Text.literal(profile.name()));
+    }
+
+    private static PlayerData playerData(FactionRecord faction, PlayerData apiData) {
+        String lehen = firstNonBlank(faction.region_name(), faction.region_id());
+        String normalizedLehen = normalize(lehen);
+        if (normalizedLehen.isEmpty()) {
+            return apiData;
+        }
+        return new PlayerData(normalizedLehen,
+                apiData != null ? apiData.roleOrder : 2,
+                apiData != null ? apiData.apiTitle : null);
     }
 
     private static PlayerListSortKey unknownKey(UUID uuid) {

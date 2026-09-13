@@ -37,6 +37,9 @@ final class MapSelectionText {
         } else if (!d.description().isBlank()) {
             paragraphs.add(d.description());
         }
+        if (!d.npcVillage().isBlank()) {
+            paragraphs.add(text(translate, "npc_village", d.npcVillage()));
+        }
         if (paragraphs.isEmpty()) paragraphs.add(text(translate, "no_details"));
         return paragraphs;
     }

@@ -56,15 +56,87 @@ class MapSelectionTextTest {
                 paragraphs(info, "de_de"));
     }
 
+    @Test void occupiedNpcSettlementShowsItsCurrentFactionWithoutAnExtraDescription() {
+        var region = region("""
+                {"region_id":"44","name":"Wegscheide",
+                 "region_info":{"playable":true,"status_label":"NPC-Siedlung"}}
+                """, "");
+        var faction = faction("Achental", "Kloster", "Artami", 4, "Warglau");
+        var parent = faction("Warglau", "Vogtei", "Romegon", 9, "");
+        var info = MapSelectionInfo.from("lehen_44", region, faction, name -> parent, name -> null);
+        assertEquals(List.of("Das Kloster wird von Artami geführt und zählt 4 Bewohner. Das Lehen ist Teil der Vogtei Warglau und zudem ein direkter Vasall von Warglau."),
+                paragraphs(info, "de_de"));
+    }
+
+    @Test void npcLabelFromCapabilitiesDoesNotHideCurrentFactionFacts() {
+        var region = GSON.fromJson("""
+                {"region_id":"65","name":"Karlshof",
+                 "region_capabilities":{"region_info":{"playable":true,"status_label":"NPC-Siedlung",
+                 "note":"Ein Lehen im Norden."}}}
+                """, RegionRecord.class);
+        var faction = faction("Nordeck", "Freiherrschaft", "Arrtakh", 13, "");
+        var info = MapSelectionInfo.from("lehen_65", region, faction, name -> null, name -> null);
+        assertEquals(List.of("Die Freiherrschaft wird von Arrtakh geführt und zählt 13 Bewohner. Das Lehen untersteht dem Herzog und ist abgesehen davon unabhängig.",
+                        "Ein Lehen im Norden."), paragraphs(info, "de_de"));
+    }
+
+    @Test void explicitlyUnplayableFiefKeepsItsStoryWithoutFactionStatistics() {
+        var region = region("""
+                {"region_id":"2","name":"Eberfeld",
+                 "region_info":{"playable":false,"status_label":"Fehde-Lehen"}}
+                """, FEHDE);
+        var faction = faction("Eberfeld", "Dorf", "", 0, "Mährstein");
+        var info = MapSelectionInfo.from("lehen_2", region, faction, name -> null, name -> null);
+        assertEquals(List.of(FEHDE), paragraphs(info, "de_de"));
+    }
+
+    @Test void npcVillageAddsAnActivityParagraphWithItsOwnName() {
+        var region = region("""
+                {"region_id":"44","name":"Wegscheide",
+                 "region_info":{"playable":true,"status_label":"NPC-Siedlung",
+                 "npc_village":{"name":"NPC Siedlung Quelltal"}}}
+                """, "Ein Lehen in den Bergen.");
+        var faction = faction("Achental", "Kloster", "Artami", 4, null);
+        var info = MapSelectionInfo.from("lehen_44", region, faction, name -> null, name -> null);
+        assertEquals(List.of("Das Kloster wird von Artami geführt und zählt 4 Bewohner.",
+                        "Ein Lehen in den Bergen.",
+                        "In diesem Gebiet befindet sich das Dorf Quelltal. Hier gibt es besonders viele Aufgaben und Aktivitäten."),
+                paragraphs(info, "de_de"));
+        assertEquals("The village of Quelltal is located in this area. There are plenty of quests and activities here.",
+                paragraphs(info, "en_us").getLast());
+    }
+
+    @Test void npcVillageFromCapabilitiesReplacesTheEmptyDetailsPlaceholder() {
+        var region = GSON.fromJson("""
+                {"name":"Karlshof","region_info":{},
+                 "region_capabilities":{"region_info":{"npc_village":"NPC-Siedlung Mühlsverd"}}}
+                """, RegionRecord.class);
+        var info = MapSelectionInfo.from("lehen_65", region, null, name -> null, name -> null);
+        assertEquals(List.of("In diesem Gebiet befindet sich das Dorf Mühlsverd. Hier gibt es besonders viele Aufgaben und Aktivitäten."),
+                paragraphs(info, "de_de"));
+    }
+
+    @Test void npcVillageWithoutItsDisplayPrefixKeepsTheName() {
+        var region = region("""
+                {"name":"Wiesdorf","region_info":{"npc_village":{"name":"Pfuhldorf"}}}
+                """, "");
+        var info = MapSelectionInfo.from("lehen_21", region, null, name -> null, name -> null);
+        assertEquals(List.of("In diesem Gebiet befindet sich das Dorf Pfuhldorf. Hier gibt es besonders viele Aufgaben und Aktivitäten."),
+                paragraphs(info, "de_de"));
+    }
+
     @Test void holdernUsesTheSuppliedStoryWithoutTheSyntheticZeroResidents() {
         var holdern = region("""
-                {"region_id":"27","name":"Holdern","region_info":{"playable":true,"status_label":"NPC-Siedlung"}}
+                {"region_id":"27","name":"Holdern","region_info":{"playable":true,"status_label":"NPC-Siedlung",
+                 "npc_village":{"name":"NPC Siedlung Holdern"}}}
                 """, "Die Stadt Holdern ist Sitz des Herzogs von Ottonien.");
         var fallback = GSON.fromJson("{\"source\":\"local\",\"name\":\"Holdern\",\"rank_name\":\"Herzogtum\",\"player_count\":0}", FactionRecord.class);
         var info = MapSelectionInfo.from("lehen_27", holdern, fallback, name -> null, name -> null);
         assertEquals("Holdern (Ottonien)", info.title());
         assertEquals("Holdern", info.regionName());
-        assertEquals(List.of(HOLDERN), paragraphs(info, "de_de"));
+        assertEquals(List.of(HOLDERN,
+                        "In diesem Gebiet befindet sich das Dorf Holdern. Hier gibt es besonders viele Aufgaben und Aktivitäten."),
+                paragraphs(info, "de_de"));
     }
 
     @Test void newerApiStoryForHoldernTakesPrecedence() {

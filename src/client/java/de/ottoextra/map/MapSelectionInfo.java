@@ -13,7 +13,7 @@ import java.util.function.Function;
 /** Facts for the map card. Political relationships come from the API, not overlay colours. */
 record MapSelectionInfo(String title, String regionName, String regionId, String rank,
                         String leader, Integer residents, String realm, String realmRank, String directLord,
-                        String description, boolean narrativeOnly, boolean independent, String narrativeKey) {
+                        String description, String npcVillage, boolean narrativeOnly, boolean independent, String narrativeKey) {
     static MapSelectionInfo resolve(String key, RegionDataService data) {
         RegionRecord region = data == null ? null : data.regionByName(key).orElse(null);
         FactionRecord faction = data == null ? null : data.factionForRegion(key).orElse(null);
@@ -32,9 +32,10 @@ record MapSelectionInfo(String title, String regionName, String regionId, String
                 ? region.region_capabilities() : faction == null ? null : faction.region_capabilities();
         RegionInfo regionInfo = region != null && region.region_info() != null ? region.region_info()
                 : caps == null ? null : caps.region_info();
+        // Playable NPC settlements can have a current player faction. The status
+        // label alone must not suppress its leader, population or relationships.
         boolean narrativeOnly = faction == null || "local".equalsIgnoreCase(faction.source())
-                || regionInfo != null && (Boolean.FALSE.equals(regionInfo.playable())
-                || "NPC-Siedlung".equalsIgnoreCase(regionInfo.status_label()));
+                || regionInfo != null && Boolean.FALSE.equals(regionInfo.playable());
         String lord = faction == null ? "" : clean(faction.lord_name());
         boolean independent = !narrativeOnly && faction.lord_name() != null && lord.isBlank()
                 && (region == null || !region.hasParentRegion());
@@ -78,6 +79,9 @@ record MapSelectionInfo(String title, String regionName, String regionId, String
                 region == null || region.region_info() == null ? null : region.region_info().note(),
                 caps == null || caps.region_info() == null ? null : caps.region_info().note(),
                 faction == null ? null : faction.description());
+        String npcVillage = first(
+                npcVillageName(region == null ? null : region.region_info()),
+                npcVillageName(caps == null ? null : caps.region_info()));
         String regionId = region == null ? "" : first(region.region_id(), region.id());
         String narrativeKey = "";
         // The supplied Holdern text replaces only the old generic NPC fallback.
@@ -93,7 +97,13 @@ record MapSelectionInfo(String title, String regionName, String regionId, String
                 faction == null ? "" : clean(faction.rank_name()),
                 faction == null ? "" : clean(faction.leader_name()),
                 narrativeOnly || faction.player_count() < 0 ? null : faction.player_count(),
-                realm, realmRank, lord, description, narrativeOnly, independent, narrativeKey);
+                realm, realmRank, lord, description, npcVillage, narrativeOnly, independent, narrativeKey);
+    }
+
+    private static String npcVillageName(RegionInfo info) {
+        if (info == null) return "";
+        // The API labels include "NPC Siedlung"; the card supplies its own prose.
+        return clean(info.npcVillageLabel()).replaceFirst("(?iu)^NPC[\\s-]+Siedlung(?:\\s+|$)", "").trim();
     }
 
     private static String first(String... values) {

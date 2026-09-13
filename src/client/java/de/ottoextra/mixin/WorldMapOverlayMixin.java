@@ -13,17 +13,29 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Pseudo
 @Mixin(targets = "xaero.map.gui.GuiMap", remap = false)
 public class WorldMapOverlayMixin {
-    // Verified in World Map 1.41.0 / 1.44.2: after the map projection is restored,
+    // Verified in World Map 1.40.16 / 1.41.0: after the map projection is restored,
     // before map-switching text, buttons, dropdowns and tooltips. Also runs with hidden UI.
-    // Both method names are intentional: named dev environment and intermediary runtime.
-    @Inject(method = {"render", "method_25394"},
+    // Xaero is not remapped by the annotation processor. Keep complete descriptors
+    // for both namespaces; a descriptorless INVOKE selector is invalid in Mixin.
+    @Inject(method = "render",
             slice = @Slice(from = @At(value = "INVOKE",
-                    target = "Lxaero/map/element/MapElementRenderHandler;render")),
+                    target = "Lxaero/map/element/MapElementRenderHandler;render(Lxaero/map/gui/GuiMap;Lnet/minecraft/client/render/VertexConsumerProvider$Immediate;Lxaero/map/graphics/renderer/multitexture/MultiTextureRenderTypeRendererProvider;DDIIDDDDDFZLxaero/map/element/HoveredMapElementHolder;Lnet/minecraft/client/MinecraftClient;F)Lxaero/map/element/HoveredMapElementHolder;")),
             at = @At(value = "INVOKE",
                     target = "Lorg/joml/Matrix4fStack;popMatrix()Lorg/joml/Matrix4fStack;",
                     shift = At.Shift.AFTER), require = 0)
     private void ottoextra$overlayBeforeUi(DrawContext context, int mouseX, int mouseY,
                                           float delta, CallbackInfo ci) {
+        WorldMapOverlayHook.render((Screen) (Object) this, context, mouseX, mouseY, delta);
+    }
+
+    @Inject(method = "method_25394",
+            slice = @Slice(from = @At(value = "INVOKE",
+                    target = "Lxaero/map/element/MapElementRenderHandler;render(Lxaero/map/gui/GuiMap;Lnet/minecraft/class_4597$class_4598;Lxaero/map/graphics/renderer/multitexture/MultiTextureRenderTypeRendererProvider;DDIIDDDDDFZLxaero/map/element/HoveredMapElementHolder;Lnet/minecraft/class_310;F)Lxaero/map/element/HoveredMapElementHolder;")),
+            at = @At(value = "INVOKE",
+                    target = "Lorg/joml/Matrix4fStack;popMatrix()Lorg/joml/Matrix4fStack;",
+                    shift = At.Shift.AFTER), require = 0)
+    private void ottoextra$overlayBeforeUiRuntime(DrawContext context, int mouseX, int mouseY,
+                                                 float delta, CallbackInfo ci) {
         WorldMapOverlayHook.render((Screen) (Object) this, context, mouseX, mouseY, delta);
     }
 }

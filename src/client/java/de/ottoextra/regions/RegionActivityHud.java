@@ -1,6 +1,5 @@
 package de.ottoextra.regions;
 
-import de.ottoextra.api.model.RegionRecord;
 import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.map.PoliticalOverlay;
 import net.minecraft.client.MinecraftClient;
@@ -16,7 +15,6 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 import java.util.function.BooleanSupplier;
 
 public final class RegionActivityHud {
@@ -178,20 +176,7 @@ public final class RegionActivityHud {
         if (banners == null) {
             return null;
         }
-        Identifier factionBanner = data.factionForRegion(entry.regionKey())
-                .flatMap(banners::bannerFor).orElse(null);
-        if (factionBanner != null) {
-            return factionBanner;
-        }
-        Optional<RegionRecord> region = data.regionByName(entry.regionKey());
-        if (region.isPresent()) {
-            String path = region.get().effectiveRegionBannerPath();
-            if (path != null && !path.isBlank()) {
-                return banners.bannerForPath("activity-" + entry.regionKey(), path)
-                        .orElse(null);
-            }
-        }
-        return null;
+        return banners.bannerForRegion(data, entry.regionKey()).orElse(null);
     }
 
     static int[] position(int screenWidth, int screenHeight, int width, int height,

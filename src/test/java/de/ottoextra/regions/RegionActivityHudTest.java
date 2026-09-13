@@ -29,6 +29,14 @@ class RegionActivityHudTest {
     }
 
     @Test
+    void regionsModuleRemainsRegisteredWhenMasterSwitchStartsDisabled() {
+        OttoExtraConfig config = new OttoExtraConfig();
+        config.regions.enabled = false;
+
+        assertTrue(new RegionsModule().enabled(config));
+    }
+
+    @Test
     void clockUsesLocalTwentyFourHourTime() {
         long instant = LocalDate.of(2026, 8, 22).atTime(14, 37)
                 .atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
