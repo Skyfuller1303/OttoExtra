@@ -750,6 +750,13 @@ public final class SettingsRegistry {
                 Option.bool("ottoextra.config.tweaks.combatModeHud", "tweaks.combatModeHud",
                         () -> c.tweaks.combatModeHud, v -> c.tweaks.combatModeHud = v)
                         .tooltip("ottoextra.set.tweaks.combatMode.tip"));
+        card(tweaksBase, "ottoextra.set.tweaks.craftingHud", "ottoextra.set.tweaks.craftingHud.desc",
+                Option.bool("ottoextra.config.tweaks.craftingHud", "tweaks.craftingHud",
+                        () -> c.tweaks.craftingHud, v -> c.tweaks.craftingHud = v)
+                        .tooltip("ottoextra.set.tweaks.craftingHud.tip"),
+                Option.bool("ottoextra.config.tweaks.craftingHudSounds", "tweaks.craftingHudSounds",
+                        () -> c.tweaks.craftingHudSounds, v -> c.tweaks.craftingHudSounds = v)
+                        .tooltip("ottoextra.set.tweaks.craftingHudSounds.tip"));
         card(tweaksBase, "ottoextra.set.regions.activityHud",
                 "ottoextra.set.regions.activityHud.desc",
                 Option.bool("ottoextra.config.regions.activityHudEnabled",

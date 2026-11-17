@@ -54,6 +54,7 @@ public final class TweaksModule implements OttoExtraModule {
         VoteReminderFeature.register(config);
         FachwerkAutoTuneFeature.register(config);
         CombatModeHud.register(context);
+        de.ottoextra.crafting.CraftingHud.register(context);
 
         registerCommands(config);
 

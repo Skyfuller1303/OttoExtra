@@ -363,6 +363,10 @@ public final class OttoExtraConfig {
         public String chatLogScope = "OTTONIEN";
         public String chatLogAcceptedScope = "";
         public boolean combatModeHud = true;
+        /** Own icon and progress bar instead of the server's crafting progress action bar. */
+        public boolean craftingHud = true;
+        /** Strike, success and failure sounds of the crafting HUD. */
+        public boolean craftingHudSounds = true;
         public LowHealth lowHealth = new LowHealth();
         public ToolProtect toolProtect = new ToolProtect();
         public VoteReminderConfig vote = new VoteReminderConfig();
@@ -1251,6 +1255,8 @@ public final class OttoExtraConfig {
         // Restore data/settings, never import historical permissions over a current withdrawal.
         copyFields(parsed.animalInfo, animalInfo);
         tweaks.combatModeHud = parsed.tweaks.combatModeHud;
+        tweaks.craftingHud = parsed.tweaks.craftingHud;
+        tweaks.craftingHudSounds = parsed.tweaks.craftingHudSounds;
         // Local logging decisions, like online consent, survive Cancel and backup restore.
         copyFields(parsed.tweaks.lowHealth, tweaks.lowHealth);
         copyFields(parsed.tweaks.toolProtect, tweaks.toolProtect);
