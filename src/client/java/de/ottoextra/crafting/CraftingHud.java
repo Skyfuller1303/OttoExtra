@@ -49,8 +49,11 @@ public final class CraftingHud {
 
     public static void register(OttoExtraContext context) {
         ScreenEvents.AFTER_INIT.register((client, screen, w, h) -> {
+            // Only known station screens count: sub menus such as "Mehr Suppen" must not replace the
+            // station the player is crafting at.
             if (screen instanceof GenericContainerScreen && client.currentScreen == screen) {
-                lastTitle = screen.getTitle().getString();
+                String title = screen.getTitle().getString();
+                if (CraftingStation.forTitle(title).isPresent()) lastTitle = title;
             }
         });
         ClientReceiveMessageEvents.ALLOW_GAME.register((message, overlay) -> {

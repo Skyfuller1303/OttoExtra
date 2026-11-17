@@ -21,7 +21,20 @@ public record CraftingStation(String title, String texture, int frames, int hitF
 
     public static final List<CraftingStation> ALL = List.of(
             new CraftingStation("Zeugtisch", "zeugtisch", 6, 3,
-                    () -> SoundEvents.BLOCK_ANVIL_USE, 0.25f, 1.0f, 0.1f));
+                    () -> SoundEvents.BLOCK_ANVIL_USE, 0.25f, 1.0f, 0.1f),
+            new CraftingStation("Rüstbank", "ruestbank", 6, 3,
+                    () -> SoundEvents.BLOCK_ANVIL_USE, 0.25f, 0.85f, 0.08f),
+            new CraftingStation("Amboss", "amboss", 6, 3,
+                    () -> SoundEvents.BLOCK_ANVIL_USE, 0.25f, 1.15f, 0.08f),
+            new CraftingStation("Bognertisch", "bognertisch", 6, 5,
+                    () -> SoundEvents.ENTITY_ARROW_SHOOT, 0.3f, 1.2f, 0.1f),
+            new CraftingStation("Kochstelle", "kochstelle", 6, 0,
+                    () -> SoundEvents.BLOCK_CAMPFIRE_CRACKLE, 0.35f, 1.0f, 0.15f),
+            new CraftingStation("Schreibstube", "schreibstube", 6, 2,
+                    () -> SoundEvents.UI_CARTOGRAPHY_TABLE_TAKE_RESULT, 0.3f, 1.1f, 0.1f),
+            // Title not yet confirmed on the server.
+            new CraftingStation("Laboratorium", "laboratorium", 6, 3,
+                    () -> SoundEvents.BLOCK_BREWING_STAND_BREW, 0.2f, 1.2f, 0.1f));
 
     /** Station for a container screen title (plain text), if it is a known one. */
     public static Optional<CraftingStation> forTitle(String title) {
