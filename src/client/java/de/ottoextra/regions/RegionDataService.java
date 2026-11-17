@@ -46,7 +46,10 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public final class RegionDataService {
 
-    private static final long BOOTSTRAP_RETRY_SECONDS = 45;
+    private static final long BOOTSTRAP_RETRY_SECONDS = 15;
+    private static final long WATCHDOG_SECONDS = 30;
+    private static final long REQUEST_TIMEOUT_SECONDS = 60;
+    private static final long BOOTSTRAP_STALE_MS = 90_000L;
     private static final long ACTIVITY_RETRY_SECONDS = 5;
     private static final long SYNC_INTERVAL_MINUTES = 20;
     private static final long REGION_DETAIL_COOLDOWN_MS = 10 * 60_000L;
@@ -72,6 +75,7 @@ public final class RegionDataService {
     private final Map<String, String> factionUuidByKey = new ConcurrentHashMap<>();
     private final Map<String, RegionRecord> regionsByKey = new ConcurrentHashMap<>();
     private final Map<String, Long> detailRequestedAt = new ConcurrentHashMap<>();
+    private long dataRevision;
     // Accessed under the lifecycle lock; screens can await an existing prefetch.
     private final Map<String, CompletableFuture<Void>> detailRequests = new HashMap<>();
     private final Map<String, Integer> gatheringByKey = new ConcurrentHashMap<>();
@@ -84,7 +88,14 @@ public final class RegionDataService {
     private final AtomicBoolean gatheringRunning = new AtomicBoolean(false);
 
     private volatile long bootstrapInFlightGeneration = -1;
+    // Identifies the request that owns the in-flight marker; a superseded request must not clear it.
+    private final AtomicLong bootstrapRequestSeq = new AtomicLong();
+    private volatile long bootstrapInFlightRequest = -1;
     private volatile boolean bootstrapReady;
+    private static final long REGION_LIST_FALLBACK_INTERVAL_MS = 10L * 60_000L;
+    // Guarded by the lifecycle lock; 0 means no fallback attempt yet.
+    private long regionListFallbackAtMs;
+    private boolean regionListFallbackInFlight;
     private volatile long syncCursor = -1;
     private volatile CompletableFuture<Void> bootstrapCompletion =
             CompletableFuture.completedFuture(null);
@@ -92,6 +103,19 @@ public final class RegionDataService {
     private volatile ScheduledFuture<?> bootstrapRetryTask;
     private volatile ScheduledFuture<?> gatheringTask;
     private volatile ScheduledFuture<?> activityRetryTask;
+    private volatile ScheduledFuture<?> watchdogTask;
+    private volatile boolean connected;
+    private volatile boolean activityRequested;
+    private volatile long bootstrapStartedAtMs;
+    private volatile long syncStartedAtMs;
+    // True once the current data came from a snapshot the server marked as complete.
+    private volatile boolean authoritativeData;
+    private volatile String lastError = "";
+    private volatile long lastResponseAtMs;
+    private volatile Runnable changeListener = () -> { };
+
+    /** How an API envelope was applied to the local indexes. */
+    enum ApplyResult { IGNORED, MERGED, AUTHORITATIVE }
 
     public RegionDataService(OttoExtraApiClient api, int activityRefreshSeconds) {
         this(api, activityRefreshSeconds, OttoExtraPaths.apiCache().resolve("snapshot.json"),
@@ -119,12 +143,29 @@ public final class RegionDataService {
         applyLocalOverrides();
     }
 
+    /**
+     * Sets the callback run after API data changed the indexes. It runs under the lifecycle lock
+     * on a service thread, so it must stay cheap; exceptions are swallowed.
+     */
+    public void setChangeListener(Runnable listener) {
+        changeListener = listener == null ? () -> { } : listener;
+    }
+
+    private void notifyChanged() {
+        try {
+            changeListener.run();
+        } catch (RuntimeException error) {
+            DebugLog.debug("[regions] Aenderungs-Listener fehlgeschlagen: {}", error.toString());
+        }
+    }
+
     public void onServerJoin() {
         onServerJoin(true);
     }
 
     synchronized void onServerJoin(boolean loadActivity) {
-        if (!permits.get().valid()) return;
+        connected = true;
+        activityRequested = loadActivity;
         syncInFlightGeneration = -1;
         long activityGeneration = activityConnectionGeneration.incrementAndGet();
         long generation = bootstrapGeneration.incrementAndGet();
@@ -134,6 +175,9 @@ public final class RegionDataService {
         bootstrapCompletion = completion;
         bootstrapReady = false;
         cancelBootstrapRetry();
+        startWatchdog();
+        // Without a valid permit the watchdog bootstraps as soon as consent is usable again.
+        if (!permits.get().valid()) return;
         requestBootstrap(generation, completion);
         startSyncLoop();
         if (loadActivity) startGatheringLoop(activityGeneration);
@@ -144,6 +188,9 @@ public final class RegionDataService {
     }
 
     public synchronized void onDisconnect() {
+        connected = false;
+        activityRequested = false;
+        cancelWatchdog();
         syncInFlightGeneration = -1;
         activityConnectionGeneration.incrementAndGet();
         bootstrapGeneration.incrementAndGet();
@@ -173,85 +220,318 @@ public final class RegionDataService {
         syncNow();
     }
 
-    private void requestBootstrap(long generation, CompletableFuture<Void> completion) {
+    /**
+     * Manual refresh: fetches a fresh bootstrap right away and merges it into the local data,
+     * whether or not a session is connected. Completes exceptionally when nothing usable arrived.
+     */
+    public synchronized CompletableFuture<Void> forceRefresh() {
         ConsentPermit permit = permits.get();
-        if (!permit.valid()) { completion.cancel(false); return; }
+        if (!permit.valid()) {
+            DebugLog.debug("[regions] Manuelles Neuladen abgelehnt: {}", permitProblem());
+            return CompletableFuture.failedFuture(new IllegalStateException(
+                    "Online-Dienste nicht erlaubt"));
+        }
+        long generation = bootstrapGeneration.get();
+        // A stuck request must not swallow the manual refresh.
+        bootstrapInFlightGeneration = -1;
+        bootstrapInFlightRequest = -1;
+        CompletableFuture<Void> completion = new CompletableFuture<>();
+        DebugLog.debug("[regions] Manuelles Neuladen der Kartendaten (verbunden={}).", connected);
+        requestBootstrap(generation, completion, true);
+        return completion;
+    }
+
+    /** One-line state summary for the status command and debug logs. */
+    public String diagnosticStatus() {
+        long at = lastResponseAtMs;
+        String age = at == 0L ? "nie"
+                : "vor " + Math.max(0L, (System.currentTimeMillis() - at) / 1000L) + " s";
+        String error = lastError;
+        return "verbunden=" + connected
+                + ", Erlaubnis=" + (permits.get().valid() ? "ja" : "nein (" + permitProblem() + ")")
+                + ", bereit=" + bootstrapReady
+                + ", autoritativ=" + authoritativeData
+                + ", Cursor=" + syncCursor
+                + ", Fraktionen=" + factionsByUuid.size()
+                + ", Regionen=" + allRegions().size()
+                + ", letzte Antwort=" + age
+                + ", letzter Fehler=" + (error.isEmpty() ? "-" : error);
+    }
+
+    private static String permitProblem() {
+        try {
+            OttoExtraConfig config = OttoExtraConfig.active();
+            ConsentPolicy.Purpose purpose = ConsentPolicy.Purpose.ONLINE_SERVICES;
+            if (config == null || config.consent == null) return "keine Consent-Konfiguration";
+            return "Einwilligung=" + config.consent.flag(purpose)
+                    + ", Richtlinie=" + config.consent.policyVersion + "/" + ConsentPolicy.VERSION
+                    + ", Scope passt=" + ConsentPolicy.allowed(config, purpose);
+        } catch (Throwable error) {
+            return "Zustand unbekannt";
+        }
+    }
+
+    private void requestBootstrap(long generation, CompletableFuture<Void> completion) {
+        requestBootstrap(generation, completion, false);
+    }
+
+    // refresh=true requests a bootstrap although data is already usable: no fast retry loop, no state reset.
+    private void requestBootstrap(long generation, CompletableFuture<Void> completion, boolean refresh) {
+        ConsentPermit permit = permits.get();
+        // A transiently invalid permit must not end the retry chain; the watchdog recovers.
+        if (!permit.valid()) {
+            DebugLog.debug("[regions] Bootstrap uebersprungen, Online-Dienste nicht erlaubt: {}",
+                    permitProblem());
+            if (refresh) completion.completeExceptionally(new IllegalStateException(
+                    "Online-Dienste nicht erlaubt"));
+            return;
+        }
+        long requestId;
         synchronized (this) {
-            if (generation != bootstrapGeneration.get() || bootstrapReady
+            if (generation != bootstrapGeneration.get() || (bootstrapReady && !refresh)
                     || bootstrapInFlightGeneration == generation) {
+                if (refresh) completion.cancel(false);
                 return;
             }
+            requestId = bootstrapRequestSeq.incrementAndGet();
             bootstrapInFlightGeneration = generation;
+            bootstrapInFlightRequest = requestId;
+            bootstrapStartedAtMs = System.currentTimeMillis();
         }
 
         CompletableFuture<ApiEnvelope> request;
         try {
-            request = permit.start(api::bootstrap);
+            request = permit.start(() -> withTimeout(api.bootstrap()));
         } catch (Throwable error) {
-            finishBootstrap(generation, completion, null, error, permit);
+            finishBootstrap(generation, requestId, completion, null, error, permit, refresh);
             return;
         }
         if (request == null) {
-            finishBootstrap(generation, completion, null,
-                    new IllegalStateException("Bootstrap-Future fehlt"), permit);
+            finishBootstrap(generation, requestId, completion, null,
+                    new IllegalStateException("Bootstrap-Future fehlt"), permit, refresh);
             return;
         }
         request.whenComplete((env, error) ->
-                finishBootstrap(generation, completion, env, error, permit));
+                finishBootstrap(generation, requestId, completion, env, error, permit, refresh));
     }
 
-    private synchronized void finishBootstrap(long generation, CompletableFuture<Void> completion,
-                                 ApiEnvelope env, Throwable error, ConsentPermit permit) {
+    private synchronized void finishBootstrap(long generation, long requestId, CompletableFuture<Void> completion,
+                                 ApiEnvelope env, Throwable error, ConsentPermit permit, boolean refresh) {
         try {
-            permit.commit(() -> finishBootstrapAllowed(generation, completion, env, error));
+            permit.commit(() -> finishBootstrapAllowed(generation, requestId, completion, env, error, refresh));
         } catch (java.util.concurrent.CancellationException revoked) {
-            if (bootstrapInFlightGeneration == generation) bootstrapInFlightGeneration = -1;
-            completion.cancel(false);
+            // Permit was invalidated (e.g. consent re-accepted) while consent may still be allowed.
+            clearBootstrapInFlight(generation, requestId);
+            lastError = "Erlaubnis widerrufen";
+            DebugLog.debug("[regions] Bootstrap-Antwort verworfen, Erlaubnis widerrufen.");
+            if (refresh) {
+                completion.completeExceptionally(revoked);
+            } else if (connected && generation == bootstrapGeneration.get()) {
+                scheduleBootstrapRetry(generation, completion);
+            }
         }
     }
 
-    private void finishBootstrapAllowed(long generation, CompletableFuture<Void> completion,
-                                 ApiEnvelope env, Throwable error) {
-        boolean complete = false;
+    private synchronized void clearBootstrapInFlight(long generation, long requestId) {
+        if (bootstrapInFlightGeneration == generation && bootstrapInFlightRequest == requestId) {
+            bootstrapInFlightGeneration = -1;
+            bootstrapInFlightRequest = -1;
+        }
+    }
+
+    private static <T> CompletableFuture<T> withTimeout(CompletableFuture<T> future) {
+        return future == null ? null : future.orTimeout(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+    }
+
+    private synchronized void startWatchdog() {
+        cancelWatchdog();
+        if (scheduler.isShutdown()) return;
+        try {
+            watchdogTask = scheduler.scheduleWithFixedDelay(this::runWatchdog,
+                    WATCHDOG_SECONDS, WATCHDOG_SECONDS, TimeUnit.SECONDS);
+        } catch (java.util.concurrent.RejectedExecutionException ignored) {
+            watchdogTask = null;
+        }
+    }
+
+    private void cancelWatchdog() {
+        ScheduledFuture<?> task = watchdogTask;
+        if (task != null) {
+            task.cancel(false);
+            watchdogTask = null;
+        }
+    }
+
+    /** Re-checks a connected session and restarts anything that stalled or died. */
+    synchronized void runWatchdog() {
+        if (!connected || scheduler.isShutdown()) return;
+        try {
+            if (!permits.get().valid()) return;
+            long generation = bootstrapGeneration.get();
+            long now = System.currentTimeMillis();
+            ScheduledFuture<?> gathering = gatheringTask;
+            if (activityRequested && (gathering == null || gathering.isDone())) {
+                startGatheringLoop(activityConnectionGeneration.get());
+            }
+            if (!bootstrapReady) {
+                if (bootstrapInFlightGeneration == generation
+                        && now - bootstrapStartedAtMs > BOOTSTRAP_STALE_MS) {
+                    bootstrapInFlightGeneration = -1;
+                }
+                if (bootstrapInFlightGeneration == generation) return;
+                if (bootstrapCompletion.isDone()) {
+                    cancelBootstrapRetry();
+                    bootstrapCompletion = new CompletableFuture<>();
+                }
+                ScheduledFuture<?> retry = bootstrapRetryTask;
+                if (retry != null && !retry.isDone()) return;
+                requestBootstrap(generation, bootstrapCompletion);
+                return;
+            }
+            ScheduledFuture<?> sync = syncTask;
+            if (sync == null || sync.isDone()) scheduleSyncTask();
+            if (syncInFlightGeneration == generation && now - syncStartedAtMs > BOOTSTRAP_STALE_MS) {
+                syncInFlightGeneration = -1;
+            }
+        } catch (RuntimeException error) {
+            DebugLog.debug("[regions] Watchdog-Pruefung fehlgeschlagen: {}", rootMessage(error));
+        }
+    }
+
+    private void finishBootstrapAllowed(long generation, long requestId, CompletableFuture<Void> completion,
+                                 ApiEnvelope env, Throwable error, boolean refresh) {
+        boolean usable = false;
+        String retryHint = refresh ? "." : " - neuer Versuch in " + BOOTSTRAP_RETRY_SECONDS + " s.";
         try {
             if (generation != bootstrapGeneration.get()) {
+                if (refresh) completion.cancel(false);
                 return;
             }
             if (error != null) {
-                DebugLog.debug("[regions] Bootstrap nicht moeglich ({}) — neuer Versuch in {} s.",
-                        rootMessage(error), BOOTSTRAP_RETRY_SECONDS);
+                lastError = "Bootstrap: " + rootMessage(error);
+                DebugLog.debug("[regions] Bootstrap nicht moeglich ({}){}", rootMessage(error), retryHint);
+                if (refresh) completion.completeExceptionally(error);
             } else if (env == null || !env.ok()) {
-                DebugLog.debug("[regions] Bootstrap ungueltig — neuer Versuch in {} s.",
-                        BOOTSTRAP_RETRY_SECONDS);
+                lastError = "Bootstrap: ungueltige Antwort";
+                DebugLog.debug("[regions] Bootstrap ungueltig (ok={}){}", env != null && env.ok(), retryHint);
+                if (refresh) completion.completeExceptionally(new IllegalStateException(
+                        "Ungueltige Antwort"));
             } else {
-                applyEnvelope(env, true);
-                complete = isCompleteBootstrap(env);
-                if (complete && generation == bootstrapGeneration.get()) {
-                    bootstrapReady = true;
-                    DebugLog.debug("[regions] Bootstrap: {} Fraktionen, {} Regionen.",
-                            factionsByUuid.size(), regionsByKey.size());
+                lastResponseAtMs = System.currentTimeMillis();
+                ApplyResult result = applyEnvelope(env, true);
+                logResponse("Bootstrap", env, result);
+                usable = result != ApplyResult.IGNORED;
+                if (usable) {
+                    lastError = "";
+                    if (connected) {
+                        bootstrapReady = true;
+                        bootstrapCompletion.complete(null);
+                    }
+                    completion.complete(null);
                 } else {
-                    DebugLog.debug("[regions] Bootstrap unvollstaendig ({} Fraktionen, {} Regionen)"
-                                    + " — neuer Versuch in {} s.",
-                            sizeOf(env.factions()), sizeOf(env.regions()),
-                            BOOTSTRAP_RETRY_SECONDS);
+                    lastError = "Bootstrap: keine verwertbaren Daten";
+                    DebugLog.debug("[regions] Bootstrap ohne verwertbare Daten ({} Fraktionen, {} Regionen){}",
+                            sizeOf(env.factions()), sizeOf(env.regions()), retryHint);
+                    if (refresh) completion.completeExceptionally(new IllegalStateException(
+                            "Keine verwertbaren Daten"));
                 }
             }
         } finally {
-            synchronized (this) {
-                if (bootstrapInFlightGeneration == generation) {
-                    bootstrapInFlightGeneration = -1;
-                }
-            }
+            clearBootstrapInFlight(generation, requestId);
             if (generation == bootstrapGeneration.get()) {
-                if (complete) {
-                    completion.complete(null);
+                if (usable) {
+                    // Incomplete-but-usable data also ends the fast retry; the 20 min sync loop tries again.
                     cancelBootstrapRetry();
-                } else {
+                } else if (!refresh) {
                     scheduleBootstrapRetry(generation, completion);
                 }
+                if (!usable) requestRegionListFallback(generation);
             }
         }
+    }
+
+    /**
+     * Refreshes stale data from the lighter region list while the bootstrap keeps failing. Throttled
+     * to one attempt per {@link #REGION_LIST_FALLBACK_INTERVAL_MS}; the bootstrap retry loop is untouched
+     * and replaces the merged data as soon as the server delivers a real snapshot.
+     */
+    private void requestRegionListFallback(long generation) {
+        ConsentPermit permit = permits.get();
+        if (!permit.valid()) return;
+        synchronized (this) {
+            long now = System.currentTimeMillis();
+            if (generation != bootstrapGeneration.get() || bootstrapReady || regionListFallbackInFlight
+                    || (regionListFallbackAtMs != 0
+                    && now - regionListFallbackAtMs < REGION_LIST_FALLBACK_INTERVAL_MS)) {
+                return;
+            }
+            regionListFallbackInFlight = true;
+            regionListFallbackAtMs = now;
+        }
+        CompletableFuture<List<RegionRecord>> request;
+        try {
+            request = permit.start(() -> withTimeout(api.regionList()));
+        } catch (Throwable error) {
+            finishRegionListFallback(generation, null, error, permit);
+            return;
+        }
+        if (request == null) {
+            finishRegionListFallback(generation, null, new IllegalStateException("Region-List-Future fehlt"), permit);
+            return;
+        }
+        request.whenComplete((list, error) -> finishRegionListFallback(generation, list, error, permit));
+    }
+
+    private synchronized void finishRegionListFallback(long generation, List<RegionRecord> list,
+                                                       Throwable error, ConsentPermit permit) {
+        try {
+            permit.commit(() -> {
+                if (generation != bootstrapGeneration.get() || bootstrapReady) return;
+                if (error != null) {
+                    DebugLog.debug("[regions] Bootstrap-Fallback fehlgeschlagen: {}", rootMessage(error));
+                    return;
+                }
+                if (list == null || list.isEmpty()) {
+                    DebugLog.debug("[regions] Bootstrap-Fallback: public-region-list ohne Regionen.");
+                    return;
+                }
+                // Fresh current_faction records overwrite stale faction entries; the merge stays
+                // non-authoritative (snapshot_complete=false) and leaves the sync cursor untouched.
+                List<FactionRecord> currentFactions = new ArrayList<>();
+                for (RegionRecord region : list) {
+                    if (region == null) continue;
+                    FactionRecord faction = region.current_faction();
+                    if (faction != null && faction.uuid() != null && !faction.uuid().isBlank()) {
+                        currentFactions.add(faction);
+                    }
+                }
+                ApplyResult result = applyEnvelope(new ApiEnvelope(true, null, 0, currentFactions, list,
+                        null, null, null, null, null, null, null, null, Boolean.FALSE), false);
+                if (result == ApplyResult.IGNORED) {
+                    DebugLog.debug("[regions] Bootstrap-Fallback: public-region-list nicht verwertbar.");
+                } else {
+                    DebugLog.debug("[regions] Bootstrap-Fallback: {} Regionen aus public-region-list uebernommen.",
+                            list.size());
+                }
+            });
+        } catch (java.util.concurrent.CancellationException revoked) {
+            DebugLog.debug("[regions] Bootstrap-Fallback verworfen, Erlaubnis widerrufen.");
+        } finally {
+            regionListFallbackInFlight = false;
+        }
+    }
+
+    private void logResponse(String kind, ApiEnvelope env, ApplyResult result) {
+        String how = switch (result) {
+            case AUTHORITATIVE -> "autoritativ (ersetzt)";
+            case MERGED -> "zusammengefuehrt (nicht autoritativ)";
+            case IGNORED -> "ignoriert";
+        };
+        DebugLog.debug("[regions] {}-Antwort: ok={}, snapshot_complete={}, sync_cursor={},"
+                        + " Fraktionen={}, Regionen={}, Verarbeitung={}, Bestand jetzt {} Fraktionen / {} Regionen.",
+                kind, env.ok(), env.snapshot_complete(), env.sync_cursor(),
+                sizeOf(env.factions()), sizeOf(env.regions()), how,
+                factionsByUuid.size(), allRegions().size());
     }
 
     private void scheduleBootstrapRetry(long generation, CompletableFuture<Void> completion) {
@@ -279,9 +559,13 @@ public final class RegionDataService {
     }
 
     static boolean isCompleteBootstrap(ApiEnvelope env) {
-        return env != null && env.ok()
-                && env.factions() != null && !env.factions().isEmpty()
-                && env.regions() != null && !env.regions().isEmpty();
+        if (env == null || !env.ok() || env.factions() == null || env.regions() == null) {
+            return false;
+        }
+        if (env.snapshot_complete() != null) {
+            return env.snapshot_complete();
+        }
+        return !env.factions().isEmpty() && !env.regions().isEmpty();
     }
 
     private static int sizeOf(List<?> values) {
@@ -290,28 +574,51 @@ public final class RegionDataService {
 
     private void startSyncLoop() {
         stopSyncLoop();
+        scheduleSyncTask();
+    }
+
+    private void scheduleSyncTask() {
+        ScheduledFuture<?> old = syncTask;
+        if (old != null) old.cancel(false);
         syncTask = scheduler.scheduleAtFixedRate(this::syncNow,
                 SYNC_INTERVAL_MINUTES, SYNC_INTERVAL_MINUTES, TimeUnit.MINUTES);
     }
 
     public synchronized void syncNow() {
         ConsentPermit permit = permits.get();
-        if (!permit.valid()) return;
+        if (!permit.valid()) {
+            DebugLog.debug("[regions] Sync uebersprungen, Online-Dienste nicht erlaubt: {}", permitProblem());
+            return;
+        }
         long generation = bootstrapGeneration.get();
         if (!bootstrapReady || bootstrapInFlightGeneration == generation
                 || syncInFlightGeneration == generation) return;
         syncInFlightGeneration = generation;
+        syncStartedAtMs = System.currentTimeMillis();
         try {
-            permit.start(() -> api.sync(Math.max(0, syncCursor))).whenComplete((env, error) -> {
+            permit.start(() -> withTimeout(api.sync(Math.max(0, syncCursor)))).whenComplete((env, error) -> {
                 synchronized (this) {
                     // Checking and applying share the lifecycle lock: disconnect
                     // cannot race between this check and snapshot persistence.
                     if (generation != bootstrapGeneration.get()) return;
                     try {
                         if (error != null) {
+                            lastError = "Sync: " + rootMessage(error);
                             DebugLog.debug("[regions] Sync uebersprungen: {}", rootMessage(error));
                         } else {
-                            permit.commit(() -> applyEnvelope(env, false));
+                            if (env != null && env.ok()) {
+                                lastResponseAtMs = System.currentTimeMillis();
+                                ApplyResult[] result = {ApplyResult.IGNORED};
+                                permit.commit(() -> result[0] = applyEnvelope(env, false));
+                                logResponse("Sync", env, result[0]);
+                                if (result[0] == ApplyResult.IGNORED && !authoritativeData) {
+                                    DebugLog.debug("[regions] Sync ohne verwertbare Daten - Bootstrap wird erneut angefordert.");
+                                    // Data stays usable meanwhile; a failed refresh just waits for the next cycle.
+                                    requestBootstrap(generation, new CompletableFuture<>(), true);
+                                }
+                            } else {
+                                DebugLog.debug("[regions] Sync-Antwort ungueltig (ok={}).", env != null && env.ok());
+                            }
                         }
                     } finally {
                         if (syncInFlightGeneration == generation) syncInFlightGeneration = -1;
@@ -620,10 +927,31 @@ public final class RegionDataService {
             return Optional.empty();
         }
         RegionRecord region = regionsByKey.get(key);
-        if (region != null && region.current_faction() != null) {
+        if (region != null) {
+            if (region.current_faction() == null) {
+                String uuid = factionUuidByKey.get(key);
+                FactionRecord candidate = uuid == null ? null : factionsByUuid.get(uuid);
+                if (candidate != null && "local".equals(candidate.source())
+                        && sameRegionId(candidate.region_id(), region.region_id(),
+                        region.region_ref(), region.id())) {
+                    return Optional.of(candidate);
+                }
+                return Optional.empty();
+            }
             FactionRecord byUuid = region.current_faction().uuid() != null
                     ? factionsByUuid.get(region.current_faction().uuid()) : null;
-            return Optional.of(byUuid != null ? byUuid : region.current_faction());
+            if (byUuid != null) {
+                if (!byUuid.isLanded()) return Optional.empty();
+                boolean hasFactionRegionId = !canonicalRegionId(byUuid.region_id()).isEmpty();
+                boolean hasRegionIdentity = !canonicalRegionId(region.region_id()).isEmpty()
+                        || !canonicalRegionId(region.region_ref()).isEmpty()
+                        || !canonicalRegionId(region.id()).isEmpty();
+                if (hasFactionRegionId && hasRegionIdentity
+                        && !sameRegionId(byUuid.region_id(), region.region_id(),
+                        region.region_ref(), region.id())) return Optional.empty();
+                return Optional.of(byUuid);
+            }
+            return Optional.of(region.current_faction());
         }
         String uuid = factionUuidByKey.get(key);
         if (uuid != null) {
@@ -633,6 +961,21 @@ public final class RegionDataService {
             }
         }
         return Optional.empty();
+    }
+
+    private static boolean sameRegionId(String left, String... right) {
+        String leftKey = canonicalRegionId(left);
+        if (leftKey.isEmpty()) return false;
+        for (String value : right) {
+            if (leftKey.equals(canonicalRegionId(value))) return true;
+        }
+        return false;
+    }
+
+    private static String canonicalRegionId(String value) {
+        String key = RegionNameKeys.normalize(value);
+        if (key.startsWith("lehen")) key = key.substring("lehen".length());
+        return key.matches("\\d+") ? key.replaceFirst("^0+(?!$)", "") : key;
     }
 
     public Optional<RegionRecord> regionByName(String regionName) {
@@ -658,6 +1001,7 @@ public final class RegionDataService {
             return CompletableFuture.completedFuture(null);
         }
         long generation = bootstrapGeneration.get();
+        long requestRevision = dataRevision;
         CompletableFuture<Void> completion = new CompletableFuture<>();
         detailRequests.put(key, completion);
         detailRequestedAt.put(key, now);
@@ -666,6 +1010,11 @@ public final class RegionDataService {
                 synchronized (this) {
                     detailRequests.remove(key, completion);
                     if (generation != bootstrapGeneration.get()) {
+                        completion.cancel(false);
+                        return;
+                    }
+                    if (requestRevision != dataRevision) {
+                        detailRequestedAt.remove(key, now);
                         completion.cancel(false);
                         return;
                     }
@@ -679,6 +1028,7 @@ public final class RegionDataService {
                             permit.commit(() -> {
                                 indexRegion(region);
                                 persistSnapshot();
+                                notifyChanged();
                             });
                         }
                         completion.complete(null);
@@ -757,29 +1107,42 @@ public final class RegionDataService {
         return result;
     }
 
-    void applyEnvelope(ApiEnvelope env, boolean fromBootstrap) {
-        if (env == null) {
-            return;
+    ApplyResult applyEnvelope(ApiEnvelope env, boolean fromBootstrap) {
+        if (env == null || !env.ok() || env.factions() == null || env.regions() == null) {
+            return ApplyResult.IGNORED;
         }
-        if (fromBootstrap && isCompleteBootstrap(env)) {
-            // Ein vollstaendiger Bootstrap ist der autoritative Gesamtstand.
+        Boolean complete = env.snapshot_complete();
+        boolean authoritative = complete != null
+                ? complete
+                // Legacy envelopes without the flag: only a bootstrap with both lists filled counts.
+                : fromBootstrap && isCompleteBootstrap(env);
+        if (!authoritative && env.factions().isEmpty() && env.regions().isEmpty()) {
+            return ApplyResult.IGNORED;
+        }
+        if (authoritative) {
+            // Ein vollstaendiger Snapshot ist der autoritative Gesamtstand.
             // Ohne Leeren bleiben geloeschte Lehen aus dem Disk-Snapshot erhalten
             // und koennen spaeter die politische Zoom-Gruppierung verfälschen.
             factionsByUuid.clear();
             factionUuidByKey.clear();
             regionsByKey.clear();
+            dataRevision++;
+            detailRequestedAt.clear();
+            detailRequests.values().forEach(request -> request.cancel(false));
+            detailRequests.clear();
         }
-        if (env.sync_cursor() > 0) {
+        // A snapshot_complete=false payload is merged (names are better than none), but it must not
+        // move the cursor: the cursor only advances past data the server vouches for.
+        if (env.sync_cursor() > 0 && (authoritative || fromBootstrap && complete == null)) {
             syncCursor = env.sync_cursor();
         }
-        if (env.factions() != null) {
-            env.factions().forEach(this::indexFaction);
-        }
-        if (env.regions() != null) {
-            env.regions().forEach(this::indexRegion);
-        }
-        applyLocalOverrides();
+        env.factions().forEach(this::indexFaction);
+        env.regions().forEach(this::indexRegion);
+        if (!authoritative || !regionsByKey.isEmpty()) applyLocalOverrides();
+        if (authoritative) authoritativeData = true;
         persistSnapshot();
+        notifyChanged();
+        return authoritative ? ApplyResult.AUTHORITATIVE : ApplyResult.MERGED;
     }
 
     private void applyLocalOverrides() {
@@ -802,6 +1165,7 @@ public final class RegionDataService {
             return;
         }
         factionsByUuid.put(f.uuid(), f);
+        factionUuidByKey.entrySet().removeIf(entry -> entry.getValue().equals(f.uuid()));
         putFactionKey(f.region_name(), f.uuid());
         putFactionKey(f.region_id(), f.uuid());
         putFactionKey(f.name(), f.uuid());
@@ -819,6 +1183,7 @@ public final class RegionDataService {
         if (r == null) {
             return;
         }
+        removePreviousRegionAliases(r);
         putRegionKey(r.id(), r);
         putRegionKey(r.region_ref(), r);
         putRegionKey(r.region_id(), r);
@@ -827,11 +1192,23 @@ public final class RegionDataService {
         if (r.region_id() != null) {
             putRegionKey("lehen_" + r.region_id(), r);
         }
-        if (r.current_faction() != null && r.current_faction().uuid() != null) {
-            indexFaction(r.current_faction());
-            putFactionKey(r.name(), r.current_faction().uuid());
-            putFactionKey(r.original_name(), r.current_faction().uuid());
+    }
+
+    private void removePreviousRegionAliases(RegionRecord updated) {
+        List<String> stableKeys = java.util.stream.Stream.of(
+                        updated.id(), updated.region_ref(), updated.region_id())
+                .map(RegionNameKeys::normalize).filter(key -> !key.isEmpty()).toList();
+        if (stableKeys.isEmpty()) return;
+        List<RegionRecord> previous = regionsByKey.values().stream().distinct()
+                .filter(region -> sharesStableRegionKey(region, stableKeys)).toList();
+        if (!previous.isEmpty()) {
+            regionsByKey.entrySet().removeIf(entry -> previous.contains(entry.getValue()));
         }
+    }
+
+    private static boolean sharesStableRegionKey(RegionRecord region, List<String> stableKeys) {
+        return java.util.stream.Stream.of(region.id(), region.region_ref(), region.region_id())
+                .map(RegionNameKeys::normalize).anyMatch(stableKeys::contains);
     }
 
     private void putRegionKey(String raw, RegionRecord r) {
@@ -861,10 +1238,14 @@ public final class RegionDataService {
     private void loadSnapshotFromDisk() {
         Path file = snapshotFile();
         if (!Files.exists(file)) {
+            DebugLog.debug("[regions] Kein Snapshot auf der Platte ({}).", file);
             return;
         }
         try {
-            if (Files.size(file) > 8 * 1024 * 1024) return;
+            if (Files.size(file) > 8 * 1024 * 1024) {
+                DebugLog.debug("[regions] Snapshot zu gross ({} Bytes) - ignoriert.", Files.size(file));
+                return;
+            }
             Snapshot snap = GSON.fromJson(Files.readString(file, StandardCharsets.UTF_8), Snapshot.class);
             if (snap == null) {
                 return;
@@ -876,8 +1257,8 @@ public final class RegionDataService {
             if (snap.regions != null) {
                 snap.regions.forEach(this::indexRegion);
             }
-            DebugLog.debug("[regions] Snapshot geladen: {} Fraktionen, {} Regionen.",
-                    factionsByUuid.size(), regionsByKey.size());
+            DebugLog.debug("[regions] Snapshot geladen: {} Fraktionen, {} Regionen (Cursor {}).",
+                    factionsByUuid.size(), allRegions().size(), syncCursor);
         } catch (Exception e) {
             OttoExtra.LOGGER.warn("[regions] Snapshot unlesbar — wird neu aufgebaut. ({})", e.getMessage());
         }
