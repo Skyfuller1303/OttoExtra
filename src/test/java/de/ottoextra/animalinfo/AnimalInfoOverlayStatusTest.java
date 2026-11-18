@@ -1,6 +1,8 @@
 package de.ottoextra.animalinfo;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -14,7 +16,15 @@ class AnimalInfoOverlayStatusTest {
         assertTrue(AnimalInfoOverlay.isReady("Bereit"));
         assertTrue(AnimalInfoOverlay.isReady("Zuchtbereit"));
         assertTrue(AnimalInfoOverlay.isReady("Jetzt | Mast 30/30"));
-        assertTrue(AnimalInfoOverlay.isReady("Mast 0/30"));
+        assertFalse(AnimalInfoOverlay.isReady("Mast 0/30"), "Real server: Zuchtbereit: Mast 0/100 means not ready");
+        assertFalse(AnimalInfoOverlay.isReady("Mast 0/100"));
+        assertFalse(AnimalInfoOverlay.isReady("Mast 29/30"));
+        assertTrue(AnimalInfoOverlay.isReady("Mast 30/30"));
+        assertTrue(AnimalInfoOverlay.isReady("Mast 100/100"));
+        assertTrue(AnimalInfoOverlay.isReady("ja"));
+        assertFalse(AnimalInfoOverlay.isReady("nein"));
+        assertFalse(AnimalInfoOverlay.isReady("UNDEFINED"));
+        assertFalse(AnimalInfoOverlay.isReady("in 11h 59m | Mast 30/30"));
         assertFalse(AnimalInfoOverlay.isReady("Mast 1/100"));
         assertFalse(AnimalInfoOverlay.isReady("Mast 71/100"));
         assertFalse(AnimalInfoOverlay.isReady("Nein"));
@@ -42,6 +52,27 @@ class AnimalInfoOverlayStatusTest {
         assertEquals("Weiblich", AnimalInfoOverlay.genderLabel("Stute"));
         assertEquals("Männlich", AnimalInfoOverlay.genderLabel("Hengst"));
         assertEquals("Männlich", AnimalInfoOverlay.genderLabel("Wallach"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Stute (Weiblich)", "Schaf (Weiblich)", "Sau (Weiblich)",
+            "Henne (Weiblich)", "Neue Tierart (Weiblich)"})
+    void newFemaleGenderValuesUseFemaleHud(String value) {
+        assertEquals("Weiblich", AnimalInfoOverlay.genderLabel(value));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Hengst (Männlich)", "Bulle (Männlich)", "Bock (Männlich)",
+            "Eber (Männlich)", "Hahn (Männlich)", "Neue Tierart (Male)"})
+    void newMaleGenderValuesUseMaleHud(String value) {
+        assertEquals("Männlich", AnimalInfoOverlay.genderLabel(value));
+    }
+
+    @Test
+    void conflictingGenderAndFemaleOnlyMilkStatusStayUnknownOrUnavailable() {
+        assertEquals("Stute (Männlich)", AnimalInfoOverlay.genderLabel("Stute (Männlich)"));
+        assertEquals("Unbekannt", AnimalInfoOverlay.genderLabel("Unbekannt"));
+        assertFalse(AnimalInfoOverlay.isPositive("Nur weiblich"));
     }
 
     @Test

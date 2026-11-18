@@ -123,6 +123,47 @@ final class HorseOverviewView {
                 .toList();
     }
 
+    /** Primary order of the book overview; Tempo and Sprung of {@link SortSelection} apply on top. */
+    enum BookSort { FARM, NAME, STATE }
+
+    /**
+     * Flat rows of the book overview.
+     *
+     * @param farm      null for all farms, "" for animals without a farm, otherwise the farm name
+     * @param sort      FARM keeps the farm grouping (A–Z or Z–A from {@code selection}); NAME and STATE sort
+     *                  across farms. Active Tempo/Sprung criteria come first within the order.
+     * @param stateRank rank of the breeding status (lower first), used by STATE
+     * @param remaining remaining waiting time in ms or a large value, used by STATE
+     */
+    static List<AnimalBreedingHorse> bookRows(List<AnimalBreedingHorse> records, String rawQuery, String farm,
+                                              BookSort sort, SortSelection selection,
+                                              java.util.function.ToIntFunction<AnimalBreedingHorse> stateRank,
+                                              java.util.function.ToLongFunction<AnimalBreedingHorse> remaining) {
+        List<AnimalBreedingHorse> inFarm = farm == null ? records : records.stream()
+                .filter(record -> record.currentFarm().trim().equalsIgnoreCase(farm.trim())).toList();
+        if (sort == BookSort.FARM) {
+            return groups(inFarm, rawQuery, selection).stream().flatMap(group -> group.horses().stream()).toList();
+        }
+        String query = rawQuery == null ? "" : rawQuery.trim().toLowerCase(Locale.ROOT);
+        double[] maxima = new double[2];
+        for (AnimalBreedingHorse horse : inFarm) {
+            Double speed = numericValue(horse.speed()), jump = numericValue(horse.jumpHeight());
+            if (speed != null && jump != null) {
+                maxima[0] = Math.max(maxima[0], speed);
+                maxima[1] = Math.max(maxima[1], jump);
+            }
+        }
+        Comparator<AnimalBreedingHorse> byName = Comparator
+                .comparing((AnimalBreedingHorse horse) -> horse.registryName().isBlank())
+                .thenComparing(AnimalBreedingHorse::registryName, String.CASE_INSENSITIVE_ORDER)
+                .thenComparing(AnimalBreedingHorse::entityUuid);
+        Comparator<AnimalBreedingHorse> order = sort == BookSort.STATE
+                ? Comparator.comparingInt(stateRank).thenComparingLong(remaining).thenComparing(byName)
+                : byName;
+        return inFarm.stream().filter(record -> matches(record, query))
+                .sorted(metricComparator(selection, maxima).thenComparing(order)).toList();
+    }
+
     private static Comparator<AnimalBreedingHorse> metricComparator(SortSelection selection, double[] maxima) {
         if (selection.criteria().size() == 2) {
             return Comparator.comparing(horse -> combinedScore(horse, selection, maxima),
@@ -219,22 +260,19 @@ final class HorseOverviewView {
     }
 
     enum SortOrder {
-        FARMS_ASCENDING("sort_az", true),
-        FARMS_DESCENDING("sort_za", false),
-        SPEED_ASCENDING("sort_speed_asc", true),
-        SPEED_DESCENDING("sort_speed_desc", false),
-        JUMP_ASCENDING("sort_jump_asc", true),
-        JUMP_DESCENDING("sort_jump_desc", false);
+        FARMS_ASCENDING(true),
+        FARMS_DESCENDING(false),
+        SPEED_ASCENDING(true),
+        SPEED_DESCENDING(false),
+        JUMP_ASCENDING(true),
+        JUMP_DESCENDING(false);
 
-        private final String key;
         private final boolean ascending;
 
-        SortOrder(String key, boolean ascending) {
-            this.key = key;
+        SortOrder(boolean ascending) {
             this.ascending = ascending;
         }
 
-        String translationKey() { return "ottoextra.horses.overview." + key; }
         boolean ascending() { return ascending; }
         boolean isSpeed() { return this == SPEED_ASCENDING || this == SPEED_DESCENDING; }
         boolean isJump() { return this == JUMP_ASCENDING || this == JUMP_DESCENDING; }

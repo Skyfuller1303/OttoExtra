@@ -17,7 +17,8 @@ bleibt es beim bisherigen Sitzungsspeicher.
 | --- | --- |
 | Entity-UUID, Tierbezeichnung aus der Tierinfo, erkanntes Geschlecht | Ja |
 | Zeitpunkt der erhaltenen Tierinfo | Ja, für die Altersprüfung |
-| Mast, Paarungsbereitschaft, Melk-/Scherstatus, Lebens-/Pferdewerte | Nein |
+| Letzter Mast-Stand, Zuchtbereitschaft, Wartezeiten (Paarung, Wachstum, Scheren), beobachtete Herzchen, Paarungen, Geburten und eigenes Scheren | Ja, als lokale Zeitgeber (ab Dateiversion 2, Feld `live`) |
+| Melkstatus, Lebens-/Pferdewerte | Nein |
 | Hof, Besitzer, Abstammung, Zugriffsrechte | Nein |
 | Register-Name | Kommt weiterhin aus dem bestehenden Tierregister |
 
@@ -81,3 +82,7 @@ Umrissfarbe. Er prüft außerdem den Menüschalter und das Löschen beim Ausscha
 Nametag- und Tierübersicht-Clienttests sichern die bisherigen Funktionen ab.
 
 [Release-Validierung](releases/0.1.17-j.md).
+
+## Zeitgeber ab Dateiversion 2
+
+Die Datei enthält seit der Statuszeile zusätzlich die Liste `live` mit den Zeiten aus der Tierinfo und eigenen Beobachtungen (`AnimalLiveState`). Alle Zeiten sind absolute Uhrzeiten, laufen also auch bei geschlossenem Spiel weiter. Jeder Eintrag verfällt 14 Tage nach seiner letzten Änderung; die Obergrenze von 1.024 Einträgen gilt getrennt für Identitäten und Zeitgeber. Dateien der Version 1 werden unverändert gelesen (ohne Zeitgeber) und beim nächsten Speichern als Version 2 geschrieben; eine ältere OttoExtra-Version verwirft eine Version-2-Datei und baut den Cache neu auf. Das Ausschalten der lokalen Speicherung löscht auch die Zeitgeber; sie bleiben dann nur bis zum Disconnect im Speicher. In den Einstellungen löscht „Alle Tiere dieses Servers vergessen“ Identitäten und Zeitgeber des verbundenen Servers.

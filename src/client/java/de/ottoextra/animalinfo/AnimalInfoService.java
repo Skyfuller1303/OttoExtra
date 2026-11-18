@@ -10,6 +10,7 @@ import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.passive.AbstractHorseEntity;
 import net.minecraft.entity.passive.AnimalEntity;
+import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.network.packet.c2s.play.ClientCommandC2SPacket;
 import net.minecraft.network.packet.c2s.play.PlayerInputC2SPacket;
@@ -159,7 +160,13 @@ public final class AnimalInfoService {
 
         PlayerInput input = client.player.input.playerInput;
         if (AnimalInfoRequestPlan.movementBlocksQuery(
-                input, client.player.isSneaking(), client.player.isSprinting())) {
+                input, client.player.isSneaking(), client.player.isSprinting())
+                || AnimalInfoRequestPlan.ridingBlocksQuery(client.player.hasVehicle())) {
+            focusedSince = now;
+            return;
+        }
+        if (heldItemBlocksQuery(client, target)) {
+            // The synthetic click would feed, leash, shear, milk, name or saddle the animal.
             focusedSince = now;
             return;
         }
@@ -238,24 +245,15 @@ public final class AnimalInfoService {
             return config != null && config.hideAutomaticChat;
         }
 
-        boolean consumed = false;
-        boolean expectsTrailingDivider = false;
-        AnimalInfoSnapshot completed = null;
-        String[] lines = rawMessage.split("\\R", -1);
-        for (String line : lines) {
-            AnimalInfoResponseCollector.Result result = RESPONSE.accept(line);
-            consumed |= result.consumed();
-            if (result.completed() != null) {
-                completed = result.completed();
-            }
-            expectsTrailingDivider |= result.expectsTrailingDivider();
-        }
+        AnimalInfoResponseCollector.Result result = RESPONSE.acceptMessage(rawMessage);
+        AnimalInfoSnapshot completed = result.completed();
 
         if (completed != null) {
-            if (expectsTrailingDivider) {
+            if (result.expectsTrailingDivider()) {
                 trailingDividerUntil = now + TRAILING_DIVIDER_GRACE_MS;
             }
             cache(request.targetId(), completed, now);
+            AnimalLiveStore.current().observe(request.targetId(), completed, System.currentTimeMillis());
             publishObservation(request.targetId(), completed, Instant.now());
             pending = null;
             DebugLog.debug(
@@ -274,7 +272,7 @@ public final class AnimalInfoService {
             }
         }
 
-        return consumed && config != null && config.hideAutomaticChat;
+        return result.consumed() && config != null && config.hideAutomaticChat;
     }
 
     static void publishObservation(UUID targetId, AnimalInfoSnapshot snapshot,
@@ -320,6 +318,9 @@ public final class AnimalInfoService {
         }
         if (AnimalInfoRequestPlan.heldLeadBlocksQuery(
                 client.player.getMainHandStack().isOf(Items.LEAD))) {
+            return;
+        }
+        if (heldItemBlocksQuery(client, target)) {
             return;
         }
         UUID targetId = target.getUuid();
@@ -381,6 +382,31 @@ public final class AnimalInfoService {
             REFRESH_AFTER.remove(targetId);
             cleanupPhase = AnimalInfoRequestPlan.CleanupPhase.ASSERT_SNEAK;
         }
+    }
+
+    /**
+     * The automatic click is a real interaction on the server. With one of these items in either hand it
+     * could do something to the animal, so no query is sent until the player holds something else.
+     */
+    private static boolean heldItemBlocksQuery(MinecraftClient client, AnimalEntity target) {
+        for (Hand hand : Hand.values()) {
+            ItemStack stack = client.player.getStackInHand(hand);
+            if (stack.isEmpty()) {
+                continue;
+            }
+            if (AnimalInfoRequestPlan.heldItemBlocksQuery(
+                    target.isBreedingItem(stack),
+                    stack.isOf(Items.LEAD),
+                    stack.isOf(Items.SHEARS),
+                    stack.isOf(Items.BUCKET) || stack.isOf(Items.WATER_BUCKET)
+                            || stack.isOf(Items.MILK_BUCKET),
+                    stack.isOf(Items.NAME_TAG),
+                    stack.isOf(Items.SADDLE) || stack.isOf(Items.BOWL)
+                            || stack.isOf(Items.GLASS_BOTTLE))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void bestEffortMovementCleanup(MinecraftClient client,
@@ -489,6 +515,10 @@ public final class AnimalInfoService {
             return null;
         }
         Entity entity = hit.getEntity();
+        if (AnimalInfoRequestPlan.ownMountHidden(config != null && config.hideOwnMount,
+                client.player != null && entity != null && client.player.isConnectedThroughVehicle(entity))) {
+            return null;
+        }
         return entity instanceof AnimalEntity animal && animal.isAlive() ? animal : null;
     }
 
@@ -620,7 +650,7 @@ public final class AnimalInfoService {
             if (trimmed.isEmpty()) {
                 continue;
             }
-            if (!trimmed.matches("-{5,}")) {
+            if (!AnimalInfoResponseCollector.isDivider(trimmed)) {
                 return false;
             }
             found = true;

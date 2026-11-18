@@ -1,6 +1,6 @@
 # Tierübersicht und Tierartenfilter
 
-Ab Alpha 0.1.17-f wechselt der Button rechts neben der Suche zwischen **Alle →
+Das Feld ganz rechts in der Sortierzeile wechselt zwischen **Alle →
 Pferde → Esel → Alle**. Esel und Maultiere werden der Esel-Gruppe zugeordnet.
 Die Suche nach Name, Hof, Herkunft oder UUID und die Sortierung funktionieren
 innerhalb der ausgewählten Tierart. Die Auswahl gilt für die geöffnete Übersicht.
@@ -15,7 +15,7 @@ gelöscht. Nicht zuordenbare ältere Einträge bleiben unter **Alle** sichtbar.
 ## Esel und andere Tiere eintragen
 
 1. Das Tier anvisieren und warten, bis seine Tierinfo angezeigt wurde.
-2. Die Tierübersicht öffnen und **Tier eintragen…** anklicken.
+2. Die Tierübersicht öffnen und **+ Tier** anklicken.
 3. In der Tierakte den Namen eingeben und speichern.
 
 Der Button verwendet das beim Öffnen anvisierte Tier und dessen bekannte
@@ -30,15 +30,25 @@ Das ist ein bewusster Register-Eintrag. Der separate
 
 ## Darstellung
 
-- Ohne eingetragenen Namen erscheint **???**. Darunter steht die vollständige
-  Entity-UUID in kleiner Schrift; sie bleibt über die Suche auffindbar.
-- Hofnamen im Gruppenkopf und Herkunft neben dem Tiernamen verwenden 75 %
-  Schriftgröße. Die UUID verwendet 65 %.
-- Die 16 × 16-Icondateien werden in der Übersicht mit **8 × 8 GUI-Pixeln**
-  dargestellt. Die 18 × 18-Klickflächen von Finder und Löschen bleiben erhalten.
+- Die Übersicht ist ein aufgeschlagenes Buch ohne Textschatten. Die linke Seite
+  zeigt **Alle Höfe**, die einzelnen Höfe mit Symbol, Tierzahl und Zahl der
+  bereiten Tiere, **Ohne Hof** und darunter die Höfe beigetretener Listen
+  (Kennzeichen „geteilt“ oder „nur lesen“). Darunter folgen das Codefeld mit
+  **Beitreten** und die Suche. **Teilen** rechts oben auf der Höfe-Seite teilt den gewählten Hof.
+- Die rechte Seite zeigt die Tiere des gewählten Hofs in zweizeiligen Zeilen:
+  Tiermodell, Name mit Geschlechtszeichen, Tierart und Hof, rechts der Status
+  (bereit, wartet, bald, braucht Mast, Jungtier, verliebt) mit Fortschrittsbalken.
+  Die Sortierchips **Hof**, **Name** und **Status**, auf Wunsch Tempo und Sprung,
+  sowie der Tierartenfilter stehen über der Liste.
+- Ohne eingetragenen Namen erscheint **???**; die UUID bleibt über die Suche
+  auffindbar.
 - Auch nicht geladene Tiere haben eine Vorschau ihrer Tierart: Pferd, Esel,
   Rind, Huhn, Schwein, Ziege oder Schaf.
-- Bei namenlosen Tieren nennt die Löschbestätigung zusätzlich die UUID.
+- Ohne Hof und ohne Tier zeigt die rechte Seite eine kurze Anleitung in vier
+  Schritten. Ein Doppelklick auf eine Zeile öffnet die Tierakte; Löschen und
+  Finder liegen dort auf der linken Seite.
+- Bei Tieren beigetretener Listen stehen Beschriftung und Notiz der Liste. Den
+  Status gibt es nur, wenn das Tier auch im eigenen Register steht.
 
 ## Prüfung
 

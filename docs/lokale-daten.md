@@ -56,6 +56,7 @@ ZIPs sind unverschlüsselt und können private Gespräche, Notizen sowie Angaben
 | Texturen im Arbeitsspeicher | Bis 128 Skins (höchstens 256 × 256 Pixel) und ca. 32 Banner (höchstens 1024 × 1024 Pixel; laufende parallele Registrierungen können wenige zusätzliche Einträge erzeugen). Danach Fallback statt unbegrenztem Wachstum. |
 | Alter von Chat-/Cache-Dateien | 30 Tage als explizite Bereinigungsauswahl des Werkzeugs; keine stille Löschung vorhandener Altbestände. |
 | Personenbuch/Briefe/Backups | Keine automatische Löschung oder künstliche Ablaufzeit. Bewusste Kategorieauswahl erforderlich. |
+| Tierbuch (`config/ottoextra/animalbook/<SHA-256 der Serveradresse>.json`) | Hofsymbole, Hofnotizen und Tiernotizen je Server, dazu geteilte Hoflisten mit ihren Codes (der Gruppencode ist ein Passwort). Hof- und Tiernotizen verlassen den Rechner nur für Höfe, die der Nutzer selbst teilt, und nur an den Listendienst auf ottoextra.dev. Höchstens 300 Höfe, 4096 Tiere, Notizen bis 200 Zeichen, 2 MiB Eingabedatei. Löschmarken entfallen nach 30 Tagen. Vom Werkzeug noch keiner Kategorie zugeordnet. |
 
 Budgets sind innerhalb eines Clients synchronisiert, keine Festplattenquote gegenüber anderen Prozessen oder älteren Modversionen. Vorhandene größere Bestände bleiben unangetastet und können neue Cache-Schreibvorgänge verhindern. Nach Offline-Bereinigung und Neustart werden benötigte Inhalte wieder lokal aufgebaut bzw. nur mit gültiger Online-/Downloadfreigabe geladen.
 

@@ -127,4 +127,33 @@ class AnimalInfoRequestPlanTest {
         assertEquals(AnimalInfoRequestPlan.CleanupPhase.NONE,
                 AnimalInfoRequestPlan.CleanupPhase.RELEASE_SNEAK.next());
     }
+
+    @Test
+    void ridingAnythingBlocksQueries() {
+        assertTrue(AnimalInfoRequestPlan.ridingBlocksQuery(true));
+        assertFalse(AnimalInfoRequestPlan.ridingBlocksQuery(false));
+    }
+
+    @Test
+    void anyItemThatCouldChangeTheAnimalBlocksQueries() {
+        assertFalse(AnimalInfoRequestPlan.heldItemBlocksQuery(false, false, false, false, false, false));
+        assertTrue(AnimalInfoRequestPlan.heldItemBlocksQuery(true, false, false, false, false, false));
+        assertTrue(AnimalInfoRequestPlan.heldItemBlocksQuery(false, true, false, false, false, false));
+        assertTrue(AnimalInfoRequestPlan.heldItemBlocksQuery(false, false, true, false, false, false));
+        assertTrue(AnimalInfoRequestPlan.heldItemBlocksQuery(false, false, false, true, false, false));
+        assertTrue(AnimalInfoRequestPlan.heldItemBlocksQuery(false, false, false, false, true, false));
+        assertTrue(AnimalInfoRequestPlan.heldItemBlocksQuery(false, false, false, false, false, true));
+    }
+
+    @Test
+    void existingProtectionsStillCoverSneakSprintAndMountedHorses() {
+        PlayerInput idle = new PlayerInput(false, false, false, false, false, false, false);
+        assertFalse(AnimalInfoRequestPlan.movementBlocksQuery(idle, false, false));
+        assertTrue(AnimalInfoRequestPlan.movementBlocksQuery(
+                new PlayerInput(false, false, false, false, false, true, false), false, false));
+        assertTrue(AnimalInfoRequestPlan.movementBlocksQuery(idle, false, true));
+        assertTrue(AnimalInfoRequestPlan.mountedEquineBlocksQuery(true));
+        assertEquals(AnimalInfoRequestPlan.Attempt.FALLBACK,
+                AnimalInfoRequestPlan.attemptForTarget(AnimalInfoRequestPlan.Attempt.PRIMARY, true));
+    }
 }

@@ -8,6 +8,9 @@ import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.config.OttoExtraPaths;
 import de.ottoextra.horses.ui.BasicHorseOverviewScreen;
 import de.ottoextra.horses.ui.BasicHorseRecordScreen;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.loader.api.FabricLoader;
@@ -16,6 +19,7 @@ import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.entity.passive.AnimalEntity;
 import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
 import net.minecraft.util.hit.EntityHitResult;
 import org.lwjgl.glfw.GLFW;
 import java.nio.charset.StandardCharsets;
@@ -62,6 +66,26 @@ public final class HorseRegistryModule implements OttoExtraModule {
         openOverviewKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.ottoextra.horse_overview", InputUtil.Type.KEYSYM,
                 GLFW.GLFW_KEY_J, KeyBinding.Category.MISC));
+        ClientCommandRegistrationCallback.EVENT.register((dispatcher, access) ->
+                dispatcher.register(ClientCommandManager.literal("ottoextra")
+                        .then(ClientCommandManager.literal("tiere")
+                                .then(ClientCommandManager.literal("beitreten")
+                                        .then(ClientCommandManager.argument("code", StringArgumentType.greedyString())
+                                                .executes(ctx -> {
+                                                    joinFarmList(MinecraftClient.getInstance(),
+                                                            StringArgumentType.getString(ctx, "code"));
+                                                    return 1;
+                                                }))))));
+    }
+
+    /** {@code /ottoextra tiere beitreten <Code>}: joins a shared farm list. */
+    static void joinFarmList(MinecraftClient client, String code) {
+        FarmShareService.JoinResult result = FarmShareService.join(code);
+        if (client.player == null) return;
+        boolean ok = result == FarmShareService.JoinResult.JOINED || result == FarmShareService.JoinResult.UPGRADED
+                || result == FarmShareService.JoinResult.ALREADY;
+        client.player.sendMessage(Text.translatable("ottoextra.horses.share.join."
+                + result.name().toLowerCase(Locale.ROOT)).formatted(ok ? Formatting.GREEN : Formatting.RED), false);
     }
 
     private void tick(MinecraftClient client) {
@@ -70,6 +94,8 @@ public final class HorseRegistryModule implements OttoExtraModule {
             configureIdentityCache();
         }
         HorseFinder.tick(client);
+        FarmShareService.tick(client);
+        AnimalBookStore.current().tick();
         while (genderGlowKey != null && genderGlowKey.wasPressed()) {
             AnimalGenderGlow.toggle(client);
         }
@@ -113,6 +139,8 @@ public final class HorseRegistryModule implements OttoExtraModule {
         if (server != null && context.isOnOttonien()) {
             identityServer = server.address.trim().toLowerCase(Locale.ROOT);
             configureIdentityCache();
+            AnimalBookStore.open(OttoExtraPaths.root().resolve("animalbook").resolve(serverFileName()),
+                    identityServer);
         }
         HorseFinder.pollNow();
         HorseRegistry.refresh().exceptionally(error -> {
@@ -127,6 +155,7 @@ public final class HorseRegistryModule implements OttoExtraModule {
         finishIdentitySession();
         HorseRegistry.clearConnection();
         HorseFinder.reset();
+        FarmShareService.reset();
     }
 
     @Override
@@ -142,15 +171,20 @@ public final class HorseRegistryModule implements OttoExtraModule {
             configureIdentityCache();
         }
         identityServer = null;
+        AnimalBookStore.close();
     }
 
     private void configureIdentityCache() {
         rememberIdentities = OttoExtraConfig.active().animalInfo.rememberAnimalIdentities;
+        HorseRegistry.openIdentityCache(OttoExtraPaths.cacheDir().resolve("animals").resolve(serverFileName()),
+                identityServer, rememberIdentities);
+    }
+
+    /** File name per server: SHA-256 of the address, so the address itself is not part of the path. */
+    private String serverFileName() {
         try {
-            String filename = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
                     .digest(identityServer.getBytes(StandardCharsets.UTF_8))) + ".json";
-            HorseRegistry.openIdentityCache(OttoExtraPaths.cacheDir().resolve("animals").resolve(filename),
-                    identityServer, rememberIdentities);
         } catch (NoSuchAlgorithmException impossible) { throw new IllegalStateException(impossible); }
     }
 }

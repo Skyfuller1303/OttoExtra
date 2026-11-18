@@ -99,13 +99,21 @@ public final class HorseRegistry {
 
     static synchronized CompletableFuture<Void> openIdentityCache(Path file, String server, boolean enabled) {
         closeIdentityCache();
-        AnimalIdentityCache cache = new AnimalIdentityCache(file, server, clock);
+        AnimalIdentityCache cache = new AnimalIdentityCache(file, server, clock,
+                de.ottoextra.animalinfo.AnimalLiveStore.current());
         if (!enabled) return CompletableFuture.runAsync(cache::delete, IDENTITY_IO);
         identityCache = cache;
         CompletableFuture<Void> loading = CompletableFuture.runAsync(cache::load, IDENTITY_IO);
         OBSERVATIONS.values().forEach(observation -> cache.remember(identity(observation)));
         identityFlush = IDENTITY_IO.scheduleWithFixedDelay(cache::saveIfDirty, 1, 1, TimeUnit.SECONDS);
         return loading;
+    }
+
+    /** Forgets every locally remembered animal (identities and timers) of the current server. */
+    public static synchronized void forgetLocalAnimals() {
+        de.ottoextra.animalinfo.AnimalLiveStore.current().clear();
+        AnimalIdentityCache cache = identityCache;
+        if (cache != null) cache.forgetAll();
     }
 
     private static synchronized void closeIdentityCache() {
@@ -245,6 +253,11 @@ public final class HorseRegistry {
 
     private static boolean isCurrentDatabaseRequest(long generation, long request) {
         return generation == connectionGeneration && request == databaseRequest && onOttonien.getAsBoolean();
+    }
+
+    /** True once the protected records of this connection were loaded without error. */
+    public static synchronized boolean databaseLoaded() {
+        return databaseLoaded && !databaseLoading;
     }
 
     /** Returns a stable snapshot of the protected records visible to the user. */

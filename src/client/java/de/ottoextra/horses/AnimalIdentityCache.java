@@ -3,6 +3,8 @@ package de.ottoextra.horses;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import de.ottoextra.OttoExtra;
+import de.ottoextra.animalinfo.AnimalLiveState;
+import de.ottoextra.animalinfo.AnimalLiveStore;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
@@ -19,7 +21,10 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.LongSupplier;
 
-/** Display-only identities. Never contains breeding state or grants register access. */
+/**
+ * Display-only identities plus the local timers of {@link AnimalLiveStore}. Never grants register access and
+ * never uploads anything. File version 1 holds identities only; version 2 adds the timers.
+ */
 final class AnimalIdentityCache {
     static final long MAX_AGE_MS = Duration.ofDays(14).toMillis();
     static final int MAX_ENTRIES = 1_024;
@@ -27,11 +32,14 @@ final class AnimalIdentityCache {
     private static final Gson JSON = new GsonBuilder().setPrettyPrinting().create();
 
     record Identity(UUID entityUuid, String animalType, String gender, long observedAt) { }
-    private record Stored(int version, String server, List<Identity> animals) { }
+    static final int FILE_VERSION = 2;
+    private record Stored(int version, String server, List<Identity> animals, List<AnimalLiveState> live) { }
 
     private final Path file;
     private final String server;
     private final LongSupplier clock;
+    private final AnimalLiveStore live;
+    private long savedLiveRevision;
     private final Map<UUID, Identity> entries = new ConcurrentHashMap<>();
     private long revision;
     private long savedRevision;
@@ -39,9 +47,14 @@ final class AnimalIdentityCache {
     private final Set<UUID> changedDuringLoad = new HashSet<>();
 
     AnimalIdentityCache(Path file, String server, LongSupplier clock) {
+        this(file, server, clock, new AnimalLiveStore());
+    }
+
+    AnimalIdentityCache(Path file, String server, LongSupplier clock, AnimalLiveStore live) {
         this.file = file;
         this.server = server;
         this.clock = clock;
+        this.live = live;
     }
 
     Identity find(UUID uuid) {
@@ -68,8 +81,9 @@ final class AnimalIdentityCache {
             if (!Files.exists(file)) return;
             if (Files.size(file) > MAX_FILE_BYTES) throw new IllegalArgumentException("cache too large");
             Stored data = JSON.fromJson(Files.readString(file, StandardCharsets.UTF_8), Stored.class);
-            if (data == null || data.version() != 1 || !server.equals(data.server())
-                    || data.animals() == null || data.animals().size() > 4096) {
+            if (data == null || data.version() < 1 || data.version() > FILE_VERSION || !server.equals(data.server())
+                    || data.animals() == null || data.animals().size() > 4096
+                    || data.live() != null && data.live().size() > 4096) {
                 throw new IllegalArgumentException("invalid cache envelope");
             }
             synchronized (this) {
@@ -82,6 +96,8 @@ final class AnimalIdentityCache {
                 prune(now);
                 revision++;
             }
+            // Version 1 files have no timers; they are simply absent.
+            live.mergeLoaded(data.live(), clock.getAsLong());
         } catch (Exception error) {
             OttoExtra.LOGGER.warn("Lokaler Tiercache konnte nicht geladen werden: {}", error.toString());
         } finally {
@@ -92,17 +108,22 @@ final class AnimalIdentityCache {
     /** Snapshot under the lock, disk writes outside it. Only the I/O worker calls this method. */
     void saveIfDirty() {
         List<Identity> snapshot;
+        List<AnimalLiveState> timers;
         long writingRevision;
+        long writingLiveRevision;
         synchronized (this) {
             prune(clock.getAsLong());
-            if (savedRevision == revision) return;
+            if (savedRevision == revision && savedLiveRevision == live.revision()) return;
             writingRevision = revision;
+            // Read the revision first: a change made while snapshotting is then saved by the next flush.
+            writingLiveRevision = live.revision();
+            timers = live.snapshot(clock.getAsLong());
             snapshot = entries.values().stream().sorted(Comparator.comparing(e -> e.entityUuid().toString())).toList();
         }
         try {
             Files.createDirectories(file.getParent());
             Path temporary = file.resolveSibling(file.getFileName() + ".tmp");
-            String json = JSON.toJson(new Stored(1, server, snapshot));
+            String json = JSON.toJson(new Stored(FILE_VERSION, server, snapshot, timers));
             Path cacheRoot = file.getParent().getFileName().toString().equals("animals")
                     ? file.getParent().getParent() : file.getParent();
             de.ottoextra.privacy.CacheBudget.write(cacheRoot, file, json.getBytes(StandardCharsets.UTF_8).length, () -> {
@@ -115,10 +136,17 @@ final class AnimalIdentityCache {
                     }
                 } finally { Files.deleteIfExists(temporary); }
             });
-            synchronized (this) { savedRevision = writingRevision; }
+            synchronized (this) { savedRevision = writingRevision; savedLiveRevision = writingLiveRevision; }
         } catch (Exception error) {
             OttoExtra.LOGGER.warn("Lokaler Tiercache konnte nicht gespeichert werden: {}", error.toString());
         }
+    }
+
+    /** Removes every remembered animal and timer of this server; the next flush writes an empty file. */
+    synchronized void forgetAll() {
+        entries.clear();
+        live.clear();
+        revision++;
     }
 
     void delete() {

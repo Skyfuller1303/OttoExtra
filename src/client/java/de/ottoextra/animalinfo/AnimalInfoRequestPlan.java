@@ -45,6 +45,25 @@ final class AnimalInfoRequestPlan {
         return mountedOnEquine;
     }
 
+    /** Riding anything (boat, minecart, horse) must not start a query. */
+    static boolean ridingBlocksQuery(boolean hasVehicle) {
+        return hasVehicle;
+    }
+
+    /** The animal the player rides (directly or through a chain of vehicles) gets no info panel. */
+    static boolean ownMountHidden(boolean hideOwnMount, boolean targetIsOwnMount) {
+        return hideOwnMount && targetIsOwnMount;
+    }
+
+    /**
+     * The synthetic click is a real interaction. Breeding food, a lead, shears, a bucket, a name tag, a
+     * saddle or a container item in either hand could change the animal, so no query is sent.
+     */
+    static boolean heldItemBlocksQuery(boolean breedingItem, boolean lead, boolean shears,
+                                       boolean bucket, boolean nameTag, boolean saddleOrContainer) {
+        return breedingItem || lead || shears || bucket || nameTag || saddleOrContainer;
+    }
+
     /** A synthetic main-hand click must never use a lead held by the player. */
     static boolean heldLeadBlocksQuery(boolean leadInAutomaticInteractionHand) {
         return leadInAutomaticInteractionHand;

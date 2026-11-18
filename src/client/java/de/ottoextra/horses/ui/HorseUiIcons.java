@@ -1,12 +1,11 @@
 package de.ottoextra.horses.ui;
 
 import de.ottoextra.OttoExtra;
+import de.ottoextra.horses.AnimalGender;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.util.Identifier;
-
-import java.util.Locale;
 
 /** Shared, resource-pack-replaceable icons for the animal record and overview. */
 final class HorseUiIcons {
@@ -54,12 +53,9 @@ final class HorseUiIcons {
                        int x, int y, int maxWidth, boolean compact) {
         String label = raw == null || raw.isBlank() ? "–"
                 : raw.replace("♀", "").replace("♂", "").trim();
-        String normalized = label.toLowerCase(Locale.ROOT);
-        boolean female = normalized.contains("stute") || normalized.startsWith("weib")
-                || normalized.startsWith("fem") || (raw != null && raw.contains("♀"));
-        boolean male = normalized.contains("hengst") || normalized.contains("wallach")
-                || normalized.startsWith("männ") || normalized.startsWith("maenn")
-                || normalized.equals("male") || (raw != null && raw.contains("♂"));
+        AnimalGender.Sex sex = AnimalGender.parse(raw);
+        boolean female = sex == AnimalGender.Sex.FEMALE;
+        boolean male = sex == AnimalGender.Sex.MALE;
         int color = female ? 0xFFFF8FB3 : male ? 0xFF72B7FF : 0xFFAA9D90;
         draw(context, icon(female ? "gender_mare" : male ? "gender_stallion" : "gender_unknown"),
                 x, compact ? y : y - 2, compact ? 8 : 16, 16, color);

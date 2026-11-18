@@ -1,11 +1,12 @@
 package de.ottoextra.animalinfo;
 
 import de.ottoextra.config.OttoExtraConfig;
+import de.ottoextra.horses.AnimalGender;
+import de.ottoextra.ui.hudlayout.TopCenterStack;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.ingame.InventoryScreen;
 import net.minecraft.client.render.RenderTickCounter;
 import net.minecraft.entity.passive.AnimalEntity;
 import net.minecraft.entity.passive.ChickenEntity;
@@ -17,6 +18,7 @@ import net.minecraft.entity.passive.MuleEntity;
 import net.minecraft.entity.passive.PigEntity;
 import net.minecraft.entity.passive.SheepEntity;
 import net.minecraft.entity.passive.WolfEntity;
+import net.minecraft.text.MutableText;
 import net.minecraft.text.Style;
 import net.minecraft.text.StyleSpriteSource;
 import net.minecraft.text.Text;
@@ -31,7 +33,7 @@ public final class AnimalInfoOverlay {
 
     public enum Part {
         MODEL, TITLE, GENDER_ICON, GENDER_TEXT, BREEDING, MAST, TIMER, EXTRA,
-        JUMP_HEIGHT, SPEED
+        JUMP_HEIGHT, SPEED, STATUS
     }
 
     public record PartBounds(Part part, int x, int y, int width, int height) {
@@ -40,21 +42,24 @@ public final class AnimalInfoOverlay {
     private record Layout(int width, int height, List<PartBounds> parts) {
     }
 
-    private record ExtraStatus(Identifier icon, String label, boolean positive) {
+    record ExtraStatus(Identifier icon, String label, boolean positive) {
     }
 
+    /** Slot of the toast in the shared top-centre column (below boss bars and the Werkstatt bar). */
+    public static final String STACK_ID = "ottoextra:animal_toast";
     private static final long FADE_IN_MS = 140L;
     private static final long FADE_OUT_MS = 180L;
 
     private static final int COL_BG = 0xF21A1F26;
     private static final int COL_BORDER = 0xFF4B545E;
     private static final int COL_TEXT = 0xFFF4F7FA;
-    private static final int COL_MUTED = 0xFFB8C0C8;
+    static final int COL_MUTED = 0xFFB8C0C8;
     private static final int COL_GREEN = 0xFF58C46B;
     private static final int COL_RED = 0xFFE05A5A;
     private static final int COL_AMBER = 0xFFE2B45A;
-    private static final int COL_FEMALE = 0xFFFF79B8;
-    private static final int COL_MALE = 0xFF68B8FF;
+    private static final int COL_YOUNG = 0xFF55DDFF;
+    static final int COL_FEMALE = 0xFFFF79B8;
+    static final int COL_MALE = 0xFF68B8FF;
 
     private static final StyleSpriteSource.Font MENU_FONT =
             new StyleSpriteSource.Font(Identifier.of("mattis", "menu"));
@@ -72,11 +77,13 @@ public final class AnimalInfoOverlay {
     private static final int ICON_DISPLAY_SIZE = 8;
     private static final int STATUS_TEXT_X = ICON_DISPLAY_SIZE + 4;
     private static final Identifier ICON_GENDER = statusTexture("gender_unknown");
-    private static final Identifier ICON_FEMALE = statusTexture("gender_mare");
-    private static final Identifier ICON_MALE = statusTexture("gender_stallion");
-    private static final Identifier ICON_MAST = statusTexture("feeding");
-    private static final Identifier ICON_SHEARABLE = statusTexture("shearable");
-    private static final Identifier ICON_MILKABLE = statusTexture("milkable");
+    static final Identifier ICON_FEMALE = statusTexture("gender_mare");
+    static final Identifier ICON_MALE = statusTexture("gender_stallion");
+    static final Identifier ICON_MAST = ownIcon("mast");
+    private static final Identifier OWN_FEMALE = ownIcon("weiblich");
+    private static final Identifier OWN_MALE = ownIcon("maennlich");
+    private static final Identifier ICON_SHEARABLE = ownIcon("scherbar");
+    private static final Identifier ICON_MILKABLE = ownIcon("melkbar");
     private static final Identifier ICON_BREED_READY = statusTexture("breed_ready");
     private static final Identifier ICON_JUMP = statusTexture("jump");
     private static final Identifier ICON_SPEED = statusTexture("speed");
@@ -117,6 +124,7 @@ public final class AnimalInfoOverlay {
         shownAt = 0L;
         hiddenAt = 0L;
         nextShowInstant = true;
+        TopCenterStack.release(STACK_ID);
     }
 
     public static void clear() {
@@ -125,16 +133,19 @@ public final class AnimalInfoOverlay {
         shownAt = 0L;
         hiddenAt = 0L;
         nextShowInstant = false;
+        TopCenterStack.release(STACK_ID);
     }
 
     public static void render(DrawContext context, RenderTickCounter tickCounter) {
         AnimalInfoSnapshot value = snapshot;
         if (value == null) {
+            TopCenterStack.release(STACK_ID);
             return;
         }
 
         MinecraftClient client = MinecraftClient.getInstance();
         if (client == null || client.textRenderer == null || client.options.hudHidden) {
+            TopCenterStack.release(STACK_ID);
             return;
         }
 
@@ -142,10 +153,15 @@ public final class AnimalInfoOverlay {
         OttoExtraConfig.AnimalInfoLayout config =
                 OttoExtraConfig.active().animalInfo.layout(animalType);
         if (!config.enabled) {
+            TopCenterStack.release(STACK_ID);
             return;
         }
-        Layout layout = layout(client.textRenderer, value, modelEntity, config);
-        if (layout.parts().isEmpty()) {
+        AnimalToastStyle style = OttoExtraConfig.active().animalInfo.toastStyle();
+        Layout layout = style == AnimalToastStyle.CUSTOM
+                ? layout(client.textRenderer, value, modelEntity, config)
+                : new Layout(AnimalToastCards.width(style), AnimalToastCards.height(style), List.of());
+        if (style == AnimalToastStyle.CUSTOM && layout.parts().isEmpty()) {
+            TopCenterStack.release(STACK_ID);
             return;
         }
 
@@ -162,12 +178,17 @@ public final class AnimalInfoOverlay {
             alpha = Math.min(1.0f, (now - shownAt) / (float) FADE_IN_MS);
         }
 
-        int targetY = 8;
+        int targetY = TopCenterStack.claim(STACK_ID, TopCenterStack.ORDER_ANIMAL_TOAST, layout.height());
         int y = Math.round(-layout.height()
                 + (targetY + layout.height()) * easeOut(alpha));
         int x = (client.getWindow().getScaledWidth() - layout.width()) / 2;
-        draw(context, client.textRenderer, x, y, value, modelEntity,
-                animalType, config, layout, alpha);
+        if (style == AnimalToastStyle.CUSTOM) {
+            draw(context, client.textRenderer, x, y, value, modelEntity,
+                    animalType, config, layout, alpha);
+        } else {
+            AnimalToastCards.draw(context, client.textRenderer, x, y, style, value, modelEntity,
+                    animalType, alpha);
+        }
     }
 
     public static void renderEditorPreview(DrawContext context, int x, int y,
@@ -214,6 +235,7 @@ public final class AnimalInfoOverlay {
             case EXTRA -> config.showExtra;
             case JUMP_HEIGHT -> Boolean.TRUE.equals(config.showJumpHeight);
             case SPEED -> Boolean.TRUE.equals(config.showSpeed);
+            case STATUS -> config.showStatus;
         };
     }
 
@@ -230,6 +252,7 @@ public final class AnimalInfoOverlay {
             case EXTRA -> config.showExtra = visible;
             case JUMP_HEIGHT -> config.showJumpHeight = visible;
             case SPEED -> config.showSpeed = visible;
+            case STATUS -> config.showStatus = visible;
         }
     }
 
@@ -248,6 +271,7 @@ public final class AnimalInfoOverlay {
             case EXTRA -> { config.extraX = px; config.extraY = py; }
             case JUMP_HEIGHT -> { config.jumpHeightX = px; config.jumpHeightY = py; }
             case SPEED -> { config.speedX = px; config.speedY = py; }
+            case STATUS -> { config.statusX = px; config.statusY = py; }
         }
     }
 
@@ -263,6 +287,7 @@ public final class AnimalInfoOverlay {
             case EXTRA -> config.extraScale;
             case JUMP_HEIGHT -> config.jumpHeightScale;
             case SPEED -> config.speedScale;
+            case STATUS -> config.statusScale;
         };
     }
 
@@ -283,6 +308,7 @@ public final class AnimalInfoOverlay {
             case EXTRA -> config.extraScale = scale;
             case JUMP_HEIGHT -> config.jumpHeightScale = scale;
             case SPEED -> config.speedScale = scale;
+            case STATUS -> config.statusScale = scale;
             case MODEL -> { }
         }
     }
@@ -339,6 +365,11 @@ public final class AnimalInfoOverlay {
         if (Boolean.TRUE.equals(config.showSpeed) && !speed.isEmpty()) {
             addScaled(parts, Part.SPEED, config.speedX, config.speedY,
                     statusWidth(renderer, speed), 9, config.speedScale);
+        }
+        if (config.showStatus) {
+            addScaled(parts, Part.STATUS, config.statusX, config.statusY,
+                    renderer.getWidth(statusText(entity, value, System.currentTimeMillis())), 9,
+                    config.statusScale);
         }
 
         int maxX = 1;
@@ -397,8 +428,10 @@ public final class AnimalInfoOverlay {
                 case EXTRA -> {
                     if (extra != null) {
                         int color = extra.positive() ? COL_GREEN : COL_RED;
+                        // The icon keeps its own colours; an inactive state is shown at about 45 % alpha.
                         drawStatus(context, renderer, px, py, extra.icon(), extra.label(),
-                                color, color, config.extraScale, alpha);
+                                extra.positive() ? color : (color & 0x00FFFFFF) | 0x73000000, color,
+                                config.extraScale, alpha);
                     }
                 }
                 case JUMP_HEIGHT -> drawStatus(context, renderer, px, py,
@@ -407,6 +440,9 @@ public final class AnimalInfoOverlay {
                 case SPEED -> drawStatus(context, renderer, px, py,
                         ICON_SPEED, speedLabel(value), COL_MUTED, COL_MUTED,
                         config.speedScale, alpha);
+                case STATUS -> drawScaledText(context, renderer,
+                        statusText(entity, value, System.currentTimeMillis()), px, py,
+                        COL_MUTED, config.statusScale, alpha, true);
             }
         }
     }
@@ -419,24 +455,16 @@ public final class AnimalInfoOverlay {
         context.fill(x, y, x + width, y + 1, withAlpha(COL_BORDER, alpha));
     }
 
-    private static void drawAnimal(DrawContext context, int x, int y, int size,
+    static void drawAnimal(DrawContext context, int x, int y, int size,
                                    AnimalEntity entity, AnimalInfoSnapshot value,
                                    String animalType, float alpha) {
         boolean rendered = false;
         if (entity != null && entity.isAlive() && alpha > 0.05f) {
-            boolean nameVisible = entity.isCustomNameVisible();
-            Text customName = entity.getCustomName();
             try {
-                entity.setCustomNameVisible(false);
-                entity.setCustomName(null);
-                int renderScale = Math.max(5, Math.round(size * 0.34f));
-                InventoryScreen.drawEntity(context, x, y, x + size, y + size,
-                        renderScale, 0.0f, x + size / 2.0f, y + size / 2.0f, entity);
+                // Three-quarter view filling the box, without name tag (only the render state is changed).
+                AnimalPreview.draw(context, x, y, x + size, y + size, entity);
                 rendered = true;
             } catch (Throwable ignored) {
-            } finally {
-                entity.setCustomName(customName);
-                entity.setCustomNameVisible(nameVisible);
             }
         }
         if (!rendered) {
@@ -478,7 +506,8 @@ public final class AnimalInfoOverlay {
         try {
             matrices.translate(x, y);
             matrices.scale(scale, scale);
-            drawStatusIcon(context, gender, withAlpha(color, alpha));
+            drawStatusIcon(context, gender == ICON_FEMALE ? OWN_FEMALE : gender == ICON_MALE ? OWN_MALE : gender,
+                    withAlpha(color, alpha));
         } finally {
             matrices.popMatrix();
         }
@@ -516,7 +545,26 @@ public final class AnimalInfoOverlay {
         return Identifier.of("ottoextra", "textures/gui/horse_overview/" + name + ".png");
     }
 
+    /** Icon of the animal info set (9x9, own colours, never tinted). */
+    static Identifier ownIcon(String name) {
+        return Identifier.of("ottoextra", "textures/gui/animalinfo/" + name + ".png");
+    }
+
+    static boolean isOwnIcon(Identifier texture) {
+        return texture.getPath().startsWith("textures/gui/animalinfo/");
+    }
+
+    /** Draws a 9x9 own-colour icon at the current origin; only the alpha of {@code argb} is used. */
+    static void drawOwnIcon(DrawContext context, Identifier texture, int x, int y, int argb) {
+        context.drawTexture(RenderPipelines.GUI_TEXTURED, texture, x, y, 0, 0, 9, 9, 9, 9, 9, 9,
+                0x00FFFFFF | (argb & 0xFF000000));
+    }
+
     private static void drawStatusIcon(DrawContext context, Identifier texture, int color) {
+        if (isOwnIcon(texture)) {
+            drawOwnIcon(context, texture, 0, 0, color);
+            return;
+        }
         context.drawTexture(RenderPipelines.GUI_TEXTURED, texture, 0, 0, 0, 0,
                 ICON_DISPLAY_SIZE, ICON_DISPLAY_SIZE, ICON_TEXTURE_SIZE, ICON_TEXTURE_SIZE,
                 ICON_TEXTURE_SIZE, ICON_TEXTURE_SIZE, color);
@@ -583,6 +631,75 @@ public final class AnimalInfoOverlay {
         return mast.isEmpty() ? "Mast" : "Mast " + mast;
     }
 
+    /**
+     * Coloured status line with the age of the data. Live timers come from {@link AnimalLiveStore}, so they
+     * keep counting down between server queries. The editor preview passes a sample snapshot and gets a
+     * status derived from that sample instead.
+     */
+    static Text statusText(AnimalEntity entity, AnimalInfoSnapshot value, long now) {
+        StatusView view = statusView(entity, value, now);
+        return statusText(view.status(), view.ageMs());
+    }
+
+    /** Status of the displayed animal, the age of the data (null if unknown) and the table species. */
+    record StatusView(AnimalStatus.Status status, Long ageMs, AnimalSpecies species) {
+    }
+
+    static StatusView statusView(AnimalEntity entity, AnimalInfoSnapshot value, long now) {
+        boolean displayed = value == snapshot;
+        AnimalLiveState state = displayed && entity != null
+                ? AnimalLiveStore.current().get(entity.getUuid()) : null;
+        Long ageMs;
+        if (state != null && state.infoAt() > 0) {
+            ageMs = Math.max(0L, now - state.infoAt());
+        } else {
+            state = AnimalLiveState.empty(entity == null ? null : entity.getUuid()).withInfo(value, now);
+            ageMs = displayed ? null : 12_000L;
+        }
+        AnimalSpecies species = AnimalSpecies.resolve(value.animalName(), state.species());
+        boolean baby = displayed && entity != null && entity.isBaby();
+        return new StatusView(AnimalStatus.compute(state, species, baby, now), ageMs, species);
+    }
+
+    /** Uncoloured status wording ("Wartet noch 3h 20m"). */
+    static MutableText statusLabel(AnimalStatus.Status status) {
+        String time = status.remainingMs() < 0 ? ""
+                : (status.estimated() ? "~" : "") + AnimalDurations.format(status.remainingMs());
+        return switch (status.kind()) {
+            case IN_LOVE -> Text.translatable("ottoextra.animalinfo.status.love");
+            case YOUNG -> time.isEmpty() ? Text.translatable("ottoextra.animalinfo.status.young")
+                    : Text.translatable("ottoextra.animalinfo.status.young_timer", time);
+            case WAITING -> Text.translatable("ottoextra.animalinfo.status.waiting", time);
+            case NEED_MAST -> Text.translatable("ottoextra.animalinfo.status.need_mast",
+                    status.mast(), status.mastNeeded());
+            case READY -> Text.translatable("ottoextra.animalinfo.status.ready");
+            case UNKNOWN -> Text.translatable("ottoextra.animalinfo.status.unknown");
+        };
+    }
+
+    /** "Stand: vor 5m" / "Stand: gerade eben". */
+    static Text ageLabel(long ageMs) {
+        return ageMs < 10_000L ? Text.translatable("ottoextra.animalinfo.status.age_now")
+                : Text.translatable("ottoextra.animalinfo.status.age", AnimalDurations.formatAge(ageMs));
+    }
+
+    static Text statusText(AnimalStatus.Status status, Long ageMs) {
+        int color = switch (status.kind()) {
+            case IN_LOVE -> AnimalStatus.BREEDING_COLOR;
+            case YOUNG -> COL_YOUNG;
+            case WAITING -> COL_AMBER;
+            case NEED_MAST -> COL_RED;
+            case READY -> COL_GREEN;
+            case UNKNOWN -> COL_MUTED;
+        };
+        MutableText text = statusLabel(status).withColor(color);
+        if (ageMs != null) {
+            text.append(Text.literal(" · ").withColor(COL_MUTED))
+                    .append(ageLabel(ageMs).copy().withColor(COL_MUTED));
+        }
+        return text;
+    }
+
     static String jumpHeightLabel(AnimalInfoSnapshot value) {
         return value == null || value.jumpHeight().isEmpty()
                 ? "" : value.jumpHeight();
@@ -593,7 +710,7 @@ public final class AnimalInfoOverlay {
                 ? "" : value.speed();
     }
 
-    private static ExtraStatus extraStatus(AnimalInfoSnapshot value, AnimalEntity entity) {
+    static ExtraStatus extraStatus(AnimalInfoSnapshot value, AnimalEntity entity) {
         if (entity instanceof SheepEntity && value.hasShearable()) {
             return new ExtraStatus(ICON_SHEARABLE, "Scherbar", isPositive(value.shearable()));
         }
@@ -613,18 +730,12 @@ public final class AnimalInfoOverlay {
         return Text.literal(String.valueOf(glyph)).setStyle(Style.EMPTY.withFont(MENU_FONT));
     }
 
-    private static Identifier genderIcon(String value) {
-        String normalized = normalize(value);
-        if (normalized.startsWith("weib") || normalized.startsWith("fem")
-                || normalized.equals("stute")) {
-            return ICON_FEMALE;
-        }
-        if (normalized.startsWith("männ") || normalized.startsWith("maenn")
-                || normalized.equals("male") || normalized.equals("hengst")
-                || normalized.equals("wallach")) {
-            return ICON_MALE;
-        }
-        return ICON_GENDER;
+    static Identifier genderIcon(String value) {
+        return switch (AnimalGender.parse(value)) {
+            case FEMALE -> ICON_FEMALE;
+            case MALE -> ICON_MALE;
+            case UNKNOWN -> ICON_GENDER;
+        };
     }
 
     static String genderLabel(String value) {
@@ -761,10 +872,15 @@ public final class AnimalInfoOverlay {
         };
     }
 
+    private static final java.util.regex.Pattern FEED_PROGRESS =
+            java.util.regex.Pattern.compile("\\bmast\\s+(\\d{1,9})\\s*/\\s*(\\d{1,9})");
+
     static boolean isReady(String value) {
         String normalized = normalize(value);
         if (normalized.startsWith("mast ")) {
-            return normalized.matches("mast\\s+0\\s*/\\s*\\d+.*");
+            // "Zuchtbereit: Mast 0/100" is feeding progress: ready only once x has reached y.
+            java.util.regex.Matcher feed = FEED_PROGRESS.matcher(normalized);
+            return feed.find() && Long.parseLong(feed.group(1)) >= Long.parseLong(feed.group(2));
         }
         return normalized.equals("ja") || normalized.equals("yes")
                 || normalized.equals("bereit") || normalized.equals("ready")
@@ -809,7 +925,7 @@ public final class AnimalInfoOverlay {
         return 1.0f - (1.0f - clamped) * (1.0f - clamped);
     }
 
-    private static int withAlpha(int argb, float alpha) {
+    static int withAlpha(int argb, float alpha) {
         int original = (argb >>> 24) & 0xFF;
         int adjusted = Math.round(original * Math.max(0.0f, Math.min(1.0f, alpha)));
         return (adjusted << 24) | (argb & 0x00FFFFFF);

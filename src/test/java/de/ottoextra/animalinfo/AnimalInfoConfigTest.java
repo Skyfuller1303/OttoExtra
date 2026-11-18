@@ -47,7 +47,7 @@ class AnimalInfoConfigTest {
         assertTrue(config.animalInfo.enabled);
         assertTrue(config.animalInfo.hideAutomaticChat);
         assertFalse(config.animalInfo.breederModeEnabled);
-        assertEquals(5_000, config.animalInfo.cacheDurationMs);
+        assertEquals(60_000, config.animalInfo.cacheDurationMs);
         assertTrue(config.animalInfo.showModel);
         assertTrue(config.animalInfo.showTimer);
         assertTrue(config.animalInfo.showHorseStats);
@@ -122,5 +122,51 @@ class AnimalInfoConfigTest {
         assertEquals(31, horse.speedY);
         assertEquals(0.75f, horse.jumpHeightScale);
         assertEquals(0.75f, horse.speedScale);
+    }
+
+    @Test
+    void migratesOnlyTheOldFiveSecondRefreshDefaultToSixtySeconds() {
+        OttoExtraConfig oldDefault = new OttoExtraConfig();
+        oldDefault.restoreFrom("{\"animalInfo\":{\"cacheDurationMs\":5000,\"queryTimingVersion\":1}}");
+        OttoExtraConfig custom = new OttoExtraConfig();
+        custom.restoreFrom("{\"animalInfo\":{\"cacheDurationMs\":20000,\"queryTimingVersion\":1}}");
+        OttoExtraConfig alreadyMigrated = new OttoExtraConfig();
+        alreadyMigrated.restoreFrom("{\"animalInfo\":{\"cacheDurationMs\":5000,\"queryTimingVersion\":2}}");
+
+        assertEquals(60_000, oldDefault.animalInfo.cacheDurationMs);
+        assertEquals(20_000, custom.animalInfo.cacheDurationMs);
+        assertEquals(5_000, alreadyMigrated.animalInfo.cacheDurationMs);
+        assertEquals(2, oldDefault.animalInfo.queryTimingVersion);
+    }
+
+    @Test
+    void statusLineAndStateGlowDefaultsAreOnAndOldLayoutsGainThem() {
+        OttoExtraConfig config = new OttoExtraConfig();
+        assertTrue(config.animalInfo.breedingGlowEnabled);
+        assertTrue(config.animalInfo.shearGlowEnabled);
+        assertFalse(config.animalInfo.genderGlowEnabled);
+
+        config.restoreFrom("{\"animalInfo\":{\"layouts\":{\"cow\":{\"showTimer\":false}}}}");
+        OttoExtraConfig.AnimalInfoLayout cow = config.animalInfo.layout("cow");
+        assertTrue(cow.showStatus);
+        assertEquals(28, cow.statusX);
+        assertEquals(37, cow.statusY);
+        assertEquals(0.68f, cow.statusScale);
+        assertTrue(AnimalInfoOverlay.partVisible(cow, AnimalInfoOverlay.Part.STATUS));
+    }
+
+    @Test
+    void statusPartHasIndependentToggleAndPosition() {
+        OttoExtraConfig config = new OttoExtraConfig();
+        OttoExtraConfig.AnimalInfoLayout sheep = config.animalInfo.layout("sheep");
+        AnimalInfoOverlay.setPartVisible(sheep, AnimalInfoOverlay.Part.STATUS, false);
+        AnimalInfoOverlay.setPartPosition(sheep, AnimalInfoOverlay.Part.STATUS, 40, 600);
+        AnimalInfoOverlay.setPartScale(sheep, AnimalInfoOverlay.Part.STATUS, 1.25f);
+
+        assertFalse(config.animalInfo.layout("sheep").showStatus);
+        assertEquals(40, sheep.statusX);
+        assertEquals(500, sheep.statusY);
+        assertEquals(1.25f, AnimalInfoOverlay.partScale(sheep, AnimalInfoOverlay.Part.STATUS));
+        assertTrue(config.animalInfo.layout("cow").showStatus);
     }
 }

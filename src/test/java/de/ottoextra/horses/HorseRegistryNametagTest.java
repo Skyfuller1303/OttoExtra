@@ -49,19 +49,23 @@ class HorseRegistryNametagTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"Weiblich", "Female", "Stute", "♀"})
+    @ValueSource(strings = {"Weiblich", "Female", "Stute", "♀", "Stute (Weiblich)",
+            "Schaf (Weiblich)", "Sau (Weiblich)", "Henne (Weiblich)", "Neue Tierart (Female)"})
     void femaleAliasesUsePink(String gender) {
         assertGender(gender, "Lotte ♀", 0xFF79B8);
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"Männlich", "Maennlich", "Male", "Hengst", "Wallach", "♂"})
+    @ValueSource(strings = {"Männlich", "Maennlich", "Male", "Hengst", "Wallach", "♂",
+            "Hengst (Männlich)", "Bulle (Männlich)", "Bock (Männlich)", "Eber (Männlich)",
+            "Hahn (Männlich)", "Neue Tierart (Maennlich)"})
     void maleAliasesUseBlue(String gender) {
         assertGender(gender, "Lotte ♂", 0x68B8FF);
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"", "Unbekannt", "unknown", "♀ ♂"})
+    @ValueSource(strings = {"", "Unbekannt", "unknown", "♀ ♂", "Stute (Männlich)",
+            "Hengst (Weiblich)", "Not female", "unweiblich"})
     void unknownOrConflictingGenderKeepsOriginal(String gender) {
         var config = new OttoExtraConfig.AnimalInfo();
         config.nametagShowGender = config.nametagGenderColor = true;
