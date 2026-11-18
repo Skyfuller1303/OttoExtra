@@ -3,6 +3,7 @@
 ## 0.18.0-alpha – 2026-11-18
 
 Vorabversion zum Testen. JAR: `ottoextra-0.18.0-alpha.jar`.
+Hilfe und FAQ: [docs/hilfe/0.18/README.md](docs/hilfe/0.18/README.md)
 
 ### Ein Jar statt drei
 - **Resources** und **Tactical Factions** sind jetzt Teil von OttoExtra. Die

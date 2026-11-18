@@ -42,6 +42,10 @@ Die Mod ist als clientseitige Community-Erweiterung für Ottonien gedacht und er
 - Import bestehender Daten aus OttoPlus/OttoTalk
 - Backup- und Recovery-Funktionen für wichtige lokale Daten
 
+## Hilfe und FAQ zu 0.18.0
+
+Was in 0.18.0 neu ist und wie du es nutzt (Werkstatt, Leiden und Zustände, HUD, Tiere und Höfe, Banner, integrierte Module), steht mit Bildern in der [Hilfe zu 0.18.0](docs/hilfe/0.18/README.md); häufige Fragen beantwortet die [FAQ](docs/hilfe/0.18/faq.md).
+
 ## Installation
 
 Die Release-JAR heißt **ottoextra-0.1.17.jar**. Downloads stehen unter
