@@ -75,6 +75,7 @@ tasks.matching { it.name == "sourcesJar" }.configureEach {
 repositories {
     mavenCentral()
     maven { name = 'TerraformersMC'; url = 'https://maven.terraformersmc.com/' } // ModMenu
+    maven { name = 'Modrinth'; url = 'https://api.modrinth.com/maven' } // Litematica/MaLiLib (compileOnly)
     maven { // DevAuth (Microsoft-Login im Dev-Client)
         name = 'DevAuth'
         url = 'https://pkgs.dev.azure.com/djtheredstoner/DevAuth/_packaging/public/maven/v1'
@@ -94,8 +95,14 @@ dependencies {
     // aus dem Modpack. Loom remappt die lokale Mod-JAR nach Yarn.
     modCompileOnly files("libs/xaerominimap-fabric-1.21.11-25.3.12.jar")
     modCompileOnly files("libs/xaerolib-fabric-1.21.11-1.1.15.jar")
-    // World Map comes from run/mods. Adding a second version here conflicts
-    // with XaeroPlus, which requires the modpack's exact World Map version.
+    // World Map: compile-only API for the integrated Resources module (right-click menu,
+    // map icons). Runtime stays the modpack's version from run/mods; never use it at runtime
+    // here, a second version conflicts with XaeroPlus.
+    modCompileOnly files("libs/xaeroworldmap-fabric-1.21.11-1.41.0.jar")
+
+    // Optional Litematica area-editor integration of the integrated Resources module.
+    modCompileOnly "maven.modrinth:litematica:${litematica_version}"
+    modCompileOnly "maven.modrinth:malilib:${malilib_version}"
 
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
     testImplementation sourceSets.client.output
@@ -137,6 +144,10 @@ tasks.matching { it.name in ['runClient', 'runClient2'] }.configureEach {
 tasks.named('jar') {
     from('LICENSE') {
         rename { "LICENSE_${project.archives_base_name}" }
+    }
+    // MIT notice of adapted third-party behaviour (Viehzucht) must ship with the binary.
+    from('THIRD_PARTY_NOTICES.md') {
+        rename { "THIRD_PARTY_NOTICES_${project.archives_base_name}.md" }
     }
 }
 

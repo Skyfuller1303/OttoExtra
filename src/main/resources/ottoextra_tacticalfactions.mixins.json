@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "package": "de.ottoextra.tacticalfactions.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "ClientPlayerInteractionManagerMixin",
+    "ClientPlayNetworkHandlerMixin",
+    "PlayerListEntryMixin",
+    "PlayerListHudMixin",
+    "compat.bettertab.BetterTabToolsMixin"
+  ],
+  "injectors": { "defaultRequire": 1 }
+}

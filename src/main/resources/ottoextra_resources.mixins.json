@@ -1,0 +1,16 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "de.ottoextra.resources.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "MinecraftClientMixin",
+    "ResourceActionbarMixin",
+    "ResourceWorldmapScreenAccessor",
+    "ResourceWorldmapMenuMixin",
+    "compat.litematica.GuiAreaSelectionEditorMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
