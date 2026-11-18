@@ -23,6 +23,5 @@ public final class LocalPrivacy {
         if (tweaks.chatLogDecisionVersion != 1 || !tweaks.chatLogScope.equals(tweaks.chatLogAcceptedScope)) tweaks.chatLog = false;
         // A disabled Minecraft selection is authoritative even for old configurations.
         config.resourcepack.respectUserDisable = true;
-        config.animalInfo.genderGlowEnabled = false;
     }
 }

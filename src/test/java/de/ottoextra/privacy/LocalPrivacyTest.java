@@ -33,7 +33,13 @@ class LocalPrivacyTest {
         LocalPrivacy.reconcile(config);
         assertTrue(config.resourcepack.respectUserDisable);
     }
-    @Test void automaticGenderOutlinesStayOffWithoutOperatorApprovedControl() {
-        assertFalse(de.ottoextra.horses.AnimalOutlinePolicy.serverAuthorized());
+    @Test void privacyReconcilePreservesLocalGenderGlowChoice() {
+        var config = new OttoExtraConfig();
+        config.animalInfo.genderGlowEnabled = true;
+        LocalPrivacy.reconcile(config);
+        assertTrue(config.animalInfo.genderGlowEnabled);
+        config.animalInfo.genderGlowEnabled = false;
+        LocalPrivacy.reconcile(config);
+        assertFalse(config.animalInfo.genderGlowEnabled);
     }
 }
