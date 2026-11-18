@@ -30,6 +30,30 @@ class OttoExtraAddonHooksTest {
         assertTrue(result.forceVisible());
     }
 
+    @Test void hudLayoutElementsAreCollectedAndBrokenAddonsAreIsolated() {
+        de.ottoextra.ui.hudlayout.HudLayoutElement element = new de.ottoextra.ui.hudlayout.HudLayoutElement() {
+            public String id() { return "test"; }
+            public Text label() { return Text.literal("Test"); }
+            public Bounds bounds(int w, int h) { return null; }
+            public void place(int x, int y, int w, int h, int sw, int sh) { }
+            public void reset() { }
+        };
+        OttoExtraAddon good = new OttoExtraAddon() {
+            public void registerSettings(SettingsRegistry registry) { }
+            public List<de.ottoextra.ui.hudlayout.HudLayoutElement> hudLayoutElements() { return List.of(element); }
+        };
+        OttoExtraAddon broken = new OttoExtraAddon() {
+            public void registerSettings(SettingsRegistry registry) { }
+            public List<de.ottoextra.ui.hudlayout.HudLayoutElement> hudLayoutElements() {
+                throw new IllegalStateException("boom");
+            }
+        };
+        OttoExtraAddon plain = new OttoExtraAddon() {
+            public void registerSettings(SettingsRegistry registry) { }
+        };
+        assertEquals(List.of(element), OttoExtraAddons.hudLayoutElements(List.of(broken, good, plain)));
+    }
+
     @Test void addonCanProvideUsernameWhenBaseNametagModuleIsDisabled() {
         OttoExtraAddon fallback = addon((context, current) -> current.withLines(
                 null, Text.literal(context.accountName()), null).withVisible(true, true));

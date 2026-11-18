@@ -53,6 +53,11 @@ public interface OttoExtraAddon {
         return presentation;
     }
 
+    /** Movable HUD boxes contributed to the shared HUD layout editor ({@code /ottoextra hud}). */
+    default List<de.ottoextra.ui.hudlayout.HudLayoutElement> hudLayoutElements() {
+        return List.of();
+    }
+
     /** Extra labelled actions shown in the selected RP-book player profile. */
     default List<RpBookPlayerField> rpBookPlayerFields(RpBookPlayerContext context) {
         return List.of();

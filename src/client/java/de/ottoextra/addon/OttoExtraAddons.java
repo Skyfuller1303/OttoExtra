@@ -181,6 +181,24 @@ public final class OttoExtraAddons {
         return current;
     }
 
+    public static List<de.ottoextra.ui.hudlayout.HudLayoutElement> hudLayoutElements() {
+        return hudLayoutElements(addons());
+    }
+
+    static List<de.ottoextra.ui.hudlayout.HudLayoutElement> hudLayoutElements(List<OttoExtraAddon> chain) {
+        List<de.ottoextra.ui.hudlayout.HudLayoutElement> result = new ArrayList<>();
+        for (OttoExtraAddon addon : chain) {
+            try {
+                List<de.ottoextra.ui.hudlayout.HudLayoutElement> elements = addon.hudLayoutElements();
+                if (elements != null) elements.stream().filter(java.util.Objects::nonNull).forEach(result::add);
+            } catch (Throwable t) {
+                OttoExtra.LOGGER.warn("Addon-HUD-Elemente fehlgeschlagen ({}): {}",
+                        addon.getClass().getName(), t.toString());
+            }
+        }
+        return List.copyOf(result);
+    }
+
     public static List<RpBookPlayerField> rpBookPlayerFields(RpBookPlayerContext context) {
         return rpBookPlayerFields(addons(), context);
     }
