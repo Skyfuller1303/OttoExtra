@@ -29,7 +29,7 @@ public final class OttoExtraMenuButton extends PressableWidget {
 
     @Override
     public void onPress(AbstractInput input) {
-        MinecraftClient.getInstance().setScreen(new OttoExtraSettingsScreen(parent));
+        MinecraftClient.getInstance().setScreen(OttoExtraSettingsScreen.create(parent));
     }
 
     @Override

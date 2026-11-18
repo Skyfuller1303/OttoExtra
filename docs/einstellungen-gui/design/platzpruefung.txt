@@ -1,0 +1,12 @@
+buch_dunkelgruen_chat: Inhalt 617 px, sichtbar 115 px, scrollt vertikal
+buch_gruenblau_chat: Inhalt 617 px, sichtbar 115 px, scrollt vertikal
+buch_dunkelgruen_namen_mehr: Inhalt 599 px, sichtbar 106 px, scrollt vertikal
+buch_dunkelgruen_karte_tabs: Inhalt 432 px, sichtbar 106 px, scrollt vertikal
+buch_dunkelgruen_lehen_experte: Inhalt 672 px, sichtbar 106 px, scrollt vertikal
+buch_dunkelgruen_allgemein: Inhalt 195 px, sichtbar 115 px, scrollt vertikal
+buch_dunkelgruen_chat_640x360: Inhalt 545 px, sichtbar 219 px, scrollt vertikal
+buch_gruenblau_briefe_640x360: Inhalt 251 px, sichtbar 219 px, scrollt vertikal
+
+Einstellungen: 274
+Beschriftung zweizeilig bei 456x256: 43, bei 640x360: 0
+Hilfetext länger als 3 Zeilen bei 456x256: 54, bei 640x360: 6

@@ -7,6 +7,6 @@ public final class OttoExtraModMenuIntegration implements ModMenuApi {
 
     @Override
     public ConfigScreenFactory<?> getModConfigScreenFactory() {
-        return parent -> new de.ottoextra.config.settings.OttoExtraSettingsScreen(parent);
+        return parent -> de.ottoextra.config.settings.OttoExtraSettingsScreen.create(parent);
     }
 }

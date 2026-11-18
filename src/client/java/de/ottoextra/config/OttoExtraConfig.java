@@ -33,6 +33,9 @@ public final class OttoExtraConfig {
     public AnimalInfo animalInfo = new AnimalInfo();
     public Tweaks tweaks = new Tweaks();
 
+    /** Preferred settings screen: "book" or "classic". */
+    public String settingsView = "book";
+
     /**
      * Ausdrückliche Entscheidungen aus dem Erststart-Assistenten.
      * Fehlende/alte Werte bleiben absichtlich auf false und gelten nie als Zustimmung.
@@ -98,11 +101,20 @@ public final class OttoExtraConfig {
                 "goat", "chicken", "wolf", "other");
 
         public boolean enabled = true;
+        /**
+         * Toast style: "compact", "detailed" or "custom" (freely editable layout). Null means not chosen
+         * yet; {@link #toastStyle()} then resolves to detailed.
+         */
+        public String toastStyle;
         public boolean hideAutomaticChat = true;
         public boolean nametagShowGender = false;
         public boolean nametagGenderColor = false;
         public boolean nametagIncludeUnregistered = false;
         public boolean genderGlowEnabled = false;
+        /** Glow for animals that are waiting to breed again; takes precedence over the gender colour. */
+        public boolean breedingGlowEnabled = true;
+        /** Glow for sheep that were sheared and are waiting for their wool; takes precedence over the others. */
+        public boolean shearGlowEnabled = true;
         public boolean rememberAnimalIdentities = true;
         public boolean overviewShowCows = false;
         public boolean overviewShowChickens = false;
@@ -112,9 +124,10 @@ public final class OttoExtraConfig {
         /** Lokaler Opt-in fuer Zuchtakte, Hofsync und Zucht-Autofill. */
         public boolean breederModeEnabled = false;
         public int hoverDelayMs = 100;
-        public int cacheDurationMs = 5_000;
+        /** Mindestabstand zwischen zwei automatischen Abfragen desselben Tieres (Auffrischintervall). */
+        public int cacheDurationMs = 60_000;
         public int responseTimeoutMs = 3_000;
-        /** Interne, einmalige Migration des alten 300-ms-Standardwerts. */
+        /** Interne, einmalige Migration der alten Standardwerte (300 ms Anvisierzeit, 5 s Cache). */
         public Integer queryTimingVersion;
 
         public int padding = 3;
@@ -149,6 +162,27 @@ public final class OttoExtraConfig {
         public float horseStatsScale = 0.68f;
 
         public java.util.Map<String, AnimalInfoLayout> layouts = new java.util.LinkedHashMap<>();
+
+        public de.ottoextra.animalinfo.AnimalToastStyle toastStyle() {
+            return de.ottoextra.animalinfo.AnimalToastStyle.parse(toastStyle);
+        }
+
+        /**
+         * True if the user changed positions, scales or element toggles of any animal layout. Disabling a
+         * whole animal type is not a layout change.
+         */
+        boolean hasCustomizedLayout() {
+            if (layouts == null) return false;
+            Gson gson = new Gson();
+            for (String type : ANIMAL_TYPES) {
+                AnimalInfoLayout actual = layouts.get(type);
+                if (actual == null) continue;
+                AnimalInfoLayout expected = AnimalInfoLayout.defaults(type);
+                expected.enabled = actual.enabled;
+                if (!gson.toJson(expected).equals(gson.toJson(actual))) return true;
+            }
+            return false;
+        }
 
         public AnimalInfoLayout layout(String animalType) {
             if (layouts == null) {
@@ -206,6 +240,8 @@ public final class OttoExtraConfig {
         public boolean showHorseStats = true;
         public Boolean showJumpHeight;
         public Boolean showSpeed;
+        /** Coloured status line (ready, mast missing, waiting, young, in love) with the age of the data. */
+        public boolean showStatus = true;
 
         public int modelX = 0;
         public int modelY = 0;
@@ -240,6 +276,9 @@ public final class OttoExtraConfig {
         public int speedX = -1;
         public int speedY = -1;
         public float speedScale = -1.0f;
+        public int statusX = 28;
+        public int statusY = 37;
+        public float statusScale = 0.68f;
 
         public static AnimalInfoLayout defaults(String animalType) {
             AnimalInfoLayout layout = new AnimalInfoLayout();
@@ -339,6 +378,8 @@ public final class OttoExtraConfig {
             jumpHeightY = repairLayoutPosition(jumpHeightY, defaults.jumpHeightY);
             speedX = repairLayoutPosition(speedX, defaults.speedX);
             speedY = repairLayoutPosition(speedY, defaults.speedY);
+            statusX = repairLayoutPosition(statusX, defaults.statusX);
+            statusY = repairLayoutPosition(statusY, defaults.statusY);
             if (modelSize < 12 || modelSize > 64) modelSize = defaults.modelSize;
             titleScale = repairAnimalInfoScale(titleScale, defaults.titleScale);
             genderIconScale = repairAnimalInfoScale(
@@ -354,6 +395,7 @@ public final class OttoExtraConfig {
             jumpHeightScale = repairAnimalInfoScale(
                     jumpHeightScale, defaults.jumpHeightScale);
             speedScale = repairAnimalInfoScale(speedScale, defaults.speedScale);
+            statusScale = repairAnimalInfoScale(statusScale, defaults.statusScale);
         }
     }
 
@@ -474,6 +516,8 @@ public final class OttoExtraConfig {
         public boolean showBanners = true;
 
         public boolean paintedMap = true;
+        /** Curtain reveal and zoom-out when Xaero's world map opens. */
+        public boolean worldMapOpenAnimation = true;
 
         public boolean paintedMapSimple = false;
 
@@ -664,6 +708,9 @@ public final class OttoExtraConfig {
 
         public String theme = "light";
 
+        /** "classic" = toast box with theme; otherwise a procedural zone banner style id. */
+        public String zoneBannerStyle = "classic";
+
         public java.util.List<RegionTheme> customThemes = new java.util.ArrayList<>();
 
         public String overlayPosition = "TOP_CENTER";
@@ -772,7 +819,9 @@ public final class OttoExtraConfig {
 
         public boolean openBookOnClick = false;
 
-        public boolean proactiveMeet = true;
+        public boolean proactiveMeet = false;
+        /** Null in configs written before the meet dialog became opt-in; see {@link #repair()}. */
+        public Integer meetDefaultVersion;
 
         public double meetMarkerHeight = 0.55;
         public double meetMarkerSize = 1.0;
@@ -815,6 +864,7 @@ public final class OttoExtraConfig {
     public static final class Letter {
         public boolean enabled = true;
         public boolean openRecipientAfterWrite = true;
+        public boolean exportSubfoldersByPlayer = false;
         public String triggerItemName = "Pergament und Feder";
         public int maxLinesPerPage = 12;
         public int maxCharsPerLine = 18;
@@ -854,6 +904,9 @@ public final class OttoExtraConfig {
         public boolean formattingConvertAmpersandOnPaste = true;
 
         public boolean previewEnabled = true;
+
+        /** Signatur für die Feder-Schaltfläche; {{name|title|full|mc}} steht für den eigenen Account. */
+        public String signature = de.ottoextra.letter.placeholder.SignatureExpander.DEFAULT_SIGNATURE;
     }
 
     public static final class Chat {
@@ -1038,10 +1091,16 @@ public final class OttoExtraConfig {
     }
 
     public void repair() {
+        if (!"book".equals(settingsView) && !"classic".equals(settingsView)) settingsView = "book";
         if (api == null) api = new Api();
         if (map == null) map = new Map();
         if (regions == null) regions = new Regions();
         if (rpnames == null) rpnames = new RpNames();
+        if (rpnames.meetDefaultVersion == null) {
+            // One-time switch: the proactive meet dialog used to default to on and is now opt-in.
+            rpnames.proactiveMeet = false;
+            rpnames.meetDefaultVersion = 1;
+        }
         if (nametags == null) nametags = new Nametags();
         if (letter == null) letter = new Letter();
         if (chat == null) chat = new Chat();
@@ -1066,6 +1125,14 @@ public final class OttoExtraConfig {
                 animalInfo.hoverDelayMs = aid.hoverDelayMs;
             }
             animalInfo.queryTimingVersion = 1;
+        }
+        if (animalInfo.queryTimingVersion < 2) {
+            // Der alte Standard von 5 s fragte dasselbe Tier alle paar Sekunden neu ab; jetzt gilt
+            // ein Auffrischintervall von 60 s. Bewusst gewaehlte Werte bleiben erhalten.
+            if (animalInfo.cacheDurationMs == 5_000) {
+                animalInfo.cacheDurationMs = aid.cacheDurationMs;
+            }
+            animalInfo.queryTimingVersion = 2;
         }
         if (animalInfo.hoverDelayMs < 100 || animalInfo.hoverDelayMs > 2_000) {
             animalInfo.hoverDelayMs = aid.hoverDelayMs;
@@ -1101,6 +1168,13 @@ public final class OttoExtraConfig {
         animalInfo.timerScale = repairAnimalInfoScale(animalInfo.timerScale, aid.timerScale);
         animalInfo.extraScale = repairAnimalInfoScale(animalInfo.extraScale, aid.extraScale);
         animalInfo.repairLayouts();
+        if (animalInfo.toastStyle == null
+                || !de.ottoextra.animalinfo.AnimalToastStyle.isKnown(animalInfo.toastStyle)) {
+            // One-time choice: users who adapted the layout keep their toast, everyone else gets the new one.
+            animalInfo.toastStyle = (animalInfo.hasCustomizedLayout()
+                    ? de.ottoextra.animalinfo.AnimalToastStyle.CUSTOM
+                    : de.ottoextra.animalinfo.AnimalToastStyle.DETAILED).id();
+        }
         if (resourcepack.maxSizeBytes <= 0) resourcepack.maxSizeBytes = new ResourcePack().maxSizeBytes;
         Regions rd = new Regions();
         if (regions.maxTextWidth < 50) regions.maxTextWidth = rd.maxTextWidth;

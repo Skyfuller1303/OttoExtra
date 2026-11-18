@@ -15,10 +15,17 @@ import net.minecraft.util.Formatting;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+
+import static de.ottoextra.config.settings.SettingsSession.boolLabel;
+import static de.ottoextra.config.settings.SettingsSession.buttonText;
+import static de.ottoextra.config.settings.SettingsSession.cycleLabel;
+import static de.ottoextra.config.settings.SettingsSession.defaultText;
+import static de.ottoextra.config.settings.SettingsSession.helpText;
+import static de.ottoextra.config.settings.SettingsSession.labelText;
+import static de.ottoextra.config.settings.SettingsSession.matches;
 
 public final class OttoExtraSettingsScreen extends Screen {
 
@@ -35,12 +42,19 @@ public final class OttoExtraSettingsScreen extends Screen {
     private static final int COL_SECTION_ACCENT = 0xCCDDCC66;
     private static final int SECTION_GAP = 8;
 
-    private final Screen parent;
+    private final SettingsSession session;
     private final OttoExtraConfig config;
     private final SettingsRegistry registry;
-    private String snapshot;
+    private final Map<String, String> defaults;
 
-    private final Map<String, String> defaults = new HashMap<>();
+    private static final int SIDE_X = 8;
+    private static final int SIDE_TOP = 22;
+    private static final int SIDE_BTN_H = 18;
+    private static final int MIN_CONTENT_W = 330;
+
+    private List<SettingsModel.Cat> cats = List.of();
+    private final List<SettingsModel.Cat> allCats;
+    private final Map<String, Boolean> expanded;
 
     private int selectedModule;
     private int selectedTab;
@@ -48,6 +62,7 @@ public final class OttoExtraSettingsScreen extends Screen {
     private int contentHeight;
 
     private TextFieldWidget searchField;
+    private String pendingQuery = "";
 
     private boolean tabCompact;
     private boolean tabMenuOpen;
@@ -55,6 +70,8 @@ public final class OttoExtraSettingsScreen extends Screen {
     private int tabMenuX;
     private int tabMenuY;
     private int tabMenuW;
+    private int sideW;
+    private int areaLeft;
 
     private static final class Row {
         int baseY;
@@ -70,53 +87,88 @@ public final class OttoExtraSettingsScreen extends Screen {
     }
 
     private final List<Row> rows = new ArrayList<>();
-    private java.nio.file.Path pendingRestore;
-    private String statusMessage = "";
-    private boolean statusWarn;
+
+    /**
+     * Opens the settings in the preferred view: the book when it is preferred and the window is
+     * large enough, otherwise the classic screen.
+     */
+    public static Screen create(Screen parent) {
+        var window = net.minecraft.client.MinecraftClient.getInstance().getWindow();
+        SettingsSession session = new SettingsSession(parent);
+        String view = SettingsView.choose(session.config.settingsView,
+                window.getScaledWidth(), window.getScaledHeight());
+        return SettingsView.BOOK.equals(view)
+                ? new OttoExtraSettingsBookScreen(session) : new OttoExtraSettingsScreen(session);
+    }
 
     public OttoExtraSettingsScreen(Screen parent) {
+        this(new SettingsSession(parent));
+    }
+
+    OttoExtraSettingsScreen(SettingsSession session) {
         super(Text.translatable("ottoextra.settings.title"));
-        this.parent = parent;
-        this.config = OttoExtraConfig.active();
-        this.snapshot = config.snapshotJson();
-        this.registry = SettingsRegistry.build(config,
-                () -> open(new de.ottoextra.rpnames.ui.RpNamesPeopleBookScreen(this)),
-                () -> open(new de.ottoextra.config.MapGroupColorsScreen(this, config)),
-                this::openMinimapBannerEditor,
-                () -> open(new de.ottoextra.letter.ui.LetterEditorScreen(this, config)),
-                () -> open(new de.ottoextra.config.RegionThemeScreen(this, config)),
-                () -> open(new de.ottoextra.regions.ActivityHudEditScreen(this, config)),
-                () -> open(new de.ottoextra.config.FollowingScreen(this, config)),
-                () -> open(new de.ottoextra.config.ChatChannelColorsScreen(this, config)),
-                () -> open(new de.ottoextra.animalinfo.AnimalInfoEditScreen(this, config)));
-        de.ottoextra.addon.OttoExtraAddons.registerSettings(this.registry);
-        SettingsRegistry defaultRegistry = SettingsRegistry.build(new OttoExtraConfig(),
-                () -> { }, () -> { }, () -> { }, () -> { }, () -> { }, () -> { },
-                () -> { }, () -> { }, () -> { });
-        de.ottoextra.addon.OttoExtraAddons.registerDefaultSettings(defaultRegistry);
-        for (SettingsRegistry.ModulePage m : defaultRegistry.modules()) {
-            for (SettingsRegistry.Tab t : m.tabs()) {
-                for (SettingsRegistry.Card c : t.cards()) {
-                    for (SettingsRegistry.Option o : c.options()) {
-                        defaults.put(o.configKey, o.get.get());
-                    }
-                }
-            }
-        }
+        this.session = session;
+        session.owner = this;
+        this.config = session.config;
+        this.registry = session.registry;
+        this.allCats = session.allCats;
+        this.defaults = session.defaults;
+        this.expanded = session.expanded;
+        this.selectedModule = session.selectedModule;
+        this.selectedTab = session.selectedTab;
+        this.pendingQuery = session.query;
     }
 
     private void open(Screen s) {
-        if (client != null) {
-            client.setScreen(s);
-        }
+        session.open(s);
     }
 
     private int contentW() {
-        return Math.min(640, width - 40);
+        return tabCompact ? Math.min(640, width - 40)
+                : Math.min(640, width - areaLeft - 24);
     }
 
     private int contentX() {
-        return (width - contentW()) / 2;
+        return tabCompact ? (width - contentW()) / 2
+                : areaLeft + (width - areaLeft - contentW()) / 2;
+    }
+
+    /** Horizontal centre of the footer buttons: the content area, beside the sidebar. */
+    private int footerCenter() {
+        return tabCompact ? width / 2 : areaLeft + (width - areaLeft) / 2;
+    }
+
+    private Text expertLabel() {
+        return Text.translatable("ottoextra.settings.expert",
+                Text.translatable(SettingsSession.expertMode
+                        ? "ottoextra.settings.on" : "ottoextra.settings.off"));
+    }
+
+    private ButtonWidget expertButton(int x, int y, int w) {
+        ButtonWidget b = ButtonWidget.builder(expertLabel(), btn -> {
+            SettingsSession.expertMode = !SettingsSession.expertMode;
+            clearAndInit();
+        }).dimensions(x, y, w, SIDE_BTN_H).build();
+        b.setTooltip(Tooltip.of(Text.translatable("ottoextra.settings.expert.tooltip")));
+        return b;
+    }
+
+    /** Switch to the book view; inactive when the window is too small for it. */
+    private ButtonWidget viewButton(int x, int y, int w) {
+        ButtonWidget b = ButtonWidget.builder(Text.translatable("ottoextra.settings.view.classic"),
+                btn -> switchToBook()).dimensions(x, y, w, SIDE_BTN_H).build();
+        boolean fits = SettingsView.bookFits(width, height);
+        b.active = fits;
+        b.setTooltip(Tooltip.of(Text.translatable(fits
+                ? "ottoextra.settings.view.tooltip" : "ottoextra.settings.view.tooSmall")));
+        return b;
+    }
+
+    private void switchToBook() {
+        session.selectedModule = selectedModule;
+        session.selectedTab = selectedTab;
+        session.query = searchField != null ? searchField.getText() : pendingQuery;
+        session.switchView(SettingsView.BOOK);
     }
 
     private int contentTop() {
@@ -124,51 +176,64 @@ public final class OttoExtraSettingsScreen extends Screen {
     }
 
     private int contentBottom() {
-        return height - 36;
+        // The compact layout puts the view button on its own row above the footer.
+        return height - (tabCompact ? 56 : 36);
     }
 
     @Override
     protected void init() {
+        if (searchField != null) {
+            pendingQuery = searchField.getText();
+        }
+        cats = SettingsModel.build(registry, SettingsSession.expertMode);
+        selectedModule = Math.max(0, Math.min(selectedModule, cats.size() - 1));
 
         tabLabels.clear();
-        for (SettingsRegistry.ModulePage m : registry.modules()) {
-            tabLabels.add(Text.translatable(m.titleKey()));
+        int maxLabel = 0;
+        for (SettingsModel.Cat c : cats) {
+            Text label = Text.translatable(c.titleKey());
+            tabLabels.add(label);
+            maxLabel = Math.max(maxLabel, textRenderer.getWidth(label));
         }
-        tabLabels.add(Text.translatable("ottoextra.settings.backups"));
-        int total = 0;
-        int[] widths = new int[tabLabels.size()];
-        for (int i = 0; i < tabLabels.size(); i++) {
-            widths[i] = Math.max(46, textRenderer.getWidth(tabLabels.get(i)) + 12);
-            total += widths[i] + 2;
-        }
-        tabCompact = total > width - 8;
+        sideW = Math.max(90, Math.min(140, maxLabel + 14));
+        areaLeft = SIDE_X + sideW + 8;
+        boolean sideFits = SIDE_TOP + cats.size() * (SIDE_BTN_H + 2)
+                <= height - 26 - 2 * (SIDE_BTN_H + 2) - 2;
+        tabCompact = width - areaLeft - 24 < MIN_CONTENT_W || !sideFits;
         if (!tabCompact) {
             tabMenuOpen = false;
-            int tx = Math.max(4, (width - total) / 2);
-            for (int i = 0; i < tabLabels.size(); i++) {
+            for (int i = 0; i < cats.size(); i++) {
                 final int idx = i;
                 ButtonWidget tab = ButtonWidget.builder(tabLabels.get(i), b -> {
                     selectModuleTab(idx);
-                }).dimensions(tx, 22, widths[i], 16).build();
-                tab.active = selectedModule != idx;
+                }).dimensions(SIDE_X, SIDE_TOP + i * (SIDE_BTN_H + 2), sideW, SIDE_BTN_H).build();
+                tab.active = selectedModule != i;
                 addDrawableChild(tab);
-                tx += widths[i] + 2;
             }
+            addDrawableChild(expertButton(SIDE_X, height - 26, sideW));
+            addDrawableChild(viewButton(SIDE_X, height - 26 - SIDE_BTN_H - 2, sideW));
         } else {
-            tabMenuW = Math.min(240, width - 8);
-            tabMenuX = (width - tabMenuW) / 2;
-            tabMenuY = 22;
-            int cur = Math.min(selectedModule, tabLabels.size() - 1);
+            int total = Math.min(width - 8, 420);
+            int startX = (width - total) / 2;
+            tabMenuW = total * 55 / 100;
+            tabMenuX = startX;
+            tabMenuY = SIDE_TOP;
             addDrawableChild(ButtonWidget.builder(
-                    Text.empty().append(tabLabels.get(cur)).append(" ▼"),
+                    Text.empty().append(tabLabels.get(selectedModule)).append(" ▼"),
                     b -> tabMenuOpen = !tabMenuOpen)
-                    .dimensions(tabMenuX, tabMenuY, tabMenuW, 16).build());
+                    .dimensions(tabMenuX, tabMenuY, tabMenuW, SIDE_BTN_H).build());
+            addDrawableChild(expertButton(startX + tabMenuW + 4, SIDE_TOP,
+                    total - tabMenuW - 4));
+            addDrawableChild(viewButton(4, height - 26 - SIDE_BTN_H - 2,
+                    Math.min(140, width - 8)));
         }
 
         searchField = new TextFieldWidget(textRenderer, contentX(), 42, contentW() - 0, 16,
                 Text.translatable("ottoextra.settings.search"));
         searchField.setMaxLength(64);
-        searchField.setSuggestion(Text.translatable("ottoextra.settings.search").getString());
+        searchField.setText(pendingQuery);
+        searchField.setSuggestion(pendingQuery.isEmpty()
+                ? Text.translatable("ottoextra.settings.search").getString() : "");
         searchField.setChangedListener(q -> {
             searchField.setSuggestion(q.isEmpty()
                     ? Text.translatable("ottoextra.settings.search").getString() : "");
@@ -179,33 +244,18 @@ public final class OttoExtraSettingsScreen extends Screen {
 
         int fy = height - 26;
         addDrawableChild(ButtonWidget.builder(
-                Text.translatable("ottoextra.settings.discard"), b -> {
-                    boolean oldNobilityColor = config.rpnames.nobilityColorForAllTitles;
-                    config.restoreFrom(snapshot);
-                    if (oldNobilityColor != config.rpnames.nobilityColorForAllTitles) {
-                        de.ottoextra.rpnames.chat.ChatHistoryRefresh.request();
-                    }
-                    if (client != null) {
-                        client.setScreen(parent);
-                    }
-                }).dimensions(width / 2 - 154, fy, 150, 20).build());
+                Text.translatable("ottoextra.settings.discard"), b -> session.discardAndClose())
+                .dimensions(footerCenter() - 154, fy, 150, 20).build());
         addDrawableChild(ButtonWidget.builder(
-                Text.translatable("ottoextra.settings.saveQuit"), b -> saveAndClose())
-                .dimensions(width / 2 + 4, fy, 150, 20).build());
+                Text.translatable("ottoextra.settings.saveQuit"), b -> session.saveAndClose())
+                .dimensions(footerCenter() + 4, fy, 150, 20).build());
 
         rebuildContent();
     }
 
-    private void saveAndClose() {
-        config.save();
-        if (client != null) {
-            client.setScreen(parent);
-        }
-    }
-
     @Override
     public void close() {
-        saveAndClose();
+        session.saveAndClose();
     }
 
     private void rebuildContent() {
@@ -220,23 +270,34 @@ public final class OttoExtraSettingsScreen extends Screen {
         }
         rows.clear();
         if (!keepStatus) {
-            statusMessage = "";
+            session.statusMessage = "";
         }
 
         String query = searchField != null ? searchField.getText() : "";
         int y = 0;
         if (!query.isBlank()) {
-            List<SettingsRegistry.SearchHit> hits =
-                    registry.search(query, k -> Text.translatable(k).getString());
-            for (SettingsRegistry.SearchHit hit : hits) {
-                Text crumb = Text.literal(
-                                Text.translatable(hit.module().titleKey()).getString() + " › ")
-                        .formatted(Formatting.GRAY)
-                        .append(Text.translatable(hit.option().labelKey)
-                                .copy().formatted(Formatting.WHITE));
-                y = addOptionRow(y, hit.option(), crumb);
+            String q = query.toLowerCase(Locale.ROOT).trim();
+            int hits = 0;
+            for (SettingsModel.Cat cat : allCats) {
+                for (SettingsModel.Pg pg : cat.pages()) {
+                    for (SettingsModel.Sec sec : pg.sections()) {
+                        for (SettingsModel.Item item : sec.items()) {
+                            SettingsRegistry.Option o = item.option();
+                            if (!matches(o, q)) {
+                                continue;
+                            }
+                            String path = Text.translatable(cat.titleKey()).getString() + " › "
+                                    + (cat.other() ? "" : Text.translatable(sec.titleKey())
+                                    .getString() + " › ");
+                            Text crumb = Text.literal(path).formatted(Formatting.GRAY)
+                                    .append(labelText(o).copy().formatted(Formatting.WHITE));
+                            y = addOptionRow(y, o, crumb);
+                            hits++;
+                        }
+                    }
+                }
             }
-            if (hits.isEmpty()) {
+            if (hits == 0) {
                 Row none = new Row();
                 none.baseY = y;
                 none.header = true;
@@ -244,21 +305,33 @@ public final class OttoExtraSettingsScreen extends Screen {
                 rows.add(none);
                 y += ROW_H;
             }
-        } else if (selectedModule >= registry.modules().size()) {
-            y = buildBackupsPage(y);
         } else {
-            SettingsRegistry.ModulePage module = registry.modules().get(selectedModule);
-            if (selectedTab >= module.tabs().size()) {
+            SettingsModel.Cat cat = cats.get(selectedModule);
+            if (selectedTab >= cat.pages().size()) {
                 selectedTab = 0;
             }
+            SettingsModel.Pg page = cat.pages().get(selectedTab);
+            boolean backups = SettingsLayout.BACKUPS_CATEGORY.equals(cat.id())
+                    && selectedTab == cat.pages().size() - 1;
 
-            if (module.tabs().size() > 1) {
+            Row intro = new Row();
+            intro.baseY = y;
+            intro.header = true;
+            intro.descLines = textRenderer.wrapLines(
+                    Text.translatable(page.sections().isEmpty() && !backups
+                            ? "ottoextra.settings.empty" : cat.descKey())
+                            .copy().formatted(Formatting.GRAY), contentW());
+            intro.height = intro.descLines.size() * 10 + 6;
+            rows.add(intro);
+            y += intro.height;
+
+            if (cat.pages().size() > 1) {
                 Row tabRow = new Row();
                 tabRow.baseY = y;
                 int sx = contentX();
-                for (int t = 0; t < module.tabs().size(); t++) {
+                for (int t = 0; t < cat.pages().size(); t++) {
                     final int tabIdx = t;
-                    Text label = Text.translatable(module.tabs().get(t).titleKey());
+                    Text label = Text.translatable(cat.pages().get(t).titleKey());
                     int w = textRenderer.getWidth(label) + 14;
                     ButtonWidget b = ButtonWidget.builder(label, btn -> {
                         selectedTab = tabIdx;
@@ -273,27 +346,50 @@ public final class OttoExtraSettingsScreen extends Screen {
                 rows.add(tabRow);
                 y += ROW_H;
             }
-            for (SettingsRegistry.Card card : module.tabs().get(selectedTab).cards()) {
+            for (SettingsModel.Sec sec : page.sections()) {
                 y += SECTION_GAP;
                 int sectionStart = rows.size();
                 Row header = new Row();
                 header.baseY = y;
                 header.header = true;
-                header.label = Text.translatable(card.titleKey());
+                header.label = Text.translatable(sec.titleKey());
                 header.descLines = textRenderer.wrapLines(
-                        Text.translatable(card.descKey()).copy().formatted(Formatting.GRAY),
+                        Text.translatable(sec.descKey()).copy().formatted(Formatting.GRAY),
                         contentW());
                 header.height = 14 + header.descLines.size() * 10 + 4;
                 rows.add(header);
                 y += header.height;
-                for (SettingsRegistry.Option option : card.options()) {
-                    y = addOptionRow(y, option, Text.translatable(option.labelKey));
+
+                String stateKey = cat.id() + "/" + sec.titleKey();
+                boolean open = SettingsModel.isExpanded(sec.items(), expanded.get(stateKey));
+                SettingsModel.Visible vis = SettingsModel.visible(sec.items(), SettingsSession.expertMode, open);
+                for (SettingsModel.Item item : vis.shown()) {
+                    y = addOptionRow(y, item.option(), labelText(item.option()));
+                }
+                if (vis.toggle()) {
+                    Row toggle = new Row();
+                    toggle.baseY = y;
+                    Text label = vis.expanded()
+                            ? Text.translatable("ottoextra.settings.lessOptions")
+                            : Text.translatable("ottoextra.settings.moreOptions", vis.hidden());
+                    ButtonWidget b = ButtonWidget.builder(label, btn -> {
+                        expanded.put(stateKey, !vis.expanded());
+                        rebuildContent();
+                    }).dimensions(contentX(), 0, contentW() - 4, 18).build();
+                    toggle.widgets.add(b);
+                    addDrawableChild(b);
+                    rows.add(toggle);
+                    y += ROW_H;
                 }
                 for (int i = sectionStart; i < rows.size(); i++) {
                     rows.get(i).section = true;
                 }
                 rows.get(sectionStart).sectionFirst = true;
                 rows.get(rows.size() - 1).sectionLast = true;
+            }
+            if (backups) {
+                y += SECTION_GAP;
+                y = buildBackupsPage(y);
             }
             y += SECTION_GAP;
         }
@@ -307,15 +403,14 @@ public final class OttoExtraSettingsScreen extends Screen {
         Row row = new Row();
         row.baseY = y;
         row.label = label;
-        if (option.tooltipKey != null) {
-            row.tooltip = Text.translatable(option.tooltipKey);
-        }
+        Text help = helpText(option);
+        row.tooltip = help;
         int resetX = contentX() + contentW() - RESET_W;
         int valueX = resetX - 4 - VALUE_W;
 
         ClickableWidget value = createValueWidget(option, valueX, VALUE_W);
-        if (option.tooltipKey != null) {
-            value.setTooltip(Tooltip.of(Text.translatable(option.tooltipKey)));
+        if (help != null) {
+            value.setTooltip(Tooltip.of(help));
         }
         row.widgets.add(value);
         addDrawableChild(value);
@@ -325,13 +420,14 @@ public final class OttoExtraSettingsScreen extends Screen {
             ButtonWidget reset = ButtonWidget.builder(
                     Text.translatable("ottoextra.settings.reset"), b -> {
                         if (def != null) {
-                            try {
-                                option.set.accept(def);
-                            } catch (Exception ignored) {
-                            }
+                            session.reset(option);
                             rebuildContent();
                         }
                     }).dimensions(resetX, 0, RESET_W, 18).build();
+            if (def != null) {
+                reset.setTooltip(Tooltip.of(Text.translatable("ottoextra.settings.default",
+                        defaultText(option, def))));
+            }
             row.widgets.add(reset);
             addDrawableChild(reset);
         }
@@ -351,26 +447,16 @@ public final class OttoExtraSettingsScreen extends Screen {
             }
             case CYCLE -> {
                 return ButtonWidget.builder(cycleLabel(o), btn -> {
-                    String value = o.get.get();
-                    String[] vals = o.cycleValues;
-                    int idx = 0;
-                    for (int i = 0; i < vals.length; i++) {
-                        if (vals[i].equals(value)) {
-                            idx = i;
-                            break;
-                        }
-                    }
-                    o.set.accept(vals[(idx + 1) % vals.length]);
+                    SettingsSession.cycle(o);
                     btn.setMessage(cycleLabel(o));
                 }).dimensions(x, 0, w, 18).build();
             }
             case ACTION -> {
-                return ButtonWidget.builder(Text.translatable(o.labelKey + ".button"),
-                                btn -> o.action.run())
+                return ButtonWidget.builder(buttonText(o), btn -> o.action.run())
                         .dimensions(x, 0, w + 4 + RESET_W, 18).build();
             }
             case SLIDER -> {
-                return new OptionSlider(x, w, o);
+                return new OptionSlider(x, w, 18, o);
             }
             default -> {
                 TextFieldWidget f = new TextFieldWidget(textRenderer, x, 0,
@@ -390,66 +476,6 @@ public final class OttoExtraSettingsScreen extends Screen {
                 return f;
             }
         }
-    }
-
-    private static final class OptionSlider extends net.minecraft.client.gui.widget.SliderWidget {
-        private final SettingsRegistry.Option opt;
-
-        OptionSlider(int x, int w, SettingsRegistry.Option o) {
-            super(x, 0, w, 18, Text.empty(), normalized(o));
-            this.opt = o;
-            updateMessage();
-        }
-
-        private static double normalized(SettingsRegistry.Option o) {
-            double v;
-            try {
-                v = Double.parseDouble(o.get.get().trim().replace(',', '.'));
-            } catch (Exception e) {
-                v = o.min;
-            }
-            double span = o.max - o.min;
-            return span <= 0 ? 0 : Math.max(0, Math.min(1, (v - o.min) / span));
-        }
-
-        private int current() {
-            return (int) Math.round(opt.min + value * (opt.max - opt.min));
-        }
-
-        @Override
-        protected void updateMessage() {
-            setMessage(Text.literal(current() + "%"));
-        }
-
-        @Override
-        protected void applyValue() {
-            opt.set.accept(String.valueOf(current()));
-        }
-    }
-
-    private static Text boolLabel(SettingsRegistry.Option o) {
-        boolean on = Boolean.parseBoolean(o.get.get());
-        return on
-                ? Text.translatable("ottoextra.settings.on").formatted(Formatting.GREEN)
-                : Text.translatable("ottoextra.settings.off").formatted(Formatting.RED);
-    }
-
-    private void openMinimapBannerEditor() {
-        if (!de.ottoextra.map.MinimapBannerScreenFactory.isAvailable()) {
-            statusMessage = Text.translatable("ottoextra.map.bannerEdit.requiresMinimap").getString();
-            statusWarn = true;
-            return;
-        }
-        open(de.ottoextra.map.MinimapBannerScreenFactory.create(this, config));
-    }
-
-    private static Text cycleLabel(SettingsRegistry.Option option) {
-        String value = option.get.get();
-        if ("regions.activityHudPosition".equals(option.configKey)) {
-            return Text.translatable("ottoextra.activityHud.position."
-                    + value.toLowerCase(Locale.ROOT));
-        }
-        return Text.literal(value);
     }
 
     private int buildBackupsPage(int y) {
@@ -479,26 +505,7 @@ public final class OttoExtraSettingsScreen extends Screen {
         repairRow.baseY = y;
         ButtonWidget repair = ButtonWidget.builder(
                 Text.translatable("ottoextra.settings.backups.rpRepair.run"), b -> {
-                    var store = de.ottoextra.rpnames.RpNamesServices.store();
-                    if (store == null) {
-                        status("ottoextra.settings.backups.rpRepair.failed", true);
-                    } else {
-                        var result = store.repairData();
-                        switch (result.status()) {
-                            case HEALTHY -> status(
-                                    "ottoextra.settings.backups.rpRepair.healthy", false);
-                            case RESTORED -> {
-                                status("ottoextra.settings.backups.rpRepair.restored", false);
-                                de.ottoextra.rpnames.chat.ChatHistoryRefresh.request();
-                            }
-                            case NO_DATA -> status(
-                                    "ottoextra.settings.backups.rpRepair.noData", true);
-                            case NO_VALID_BACKUP -> status(
-                                    "ottoextra.settings.backups.rpRepair.noBackup", true);
-                            case FAILED -> status(
-                                    "ottoextra.settings.backups.rpRepair.failed", true);
-                        }
-                    }
+                    session.runRpRepair();
                     rebuildContent(true);
                 }).dimensions(contentX(), 0, 210, 18).build();
         repairRow.widgets.add(repair);
@@ -510,12 +517,7 @@ public final class OttoExtraSettingsScreen extends Screen {
         createRow.baseY = y;
         ButtonWidget create = ButtonWidget.builder(
                 Text.translatable("ottoextra.settings.backups.create"), b -> {
-                    try {
-                        OttoExtraBackupService.createBackup();
-                        status("ottoextra.settings.backups.created", false);
-                    } catch (Exception e) {
-                        status("ottoextra.settings.backups.failed", true);
-                    }
+                    session.createBackup();
                     rebuildContent(true);
                 }).dimensions(contentX(), 0, 170, 18).build();
         createRow.widgets.add(create);
@@ -529,27 +531,14 @@ public final class OttoExtraSettingsScreen extends Screen {
             row.label = Text.literal(entry.name() + "  ").append(
                     Text.translatable("ottoextra.settings.backups.files", entry.files())
                             .formatted(Formatting.GRAY));
-            boolean confirming = entry.dir().equals(pendingRestore);
+            boolean confirming = entry.dir().equals(session.pendingRestore);
             Text btnLabel = confirming
                     ? Text.translatable("ottoextra.settings.backups.confirm")
                     .formatted(Formatting.RED)
                     : Text.translatable("ottoextra.settings.backups.restore");
             int bw = Math.max(120, textRenderer.getWidth(btnLabel) + 12);
             ButtonWidget restore = ButtonWidget.builder(btnLabel, b -> {
-                if (confirming) {
-                    String beforeRestore = config.snapshotJson();
-                    boolean ok = OttoExtraBackupService.restoreBackup(entry.dir());
-                    if (ok || !beforeRestore.equals(config.snapshotJson())) {
-                        snapshot = config.snapshotJson();
-                        de.ottoextra.rpnames.chat.ChatHistoryRefresh.request();
-                    }
-                    status(ok ? "ottoextra.settings.backups.restored"
-                            : "ottoextra.settings.backups.failed", !ok);
-                    pendingRestore = null;
-                } else {
-                    pendingRestore = entry.dir();
-                }
-                rebuildContent(confirming);
+                rebuildContent(session.pressRestore(entry));
             }).dimensions(contentX() + contentW() - bw, 0, bw, 18).build();
             row.widgets.add(restore);
             addDrawableChild(restore);
@@ -557,11 +546,6 @@ public final class OttoExtraSettingsScreen extends Screen {
             y += ROW_H;
         }
         return y;
-    }
-
-    private void status(String key, boolean warn) {
-        statusMessage = Text.translatable(key).getString();
-        statusWarn = warn;
     }
 
     private void layoutRows() {
@@ -592,7 +576,7 @@ public final class OttoExtraSettingsScreen extends Screen {
     @Override
     public boolean keyPressed(KeyInput input) {
         if (input.key() == GLFW.GLFW_KEY_S && input.hasCtrlOrCmd()) {
-            saveAndClose();
+            session.saveAndClose();
             return true;
         }
         return super.keyPressed(input);
@@ -656,13 +640,13 @@ public final class OttoExtraSettingsScreen extends Screen {
             ctx.fill(x, barY, x + 4, barY + barH, 0xCC808080);
         }
 
-        if (!statusMessage.isEmpty()) {
-            ctx.drawTextWithShadow(textRenderer, Text.literal(statusMessage),
-                    contentX(), bottom + 2, statusWarn ? COL_WARN : COL_STATUS);
-        } else if (!config.snapshotJson().equals(snapshot)) {
+        if (!session.statusMessage.isEmpty()) {
+            ctx.drawTextWithShadow(textRenderer, Text.literal(session.statusMessage),
+                    contentX(), bottom + 2, session.statusWarn ? COL_WARN : COL_STATUS);
+        } else if (session.isDirty()) {
             ctx.drawCenteredTextWithShadow(textRenderer,
                     Text.translatable("ottoextra.settings.dirty"),
-                    width / 2, bottom + 2, COL_DESC);
+                    footerCenter(), bottom + 2, COL_DESC);
         }
         if (!OttoExtraBackupService.isBackupOk()) {
             ctx.drawTextWithShadow(textRenderer,
@@ -730,7 +714,7 @@ public final class OttoExtraSettingsScreen extends Screen {
             }
 
             if (mx >= tabMenuX && mx <= tabMenuX + tabMenuW
-                    && my >= tabMenuY && my < tabMenuY + 16) {
+                    && my >= tabMenuY && my < tabMenuY + SIDE_BTN_H) {
                 return super.mouseClicked(click, doubled);
             }
 
