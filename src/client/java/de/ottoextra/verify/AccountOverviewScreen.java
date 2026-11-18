@@ -205,7 +205,8 @@ public final class AccountOverviewScreen extends Screen {
         int metricH = 51;
         metric(ctx, x, y, metricW, metricH,
                 Text.translatable("ottoextra.account.heller").getString(),
-                NumberFormat.getIntegerInstance(Locale.GERMANY).format(profile.money()), GOLD);
+                profile.money() == null ? "–"
+                        : NumberFormat.getIntegerInstance(Locale.GERMANY).format(profile.money()), GOLD);
         metric(ctx, x + metricW + gap, y, w - metricW - gap, metricH,
                 Text.translatable("ottoextra.account.state").getString(),
                 safe(profile.state()), BLUE);
