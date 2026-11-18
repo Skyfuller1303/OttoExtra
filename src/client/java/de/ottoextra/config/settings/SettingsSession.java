@@ -64,13 +64,14 @@ final class SettingsSession {
                 () -> open(new de.ottoextra.config.FollowingScreen(owner, config)),
                 () -> open(new de.ottoextra.config.ChatChannelColorsScreen(owner, config)),
                 () -> open(new de.ottoextra.animalinfo.AnimalInfoEditScreen(owner, config)));
-        de.ottoextra.ui.hudlayout.HudLayoutSettings.register(this.registry,
-                () -> open(new de.ottoextra.ui.hudlayout.HudLayoutEditorScreen(owner)));
+        de.ottoextra.ui.hudlayout.HudLayoutSettings.register(this.registry, config,
+                () -> open(de.ottoextra.ui.hudlayout.HudLayoutEditorScreen.create(owner)));
         de.ottoextra.addon.OttoExtraAddons.registerSettings(this.registry);
         this.allCats = SettingsModel.build(this.registry, true);
         SettingsRegistry defaultRegistry = SettingsRegistry.build(new OttoExtraConfig(),
                 () -> { }, () -> { }, () -> { }, () -> { }, () -> { }, () -> { },
                 () -> { }, () -> { }, () -> { });
+        de.ottoextra.ui.hudlayout.HudLayoutSettings.register(defaultRegistry, new OttoExtraConfig(), () -> { });
         de.ottoextra.addon.OttoExtraAddons.registerDefaultSettings(defaultRegistry);
         for (SettingsRegistry.ModulePage m : defaultRegistry.modules()) {
             for (SettingsRegistry.Tab t : m.tabs()) {

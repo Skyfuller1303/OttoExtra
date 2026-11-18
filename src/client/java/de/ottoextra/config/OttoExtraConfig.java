@@ -22,6 +22,8 @@ public final class OttoExtraConfig {
     private transient boolean persistenceBlocked;
 
     public Api api = new Api();
+    /** Keeps HUD panels from overlapping: a growing panel pushes later ones away. */
+    public boolean hudFlowEnabled = true;
     public Map map = new Map();
     public Regions regions = new Regions();
     public RpNames rpnames = new RpNames();
@@ -32,6 +34,9 @@ public final class OttoExtraConfig {
     public Consent consent = new Consent();
     public AnimalInfo animalInfo = new AnimalInfo();
     public Tweaks tweaks = new Tweaks();
+    public Crafting crafting = new Crafting();
+    public Debug debug = new Debug();
+    public Conditions conditions = new Conditions();
 
     /** Preferred settings screen: "book" or "classic". */
     public String settingsView = "book";
@@ -107,6 +112,10 @@ public final class OttoExtraConfig {
          */
         public String toastStyle;
         public boolean hideAutomaticChat = true;
+        /** No info panel for the animal the player is riding. */
+        public boolean hideOwnMount = true;
+        /** Base address of the code-based farm sharing service (https, or http for localhost). */
+        public String farmShareBaseUrl = "https://ottoextra.dev";
         public boolean nametagShowGender = false;
         public boolean nametagGenderColor = false;
         public boolean nametagIncludeUnregistered = false;
@@ -397,6 +406,62 @@ public final class OttoExtraConfig {
             speedScale = repairAnimalInfoScale(speedScale, defaults.speedScale);
             statusScale = repairAnimalInfoScale(statusScale, defaults.statusScale);
         }
+    }
+
+    /** Conditions (Leiden/Status) from the server menu; see docs/zustand-protokoll.md. */
+    public static final class Conditions {
+        /** Briefly opens the server menu now and then to read the conditions. */
+        public boolean autoCheck = true;
+        /** Auto check reads the menu without showing it (packet take-over); false = menu visibly opens. */
+        public boolean hiddenCheck = true;
+        public int intervalMinutes = 5;
+        /** Share own conditions with other OttoExtra players (needs online consent and a linked account). */
+        public boolean share = true;
+        /** 1: sharing was switched on once when it became the default (0.18.0). */
+        public int shareDefaultVersion;
+        /** Show shared conditions of other players at their name tag. */
+        public boolean showOthers = true;
+        /** True while a shared state may exist on the server; cleared after a successful DELETE (off means delete). */
+        public boolean serverCopy = false;
+        /** Small HUD list of the own conditions. */
+        public boolean hud = false;
+        public String hudCorner = "TOP_LEFT";
+        public int hudOffsetX = 4;
+        public int hudOffsetY = 60;
+        public String baseUrl = "https://ottoextra.dev";
+    }
+
+    /** Developer diagnostics; local logging only. */
+    public static final class Debug {
+        /** Log where the server shows a player's ailments (Leiden); logger ottoextra/leiden. */
+        public boolean ailmentTrace = false;
+    }
+
+    /** Werkstatt side panel of the crafting stations (see docs/werkstatt.md). */
+    public static final class Crafting {
+        /** Side panel at the Zeugtisch: recipes from lore, ingredients, fire and one-click crafting. */
+        public boolean werkstattEnabled = false;
+        /** Dauerbetrieb: repeat jobs on its own. Only if the server rules allow it. */
+        public boolean werkstattAutoRun = false;
+        /** While a continuous job runs: mouse look and movement keys are ignored, so the station stays in reach. */
+        public boolean werkstattLockView = true;
+        /** Light a fire with the chosen fuel when the estimated fire is almost out. */
+        public boolean werkstattAutoRefuel = true;
+        public boolean werkstattStopOnMove = true;
+        public boolean werkstattStopOnDamage = true;
+        public boolean werkstattStopOnOtherGui = true;
+        public boolean werkstattStopOnFull = true;
+        public boolean werkstattStopOnUnfocus = true;
+        /** Continue with the next queued job when one stops. */
+        public boolean werkstattNextOnError = false;
+        /** Running-job bar while the station is closed. */
+        public boolean werkstattHud = true;
+        /** Anchor of the bar; TOP_CENTER joins the top-centre column below the boss bars. */
+        public String werkstattHudCorner = "TOP_CENTER";
+        public int werkstattHudOffsetX = 0;
+        public int werkstattHudOffsetY = 0;
+        /** 1: the old never-moved TOP_LEFT default was moved to the top centre once. */
+        public int werkstattHudLayoutVersion;
     }
 
     public static final class Tweaks {
@@ -709,7 +774,9 @@ public final class OttoExtraConfig {
         public String theme = "light";
 
         /** "classic" = toast box with theme; otherwise a procedural zone banner style id. */
-        public String zoneBannerStyle = "classic";
+        public String zoneBannerStyle = "plakette";
+        /** 1: the old "classic" default was switched to "plakette" once (0.18.0). */
+        public int zoneBannerStyleVersion;
 
         public java.util.List<RegionTheme> customThemes = new java.util.ArrayList<>();
 
@@ -1095,6 +1162,14 @@ public final class OttoExtraConfig {
         if (api == null) api = new Api();
         if (map == null) map = new Map();
         if (regions == null) regions = new Regions();
+        if (regions.zoneBannerStyleVersion < 1) {
+            // One-time switch: the region-entry banner defaults to the "Plakette" design since 0.18.0.
+            // Only the old default "classic" follows; any other chosen style stays.
+            if (regions.zoneBannerStyle == null || "classic".equals(regions.zoneBannerStyle)) {
+                regions.zoneBannerStyle = "plakette";
+            }
+            regions.zoneBannerStyleVersion = 1;
+        }
         if (rpnames == null) rpnames = new RpNames();
         if (rpnames.meetDefaultVersion == null) {
             // One-time switch: the proactive meet dialog used to default to on and is now opt-in.
@@ -1108,6 +1183,28 @@ public final class OttoExtraConfig {
         if (consent == null) consent = new Consent();
         if (animalInfo == null) animalInfo = new AnimalInfo();
         if (tweaks == null) tweaks = new Tweaks();
+        if (crafting == null) crafting = new Crafting();
+        if (crafting.werkstattHudCorner == null) crafting.werkstattHudCorner = "TOP_CENTER";
+        if (crafting.werkstattHudLayoutVersion < 1) {
+            // One-time switch: the Werkstatt bar now defaults to the top centre. Only a bar that was never
+            // moved (old default TOP_LEFT 4/4) follows; a placement chosen in the layout editor stays.
+            if ("TOP_LEFT".equals(crafting.werkstattHudCorner)
+                    && crafting.werkstattHudOffsetX == 4 && crafting.werkstattHudOffsetY == 4) {
+                crafting.werkstattHudCorner = "TOP_CENTER";
+                crafting.werkstattHudOffsetX = 0;
+                crafting.werkstattHudOffsetY = 0;
+            }
+            crafting.werkstattHudLayoutVersion = 1;
+        }
+        if (conditions == null) conditions = new Conditions();
+        if (debug == null) debug = new Debug();
+        if (conditions.shareDefaultVersion < 1) {
+            // One-time switch: sharing the own conditions is on by default since 0.18.0 (configs written by
+            // the pre-release dev builds still carry the old false). Online consent and a linked account
+            // remain required before anything is sent.
+            conditions.share = true;
+            conditions.shareDefaultVersion = 1;
+        }
         if (tweaks.lowHealth == null) tweaks.lowHealth = new Tweaks.LowHealth();
         if (tweaks.toolProtect == null) tweaks.toolProtect = new Tweaks.ToolProtect();
         if (tweaks.vote == null) tweaks.vote = new VoteReminderConfig();
@@ -1331,6 +1428,9 @@ public final class OttoExtraConfig {
         tweaks.combatModeHud = parsed.tweaks.combatModeHud;
         tweaks.craftingHud = parsed.tweaks.craftingHud;
         tweaks.craftingHudSounds = parsed.tweaks.craftingHudSounds;
+        if (parsed.crafting != null) copyFields(parsed.crafting, crafting);
+        if (parsed.debug != null) copyFields(parsed.debug, debug);
+        if (parsed.conditions != null) copyFields(parsed.conditions, conditions);
         // Local logging decisions, like online consent, survive Cancel and backup restore.
         copyFields(parsed.tweaks.lowHealth, tweaks.lowHealth);
         copyFields(parsed.tweaks.toolProtect, tweaks.toolProtect);

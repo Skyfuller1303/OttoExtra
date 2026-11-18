@@ -5,6 +5,7 @@
   "compatibilityLevel": "JAVA_21",
   "client": [
     "ClientPlayNetworkHandlerMixin",
+    "HiddenMenuCheckMixin",
     "ChatHudMixin",
     "ChatHudAccessor",
     "BossBarHudAccessor",
@@ -14,19 +15,28 @@
     "compat.bettertab.BetterTabToolsMixin",
     "PlayerEntityRendererMixin",
     "EntityGlowMixin",
+    "AnimalObservationMixin",
     "EntityRendererMixin",
     "ChatScreenMixin",
     "ChatPlayerClickMixin",
     "ChatCommandSyncMixin",
     "PlayerCustomizationAccessor",
     "GuiMapMixin",
+    "XaeroControlsHandlerMixin",
+    "XaeroWorldMapCoreMixin",
+    "InGameHudWorldMapMixin",
     "WorldMapOverlayMixin",
     "compat.xaeroplus.XaeroPlusDrawManagerMixin",
     "compat.litematica.LitematicaOverlayRendererMixin",
     "compat.litematica.LitematicaInventoryUtilsMixin",
     "ChatMessageSplitMixin",
     "GameRendererBlurMixin",
-    "HorseEntityVariantInvoker"
+    "HorseEntityVariantInvoker",
+    "HandledScreenAccessor",
+    "WerkstattScreenPanelMixin",
+    "WerkstattMouseLockMixin",
+    "WerkstattMovementLockMixin",
+    "WerkstattHandledScreenAccessor"
   ],
   "injectors": {
     "defaultRequire": 1

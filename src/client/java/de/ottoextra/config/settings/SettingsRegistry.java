@@ -329,7 +329,13 @@ public final class SettingsRegistry {
                 Option.cycle("ottoextra.config.regions.position", "regions.overlayPosition",
                         () -> c.regions.overlayPosition, v -> c.regions.overlayPosition = v,
                         "TOP_CENTER", "TOP_RIGHT", "TOP_LEFT", "CENTER"),
+                Option.cycle("ottoextra.config.regions.zoneBannerStyle", "regions.zoneBannerStyle",
+                        () -> c.regions.zoneBannerStyle == null ? "plakette" : c.regions.zoneBannerStyle,
+                        v -> c.regions.zoneBannerStyle = v,
+                        de.ottoextra.regions.zonebanner.ZoneBannerStyles.ids()),
                 Option.action("ottoextra.config.regions.themes", "regions.themes", openRegionThemes),
+                Option.action("ottoextra.config.regions.refreshData", "regions.refreshData",
+                        de.ottoextra.regions.RegionsServices::refreshToChat),
                 Option.action("ottoextra.config.preview", "regions.preview",
                         de.ottoextra.config.OttoExtraConfigScreen::triggerPreview));
         var regAdv = tab(reg, "ottoextra.set.tab.advanced");
@@ -439,7 +445,9 @@ public final class SettingsRegistry {
                 Option.bool("ottoextra.config.map.minimapPainted", "map.minimapPainted",
                         () -> c.map.minimapPainted, v -> c.map.minimapPainted = v),
                 Option.bool("ottoextra.config.map.minimapPolitical", "map.minimapPolitical",
-                        () -> c.map.minimapPolitical, v -> c.map.minimapPolitical = v));
+                        () -> c.map.minimapPolitical, v -> c.map.minimapPolitical = v),
+                Option.bool("ottoextra.config.map.worldMapOpenAnimation", "map.worldMapOpenAnimation",
+                        () -> c.map.worldMapOpenAnimation, v -> c.map.worldMapOpenAnimation = v));
         card(mapMini, "ottoextra.set.map.hud", "ottoextra.set.map.hud.desc",
                 Option.bool("ottoextra.config.map.minimapBanner", "map.minimapBanner",
                         () -> c.map.minimapBanner, v -> c.map.minimapBanner = v),
@@ -627,6 +635,9 @@ public final class SettingsRegistry {
                 Option.bool("ottoextra.set.letter.openRecipientAfterWrite", "letter.openRecipientAfterWrite",
                         () -> c.letter.openRecipientAfterWrite, v -> c.letter.openRecipientAfterWrite = v)
                         .tooltip("ottoextra.set.letter.openRecipientAfterWrite.tip"),
+                Option.bool("ottoextra.set.letter.exportSubfoldersByPlayer", "letter.exportSubfoldersByPlayer",
+                        () -> c.letter.exportSubfoldersByPlayer, v -> c.letter.exportSubfoldersByPlayer = v)
+                        .tooltip("ottoextra.set.letter.exportSubfoldersByPlayer.tip"),
                 Option.action("ottoextra.config.letter.open", "letter.open", openLetterEditor));
         card(letterBase, "ottoextra.set.letter.formatting", "ottoextra.set.letter.formatting.desc",
                 Option.bool("ottoextra.config.letter.formattingEnabled", "letter.formattingEnabled",
@@ -640,7 +651,12 @@ public final class SettingsRegistry {
                         v -> c.letter.formattingConvertAmpersandOnPaste = v)
                         .tooltip("ottoextra.set.letter.formattingPaste.tip"),
                 Option.bool("ottoextra.config.letter.preview", "letter.previewEnabled",
-                        () -> c.letter.previewEnabled, v -> c.letter.previewEnabled = v));
+                        () -> c.letter.previewEnabled, v -> c.letter.previewEnabled = v),
+                Option.string("ottoextra.config.letter.signature", "letter.signature",
+                        () -> c.letter.signature == null ? ""
+                                : c.letter.signature.replace("\n", "\\n"),
+                        v -> c.letter.signature = v.replace("\\n", "\n"))
+                        .tooltip("ottoextra.set.letter.signature.tip"));
         var letterAdv = tab(letter, "ottoextra.set.tab.advanced");
         card(letterAdv, "ottoextra.set.letter.commands", "ottoextra.set.letter.commands.desc",
                 Option.command("ottoextra.set.letter.letterCommand", "letter.letterCommand",
@@ -685,8 +701,17 @@ public final class SettingsRegistry {
                         () -> c.animalInfo.hideAutomaticChat,
                         v -> c.animalInfo.hideAutomaticChat = v)
                         .tooltip("ottoextra.set.animalinfo.hideChat.tip"),
+                Option.bool("ottoextra.config.animalinfo.hideOwnMount", "animalInfo.hideOwnMount",
+                        () -> c.animalInfo.hideOwnMount,
+                        v -> c.animalInfo.hideOwnMount = v)
+                        .tooltip("ottoextra.set.animalinfo.hideOwnMount.tip"),
                 Option.action("ottoextra.config.animalinfo.layout",
                         "animalInfo.layout", openAnimalInfoEdit));
+        card(animalInfoBase, "ottoextra.set.animalinfo.style", "ottoextra.set.animalinfo.style.desc",
+                Option.cycle("ottoextra.config.animalinfo.toastStyle", "animalInfo.toastStyle",
+                        () -> c.animalInfo.toastStyle().id(), v -> c.animalInfo.toastStyle = v,
+                        de.ottoextra.animalinfo.AnimalToastStyle.ids())
+                        .tooltip("ottoextra.set.animalinfo.style.tip"));
         card(animalInfoBase, "ottoextra.set.animalinfo.nametag",
                 "ottoextra.set.animalinfo.nametag.desc",
                 Option.bool("ottoextra.config.animalinfo.nametagShowGender", "animalInfo.nametagShowGender",
@@ -700,13 +725,22 @@ public final class SettingsRegistry {
                         .tooltip("ottoextra.set.animalinfo.nametagIncludeUnregistered.tip"));
         card(animalInfoBase, "ottoextra.set.animalinfo.glow", "ottoextra.set.animalinfo.glow.desc",
                 Option.bool("ottoextra.config.animalinfo.genderGlowEnabled", "animalInfo.genderGlowEnabled",
-                        () -> false, v -> c.animalInfo.genderGlowEnabled = false)
-                        .tooltip("ottoextra.set.animalinfo.glow.tip"));
+                        () -> c.animalInfo.genderGlowEnabled, v -> c.animalInfo.genderGlowEnabled = v)
+                        .tooltip("ottoextra.set.animalinfo.glow.tip"),
+                Option.bool("ottoextra.config.animalinfo.breedingGlowEnabled", "animalInfo.breedingGlowEnabled",
+                        () -> c.animalInfo.breedingGlowEnabled, v -> c.animalInfo.breedingGlowEnabled = v)
+                        .tooltip("ottoextra.set.animalinfo.breedingGlow.tip"),
+                Option.bool("ottoextra.config.animalinfo.shearGlowEnabled", "animalInfo.shearGlowEnabled",
+                        () -> c.animalInfo.shearGlowEnabled, v -> c.animalInfo.shearGlowEnabled = v)
+                        .tooltip("ottoextra.set.animalinfo.shearGlow.tip"));
         var animalInfoAdvanced = tab(animalInfo, "ottoextra.set.tab.advanced");
         card(animalInfoAdvanced, "ottoextra.set.animalinfo.localCache", "ottoextra.set.animalinfo.localCache.desc",
                 Option.bool("ottoextra.config.animalinfo.rememberAnimalIdentities", "animalInfo.rememberAnimalIdentities",
                         () -> c.animalInfo.rememberAnimalIdentities, v -> c.animalInfo.rememberAnimalIdentities = v)
-                        .tooltip("ottoextra.set.animalinfo.localCache.tip"));
+                        .tooltip("ottoextra.set.animalinfo.localCache.tip"),
+                Option.action("ottoextra.config.animalinfo.forgetAnimals", "animalInfo.forgetAnimals",
+                        de.ottoextra.horses.HorseRegistry::forgetLocalAnimals)
+                        .tooltip("ottoextra.set.animalinfo.forgetAnimals.tip"));
         card(animalInfoAdvanced, "ottoextra.set.animalinfo.overview", "ottoextra.set.animalinfo.overview.desc",
                 Option.bool("ottoextra.horses.filter.cows", "animalInfo.overviewShowCows",
                         () -> c.animalInfo.overviewShowCows, v -> c.animalInfo.overviewShowCows = v),
@@ -757,6 +791,37 @@ public final class SettingsRegistry {
                 Option.bool("ottoextra.config.tweaks.craftingHudSounds", "tweaks.craftingHudSounds",
                         () -> c.tweaks.craftingHudSounds, v -> c.tweaks.craftingHudSounds = v)
                         .tooltip("ottoextra.set.tweaks.craftingHudSounds.tip"));
+        card(tweaksBase, "ottoextra.set.crafting.werkstatt", "ottoextra.set.crafting.werkstatt.desc",
+                Option.bool("ottoextra.config.crafting.werkstattEnabled", "crafting.werkstattEnabled",
+                        () -> c.crafting.werkstattEnabled, v -> c.crafting.werkstattEnabled = v)
+                        .tooltip("ottoextra.config.crafting.werkstattEnabled.tip"),
+                Option.bool("ottoextra.config.crafting.werkstattAutoRun", "crafting.werkstattAutoRun",
+                        () -> c.crafting.werkstattAutoRun, v -> c.crafting.werkstattAutoRun = v)
+                        .tooltip("ottoextra.config.crafting.werkstattAutoRun.tip"),
+                Option.bool("ottoextra.config.crafting.werkstattLockView", "crafting.werkstattLockView",
+                        () -> c.crafting.werkstattLockView, v -> c.crafting.werkstattLockView = v)
+                        .tooltip("ottoextra.config.crafting.werkstattLockView.tip"),
+                Option.bool("ottoextra.config.crafting.werkstattHud", "crafting.werkstattHud",
+                        () -> c.crafting.werkstattHud, v -> c.crafting.werkstattHud = v),
+                Option.bool("ottoextra.config.crafting.werkstattStopOnUnfocus", "crafting.werkstattStopOnUnfocus",
+                        () -> c.crafting.werkstattStopOnUnfocus, v -> c.crafting.werkstattStopOnUnfocus = v));
+        card(tweaksBase, "ottoextra.set.conditions", "ottoextra.set.conditions.desc",
+                Option.bool("ottoextra.config.conditions.autoCheck", "conditions.autoCheck",
+                        () -> c.conditions.autoCheck, v -> c.conditions.autoCheck = v),
+                Option.bool("ottoextra.config.conditions.hiddenCheck", "conditions.hiddenCheck",
+                        () -> c.conditions.hiddenCheck, v -> c.conditions.hiddenCheck = v),
+                Option.intVal("ottoextra.config.conditions.intervalMinutes", "conditions.intervalMinutes",
+                        () -> c.conditions.intervalMinutes, v -> c.conditions.intervalMinutes = v, 1, 60),
+                Option.bool("ottoextra.config.conditions.share", "conditions.share",
+                        () -> c.conditions.share, v -> c.conditions.share = v),
+                Option.bool("ottoextra.config.conditions.showOthers", "conditions.showOthers",
+                        () -> c.conditions.showOthers, v -> c.conditions.showOthers = v),
+                Option.bool("ottoextra.config.conditions.hud", "conditions.hud",
+                        () -> c.conditions.hud, v -> c.conditions.hud = v),
+                Option.string("ottoextra.config.conditions.baseUrl", "conditions.baseUrl",
+                        () -> c.conditions.baseUrl, v -> c.conditions.baseUrl = v),
+                Option.bool("ottoextra.config.debug.ailmentTrace", "debug.ailmentTrace",
+                        () -> c.debug.ailmentTrace, v -> c.debug.ailmentTrace = v));
         card(tweaksBase, "ottoextra.set.regions.activityHud",
                 "ottoextra.set.regions.activityHud.desc",
                 Option.bool("ottoextra.config.regions.activityHudEnabled",

@@ -38,6 +38,10 @@ public final class OttoExtraClient implements ClientModInitializer {
     public void onInitializeClient() {
         de.ottoextra.privacy.LocalDataSession.initialize();
         DebugLog.registerCommand();
+        de.ottoextra.ui.hudlayout.HudLayoutSettings.registerCommand();
+        de.ottoextra.logging.GuiTrace.register();
+        de.ottoextra.ailments.AilmentTrace.register();
+        de.ottoextra.ui.complete.TabCompletion.register();
         DebugLog.debug("Initialisiere {} ...", OttoExtra.MOD_NAME);
 
         de.ottoextra.config.OttoExtraBackupService.ensurePreMigrationBackup();
@@ -61,7 +65,8 @@ public final class OttoExtraClient implements ClientModInitializer {
                 new AnimalInfoModule(),
                 new HorseRegistryModule(),
                 new de.ottoextra.tweaks.TweaksModule(),
-                new AccountLinkModule()
+                new AccountLinkModule(),
+                new de.ottoextra.ailments.ConditionsModule()
         );
         context.setModules(modules);
 

@@ -17,7 +17,13 @@
   "environment": "client",
   "entrypoints": {
     "client": [
-      "de.ottoextra.OttoExtraClient"
+      "de.ottoextra.OttoExtraClient",
+      "de.ottoextra.resources.OttoExtraResourcesClient",
+      "de.ottoextra.tacticalfactions.TacticalFactionsClient"
+    ],
+    "ottoextra": [
+      "de.ottoextra.resources.OttoExtraResourcesAddon",
+      "de.ottoextra.tacticalfactions.TacticalFactionsAddon"
     ],
     "modmenu": [
       "de.ottoextra.config.OttoExtraModMenuIntegration"
@@ -27,6 +33,14 @@
     {
       "config": "ottoextra.mixins.json",
       "environment": "client"
+    },
+    {
+      "config": "ottoextra_resources.mixins.json",
+      "environment": "client"
+    },
+    {
+      "config": "ottoextra_tacticalfactions.mixins.json",
+      "environment": "client"
     }
   ],
   "depends": {
@@ -34,6 +48,10 @@
     "minecraft": "~1.21.11",
     "java": ">=21",
     "fabric-api": ">=0.141.4+1.21.11"
+  },
+  "breaks": {
+    "ottoextra_resources": "*",
+    "ottoextra_tacticalfactions": "*"
   },
   "suggests": {
     "modmenu": "*",

@@ -71,7 +71,8 @@ public final class SettingsLayout {
             new Category("general", List.of(
                     new Page(null, List.of(
                             new Section("ottoextra.cat.general.sec.hud", List.of(
-                                    new Entry("hudlayout.open", B))),
+                                    new Entry("hudlayout.open", B),
+                                    new Entry("hudlayout.flow", B))),
                             new Section("ottoextra.cat.general.sec.resourcepack", List.of(
                                     new Entry("resourcepack.enabled", B),
                                     new Entry("resourcepack.autoEnable", B),
@@ -80,6 +81,15 @@ public final class SettingsLayout {
                                     new Entry("resourcepack.assetName", X),
                                     new Entry("resourcepack.connectTimeoutMs", X),
                                     new Entry("resourcepack.requestTimeoutMs", X))),
+                            new Section("ottoextra.cat.general.sec.conditions", List.of(
+                                    new Entry("conditions.share", B),
+                                    new Entry("conditions.showOthers", B),
+                                    new Entry("conditions.hud", B),
+                                    new Entry("conditions.autoCheck", M),
+                                    new Entry("conditions.hiddenCheck", M),
+                                    new Entry("conditions.intervalMinutes", M),
+                                    new Entry("conditions.baseUrl", X),
+                                    new Entry("debug.ailmentTrace", X))),
                             new Section("ottoextra.cat.general.sec.vote", List.of(
                                     new Entry("tweaks.vote.enabled", B),
                                     new Entry("tweaks.vote.reminderIntervalMinutes", M),
@@ -339,7 +349,8 @@ public final class SettingsLayout {
                                     new Entry("animalInfo.enabled", B),
                                     new Entry("animalInfo.toastStyle", B),
                                     new Entry("animalInfo.layout", M),
-                                    new Entry("animalInfo.hideAutomaticChat", M))),
+                                    new Entry("animalInfo.hideAutomaticChat", M),
+                                    new Entry("animalInfo.hideOwnMount", M))),
                             new Section("ottoextra.cat.animals.sec.nametags", List.of(
                                     new Entry("animalInfo.nametagShowGender", B),
                                     new Entry("animalInfo.nametagGenderColor", B),
@@ -400,6 +411,12 @@ public final class SettingsLayout {
                             new Section("ottoextra.cat.craft.sec.hud", List.of(
                                     new Entry("tweaks.craftingHud", B),
                                     new Entry("tweaks.craftingHudSounds", B))),
+                            new Section("ottoextra.cat.craft.sec.werkstatt", List.of(
+                                    new Entry("crafting.werkstattEnabled", B),
+                                    new Entry("crafting.werkstattAutoRun", B),
+                                    new Entry("crafting.werkstattLockView", M),
+                                    new Entry("crafting.werkstattHud", B),
+                                    new Entry("crafting.werkstattStopOnUnfocus", M))),
                             new Section("ottoextra.cat.craft.sec.tools", List.of(
                                     new Entry("tweaks.toolProtect.enabled", B),
                                     new Entry("tweaks.toolProtect.warnBelowPercent", M),
