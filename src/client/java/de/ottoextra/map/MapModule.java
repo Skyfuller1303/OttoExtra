@@ -36,6 +36,7 @@ public final class MapModule implements OttoExtraModule {
     @Override
     public void onInitializeClient(OttoExtraContext context) {
         OttoExtraConfig.Map cfg = context.config().map;
+        WorldMapOpenAnimation.register(cfg);
 
         if (!XaeroMapBridge.isWorldmapInstalled()) {
             DebugLog.debug("[map] Xaero World Map nicht installiert — Overlay inaktiv.");

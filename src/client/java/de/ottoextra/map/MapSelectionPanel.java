@@ -9,7 +9,6 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.OrderedText;
 import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
 
 import java.util.ArrayList;
@@ -17,15 +16,31 @@ import java.util.List;
 import java.util.Locale;
 
 public final class MapSelectionPanel {
-    private static final int WIDTH = 278;
-    private static final int HEADER = 51;
-    private static final int FOOTER = 58;
-    private static final int LINE = 12;
-    private static final int BG = 0xFFD6BD94;
-    private static final int BORDER = 0xFF72583A;
-    private static final int LIGHT = 0xFFE7D1AB;
-    private static final int TEXT = 0xFF503D29;
-    private static final int MUTED = 0xFF786448;
+    private static final int WIDTH = 218;
+    private static final int HEADER = 46;
+    private static final int STRIP_HEIGHT = 17;
+    private static final int STRIP_INSET = 3;
+    private static final int FOOTER = STRIP_HEIGHT + STRIP_INSET + 4;
+    private static final int LINE = 10;
+    private static final int ICON = 9;
+    private static final int COL_OUTLINE = 0xFF141418;
+    private static final int COL_PANEL = 0xEB1E1E24;
+    private static final int COL_BEVEL_LIGHT = 0xFF514F59;
+    private static final int COL_BEVEL_DARK = 0xFF2E2D35;
+    private static final int COL_STRIP = 0xFF2E2D35;
+    private static final int COL_NAME = 0xFFD6C194;
+    private static final int COL_MUTED = 0xFFA9A6B0;
+    private static final int COL_TEXT = 0xFFF0EBE0;
+    private static final int COL_RULE = 0xFF866C36;
+    private static final int COL_RULE_DARK = 0xFF47391D;
+    private static final int COL_DIAMOND_TOP = 0xFFDBB451;
+    private static final int COL_DIAMOND_MID = 0xFFB58D36;
+    private static final Identifier ICON_DISTANCE =
+            Identifier.of("ottoextra", "textures/gui/worldmap/travel_distance.png");
+    private static final Identifier ICON_WALK =
+            Identifier.of("ottoextra", "textures/gui/worldmap/travel_walk.png");
+    private static final Identifier ICON_HORSE =
+            Identifier.of("ottoextra", "textures/gui/worldmap/travel_horse.png");
 
     private static int lastX, lastY, lastW, lastH;
     private static int bodyHeight, maxScroll;
@@ -36,6 +51,7 @@ public final class MapSelectionPanel {
     private static int wrappedWidth;
     private static Object wrappedLanguage;
     private static List<OrderedText> body = List.of();
+    private static List<Integer> bodyColors = List.of();
 
     private MapSelectionPanel() { }
 
@@ -65,49 +81,38 @@ public final class MapSelectionPanel {
             return;
         }
         TextRenderer tr = MinecraftClient.getInstance().textRenderer;
-        updateContent(poly, tr, w - 26);
-        int h = Math.min(availableHeight, HEADER + FOOTER + bodyHeight + 8);
+        updateContent(poly, tr, w - 14);
+        int h = Math.min(availableHeight, HEADER + FOOTER + bodyHeight);
         int bodyTop = y + HEADER;
         int bodyBottom = y + h - FOOTER;
         maxScroll = Math.max(0, bodyHeight - (bodyBottom - bodyTop));
         scroll = Math.max(0, Math.min(scroll, maxScroll));
         lastX = x; lastY = y; lastW = w; lastH = h;
 
-        ctx.fill(x + 2, y + 3, x + w + 3, y + h + 3, 0x50000000);
-        ctx.fill(x - 1, y - 1, x + w + 1, y + h + 1, BORDER);
-        ctx.fill(x, y, x + w, y + h, BG);
-        ctx.fill(x, y, x + w, y + 1, LIGHT);
-        ctx.fill(x, y, x + 1, y + h, LIGHT);
+        drawPanel(ctx, x, y, w, h);
 
-        Identifier banner = RegionsServices.banners() == null ? null
+        Identifier banner = RegionsServices.banners() == null || RegionsServices.data() == null ? null
                 : RegionsServices.banners().bannerForRegion(RegionsServices.data(), poly.key()).orElse(null);
+        int headingX = x + 7;
         if (banner != null) {
-            ctx.drawTexture(RenderPipelines.GUI_TEXTURED, banner, x + 8, y + 8,
-                    0f, 0f, 32, 32, 32, 32);
-        } else {
-            // Neutral shield while a crest loads or is unavailable.
-            ctx.fill(x + 12, y + 10, x + 36, y + 28, BORDER);
-            ctx.fill(x + 14, y + 28, x + 34, y + 32, BORDER);
-            ctx.fill(x + 19, y + 32, x + 29, y + 36, BORDER);
-            ctx.fill(x + 14, y + 12, x + 34, y + 26, LIGHT);
+            ctx.drawTexture(RenderPipelines.GUI_TEXTURED, banner, x + 6, y + 6,
+                    0f, 0f, 28, 28, 28, 28);
+            headingX = x + 40;
         }
-        int headingX = x + 48;
-        ctx.drawText(tr, net.minecraft.util.Language.getInstance().reorder(
-                        tr.trimToWidth(Text.literal(info.title()).formatted(Formatting.BOLD), w - 70)),
-                headingX, y + 8, TEXT, false);
-        String coords = "x " + Math.round(poly.centroidX()) + " / z " + Math.round(poly.centroidZ());
-        if (!info.regionId().isBlank()) coords += " | ID: " + info.regionId();
-        ctx.drawText(tr, fit(tr, coords, w - 56), headingX, y + 21, MUTED, false);
-        ctx.drawText(tr, fit(tr, lang("ottoextra.map.info.fief", info.regionName()), w - 56),
-                headingX, y + 33, MUTED, false);
-        ctx.drawText(tr, "×", x + w - 14, y + 7, MUTED, false);
-        ctx.fill(x + 9, y + HEADER - 5, x + w - 9, y + HEADER - 4, 0x5072583A);
+        int headingWidth = x + w - 14 - headingX;
+        ctx.drawText(tr, fit(tr, info.title(), headingWidth), headingX, y + 8, COL_NAME, true);
+        String subtitle = info.rank().isBlank() ? info.regionName() : info.rank();
+        ctx.drawText(tr, fit(tr, subtitle, headingWidth), headingX, y + 19, COL_MUTED, false);
+        ctx.drawText(tr, "×", x + w - 12, y + 5, COL_MUTED, false);
+        drawRule(ctx, x + 6, y + 39, w - 13);
 
-        ctx.enableScissor(x + 8, bodyTop, x + w - 8, bodyBottom);
+        ctx.enableScissor(x + 4, bodyTop, x + w - 4, bodyBottom);
         try {
             int ty = bodyTop - (int) scroll;
-            for (OrderedText line : body) {
-                if (ty + LINE > bodyTop && ty < bodyBottom) ctx.drawText(tr, line, x + 10, ty, TEXT, false);
+            for (int i = 0; i < body.size(); i++) {
+                if (ty + LINE > bodyTop && ty < bodyBottom) {
+                    ctx.drawText(tr, body.get(i), x + 7, ty, bodyColors.get(i), false);
+                }
                 ty += LINE;
             }
         } finally {
@@ -117,10 +122,43 @@ public final class MapSelectionPanel {
             int track = bodyBottom - bodyTop;
             int thumb = Math.max(8, track * track / bodyHeight);
             int thumbY = bodyTop + (int) ((track - thumb) * scroll / maxScroll);
-            ctx.fill(x + w - 6, bodyTop, x + w - 4, bodyBottom, 0x3072583A);
-            ctx.fill(x + w - 6, thumbY, x + w - 4, thumbY + thumb, MUTED);
+            ctx.fill(x + w - 6, bodyTop, x + w - 4, bodyBottom, COL_BEVEL_DARK);
+            ctx.fill(x + w - 6, thumbY, x + w - 4, thumbY + thumb, COL_BEVEL_LIGHT);
         }
-        renderTravel(ctx, tr, poly, cfg, x + 10, bodyBottom + 7, w - 20);
+        renderTravel(ctx, tr, poly, cfg, x, y + h - STRIP_INSET - STRIP_HEIGHT, w);
+    }
+
+    /** Rounded panel (corner pixel left out) with 1 px outline and top-left bevel; no overlapping fills. */
+    private static void drawPanel(DrawContext ctx, int x, int y, int w, int h) {
+        int r = x + w;
+        int b = y + h;
+        ctx.fill(x + 1, y, r - 1, y + 1, COL_OUTLINE);
+        ctx.fill(x + 1, b - 1, r - 1, b, COL_OUTLINE);
+        ctx.fill(x, y + 1, x + 1, b - 1, COL_OUTLINE);
+        ctx.fill(r - 1, y + 1, r, b - 1, COL_OUTLINE);
+        ctx.fill(x + 1, y + 1, x + 2, y + 2, COL_OUTLINE);
+        ctx.fill(r - 2, y + 1, r - 1, y + 2, COL_OUTLINE);
+        ctx.fill(x + 1, b - 2, x + 2, b - 1, COL_OUTLINE);
+        ctx.fill(r - 2, b - 2, r - 1, b - 1, COL_OUTLINE);
+        ctx.fill(x + 2, y + 1, r - 2, y + 2, COL_BEVEL_LIGHT);
+        ctx.fill(x + 1, y + 2, x + 2, b - 2, COL_BEVEL_LIGHT);
+        ctx.fill(x + 2, b - 2, r - 2, b - 1, COL_BEVEL_DARK);
+        ctx.fill(r - 2, y + 2, r - 1, b - 2, COL_BEVEL_DARK);
+        ctx.fill(x + 2, y + 2, r - 2, b - 2, COL_PANEL);
+    }
+
+    /** Two-pixel gold rule with a small diamond at each end. */
+    private static void drawRule(DrawContext ctx, int x, int y, int w) {
+        ctx.fill(x, y, x + w, y + 1, COL_RULE);
+        ctx.fill(x, y + 1, x + w, y + 2, COL_RULE_DARK);
+        drawDiamond(ctx, x - 1, y - 1);
+        drawDiamond(ctx, x + w - 2, y - 1);
+    }
+
+    private static void drawDiamond(DrawContext ctx, int x, int y) {
+        ctx.fill(x + 1, y, x + 2, y + 1, COL_DIAMOND_TOP);
+        ctx.fill(x, y + 1, x + 3, y + 2, COL_DIAMOND_MID);
+        ctx.fill(x + 1, y + 2, x + 2, y + 3, COL_RULE_DARK);
     }
 
     private static void updateContent(LehenPolygon poly, TextRenderer tr, int width) {
@@ -141,11 +179,17 @@ public final class MapSelectionPanel {
         wrappedWidth = width;
         wrappedLanguage = language;
         List<OrderedText> lines = new ArrayList<>();
+        List<Integer> colors = new ArrayList<>();
+        // Only the residents/leader sentence is highlighted; relations and descriptions are secondary.
+        boolean first = !info.narrativeOnly() && info.residents() != null;
         for (String paragraph : paragraphs(info)) {
-            if (!lines.isEmpty()) lines.add(OrderedText.EMPTY);
-            lines.addAll(tr.wrapLines(Text.literal(paragraph), width));
+            List<OrderedText> wrapped = tr.wrapLines(Text.literal(paragraph), width);
+            lines.addAll(wrapped);
+            for (int i = 0; i < wrapped.size(); i++) colors.add(first ? COL_TEXT : COL_MUTED);
+            first = false;
         }
         body = List.copyOf(lines);
+        bodyColors = List.copyOf(colors);
         bodyHeight = body.size() * LINE;
     }
 
@@ -154,12 +198,18 @@ public final class MapSelectionPanel {
     }
 
     private static void renderTravel(DrawContext ctx, TextRenderer tr, LehenPolygon poly,
-                                     OttoExtraConfig.Map cfg, int x, int y, int width) {
-        ctx.fill(x - 1, y - 3, x + width + 1, y - 2, 0x5072583A);
-        ctx.drawText(tr, lang("ottoextra.map.info.distance"), x, y, TEXT, false);
+                                     OttoExtraConfig.Map cfg, int x, int y, int w) {
+        ctx.fill(x + STRIP_INSET, y, x + w - STRIP_INSET, y + STRIP_HEIGHT, COL_STRIP);
+        ctx.fill(x + STRIP_INSET, y, x + w - STRIP_INSET, y + 1, COL_OUTLINE);
+        int textY = y + (STRIP_HEIGHT - 8) / 2 + 1;
+        int iconY = y + (STRIP_HEIGHT - ICON) / 2 + 1;
         MinecraftClient client = MinecraftClient.getInstance();
+        int available = w - 14;
         if (client.player == null) {
-            ctx.drawText(tr, lang("ottoextra.map.info.unknown"), x, y + LINE, MUTED, false);
+            ctx.drawTexture(RenderPipelines.GUI_TEXTURED, ICON_DISTANCE, x + 7, iconY,
+                    0f, 0f, ICON, ICON, ICON, ICON);
+            ctx.drawText(tr, fit(tr, lang("ottoextra.map.info.unknown"), available - ICON - 3),
+                    x + 7 + ICON + 3, textY, COL_TEXT, false);
             return;
         }
         double dx = poly.centroidX() - client.player.getX();
@@ -169,12 +219,26 @@ public final class MapSelectionPanel {
         String distance = blocks >= 1000
                 ? String.format(Locale.ROOT, "%.1f km", blocks / 1000)
                 : lang("ottoextra.map.travel.blocks", Math.round(blocks));
-        ctx.drawText(tr, fit(tr, lang("ottoextra.map.info.airline", distance,
-                lang("ottoextra.map.info.direction." + direction)), width), x, y + LINE, MUTED, false);
-        ctx.drawText(tr, fit(tr, lang("ottoextra.map.info.walk") + ": "
-                + formatDuration(blocks / Math.max(0.1, cfg.walkBlocksPerSecond)), width), x, y + LINE * 2, MUTED, false);
-        ctx.drawText(tr, fit(tr, lang("ottoextra.map.info.horse") + ": "
-                + formatDuration(blocks / Math.max(0.1, cfg.horseBlocksPerSecond)), width), x, y + LINE * 3, MUTED, false);
+        String[] values = {
+                distance + " " + lang("ottoextra.map.info.direction." + direction),
+                formatDuration(blocks / Math.max(0.1, cfg.walkBlocksPerSecond)),
+                formatDuration(blocks / Math.max(0.1, cfg.horseBlocksPerSecond))
+        };
+        Identifier[] icons = {ICON_DISTANCE, ICON_WALK, ICON_HORSE};
+        int fixed = 3 * (ICON + 3);
+        int textTotal = 0;
+        for (String value : values) textTotal += tr.getWidth(value);
+        int gap = Math.max(2, Math.min(8, (available - fixed - textTotal) / 2));
+        int overflow = fixed + textTotal + 2 * gap - available;
+        if (overflow > 0) values[0] = fit(tr, values[0], Math.max(8, tr.getWidth(values[0]) - overflow));
+        int cx = x + 7;
+        for (int i = 0; i < 3; i++) {
+            ctx.drawTexture(RenderPipelines.GUI_TEXTURED, icons[i], cx, iconY,
+                    0f, 0f, ICON, ICON, ICON, ICON);
+            cx += ICON + 3;
+            ctx.drawText(tr, values[i], cx, textY, COL_TEXT, false);
+            cx += tr.getWidth(values[i]) + gap;
+        }
     }
 
     static boolean contains(double mouseX, double mouseY) {

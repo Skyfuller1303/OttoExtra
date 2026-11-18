@@ -64,6 +64,8 @@ public final class MapGroupColorsScreen extends Screen {
 
         searchField = new TextFieldWidget(textRenderer, panelX() + 8, panelY() + 24,
                 panelW() - 16, 16, Text.translatable("ottoextra.rpbook.search"));
+        de.ottoextra.ui.complete.TabCompletion.attach(searchField,
+                () -> new java.util.ArrayList<>(PoliticalOverlay.groupTintOverview().keySet()));
         searchField.setSuggestion(Text.translatable("ottoextra.rpbook.search").getString());
         searchField.setChangedListener(s -> {
             searchField.setSuggestion(s.isEmpty()

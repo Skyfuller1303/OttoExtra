@@ -29,14 +29,14 @@ class MapSelectionTextTest {
         assertEquals(List.of(FEHDE), paragraphs(info, "de_de"));
     }
 
-    @Test void maehrsteinKeepsHeldwegAsTheOriginalFiefName() {
+    @Test void maehrsteinShowsItsCurrentFiefNameInsteadOfTheOriginalHeldweg() {
         var region = region("""
                 {"region_id":"4","name":"Mährstein","original_name":"Heldweg",
                  "region_info":{"playable":false,"status_label":"NPC-Siedlung"}}
                 """, FEHDE);
         var info = MapSelectionInfo.from("lehen_4", region, null, name -> null, name -> null);
         assertEquals("Mährstein", info.title());
-        assertEquals("Heldweg", info.regionName());
+        assertEquals("Mährstein", info.regionName());
         assertEquals(List.of(FEHDE), paragraphs(info, "de_de"));
     }
 
@@ -45,14 +45,16 @@ class MapSelectionTextTest {
         var parent = faction("Ährstein", "Grafschaft", "", 0, "");
         var info = MapSelectionInfo.from("lehen_17", region("{\"name\":\"Niederpölt\"}", ""), faction,
                 name -> parent, name -> null);
-        assertEquals(List.of("Die Vogtei wird von Danny_Dajeno geführt und zählt 9 Bewohner. Das Lehen ist Teil der Grafschaft Ährstein und zudem ein direkter Vasall von Ährstein."),
+        assertEquals(List.of("Die Vogtei wird von Danny_Dajeno geführt und zählt 9 Bewohner.",
+                        "Rabenstad ist direkter Vasall der Grafschaft Ährstein."),
                 paragraphs(info, "de_de"));
     }
 
     @Test void independentSeeschlangeUsesTheDukeSentence() {
         var faction = faction("Seeschlange", "Dorf", "Zauselrak", 5, "");
         var info = MapSelectionInfo.from("Gladebek", null, faction, name -> null, name -> null);
-        assertEquals(List.of("Das Dorf wird von Zauselrak geführt und zählt 5 Bewohner. Das Lehen untersteht dem Herzog und ist abgesehen davon unabhängig."),
+        assertEquals(List.of("Das Dorf wird von Zauselrak geführt und zählt 5 Bewohner.",
+                        "Das Lehen untersteht dem Herzog und ist abgesehen davon unabhängig."),
                 paragraphs(info, "de_de"));
     }
 
@@ -64,7 +66,8 @@ class MapSelectionTextTest {
         var faction = faction("Achental", "Kloster", "Artami", 4, "Warglau");
         var parent = faction("Warglau", "Vogtei", "Romegon", 9, "");
         var info = MapSelectionInfo.from("lehen_44", region, faction, name -> parent, name -> null);
-        assertEquals(List.of("Das Kloster wird von Artami geführt und zählt 4 Bewohner. Das Lehen ist Teil der Vogtei Warglau und zudem ein direkter Vasall von Warglau."),
+        assertEquals(List.of("Das Kloster wird von Artami geführt und zählt 4 Bewohner.",
+                        "Achental ist direkter Vasall der Vogtei Warglau."),
                 paragraphs(info, "de_de"));
     }
 
@@ -76,7 +79,8 @@ class MapSelectionTextTest {
                 """, RegionRecord.class);
         var faction = faction("Nordeck", "Freiherrschaft", "Arrtakh", 13, "");
         var info = MapSelectionInfo.from("lehen_65", region, faction, name -> null, name -> null);
-        assertEquals(List.of("Die Freiherrschaft wird von Arrtakh geführt und zählt 13 Bewohner. Das Lehen untersteht dem Herzog und ist abgesehen davon unabhängig.",
+        assertEquals(List.of("Die Freiherrschaft wird von Arrtakh geführt und zählt 13 Bewohner.",
+                        "Das Lehen untersteht dem Herzog und ist abgesehen davon unabhängig.",
                         "Ein Lehen im Norden."), paragraphs(info, "de_de"));
     }
 
@@ -151,9 +155,32 @@ class MapSelectionTextTest {
         var kingdom = faction("Nordland", "Herzogtum", "", 0, "");
         var info = MapSelectionInfo.from("Dorf", null, child,
                 Map.of("Baronie", barony, "Nordland", kingdom)::get, name -> null);
-        assertEquals(List.of("Das Dorf wird von Spieler geführt und zählt 1 Bewohner. Das Lehen ist Teil des Herzogtums Nordland und zudem ein direkter Vasall von Baronie."),
+        assertEquals(List.of("Das Dorf wird von Spieler geführt und zählt 1 Bewohner.",
+                        "Dorf ist Teil des Herzogtums Nordland und direkter Vasall der Freiherrschaft Baronie."),
                 paragraphs(info, "de_de"));
-        assertTrue(paragraphs(info, "en_us").getFirst().contains("of the Herzogtum Nordland"));
+        assertEquals("Dorf is part of the Herzogtum Nordland and a direct vassal of the Freiherrschaft Baronie.",
+                paragraphs(info, "en_us").get(1));
+    }
+
+    @Test void differentRealmAndLiegeAreNamedInOneSentenceWithTheirRanks() {
+        var kelterfels = faction("Kelterfels", "Baronie", "Aldric", 14, "Niederpölt");
+        var liege = faction("Niederpölt", "Vogtei", "", 0, "Ahrweil");
+        var top = faction("Ahrweil", "Grafschaft", "", 0, "");
+        var info = MapSelectionInfo.from("Kelterfels", null, kelterfels,
+                Map.of("Niederpölt", liege, "Ahrweil", top)::get, name -> null);
+        assertEquals("Vogtei", info.directLordRank());
+        assertEquals(List.of("Die Baronie wird von Aldric geführt und zählt 14 Bewohner.",
+                        "Kelterfels ist Teil der Grafschaft Ahrweil und direkter Vasall der Vogtei Niederpölt."),
+                paragraphs(info, "de_de"));
+        assertEquals("Kelterfels is part of the Grafschaft Ahrweil and a direct vassal of the Vogtei Niederpölt.",
+                paragraphs(info, "en_us").get(1));
+    }
+
+    @Test void liegeWithoutRankFallsBackToTheGenericRealmWording() {
+        var kelterfels = faction("Kelterfels", "Baronie", "Aldric", 14, "Niederpölt");
+        var liege = faction("Niederpölt", "", "", 0, "");
+        var info = MapSelectionInfo.from("Kelterfels", null, kelterfels, name -> liege, name -> null);
+        assertEquals("Kelterfels ist direkter Vasall der Herrschaft Niederpölt.", paragraphs(info, "de_de").get(1));
     }
 
     @Test void missingOverlordDataDoesNotClaimIndependence() {
@@ -166,7 +193,7 @@ class MapSelectionTextTest {
         var region = region("{\"name\":\"Gladebek\"}", "Ein Dorf am Fluss.");
         var faction = faction("Seeschlange", "Dorf", "Zauselrak", 7, "");
         var info = MapSelectionInfo.from("Gladebek", region, faction, name -> null, name -> null);
-        assertEquals(2, paragraphs(info, "de_de").size());
+        assertEquals(3, paragraphs(info, "de_de").size());
         assertTrue(paragraphs(info, "de_de").getFirst().contains("7 Bewohner"));
         assertEquals("Ein Dorf am Fluss.", paragraphs(info, "de_de").getLast());
     }

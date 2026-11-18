@@ -12,7 +12,7 @@ import java.util.function.Function;
 
 /** Facts for the map card. Political relationships come from the API, not overlay colours. */
 record MapSelectionInfo(String title, String regionName, String regionId, String rank,
-                        String leader, Integer residents, String realm, String realmRank, String directLord,
+                        String leader, Integer residents, String realm, String realmRank, String directLord, String directLordRank,
                         String description, String npcVillage, boolean narrativeOnly, boolean independent, String narrativeKey) {
     static MapSelectionInfo resolve(String key, RegionDataService data) {
         RegionRecord region = data == null ? null : data.regionByName(key).orElse(null);
@@ -26,7 +26,9 @@ record MapSelectionInfo(String title, String regionName, String regionId, String
                                  Function<String, FactionRecord> factions,
                                  Function<String, RegionRecord> regions) {
         String displayName = first(region == null ? null : region.name(), key.replace("lehen_", "Lehen "));
-        String regionName = first(region == null ? null : region.original_name(), displayName);
+        String regionName = first(region == null ? null : region.name_override(),
+                region == null ? null : region.name(),
+                region == null ? null : region.original_name(), displayName);
         String title = first(faction == null ? null : faction.name(), displayName);
         RegionCapabilities caps = region != null && region.region_capabilities() != null
                 ? region.region_capabilities() : faction == null ? null : faction.region_capabilities();
@@ -41,6 +43,7 @@ record MapSelectionInfo(String title, String regionName, String regionId, String
                 && (region == null || !region.hasParentRegion());
         String realm = "";
         String realmRank = "";
+        String directLordRank = "";
         var seen = new HashSet<String>();
         seen.add(title.toLowerCase(Locale.ROOT));
         String next = lord;
@@ -48,12 +51,16 @@ record MapSelectionInfo(String title, String regionName, String regionId, String
             if (!seen.add(next.toLowerCase(Locale.ROOT))) {
                 realm = ""; // Inconsistent/cyclic data must not invent an overlord.
                 realmRank = "";
-                if (lord.equalsIgnoreCase(title)) lord = "";
+                if (lord.equalsIgnoreCase(title)) {
+                    lord = "";
+                    directLordRank = "";
+                }
                 break;
             }
             realm = next;
             FactionRecord parent = factions.apply(next);
             realmRank = parent == null ? "" : clean(parent.rank_name());
+            if (next.equals(lord)) directLordRank = realmRank;
             next = parent == null ? "" : clean(parent.lord_name());
         }
         if (lord.isBlank() && region != null && region.hasParentRegion()) {
@@ -69,7 +76,10 @@ record MapSelectionInfo(String title, String regionName, String regionId, String
                     realmRank = "";
                     break;
                 }
-                if (lord.isBlank()) lord = name;
+                if (lord.isBlank()) {
+                    lord = name;
+                    directLordRank = parent.current_faction() == null ? "" : clean(parent.current_faction().rank_name());
+                }
                 realm = name;
                 realmRank = parent.current_faction() == null ? "" : clean(parent.current_faction().rank_name());
                 current = parent;
@@ -97,7 +107,7 @@ record MapSelectionInfo(String title, String regionName, String regionId, String
                 faction == null ? "" : clean(faction.rank_name()),
                 faction == null ? "" : clean(faction.leader_name()),
                 narrativeOnly || faction.player_count() < 0 ? null : faction.player_count(),
-                realm, realmRank, lord, description, npcVillage, narrativeOnly, independent, narrativeKey);
+                realm, realmRank, lord, directLordRank, description, npcVillage, narrativeOnly, independent, narrativeKey);
     }
 
     private static String npcVillageName(RegionInfo info) {

@@ -26,6 +26,20 @@ class MapSelectionInfoTest {
         assertEquals("Holdstewik", result.directLord());
     }
 
+    @Test void renamedFiefShowsCurrentNameInsteadOfOriginalName() {
+        var region = region("""
+                {"id":"lehen_8","region_id":"8","name":"Mährstein","name_override":"Mährstein","original_name":"Heldweg"}
+                """);
+        assertEquals("Mährstein", MapSelectionInfo.from("lehen_8", region, null, key -> null, key -> null).regionName());
+    }
+
+    @Test void fiefNameFallsBackToOriginalNameWithoutOverrideOrName() {
+        var region = region("""
+                {"id":"lehen_8","region_id":"8","name_override":" ","original_name":"Heldweg"}
+                """);
+        assertEquals("Heldweg", MapSelectionInfo.from("lehen_8", region, null, key -> null, key -> null).regionName());
+    }
+
     @Test void resolvesDirectAndTopOverlordIndependently() {
         var factions = Map.of("Baronie", faction("Baronie", "Königreich"), "Königreich", faction("Königreich", ""));
         var result = MapSelectionInfo.from("Brokholt", null, faction("Wyndham", "Baronie"), factions::get, key -> null);
