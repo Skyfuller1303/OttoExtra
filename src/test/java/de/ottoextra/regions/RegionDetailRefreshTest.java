@@ -136,6 +136,57 @@ class RegionDetailRefreshTest {
         }
     }
 
+    @Test
+    void detailStartedBeforeAuthoritativeSnapshotCannotOverwriteIt() throws Exception {
+        List<CompletableFuture<RegionRecord>> remote = new ArrayList<>();
+        RegionDataService service = service(remote);
+        try {
+            var stale = service.requestRegionDetailAsync("Nordmark");
+            service.applyEnvelope(GSON.fromJson("""
+                    {"ok":true,"sync_cursor":10,"snapshot_complete":true,
+                     "factions":[],"regions":[{"id":"lehen_1","name":"Nordmark",
+                     "region_info":{"note":"Snapshot"}}]}
+                    """, ApiEnvelope.class), false);
+            assertTrue(stale.isCancelled());
+            var fresh = service.requestRegionDetailAsync("Nordmark");
+            assertEquals(2, remote.size());
+            remote.getFirst().complete(detail("Alt"));
+            assertTrue(stale.isCancelled());
+            assertFalse(fresh.isDone());
+            assertEquals("Snapshot", service.regionByName("Nordmark").orElseThrow()
+                    .region_info().note());
+            remote.getLast().complete(detail("Fresh"));
+            assertEquals("Fresh", service.regionByName("Nordmark").orElseThrow()
+                    .region_info().note());
+        } finally {
+            stop(service);
+        }
+    }
+
+    @Test
+    void detailRenameRemovesOldAliasesForSameStableRegion() throws Exception {
+        List<CompletableFuture<RegionRecord>> remote = new ArrayList<>();
+        RegionDataService service = service(remote);
+        try {
+            service.applyEnvelope(GSON.fromJson("""
+                    {"ok":true,"regions":[{"id":"lehen_1","region_ref":"region-1",
+                     "region_id":"1","name":"Nordmark"}]}
+                    """, ApiEnvelope.class), false);
+            var refresh = service.requestRegionDetailAsync("Nordmark");
+            remote.getFirst().complete(GSON.fromJson("""
+                    {"id":"lehen_1","region_ref":"region-1","region_id":"1",
+                     "name":"Nordmark Neu"}
+                    """, RegionRecord.class));
+
+            assertTrue(refresh.isDone());
+            assertTrue(service.regionByName("Nordmark").isEmpty());
+            assertEquals("Nordmark Neu", service.regionByName("Nordmark Neu").orElseThrow().name());
+            assertEquals(1, service.allRegions().size());
+        } finally {
+            stop(service);
+        }
+    }
+
     private RegionDataService service(List<CompletableFuture<RegionRecord>> requests) {
         OttoExtraApiClient api = (OttoExtraApiClient) Proxy.newProxyInstance(
                 OttoExtraApiClient.class.getClassLoader(), new Class<?>[]{OttoExtraApiClient.class},

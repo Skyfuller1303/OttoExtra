@@ -34,14 +34,21 @@ public final class RegionsModule implements OttoExtraModule {
         return true;
     }
 
+    private static volatile OttoExtraConfig.Regions regionsConfig;
+
     @Override
     public void onInitializeClient(OttoExtraContext context) {
         RegionMessageService.init(context.config());
         RegionNotificationOverlay.configure(context.config().regions);
+        regionsConfig = context.config().regions;
         RegionActivityHud.configure(context.config().regions, context::isOnOttonien);
 
-        HudRenderCallback.EVENT.register(RegionNotificationOverlay::render);
-        HudRenderCallback.EVENT.register(RegionActivityHud::render);
+        HudRenderCallback.EVENT.register((ctx, tick) -> {
+            if (!de.ottoextra.map.WorldMapOpenAnimation.hidesHudOverlays()) RegionNotificationOverlay.render(ctx, tick);
+        });
+        HudRenderCallback.EVENT.register((ctx, tick) -> {
+            if (!de.ottoextra.map.WorldMapOpenAnimation.hidesHudOverlays()) RegionActivityHud.render(ctx, tick);
+        });
 
         int code = keyCode(context.config().regions.menuKey, GLFW.GLFW_KEY_L);
         menuKey = new KeyBinding(
@@ -57,6 +64,8 @@ public final class RegionsModule implements OttoExtraModule {
                 KeyBinding.Category.MISC));
 
         registerActivityHudRateCommand(context.config());
+        registerRegionDataCommands();
+        BanderoleDebugCommands.register(() -> regionsConfig);
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (!menuKeyNameResolved) {
@@ -112,6 +121,63 @@ public final class RegionsModule implements OttoExtraModule {
                                                         context.getSource(), rootConfig,
                                                         IntegerArgumentType.getInteger(
                                                                 context, "seconds"))))))));
+    }
+
+    private static void registerRegionDataCommands() {
+        ClientCommandRegistrationCallback.EVENT.register((dispatcher, access) ->
+                dispatcher.register(ClientCommandManager.literal("ottoextra")
+                        .then(ClientCommandManager.literal("regions")
+                                .then(ClientCommandManager.literal("refresh")
+                                        .executes(context -> {
+                                            var source = context.getSource();
+                                            RegionsServices.refreshWithFeedback(source::sendFeedback);
+                                            return 1;
+                                        }))
+                                .then(ClientCommandManager.literal("banner")
+                                        .executes(context -> replayZoneBanner(null, null))
+                                        .then(ClientCommandManager.argument("style",
+                                                        com.mojang.brigadier.arguments.StringArgumentType.word())
+                                                .suggests((c, b) -> net.minecraft.command.CommandSource
+                                                        .suggestMatching(de.ottoextra.regions.zonebanner
+                                                                .ZoneBannerStyles.ids(), b))
+                                                .executes(context -> replayZoneBanner(
+                                                        com.mojang.brigadier.arguments.StringArgumentType
+                                                                .getString(context, "style"), null))
+                                                .then(ClientCommandManager.argument("region",
+                                                                com.mojang.brigadier.arguments.StringArgumentType.greedyString())
+                                                        .executes(context -> replayZoneBanner(
+                                                                com.mojang.brigadier.arguments.StringArgumentType
+                                                                        .getString(context, "style"),
+                                                                com.mojang.brigadier.arguments.StringArgumentType
+                                                                        .getString(context, "region"))))))
+                                .then(ClientCommandManager.literal("status")
+                                        .executes(context -> {
+                                            RegionDataService data = RegionsServices.data();
+                                            context.getSource().sendFeedback(Text.translatable(
+                                                    "ottoextra.regions.status", data == null
+                                                            ? "nicht initialisiert"
+                                                            : data.diagnosticStatus()));
+                                            return 1;
+                                        })))));
+    }
+
+    /**
+     * Dev/test helper: optionally switches the zone banner style (in memory, not saved)
+     * and replays the enter banner for the given or the last entered region.
+     */
+    private static int replayZoneBanner(String style, String region) {
+        if (style != null && regionsConfig != null) {
+            regionsConfig.zoneBannerStyle = style;
+        }
+        String target = region;
+        String hierarchy = "";
+        if (target == null || target.isBlank()) {
+            RegionState state = RegionMessageService.current();
+            target = state != null ? state.regionName() : "Niederpölt";
+            hierarchy = state != null && state.hierarchyLine() != null ? state.hierarchyLine() : "";
+        }
+        RegionNotificationOverlay.show(target, hierarchy);
+        return 1;
     }
 
     private static int setActivityHudRate(

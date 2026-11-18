@@ -34,6 +34,8 @@ public final class BannerTextureService {
     private final Set<String> inFlight = ConcurrentHashMap.newKeySet();
     private final Map<String, Long> retryAfterNanos = new ConcurrentHashMap<>();
     private final Map<String, Long> refreshedAtNanos = new ConcurrentHashMap<>();
+    // Source path each registered texture was built from; absent when unknown.
+    private final Map<String, String> sourceByKey = new ConcurrentHashMap<>();
 
     public BannerTextureService(OttoExtraApiClient api) {
         this(api, new BannerTextureBudget());
@@ -45,6 +47,11 @@ public final class BannerTextureService {
     }
 
     public void onServerJoin() {
+        invalidateRefresh();
+    }
+
+    /** Lets the next lookup refresh without waiting for the regular interval or a failure backoff. */
+    public void invalidateRefresh() {
         retryAfterNanos.clear();
         refreshedAtNanos.clear();
     }
@@ -60,10 +67,16 @@ public final class BannerTextureService {
         }
         String uuid = faction.uuid().toLowerCase(Locale.ROOT);
         if (!uuid.matches("[a-z0-9_-]{1,128}")) return Optional.empty();
+        String relative = faction.effectiveBannerPath();
+        boolean bannerRemoved = relative == null || relative.isBlank();
         Identifier ready = texturesByUuid.get(uuid);
+        if (ready != null && bannerRemoved && isDynamicBanner(ready)) {
+            evictRemoved(uuid);
+            ready = null;
+        }
         if (ready != null) {
             textureBudget.touch(uuid);
-            maybeRefresh(uuid, faction.effectiveBannerPath());
+            maybeRefresh(uuid, relative);
             return Optional.of(ready);
         }
         if (!beginLoad(uuid)) {
@@ -72,13 +85,16 @@ public final class BannerTextureService {
 
         Path cached = OttoExtraPaths.bannersCache().resolve(uuid + ".png");
         if (Files.exists(cached)) {
-            registerFromDisk(uuid, cached);
-            maybeRefresh(uuid, faction.effectiveBannerPath());
-            return Optional.empty();
+            if (bannerRemoved) {
+                deleteCacheFiles(uuid);
+            } else {
+                registerFromDisk(uuid, cached);
+                maybeRefresh(uuid, relative);
+                return Optional.empty();
+            }
         }
 
-        String relative = faction.effectiveBannerPath();
-        if ((relative == null || relative.isBlank())
+        if (bannerRemoved
                 && faction.banner_name() != null && !faction.banner_name().isBlank()) {
 
             Identifier bundled = bundledBanner(faction.banner_name());
@@ -129,8 +145,51 @@ public final class BannerTextureService {
 
     private void maybeRefresh(String key, String relativePath) {
         var permit = ConsentPolicy.capture(ConsentPolicy.Purpose.EXTERNAL_IMAGES);
-        if (!permit.valid() || relativePath == null || relativePath.isBlank() || !beginRefresh(key)) return;
+        if (!permit.valid() || relativePath == null || relativePath.isBlank()) return;
+        boolean changed = BannerSourcePolicy.needsImmediateRefresh(sourceByKey.get(key), relativePath);
+        if (!beginRefresh(key, changed)) return;
         download(key, relativePath, permit);
+    }
+
+    private static boolean isDynamicBanner(Identifier id) {
+        return "ottoextra".equals(id.getNamespace()) && id.getPath().startsWith("dynamic/banners/");
+    }
+
+    /** Drops a downloaded banner whose source was removed; bundled textures stay untouched. */
+    private void evictRemoved(String key) {
+        Identifier evicted = texturesByUuid.remove(key);
+        sourceByKey.remove(key);
+        refreshedAtNanos.remove(key);
+        retryAfterNanos.remove(key);
+        textureBudget.release(key);
+        deleteCacheFiles(key);
+        if (evicted != null && isDynamicBanner(evicted)) {
+            MinecraftClient client = MinecraftClient.getInstance();
+            if (client != null) client.execute(() -> client.getTextureManager().destroyTexture(evicted));
+        }
+    }
+
+    private static void deleteCacheFiles(String key) {
+        try {
+            Path dir = OttoExtraPaths.bannersCache();
+            Files.deleteIfExists(dir.resolve(key + ".png"));
+            Files.deleteIfExists(dir.resolve(key + ".src"));
+        } catch (Exception ignored) {
+            // Best effort; a leftover file is ignored while the API reports no banner.
+        }
+    }
+
+    /** Source path stored next to a cached banner; null when missing or unreadable. */
+    private static String readSourceMarker(String key) {
+        try {
+            Path src = OttoExtraPaths.bannersCache().resolve(key + ".src");
+            if (!Files.isRegularFile(src) || Files.size(src) > 1024) return null;
+            String source = BannerSourcePolicy.normalize(
+                    Files.readString(src, java.nio.charset.StandardCharsets.UTF_8));
+            return source.isEmpty() ? null : source;
+        } catch (Exception unreadable) {
+            return null;
+        }
     }
 
     private void download(String key, String relativePath, ConsentPermit permit) {
@@ -165,7 +224,7 @@ public final class BannerTextureService {
                         refreshedAtNanos.put(key, System.nanoTime());
                     } finally { Files.deleteIfExists(tmp); }
                 }));
-                registerBytes(key, bytes, permit);
+                registerBytes(key, bytes, permit, relativePath);
             } catch (Exception failure) {
                 inFlight.remove(key);
                 refreshedAtNanos.remove(key);
@@ -197,10 +256,10 @@ public final class BannerTextureService {
         }
     }
 
-    private boolean beginRefresh(String key) {
+    private boolean beginRefresh(String key, boolean immediate) {
         long now = System.nanoTime();
         Long previous = refreshedAtNanos.get(key);
-        if (previous != null && now - previous < REFRESH_INTERVAL_NANOS) {
+        if (!immediate && previous != null && now - previous < REFRESH_INTERVAL_NANOS) {
             return false;
         }
         if (!beginLoad(key)) {
@@ -238,18 +297,15 @@ public final class BannerTextureService {
                 markFailed(uuid);
                 return;
             }
-            registerBytes(uuid, bytes);
+            // Reading an existing local cache needs no network consent.
+            registerBytes(uuid, bytes, null, readSourceMarker(uuid));
         } catch (Exception e) {
             inFlight.remove(uuid);
             markFailed(uuid);
         }
     }
 
-    private void registerBytes(String uuid, byte[] bytes) {
-        registerBytes(uuid, bytes, null); // Reading an existing local cache needs no network consent.
-    }
-
-    private void registerBytes(String uuid, byte[] bytes, ConsentPermit permit) {
+    private void registerBytes(String uuid, byte[] bytes, ConsentPermit permit, String source) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client == null) {
             inFlight.remove(uuid);
@@ -267,6 +323,8 @@ public final class BannerTextureService {
                 Runnable register = () -> {
                     client.getTextureManager().registerTexture(id, texture);
                     retainTexture(uuid, id, decodedBytes);
+                    String known = BannerSourcePolicy.normalize(source);
+                    if (known.isEmpty()) sourceByKey.remove(uuid); else sourceByKey.put(uuid, known);
                     retryAfterNanos.remove(uuid);
                 };
                 try {
@@ -289,10 +347,10 @@ public final class BannerTextureService {
         texturesByUuid.put(key, id);
         for (String victim : textureBudget.retain(key, decodedBytes)) {
             Identifier evicted = texturesByUuid.remove(victim);
+            sourceByKey.remove(victim);
             refreshedAtNanos.remove(victim);
             retryAfterNanos.remove(victim);
-            if (evicted != null && "ottoextra".equals(evicted.getNamespace())
-                    && evicted.getPath().startsWith("dynamic/banners/")) {
+            if (evicted != null && isDynamicBanner(evicted)) {
                 MinecraftClient.getInstance().getTextureManager().destroyTexture(evicted);
             }
         }

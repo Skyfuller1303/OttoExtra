@@ -21,17 +21,51 @@ public final class RegionActivityHud {
     private static final int MARGIN = 4;
     private static final int MIN_PANEL_WIDTH = 104;
     private static final int MAX_PANEL_WIDTH = 158;
-    private static final int HEADER_HEIGHT = 13;
+    private static final int HEADER_HEIGHT = 15;
     private static final int ROW_HEIGHT = 16;
-    private static final int FOOTER_HEIGHT = 11;
+    private static final int FOOTER_HEIGHT = 14;
     private static final int ICON_SIZE = 12;
-    private static final int PAD_X = 3;
+    private static final int PAD_X = 4;
+    private static final int DOT_SIZE = 4;
+    private static final int DOT_GAP = 3;
+    /** Row content left of the name: dot, gap, coat of arms, gap. */
+    private static final int ROW_LEAD = PAD_X + DOT_SIZE + DOT_GAP + ICON_SIZE + 4;
 
-    private static final int COL_BG = 0x48000000;
-    private static final int COL_ROW_BG = 0x26000000;
-    private static final int COL_TITLE = 0xFFE8E8E8;
-    private static final int COL_FACTION = 0xFFFFFFFF;
-    private static final int COL_FOOTER = 0xFFAAAAAA;
+    // Neutral panel: pack tooltip grey-violet, rounded corners (1 px radius), bevel from top left.
+    private static final int COL_PANEL = 0x961E1E24;
+    private static final int COL_OUTLINE = 0xD7141418;
+    private static final int COL_BEVEL_LIGHT = 0xD7514F59;
+    private static final int COL_BEVEL_DARK = 0xD72E2D35;
+    private static final int COL_ROW_BG = 0x503B3A45;
+    private static final int COL_DIVIDER_DARK = 0xC8141418;
+    private static final int COL_DIVIDER_LIGHT = 0xC83B3A45;
+    private static final int COL_ICON_PLACEHOLDER = 0x553A3A3A;
+    private static final int COL_TITLE = 0xFFD6C194;
+    private static final int COL_FACTION = 0xFFF0EBE0;
+    private static final int COL_FOOTER = 0xFF8F8C96;
+
+    private static final float FOOTER_TEXT_SCALE = 0.75f;
+    private static final int ICON_PX = 7;
+    private static final int FOOTER_ICON_GAP = 2;
+    private static final int FOOTER_ITEM_GAP = 6;
+    /** Circular arrow: time of the last data update ("Stand"). */
+    private static final String[] ICON_UPDATED = {
+            "..XXX.X",
+            ".X...XX",
+            "X...XXX",
+            "X......",
+            "X.....X",
+            ".X...X.",
+            "..XXX.."};
+    /** Clock face with hands: current time. */
+    private static final String[] ICON_CLOCK = {
+            "..XXX..",
+            ".X...X.",
+            "X..X..X",
+            "X..XX.X",
+            "X.....X",
+            ".X...X.",
+            "..XXX.."};
 
     private static final DateTimeFormatter UPDATED_TIME = DateTimeFormatter
             .ofPattern("HH:mm", Locale.GERMAN)
@@ -39,6 +73,15 @@ public final class RegionActivityHud {
 
     private static volatile OttoExtraConfig.Regions config;
     private static volatile BooleanSupplier onOttonien = () -> false;
+    private static volatile int lastPanelWidth;
+    private static volatile int lastPanelHeight;
+
+    /** Unscaled size of the last rendered panel as {width, height}, or null if it never rendered. */
+    public static int[] lastPanelSize() {
+        int w = lastPanelWidth;
+        int h = lastPanelHeight;
+        return w > 0 && h > 0 ? new int[]{w, h} : null;
+    }
 
     private RegionActivityHud() {
     }
@@ -81,28 +124,40 @@ public final class RegionActivityHud {
 
         TextRenderer renderer = client.textRenderer;
         String title = Text.translatable("ottoextra.activityHud.title").getString();
-        String updated = footerText(cfg, data.activityUpdatedAtMs(),
+        List<FooterItem> footer = footerItems(cfg, data.activityUpdatedAtMs(),
                 System.currentTimeMillis());
+        int footerWidth = footerWidth(renderer, footer);
         String more = all.size() > visibleCount
                 ? Text.translatable("ottoextra.activityHud.more",
                 all.size() - visibleCount).getString() : "";
 
-        int panelWidth = compactPanelWidth(renderer, all, visibleCount, title, more, updated);
+        int panelWidth = compactPanelWidth(renderer, all, visibleCount, title, more, footerWidth);
         int panelHeight = HEADER_HEIGHT + visibleCount * ROW_HEIGHT + FOOTER_HEIGHT;
         int renderedWidth = Math.round(panelWidth * scale);
         int renderedHeight = Math.round(panelHeight * scale);
+        lastPanelWidth = panelWidth;
+        lastPanelHeight = panelHeight;
         int[] pos = position(client.getWindow().getScaledWidth(), screenHeight,
                 renderedWidth, renderedHeight, cfg);
         int x = pos[0];
         int y = pos[1];
+        int[] flowed = de.ottoextra.ui.hudlayout.HudFlow.place("ottoextra:activity", x, y, renderedWidth,
+                renderedHeight, cfg.activityHudPosition != null
+                        && cfg.activityHudPosition.toUpperCase(Locale.ROOT).startsWith("BOTTOM"),
+                de.ottoextra.ui.hudlayout.HudFlow.PRIORITY_ACTIVITY_HUD);
+        if (flowed != null) {
+            x = flowed[0];
+            y = flowed[1];
+        }
 
         var matrices = ctx.getMatrices();
         matrices.pushMatrix();
         matrices.translate(x, y);
         matrices.scale(scale, scale);
         try {
-            ctx.fill(0, 0, panelWidth, panelHeight, COL_BG);
-            ctx.drawTextWithShadow(renderer, title, PAD_X, 2, COL_TITLE);
+            drawPanel(ctx, 0, 0, panelWidth, panelHeight);
+            ctx.drawTextWithShadow(renderer, title, PAD_X, 3, COL_TITLE);
+            drawDivider(ctx, 2, HEADER_HEIGHT - 3, panelWidth - 4);
 
             int rowY = HEADER_HEIGHT;
             for (int i = 0; i < visibleCount; i++) {
@@ -110,16 +165,19 @@ public final class RegionActivityHud {
                 rowY += ROW_HEIGHT;
             }
 
-            int footerY = panelHeight - 9;
-            if (!more.isEmpty()) {
-                int available = Math.max(20, panelWidth - 9 - renderer.getWidth(updated));
-                ctx.drawText(renderer, renderer.trimToWidth(more, available),
-                        PAD_X, footerY, COL_FOOTER, false);
+            int footerY = panelHeight - 10;
+            if (!more.isEmpty() || !footer.isEmpty()) {
+                drawDivider(ctx, 2, rowY, panelWidth - 4);
             }
-            if (!updated.isEmpty()) {
-                int updatedX = panelWidth - PAD_X - renderer.getWidth(updated);
-                ctx.drawText(renderer, updated, Math.max(PAD_X, updatedX),
-                        footerY, COL_FOOTER, false);
+            if (!more.isEmpty()) {
+                int available = Math.max(20, panelWidth - 2 * PAD_X - footerWidth - FOOTER_ITEM_GAP);
+                drawSmallText(ctx, renderer,
+                        renderer.trimToWidth(more, Math.round(available / FOOTER_TEXT_SCALE)),
+                        PAD_X, footerY + 1);
+            }
+            if (!footer.isEmpty()) {
+                drawFooter(ctx, renderer, footer,
+                        Math.max(PAD_X, panelWidth - PAD_X - footerWidth), footerY);
             }
         } finally {
             matrices.popMatrix();
@@ -129,17 +187,17 @@ public final class RegionActivityHud {
     private static int compactPanelWidth(TextRenderer renderer,
                                          List<RegionDataService.ActivityEntry> entries,
                                          int visibleCount, String title,
-                                         String more, String updated) {
+                                         String more, int footerWidth) {
         int width = Math.max(MIN_PANEL_WIDTH, renderer.getWidth(title) + 2 * PAD_X);
-        width = Math.max(width, renderer.getWidth(updated) + 2 * PAD_X);
+        width = Math.max(width, footerWidth + 2 * PAD_X);
         if (!more.isEmpty()) {
-            width = Math.max(width,
-                    renderer.getWidth(more) + renderer.getWidth(updated) + 9);
+            width = Math.max(width, Math.round(renderer.getWidth(more) * FOOTER_TEXT_SCALE)
+                    + footerWidth + FOOTER_ITEM_GAP + 2 * PAD_X);
         }
         for (int i = 0; i < visibleCount; i++) {
             String displayName = PoliticalOverlay.displayNameFor(entries.get(i).displayName());
             int nameWidth = Math.min(108, renderer.getWidth(displayName));
-            width = Math.max(width, 20 + nameWidth + PAD_X);
+            width = Math.max(width, ROW_LEAD + nameWidth + PAD_X);
         }
         return Math.min(MAX_PANEL_WIDTH, width);
     }
@@ -149,25 +207,146 @@ public final class RegionActivityHud {
                                 RegionDataService.ActivityEntry entry,
                                 int x, int y, int panelWidth) {
         ActivityLevel level = ActivityLevel.fromApiValue(entry.activityLevel());
-        ctx.fill(x + 1, y, x + panelWidth - 1, y + ROW_HEIGHT, COL_ROW_BG);
-        ctx.fill(x + 1, y + 1, x + 3, y + ROW_HEIGHT - 1, level.color);
+        drawRoundedFlat(ctx, x + 3, y, panelWidth - 6, ROW_HEIGHT - 1, COL_ROW_BG);
+        drawDot(ctx, x + PAD_X + 1, y + (ROW_HEIGHT - 1 - DOT_SIZE) / 2, level);
 
-        int iconX = x + PAD_X + 2;
-        int iconY = y + 2;
+        int iconX = x + PAD_X + 1 + DOT_SIZE + DOT_GAP;
+        int iconY = y + 1 + (ROW_HEIGHT - 1 - ICON_SIZE) / 2;
         Identifier banner = resolveBanner(data, entry);
         if (banner != null) {
             ctx.drawTexture(RenderPipelines.GUI_TEXTURED, banner, iconX, iconY,
                     0f, 0f, ICON_SIZE, ICON_SIZE, ICON_SIZE, ICON_SIZE);
         } else {
-            ctx.fill(iconX, iconY, iconX + ICON_SIZE, iconY + ICON_SIZE, 0x553A3A3A);
+            ctx.fill(iconX, iconY, iconX + ICON_SIZE, iconY + ICON_SIZE, COL_ICON_PLACEHOLDER);
         }
 
-        int nameX = iconX + ICON_SIZE + 3;
+        int nameX = iconX + ICON_SIZE + 4;
         int maxNameWidth = Math.max(24, x + panelWidth - PAD_X - nameX);
         String displayName = PoliticalOverlay.displayNameFor(entry.displayName());
         String name = renderer.trimToWidth(displayName, maxNameWidth);
-        int baseline = y + (ROW_HEIGHT - renderer.fontHeight) / 2;
+        int baseline = y + (ROW_HEIGHT - renderer.fontHeight) / 2 + 1;
         ctx.drawTextWithShadow(renderer, name, nameX, baseline, COL_FACTION);
+    }
+
+    /** One footer entry: a small computed icon followed by a time. */
+    record FooterItem(String[] icon, String time) {
+    }
+
+    static List<FooterItem> footerItems(OttoExtraConfig.Regions cfg, long updatedAtMs, long nowMs) {
+        FooterMode mode = footerMode(cfg);
+        List<FooterItem> items = new java.util.ArrayList<>(2);
+        if (mode == FooterMode.UPDATED_ONLY || mode == FooterMode.UPDATED_AND_CLOCK) {
+            items.add(new FooterItem(ICON_UPDATED, formatTime(updatedAtMs)));
+        }
+        if (mode == FooterMode.CLOCK_ONLY || mode == FooterMode.UPDATED_AND_CLOCK) {
+            items.add(new FooterItem(ICON_CLOCK, formatTime(nowMs)));
+        }
+        return items;
+    }
+
+    private static int footerWidth(TextRenderer renderer, List<FooterItem> items) {
+        int width = 0;
+        for (int i = 0; i < items.size(); i++) {
+            if (i > 0) width += FOOTER_ITEM_GAP;
+            width += ICON_PX + FOOTER_ICON_GAP
+                    + Math.round(renderer.getWidth(items.get(i).time()) * FOOTER_TEXT_SCALE);
+        }
+        return width;
+    }
+
+    private static void drawFooter(DrawContext ctx, TextRenderer renderer,
+                                   List<FooterItem> items, int x, int y) {
+        int cx = x;
+        for (int i = 0; i < items.size(); i++) {
+            if (i > 0) cx += FOOTER_ITEM_GAP;
+            FooterItem item = items.get(i);
+            drawIcon(ctx, item.icon(), cx, y, COL_FOOTER);
+            cx += ICON_PX + FOOTER_ICON_GAP;
+            drawSmallText(ctx, renderer, item.time(), cx, y + 1);
+            cx += Math.round(renderer.getWidth(item.time()) * FOOTER_TEXT_SCALE);
+        }
+    }
+
+    private static void drawSmallText(DrawContext ctx, TextRenderer renderer, String text, int x, int y) {
+        var m = ctx.getMatrices();
+        m.pushMatrix();
+        m.translate(x, y);
+        m.scale(FOOTER_TEXT_SCALE, FOOTER_TEXT_SCALE);
+        ctx.drawText(renderer, text, 0, 0, COL_FOOTER, false);
+        m.popMatrix();
+    }
+
+    /** Draws a 7x7 icon pattern ('X' = pixel) as single-pixel fills. */
+    private static void drawIcon(DrawContext ctx, String[] pattern, int x, int y, int color) {
+        for (int row = 0; row < pattern.length; row++) {
+            String line = pattern[row];
+            int col = 0;
+            while (col < line.length()) {
+                if (line.charAt(col) != 'X') {
+                    col++;
+                    continue;
+                }
+                int start = col;
+                while (col < line.length() && line.charAt(col) == 'X') col++;
+                ctx.fill(x + start, y + row, x + col, y + row + 1, color);
+            }
+        }
+    }
+
+    /** Rounded panel (corner pixel left out) with 1 px outline and top-left bevel; no overlapping fills. */
+    private static void drawPanel(DrawContext ctx, int x, int y, int w, int h) {
+        drawPanel(ctx, x, y, w, h, 1.0f);
+    }
+
+    /** Same panel, shared with the animal info toast; {@code alpha} scales all colours for fading. */
+    public static void drawPanel(DrawContext ctx, int x, int y, int w, int h, float alpha) {
+        int outline = fade(COL_OUTLINE, alpha);
+        int light = fade(COL_BEVEL_LIGHT, alpha);
+        int dark = fade(COL_BEVEL_DARK, alpha);
+        int panel = fade(COL_PANEL, alpha);
+        int r = x + w;
+        int b = y + h;
+        // Outline without the four corner pixels, plus the inner diagonal pixels.
+        ctx.fill(x + 1, y, r - 1, y + 1, outline);
+        ctx.fill(x + 1, b - 1, r - 1, b, outline);
+        ctx.fill(x, y + 1, x + 1, b - 1, outline);
+        ctx.fill(r - 1, y + 1, r, b - 1, outline);
+        ctx.fill(x + 1, y + 1, x + 2, y + 2, outline);
+        ctx.fill(r - 2, y + 1, r - 1, y + 2, outline);
+        ctx.fill(x + 1, b - 2, x + 2, b - 1, outline);
+        ctx.fill(r - 2, b - 2, r - 1, b - 1, outline);
+        // Bevel: light top/left, dark bottom/right.
+        ctx.fill(x + 2, y + 1, r - 2, y + 2, light);
+        ctx.fill(x + 1, y + 2, x + 2, b - 2, light);
+        ctx.fill(x + 2, b - 2, r - 2, b - 1, dark);
+        ctx.fill(r - 2, y + 2, r - 1, b - 2, dark);
+        ctx.fill(x + 2, y + 2, r - 2, b - 2, panel);
+    }
+
+    private static int fade(int argb, float alpha) {
+        int a = Math.round(((argb >>> 24) & 0xFF) * Math.max(0.0f, Math.min(1.0f, alpha)));
+        return (a << 24) | (argb & 0x00FFFFFF);
+    }
+
+    /** Flat rectangle with 1 px rounded corners. */
+    private static void drawRoundedFlat(DrawContext ctx, int x, int y, int w, int h, int color) {
+        ctx.fill(x + 1, y, x + w - 1, y + h, color);
+        ctx.fill(x, y + 1, x + 1, y + h - 1, color);
+        ctx.fill(x + w - 1, y + 1, x + w, y + h - 1, color);
+    }
+
+    private static void drawDivider(DrawContext ctx, int x, int y, int w) {
+        ctx.fill(x, y, x + w, y + 1, COL_DIVIDER_DARK);
+        ctx.fill(x, y + 1, x + w, y + 2, COL_DIVIDER_LIGHT);
+    }
+
+    /** 4x4 activity dot: corners cut, light pixel top left, dark edge bottom/right. */
+    private static void drawDot(DrawContext ctx, int x, int y, ActivityLevel level) {
+        ctx.fill(x + 1, y, x + 3, y + 3, level.color);
+        ctx.fill(x, y + 1, x + 1, y + 3, level.color);
+        ctx.fill(x + 1, y + 3, x + 3, y + 4, level.dark);
+        ctx.fill(x + 3, y + 1, x + 4, y + 3, level.dark);
+        ctx.fill(x + 1, y + 1, x + 2, y + 2, level.light);
     }
 
     private static Identifier resolveBanner(RegionDataService data,
@@ -246,13 +425,18 @@ public final class RegionActivityHud {
     }
 
     private enum ActivityLevel {
-        HIGH(0xFFFFD54F),
-        VERY_HIGH(0xFFFF5252);
+        // Pack gold and life red instead of saturated material colors.
+        HIGH(0xFFCD9F3D, 0xFFDBB451, 0xFF96752C),
+        VERY_HIGH(0xFFB24147, 0xFFC4545A, 0xFF6E2226);
 
         private final int color;
+        private final int light;
+        private final int dark;
 
-        ActivityLevel(int color) {
+        ActivityLevel(int color, int light, int dark) {
             this.color = color;
+            this.light = light;
+            this.dark = dark;
         }
 
         private static ActivityLevel fromApiValue(int value) {

@@ -24,6 +24,11 @@ final class BannerTextureBudget {
 
     synchronized void touch(String key) { sizes.get(key); }
 
+    synchronized void release(String key) {
+        Long size = sizes.remove(key);
+        if (size != null) bytes -= size;
+    }
+
     /** Returns keys whose owned native/GPU textures the caller must release on the render thread. */
     synchronized List<String> retain(String key, long size) {
         if (size < 0 || size > maxBytes) throw new IllegalArgumentException("Banner exceeds memory budget");

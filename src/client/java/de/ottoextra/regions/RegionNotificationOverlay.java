@@ -253,6 +253,17 @@ public final class RegionNotificationOverlay {
         boolean generic = genericNotification;
         Style st = activeStyle();
         Palette pal = generic ? NOTIFICATION : st.pal();
+        if (!generic) {
+            de.ottoextra.config.OttoExtraConfig.Regions zoneCfg = cfg;
+            de.ottoextra.regions.zonebanner.ZoneBannerStyle zone =
+                    de.ottoextra.regions.zonebanner.ZoneBannerStyles.byId(
+                            zoneCfg == null ? null : zoneCfg.zoneBannerStyle);
+            if (zone != null) {
+                zone.render(ctx, client.textRenderer, zoneFrame(client, st, hold),
+                        hold ? Math.min(elapsed, displayMs / 2) : elapsed, displayMs);
+                return;
+            }
+        }
         int maxTextWidth = st.maxTextWidth();
         int minWidth = st.minWidth();
         int maxWidth = st.maxWidth();
@@ -402,6 +413,40 @@ public final class RegionNotificationOverlay {
             matrices.popMatrix();
             ty += Math.round(tr.fontHeight * s) + gap;
         }
+    }
+
+    /** Fief-focused data for the procedural zone banners: name big, rank and region small. */
+    private static de.ottoextra.regions.zonebanner.ZoneBannerFrame zoneFrame(
+            MinecraftClient client, Style st, boolean hold) {
+        String region = regionName;
+        RegionDataService data = RegionsServices.data();
+        FactionRecord faction = data == null ? null : data.factionForRegion(region).orElse(null);
+        String regionLabel = data == null ? region
+                : data.regionByName(region).map(r -> r.name() == null || r.name().isBlank()
+                        ? region : r.name()).orElse(region);
+        String name;
+        String subtitle;
+        if (faction != null && faction.name() != null && !faction.name().isBlank()) {
+            name = de.ottoextra.map.PoliticalOverlay.displayNameFor(faction.name());
+            StringBuilder sb = new StringBuilder();
+            if (faction.rank_name() != null && !faction.rank_name().isBlank()) {
+                sb.append(faction.rank_name().trim());
+            }
+            String shownRegion = de.ottoextra.map.PoliticalOverlay.displayNameFor(regionLabel);
+            if (!shownRegion.isBlank() && !shownRegion.equalsIgnoreCase(name)) {
+                if (sb.length() > 0) sb.append(" · ");
+                sb.append(shownRegion);
+            }
+            subtitle = sb.toString();
+        } else {
+            name = de.ottoextra.map.PoliticalOverlay.displayNameFor(region);
+            subtitle = hierarchy.isBlank() ? "" : translatedRegionText(hierarchy).getString();
+        }
+        Identifier banner = st.showBanner() ? resolveBanner() : null;
+        return new de.ottoextra.regions.zonebanner.ZoneBannerFrame(
+                name, subtitle, banner,
+                client.getWindow().getScaledWidth(), client.getWindow().getScaledHeight(),
+                st.topMargin(), st.baseTextScale(), hold);
     }
 
     private static Text translatedRegionText(String text) {

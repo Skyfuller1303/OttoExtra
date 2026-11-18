@@ -63,7 +63,7 @@ class RegionSyncLifecycleTest {
     }
 
     private static ApiEnvelope envelope(int cursor, String name) {
-        return new Gson().fromJson("{\"ok\":true,\"sync_cursor\":" + cursor
+        return new Gson().fromJson("{\"ok\":true,\"snapshot_complete\":true,\"sync_cursor\":" + cursor
                 + ",\"factions\":[{\"uuid\":\"faction\",\"name\":\"" + name
                 + "\"}],\"regions\":[{\"id\":\"lehen_1\",\"name\":\"Region\"}]}", ApiEnvelope.class);
     }

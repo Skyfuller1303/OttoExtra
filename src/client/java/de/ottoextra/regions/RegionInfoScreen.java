@@ -418,7 +418,8 @@ public final class RegionInfoScreen extends Screen {
             String display = (p.title() != null && !p.title().isBlank() ? p.title() + " " : "")
                     + (p.name() != null ? p.name() : "?");
             String rank = p.rank() != null && !p.rank().isBlank() ? p.rank() : "-";
-            String money = Text.translatable("ottoextra.regions.money", p.money()).getString();
+            String money = p.money() == null ? "–"
+                    : Text.translatable("ottoextra.regions.money", p.money()).getString();
 
             ctx.drawText(textRenderer, textRenderer.trimToWidth(display, w - 110), x, y + 2, COL_BODY, true);
             ctx.drawText(textRenderer, textRenderer.trimToWidth(rank, 56), x + w - 108, y + 2, COL_MUTED, true);

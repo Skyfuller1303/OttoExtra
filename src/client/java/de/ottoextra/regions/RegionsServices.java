@@ -1,9 +1,13 @@
 package de.ottoextra.regions;
 
 import de.ottoextra.api.OttoExtraApiClient;
+import de.ottoextra.map.PoliticalOverlay;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.text.Text;
 
 import java.util.LinkedHashSet;
 import java.util.Set;
+import java.util.function.Consumer;
 
 public final class RegionsServices {
 
@@ -18,8 +22,17 @@ public final class RegionsServices {
         if (data != null && banners != null) {
             return;
         }
-        data = new RegionDataService(api, activityRefreshSeconds);
-        banners = new BannerTextureService(api);
+        RegionDataService service = new RegionDataService(api, activityRefreshSeconds);
+        BannerTextureService bannerService = new BannerTextureService(api);
+        // Runs on a service thread under the data lock. PoliticalOverlay caches are read on the
+        // render thread without synchronization, so invalidate them there.
+        service.setChangeListener(() -> {
+            bannerService.invalidateRefresh();
+            MinecraftClient client = MinecraftClient.getInstance();
+            if (client != null) client.execute(PoliticalOverlay::invalidateGroups);
+        });
+        data = service;
+        banners = bannerService;
     }
 
     public static void onServerJoin() {
@@ -55,6 +68,38 @@ public final class RegionsServices {
 
     public static BannerTextureService banners() {
         return banners;
+    }
+
+    /** Manual map data reload; reports start and result through {@code out} on the client thread. */
+    public static void refreshWithFeedback(Consumer<Text> out) {
+        RegionDataService service = data;
+        if (service == null) {
+            out.accept(Text.translatable("ottoextra.regions.refresh.unavailable"));
+            return;
+        }
+        out.accept(Text.translatable("ottoextra.regions.refresh.start"));
+        BannerTextureService bannerService = banners;
+        if (bannerService != null) bannerService.invalidateRefresh();
+        MinecraftClient client = MinecraftClient.getInstance();
+        service.forceRefresh().whenComplete((ignored, error) -> client.execute(() -> {
+            if (error == null) {
+                out.accept(Text.translatable("ottoextra.regions.refresh.done",
+                        service.allFactions().size(), service.allRegions().size()));
+            } else {
+                Throwable cause = error;
+                while (cause.getCause() != null) cause = cause.getCause();
+                out.accept(Text.translatable("ottoextra.regions.refresh.failed",
+                        String.valueOf(cause.getMessage())));
+            }
+        }));
+    }
+
+    /** Same as {@link #refreshWithFeedback(Consumer)}, answering in the player's chat. */
+    public static void refreshToChat() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        refreshWithFeedback(text -> {
+            if (client.player != null) client.player.sendMessage(text, false);
+        });
     }
 
     /** Aktuelle Eigennamen aus dem API-Bootstrap fuer Uebersetzungsfilter. */
