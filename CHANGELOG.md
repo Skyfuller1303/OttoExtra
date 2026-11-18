@@ -1,5 +1,72 @@
 # Changelog
 
+## 0.18.0-alpha – 2026-11-18
+
+Vorabversion zum Testen. JAR: `ottoextra-0.18.0-alpha.jar`.
+
+### Ein Jar statt drei
+- **Resources** und **Tactical Factions** sind jetzt Teil von OttoExtra. Die
+  bisherigen Addon-Jars `ottoextra_resources` und `ottoextra_tacticalfactions`
+  müssen entfernt werden; Fabric meldet sonst beim Start einen Konflikt.
+  Konfiguration und gespeicherte Daten bleiben an ihrem Ort und werden
+  übernommen. Details: [Integrierte Module](docs/integrierte-module.md).
+- Tactical Factions enthält nur noch die Variante mit Friendly-Fire-Schutz.
+
+### Werkstatt (neu)
+- Automatisierung für Herstellungsstationen (Zeugtisch, Kochstelle,
+  Schmiedetische usw.) und ihre Untermenüs („Mehr Sonstiges“, „Mehr Pigmente“).
+  Standardmäßig aus; nur einschalten, wenn die Serverregeln es erlauben.
+- Zahnrad-Reiter am Rand des Stationsfensters öffnet das Panel mit den Reitern
+  Auftrag, Brennstoff und Warteschlange. Rezepte per Rechtsklick hinzufügen,
+  Menge wählen, Brennstoff mit Brenndauer anzeigen und automatisch nachlegen.
+- Die Menge zählt Durchgänge: Fehlschläge gehören zum normalen Ablauf und werden
+  nicht nachgeholt. Abschluss mit „23 von 27 hergestellt, 4 fehlgeschlagen“.
+- Während des Dauerbetriebs Sicht- und Bewegungssperre (abschaltbar); die
+  Station wird nach jedem Rezept per Rechtsklick wieder geöffnet.
+- Stopp-Regeln: Schaden, Weggehen, Tod, fremde GUI, Escape, fehlende Zutaten
+  oder Brennstoff, drei Fehlschläge in Folge. Nur exakte Servermeldungen
+  zählen; Spielerchat stoppt keinen Auftrag.
+- Fortschrittsleiste oben mittig, rückt unter Bossleisten.
+
+### Leiden und Zustände (neu)
+- Liest die eigenen Leiden und Zustände aus dem Servermenü. Die automatische
+  Prüfung nach dem Join und alle 5 Minuten läuft unsichtbar: kein Fenster,
+  keine Chatzeile, kein sichtbarer Slotwechsel. Sie pausiert bei Kampf,
+  offenen Fenstern, Bewegung, Angeln und Item-Benutzung.
+- Befehl `/ottoextra leiden check` prüft sofort und meldet das Ergebnis.
+- Teilen über ottoextra.dev ist standardmäßig an (abschaltbar) und braucht die
+  Einwilligung für Online-Dienste sowie ein verknüpftes Konto. Nur der eigene
+  Client schreibt den eigenen Stand; ausschalten löscht ihn sofort.
+- Andere OttoExtra-Spieler zeigen geteilte Zustände am Namensschild:
+  rotes ✚ für Leiden, türkises ✦ für sonstige Zustände. Optional eigene
+  HUD-Liste.
+
+### HUD
+- HUDs in derselben Spalte schieben sich gegenseitig, statt sich zu überlappen.
+- Gemeinsame Spalte oben mittig: Werkstatt-Leiste, Tier-Toast, Zonen-Toast und
+  Vote-Erinnerung stapeln sich mit 2 px Abstand unter den Bossleisten.
+- Vote-Erinnerung als Karte mit Kopfband, wechselnden Texten, Restzeit und den
+  Tasten „Abstimmen“ (Enter) und „Später“ (neu, Standard X).
+- Banner beim Betreten einer Region: Standard ist jetzt der Stil „Plakette“
+  (einmalige Umstellung, wenn bisher „klassisch“ eingestellt war).
+
+### Tiere und Höfe
+- Höfe lassen sich über einen Code teilen (Lesecode beginnt mit `H`), ohne
+  Konto. Bei Konflikten gewinnt die neuere Änderung.
+- Tiervorschau in Tierinfo und Tierbuch in 3/4-Ansicht, an das Feld angepasst
+  und ohne Namensschild.
+- Eigenes Reittier wird in der Tierinfo ausgeblendet; Würfel für Tiernamen.
+- Defekte oder zu große Tierbuch-Dateien werden gesichert statt überschrieben.
+
+### Weitere Änderungen
+- Tab-Vervollständigung in allen Namensfeldern (Spieler, RP-Namen, Gefolge,
+  Lehen, Höfe).
+- Resources: gespeicherte POIs erscheinen wieder in der Liste im Menübuch.
+
+### Bekannte Punkte
+- Im Spiel noch nicht vollständig geprüft: Werkstatt auf allen Stationen,
+  unsichtbare Leiden-Prüfung unter Last, Zusammenspiel der integrierten Module.
+
 ## 0.1.17 – 2026-09-13
 
 [Release-Changelog seit 0.1.16.1](release-notes-0.1.17.md)
