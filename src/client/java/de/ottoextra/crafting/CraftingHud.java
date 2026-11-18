@@ -88,7 +88,7 @@ public final class CraftingHud {
             lastTitle = "";
         });
         HudRenderCallback.EVENT.register((ctx, tick) -> {
-            render(ctx, context);
+            if (!de.ottoextra.map.WorldMapOpenAnimation.hidesHudOverlays()) render(ctx, context);
         });
     }
 

@@ -22,10 +22,19 @@ public final class CraftingParser {
     private static final Pattern START = Pattern.compile(
             "^(?:\\[Info]\\s*)?Du beginnst die Herstellung von ([^.…\\s].*?)\\s*(?:\\.{2,}|…)\\s*$");
     private static final String COMPLETION = "Die Herstellung ist erfolgreich";
+    /**
+     * The whole completion action bar ("§7Die Herstellung ist erfolgreich!"), optionally with the
+     * server's "[Info]" prefix. Anchored, so a chat line that merely quotes the sentence does not count.
+     */
+    private static final Pattern COMPLETION_LINE = Pattern.compile(
+            "^(?:\\[Info]\\s*)?Die Herstellung ist erfolgreich\\s*[.!…]*$");
+    /** Failed craft result ("§7Die Herstellung ist schiefgegangen..."), whole line, compared in lower case. */
+    private static final Pattern CRAFT_FAILED = Pattern.compile(
+            "^(?:\\[info]\\s*)?die herstellung ist (?:schiefgegangen|schief gegangen|fehlgeschlagen|misslungen)\\s*[.!…]*$");
     /** Failure messages are unknown: "Herstellung" plus one of these words (case-insensitive) counts. */
     static final String FAILURE_SUBJECT = "herstellung";
     static final java.util.List<String> FAILURE_KEYWORDS = java.util.List.of(
-            "fehlgeschlagen", "abgebrochen", "misslungen", "nicht", "kein");
+            "fehlgeschlagen", "abgebrochen", "misslungen", "schiefgegangen", "nicht", "kein");
 
     private CraftingParser() {
     }
@@ -71,9 +80,19 @@ public final class CraftingParser {
         return m.matches() ? Optional.of(m.group(1)) : Optional.empty();
     }
 
-    /** True for the completion action bar ("§7Die Herstellung ist erfolgreich!"). */
+    /** True for the completion action bar ("§7Die Herstellung ist erfolgreich!"), matched as a whole line. */
     public static boolean isCompletion(String message) {
-        return message != null && strip(message).contains(COMPLETION);
+        return message != null && COMPLETION_LINE.matcher(strip(message)).matches();
+    }
+
+    /**
+     * The server's result line for a craft that ran and failed ("§7Die Herstellung ist
+     * schiefgegangen..."). Formatting codes are stripped, case does not matter; "fehlgeschlagen" and
+     * "misslungen" count too. Unlike {@link #isFailure} this is a result, not a refusal.
+     */
+    public static boolean isCraftFailed(String message) {
+        if (message == null || isCompletion(message)) return false;
+        return CRAFT_FAILED.matcher(strip(message).toLowerCase(java.util.Locale.ROOT)).matches();
     }
 
     /**
@@ -81,7 +100,7 @@ public final class CraftingParser {
      * ("Du beginnst die Herstellung von ...") is never a failure, even if the item name contains a keyword.
      */
     public static boolean isFailure(String message) {
-        if (message == null || isCompletion(message) || itemName(message).isPresent()) return false;
+        if (message == null || strip(message).contains(COMPLETION) || itemName(message).isPresent()) return false;
         String lower = strip(message).toLowerCase(java.util.Locale.ROOT);
         if (!lower.contains(FAILURE_SUBJECT)) return false;
         for (String keyword : FAILURE_KEYWORDS) {

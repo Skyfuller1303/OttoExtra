@@ -70,6 +70,17 @@ class CraftingParserTest {
     }
 
     @Test
+    void recognisesTheFailedCraftResult() {
+        assertTrue(CraftingParser.isCraftFailed("§7Die Herstellung ist schiefgegangen..."));
+        assertTrue(CraftingParser.isCraftFailed("DIE HERSTELLUNG IST FEHLGESCHLAGEN!"));
+        assertTrue(CraftingParser.isCraftFailed("[Info] Die Herstellung ist misslungen."));
+        assertFalse(CraftingParser.isCraftFailed("§7Die Herstellung ist erfolgreich!"));
+        assertFalse(CraftingParser.isCraftFailed("[Info] Du beginnst die Herstellung von Eisenbarren..."));
+        assertFalse(CraftingParser.isCraftFailed(null));
+        assertTrue(CraftingParser.isFailure("§7Die Herstellung ist schiefgegangen..."));
+    }
+
+    @Test
     void detectsFailureKeywordsAndSuccessWins() {
         assertTrue(CraftingParser.isFailure("§c[Info] Die Herstellung ist fehlgeschlagen!"));
         assertTrue(CraftingParser.isFailure("Herstellung ABGEBROCHEN"));
