@@ -41,25 +41,26 @@ class AnimalToastStyleTest {
     }
 
     @Test
-    void customisedLayoutsKeepTheirOwnToast() {
-        OttoExtraConfig config = new OttoExtraConfig();
-        config.restoreFrom("{\"animalInfo\":{\"layouts\":{\"sheep\":{\"titleX\":40}}}}");
-        assertEquals("custom", config.animalInfo.toastStyle);
-        OttoExtraConfig toggled = new OttoExtraConfig();
-        toggled.restoreFrom("{\"animalInfo\":{\"layouts\":{\"pig\":{\"showTimer\":false}}}}");
-        assertEquals("custom", toggled.animalInfo.toastStyle);
-        OttoExtraConfig scaled = new OttoExtraConfig();
-        scaled.restoreFrom("{\"animalInfo\":{\"layouts\":{\"cow\":{\"mastScale\":1.2}}}}");
-        assertEquals("custom", scaled.animalInfo.toastStyle);
+    void everyoneStartsOnTheDetailedToastOnce() {
+        OttoExtraConfig customised = new OttoExtraConfig();
+        customised.restoreFrom("{\"animalInfo\":{\"toastStyle\":\"custom\",\"layouts\":{\"sheep\":{\"titleX\":40}}}}");
+        assertEquals("detailed", customised.animalInfo.toastStyle);
+        assertEquals(1, customised.animalInfo.toastStyleVersion);
+        OttoExtraConfig fresh = new OttoExtraConfig();
+        fresh.restoreFrom("{\"animalInfo\":{}}");
+        assertEquals("detailed", fresh.animalInfo.toastStyle);
     }
 
     @Test
-    void chosenStyleIsKeptAndUnknownValuesAreReplaced() {
+    void chosenStyleIsKeptAfterTheSwitchAndUnknownValuesAreReplaced() {
         OttoExtraConfig compact = new OttoExtraConfig();
-        compact.restoreFrom("{\"animalInfo\":{\"toastStyle\":\"compact\"}}");
+        compact.restoreFrom("{\"animalInfo\":{\"toastStyle\":\"compact\",\"toastStyleVersion\":1}}");
         assertEquals("compact", compact.animalInfo.toastStyle);
+        OttoExtraConfig custom = new OttoExtraConfig();
+        custom.restoreFrom("{\"animalInfo\":{\"toastStyle\":\"custom\",\"toastStyleVersion\":1}}");
+        assertEquals("custom", custom.animalInfo.toastStyle);
         OttoExtraConfig bogus = new OttoExtraConfig();
-        bogus.restoreFrom("{\"animalInfo\":{\"toastStyle\":\"fancy\"}}");
+        bogus.restoreFrom("{\"animalInfo\":{\"toastStyle\":\"fancy\",\"toastStyleVersion\":1}}");
         assertEquals("detailed", bogus.animalInfo.toastStyle);
     }
 

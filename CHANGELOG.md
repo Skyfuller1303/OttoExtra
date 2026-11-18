@@ -53,6 +53,8 @@ Vorabversion zum Testen. JAR: `ottoextra-0.18.0-alpha.jar`.
 ### Tiere und Höfe
 - Höfe lassen sich über einen Code teilen (Lesecode beginnt mit `H`), ohne
   Konto. Bei Konflikten gewinnt die neuere Änderung.
+- Tierinfo startet für alle einmalig im neuen detaillierten Stil; ein eigenes
+  Layout bleibt gespeichert und ist unter „Eigenes“ wieder wählbar.
 - Tiervorschau in Tierinfo und Tierbuch in 3/4-Ansicht, an das Feld angepasst
   und ohne Namensschild.
 - Eigenes Reittier wird in der Tierinfo ausgeblendet; Würfel für Tiernamen.

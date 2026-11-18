@@ -110,7 +110,9 @@ public final class OttoExtraConfig {
          * Toast style: "compact", "detailed" or "custom" (freely editable layout). Null means not chosen
          * yet; {@link #toastStyle()} then resolves to detailed.
          */
-        public String toastStyle;
+        public String toastStyle = "detailed";
+        /** 1: the toast style was switched to the new detailed toast once (0.18.0). */
+        public int toastStyleVersion;
         public boolean hideAutomaticChat = true;
         /** No info panel for the animal the player is riding. */
         public boolean hideOwnMount = true;
@@ -1266,11 +1268,12 @@ public final class OttoExtraConfig {
         animalInfo.extraScale = repairAnimalInfoScale(animalInfo.extraScale, aid.extraScale);
         animalInfo.repairLayouts();
         if (animalInfo.toastStyle == null
-                || !de.ottoextra.animalinfo.AnimalToastStyle.isKnown(animalInfo.toastStyle)) {
-            // One-time choice: users who adapted the layout keep their toast, everyone else gets the new one.
-            animalInfo.toastStyle = (animalInfo.hasCustomizedLayout()
-                    ? de.ottoextra.animalinfo.AnimalToastStyle.CUSTOM
-                    : de.ottoextra.animalinfo.AnimalToastStyle.DETAILED).id();
+                || !de.ottoextra.animalinfo.AnimalToastStyle.isKnown(animalInfo.toastStyle)
+                || animalInfo.toastStyleVersion < 1) {
+            // One-time switch (0.18.0): everyone starts on the new detailed toast. A customised layout is
+            // kept in the config and can be selected again as "custom" in the settings.
+            animalInfo.toastStyle = de.ottoextra.animalinfo.AnimalToastStyle.DETAILED.id();
+            animalInfo.toastStyleVersion = 1;
         }
         if (resourcepack.maxSizeBytes <= 0) resourcepack.maxSizeBytes = new ResourcePack().maxSizeBytes;
         Regions rd = new Regions();
