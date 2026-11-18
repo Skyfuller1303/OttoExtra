@@ -101,6 +101,7 @@ public final class FollowingScreen extends Screen {
             rebuildRows();
         });
         addDrawableChild(searchField);
+        de.ottoextra.ui.complete.TabCompletion.attach(searchField, de.ottoextra.ui.complete.TabCompletionSources::gefolgeAndLehen);
 
         hierarchyButton = ButtonWidget.builder(hierarchyLabel(), b -> {
             hierarchy = !hierarchy;

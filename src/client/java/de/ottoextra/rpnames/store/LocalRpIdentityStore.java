@@ -505,6 +505,9 @@ public final class LocalRpIdentityStore {
             keep.apiState = dupe.apiState;
         }
         keep.locked = keep.locked || dupe.locked;
+        if (keep.relation == null || keep.relation == de.ottoextra.rpnames.model.Relation.NONE) {
+            keep.relation = dupe.relation;
+        }
         keep.firstSeenAt = Math.min(nonZero(keep.firstSeenAt), nonZero(dupe.firstSeenAt));
         keep.lastSeenAt = Math.max(keep.lastSeenAt, dupe.lastSeenAt);
         if (dupe.accountName != null) {
@@ -610,6 +613,57 @@ public final class LocalRpIdentityStore {
         saveNow();
         de.ottoextra.rpnames.chat.ChatHistoryRefresh.request();
         return profile;
+    }
+
+    /**
+     * Applies identity data shown by the server's own player GUI. The server is authoritative
+     * except for values the user set in the editor: those are only filled when empty, and locked
+     * profiles or titles stay untouched. A profile with a known name counts as met afterwards.
+     * Null or blank arguments are skipped.
+     */
+    public synchronized boolean importServerGui(String accountName, String uuid, String rpName,
+                                                String title, String state) {
+        if (accountName == null || accountName.isBlank()) {
+            return false;
+        }
+        LocalRpProfile profile = ensureSeen(accountName, uuid, RpNameSource.SEEN_ONLINE);
+        boolean userSet = profile.locked
+                || profile.knowledgeState == KnowledgeState.MANUAL
+                || profile.knowledgeState == KnowledgeState.MANUAL_LOCKED
+                || profile.source == RpNameSource.MANUAL_EDIT;
+        boolean changed = false;
+
+        if (rpName != null && !rpName.isBlank()
+                && (!userSet || (!profile.hasRpName() && !profile.locked))
+                && !rpName.equals(profile.rpName)) {
+            profile.rpName = rpName;
+            profile.apiConflict = null;
+            changed = true;
+        }
+        if (title != null && !title.isBlank() && canUpdateTitle(profile)
+                && (!userSet || !profile.hasTitle()) && !title.equals(profile.title)) {
+            profile.title = title;
+            changed = true;
+        }
+        String newState = state == null ? "" : state.trim();
+        boolean stateEmpty = profile.apiState == null || profile.apiState.isBlank();
+        if (!newState.isEmpty() && (!userSet || stateEmpty) && !newState.equals(profile.apiState)) {
+            profile.apiState = newState;
+            changed = true;
+        }
+        if (!userSet && profile.hasRpName()
+                && (profile.knowledgeState != KnowledgeState.KNOWN
+                || profile.source != RpNameSource.SERVER_GUI)) {
+            profile.knowledgeState = KnowledgeState.KNOWN;
+            profile.source = RpNameSource.SERVER_GUI;
+            changed = true;
+        }
+        if (changed) {
+            profile.lastUpdatedAt = System.currentTimeMillis();
+            saveSoon();
+            de.ottoextra.rpnames.chat.ChatHistoryRefresh.request();
+        }
+        return changed;
     }
 
     public synchronized boolean importApi(String accountName, String uuid, String rpName,

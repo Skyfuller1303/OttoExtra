@@ -10,6 +10,11 @@ import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
 
+/**
+ * Old "Person kennenlernen" dialog. It is no longer opened: name clicks and the meet flow open the
+ * people book ({@link RpNamesPeopleBookScreen#openForMeet}) instead. Its prefill rules
+ * ({@link #localPrefill}, {@link #apiPrefill}) are still used by the book.
+ */
 public final class MeetPersonScreen extends Screen {
 
     private static final net.minecraft.util.Identifier EDIT_ICON =
@@ -96,6 +101,7 @@ public final class MeetPersonScreen extends Screen {
             nameField.setMaxLength(48);
             nameField.setText(prefillName);
             addDrawableChild(nameField);
+            de.ottoextra.ui.complete.TabCompletion.attach(nameField, de.ottoextra.ui.complete.TabCompletionSources::rpNames);
             y += 26;
             addDrawableChild(ButtonWidget.builder(Text.translatable("ottoextra.rpbook.save"),
                     b -> save(nameField.getText().trim(), titleField.getText().trim()))

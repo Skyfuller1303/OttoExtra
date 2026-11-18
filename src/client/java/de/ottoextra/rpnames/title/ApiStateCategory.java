@@ -11,9 +11,9 @@ public final class ApiStateCategory {
     public static Optional<String> category(String apiState) {
         return switch (TitleRegistry.normalize(apiState)) {
             case "teamler", "teamlerin" -> Optional.of("system");
-            case "adliger", "adlige" -> Optional.of("adel");
-            case "kleriker", "klerikerin" -> Optional.of("klerus");
-            case "gemeiner", "gemeine" -> Optional.of("allgemein");
+            case "adliger", "adlige", "adel" -> Optional.of("adel");
+            case "kleriker", "klerikerin", "klerus" -> Optional.of("klerus");
+            case "gemeiner", "gemeine", "gemein" -> Optional.of("allgemein");
             default -> Optional.empty();
         };
     }

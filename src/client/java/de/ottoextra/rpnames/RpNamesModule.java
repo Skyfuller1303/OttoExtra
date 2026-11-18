@@ -94,36 +94,10 @@ public final class RpNamesModule implements OttoExtraModule {
         RpNamesServices.setChatMeetHandler((parent, profile) ->
                 openMeet(context, parent, profile.accountName, profile.uuid));
 
-        net.fabricmc.fabric.api.event.player.UseEntityCallback.EVENT.register(
-                (player, world, hand, entity, hitResult) -> {
-                    boolean meet = RpNamesServices.proactiveMeetEnabled();
-                    boolean book = RpNamesServices.openBookOnClickEnabled();
-                    if (!world.isClient() || hand != net.minecraft.util.Hand.MAIN_HAND
-                            || (!meet && !book) || !player.isSneaking()
-                            || !(entity instanceof net.minecraft.entity.player.PlayerEntity target)) {
-                        return net.minecraft.util.ActionResult.PASS;
-                    }
-                    MinecraftClient client = MinecraftClient.getInstance();
-                    if (isCombatBossBarActive(client)) {
-                        return net.minecraft.util.ActionResult.PASS;
-                    }
-                    String account = target.getGameProfile().name();
-                    String uuid = target.getUuid() != null ? target.getUuid().toString() : null;
-                    var p = RpNamesServices.displayProfile(uuid, account).orElse(null);
-                    boolean unknown = p == null || !RpNamesServices.isKnownForDisplay(p);
-                    if (meet && unknown) {
-                        openMeet(context, null, account, uuid);
-                    } else if (book) {
-                        client.execute(() -> {
-                            if (!isCombatBossBarActive(client)) {
-                                de.ottoextra.rpnames.ui.RpNamesPeopleBookScreen
-                                        .openFor(null, account, uuid);
-                            }
-                        });
-                    }
-                    return net.minecraft.util.ActionResult.SUCCESS;
-                });
+        // Shift + right-click on a player is handled by the server's own GUI; the client no longer
+        // intercepts it with the people book or the meet dialog.
 
+        ServerProfileHeadClick.register();
         MeetMarkerRenderer.register();
         de.ottoextra.rpnames.inspect.InspectMode.register(context.config().rpnames);
 
@@ -236,8 +210,9 @@ public final class RpNamesModule implements OttoExtraModule {
 
                 // Direkte API-Werte werden an das Fenster übergeben. Dadurch
                 // kann kein älterer lokaler Chat-Vorschlag die Anzeige ersetzen.
-                client.setScreen(new de.ottoextra.rpnames.ui.MeetPersonScreen(
-                        parent, account, responseUuid, rpName, title));
+                // The people book replaces the old meet dialog; it shows the API values unsaved.
+                de.ottoextra.rpnames.ui.RpNamesPeopleBookScreen.openForMeet(
+                        parent, account, responseUuid, rpName, title);
 
                 DebugLog.debug(
                         "[rpnames] API-Spielerprofil geladen: account={}, rpName={}, title={}",
@@ -261,8 +236,7 @@ public final class RpNamesModule implements OttoExtraModule {
                 || client.currentScreen != parent || !RpNamesServices.proactiveMeetEnabled() || isCombatBossBarActive(client)) {
             return;
         }
-        client.setScreen(new de.ottoextra.rpnames.ui.MeetPersonScreen(
-                parent, account, uuid));
+        de.ottoextra.rpnames.ui.RpNamesPeopleBookScreen.openForMeet(parent, account, uuid);
     }
 
     static boolean isCombatBossBarName(String displayName) {
@@ -270,7 +244,7 @@ public final class RpNamesModule implements OttoExtraModule {
                 && displayName.toLowerCase(Locale.ROOT).contains(COMBAT_BOSS_BAR_TEXT);
     }
 
-    private static boolean isCombatBossBarActive(MinecraftClient client) {
+    public static boolean isCombatBossBarActive(MinecraftClient client) {
         if (client == null || client.inGameHud == null) {
             return false;
         }
@@ -358,6 +332,14 @@ public final class RpNamesModule implements OttoExtraModule {
                                 .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager
                                         .literal("rpnames")
                                         .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager
+                                                .literal("buch")
+                                                .executes(c -> openPeopleBook(null))
+                                                .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager
+                                                        .argument("spieler", com.mojang.brigadier.arguments
+                                                                .StringArgumentType.word())
+                                                        .executes(c -> openPeopleBook(com.mojang.brigadier.arguments
+                                                                .StringArgumentType.getString(c, "spieler")))))
+                                        .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager
                                                 .literal("hoverdebug")
                                                 .then(net.fabricmc.fabric.api.client.command.v2.ClientCommandManager
                                                         .literal("on")
@@ -376,6 +358,22 @@ public final class RpNamesModule implements OttoExtraModule {
                                                                     + "Neuer Command: /ottoextra debug off");
                                                             return 1;
                                                         }))))));
+    }
+
+    /**
+     * Opens the people book, optionally with a player selected. Deferred to the next tick
+     * because the chat screen closes right after the command runs.
+     */
+    private static int openPeopleBook(String player) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        client.send(() -> {
+            if (player == null || player.isBlank()) {
+                client.setScreen(new de.ottoextra.rpnames.ui.RpNamesPeopleBookScreen(null));
+            } else {
+                de.ottoextra.rpnames.ui.RpNamesPeopleBookScreen.openFor(null, player, null);
+            }
+        });
+        return 1;
     }
 
     private static void feedback(String text) {

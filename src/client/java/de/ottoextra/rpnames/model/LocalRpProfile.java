@@ -27,6 +27,8 @@ public final class LocalRpProfile {
     /** Zeigt nach einem Server-Reset den rohen Servertitel statt einer Katalogvariante. */
     public boolean rawTitleDisplay = false;
     public boolean favorite = false;
+    /** Persönliche Beziehung zur Person; nur der Nutzer ändert sie, Importe fassen sie nie an. */
+    public Relation relation = Relation.NONE;
     public String notes = "";
 
     public String apiConflict;
@@ -91,6 +93,9 @@ public final class LocalRpProfile {
         }
         if (notes == null) {
             notes = "";
+        }
+        if (relation == null) {
+            relation = Relation.NONE;
         }
     }
 

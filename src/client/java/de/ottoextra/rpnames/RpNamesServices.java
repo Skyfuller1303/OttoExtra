@@ -296,6 +296,23 @@ public final class RpNamesServices {
                 && profile.source != RpNameSource.API_IMPORTED;
     }
 
+    /**
+     * Whether a nametag may show the profile's RP identity. Unlike {@link #isKnownForDisplay},
+     * this does not depend on the proactive meet option: forgotten players and players known only
+     * from the public API stay unknown on nametags until the user meets them (server player GUI
+     * import, manual entry or chat learning).
+     */
+    public static boolean isKnownForNametag(LocalRpProfile profile) {
+        if (profile == null || !profile.hasRpName()) {
+            return false;
+        }
+        if (isLocalPlayer(profile)) {
+            return true;
+        }
+        return profile.knowledgeState != KnowledgeState.API_IMPORTED
+                && profile.source != RpNameSource.API_IMPORTED;
+    }
+
     public static java.util.Optional<String> knownRpNameForDisplay(String accountName) {
         LocalRpIdentityStore currentStore = store;
         if (!isActive() || currentStore == null
@@ -906,10 +923,13 @@ public final class RpNamesServices {
                 : unknownDisplay(accountName);
     }
 
+    /** Nametags always show the placeholder for unknown players; the account goes on its own line. */
     public static String unknownNametagDisplay(String accountName) {
-        return proactiveMeetEnabled()
-                ? unknownPlaceholder()
-                : unknownDisplay(accountName);
+        return unknownPlaceholder();
+    }
+
+    public static boolean unknownNametagAccountLineEnabled() {
+        return config != null && config.unknownShowAccount;
     }
 
     public static boolean unknownShowsAccount() {

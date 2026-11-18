@@ -12,6 +12,28 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class RpNamesServicesTest {
 
     @Test
+    void nametagKnownnessIgnoresMeetOptionButExcludesApiOnlyProfiles() {
+        LocalRpProfile api = new LocalRpProfile();
+        api.accountName = "Api";
+        api.rpName = "Api Name";
+        api.knowledgeState = KnowledgeState.API_IMPORTED;
+        api.source = RpNameSource.API_IMPORTED;
+        org.junit.jupiter.api.Assertions.assertFalse(RpNamesServices.isKnownForNametag(api));
+
+        LocalRpProfile met = new LocalRpProfile();
+        met.accountName = "Met";
+        met.rpName = "Johann";
+        met.knowledgeState = KnowledgeState.KNOWN;
+        met.source = RpNameSource.SERVER_GUI;
+        assertTrue(RpNamesServices.isKnownForNametag(met));
+
+        LocalRpProfile unnamed = new LocalRpProfile();
+        unnamed.accountName = "Seen";
+        org.junit.jupiter.api.Assertions.assertFalse(RpNamesServices.isKnownForNametag(unnamed));
+        org.junit.jupiter.api.Assertions.assertFalse(RpNamesServices.isKnownForNametag(null));
+    }
+
+    @Test
     void disconnectDiscardsOldMeetSuggestionsAndMarkers() throws Exception {
         var saved = new java.util.LinkedHashMap<java.lang.reflect.Field, Object>();
         for (String name : java.util.List.of("store", "active", "cachedLocalAccount", "cachedLocalProfile",

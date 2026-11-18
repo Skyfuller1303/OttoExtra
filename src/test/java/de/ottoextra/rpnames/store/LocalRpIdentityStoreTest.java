@@ -36,6 +36,58 @@ class LocalRpIdentityStoreTest {
         assertTrue(store.find(proxy.uuid, proxy.accountName).isEmpty());
     }
 
+    @Test
+    void serverGuiImportCreatesKnownProfile() {
+        LocalRpIdentityStore store = new LocalRpIdentityStore(false);
+        assertTrue(store.importServerGui("Acc", "u-1", "Johann", "Großschmied", "Gemein"));
+        LocalRpProfile p = store.find("u-1", "Acc").orElseThrow();
+        assertEquals("Johann", p.rpName);
+        assertEquals("Großschmied", p.title);
+        assertEquals("Gemein", p.apiState);
+        assertEquals(KnowledgeState.KNOWN, p.knowledgeState);
+        assertEquals(RpNameSource.SERVER_GUI, p.source);
+        assertFalse(store.importServerGui("Acc", "u-1", "Johann", "Großschmied", "Gemein"));
+    }
+
+    @Test
+    void serverGuiImportOverwritesServerValuesButNotManualOnes() {
+        LocalRpIdentityStore store = new LocalRpIdentityStore(false);
+        store.importServerGui("Acc", "u-1", "Johann", "Schmied", null);
+        store.importServerGui("Acc", "u-1", "Johann N.", "Großschmied", null);
+        assertEquals("Johann N.", store.find("u-1", "Acc").orElseThrow().rpName);
+        assertEquals("Großschmied", store.find("u-1", "Acc").orElseThrow().title);
+
+        LocalRpProfile edited = new LocalRpProfile();
+        edited.accountName = "Other";
+        edited.uuid = "u-2";
+        edited.rpName = "Mein Name";
+        edited.source = RpNameSource.MANUAL_EDIT;
+        edited.knowledgeState = KnowledgeState.MANUAL;
+        store.insert(edited);
+        store.importServerGui("Other", "u-2", "Server Name", "Server Titel", "Adel");
+        assertEquals("Mein Name", edited.rpName);
+        assertEquals("Server Titel", edited.title);
+        assertEquals("Adel", edited.apiState);
+        assertEquals(KnowledgeState.MANUAL, edited.knowledgeState);
+        store.importServerGui("Other", "u-2", "Server Name", "Anderer Titel", "Klerus");
+        assertEquals("Server Titel", edited.title);
+        assertEquals("Adel", edited.apiState);
+    }
+
+    @Test
+    void manualEditSurvivesLaterServerGuiImports() {
+        LocalRpIdentityStore store = new LocalRpIdentityStore(false);
+        store.importServerGui("Acc", "u-1", "Johann", "Schmied", "Gemein");
+        store.updateManual("Acc", "u-1", p -> {
+            p.rpName = "Hans";
+            p.title = "Meister";
+        }, false);
+        assertFalse(store.importServerGui("Acc", "u-1", "Johann", "Schmied", "Gemein"));
+        LocalRpProfile p = store.find("u-1", "Acc").orElseThrow();
+        assertEquals("Hans", p.rpName);
+        assertEquals("Meister", p.title);
+    }
+
     @TempDir
     Path temporaryDirectory;
 

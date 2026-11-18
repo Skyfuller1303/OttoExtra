@@ -109,7 +109,9 @@ public final class InspectMode {
         KeyBindingHelper.registerKeyBinding(inspectKey);
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> update(client, config));
-        HudRenderCallback.EVENT.register((context, tickCounter) -> render(context, config));
+        HudRenderCallback.EVENT.register((context, tickCounter) -> {
+            if (!de.ottoextra.map.WorldMapOpenAnimation.hidesHudOverlays()) render(context, config);
+        });
     }
 
     private static void update(MinecraftClient client, OttoExtraConfig.RpNames config) {

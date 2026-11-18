@@ -215,6 +215,7 @@ public final class NametagService {
         if (!result.custom()) return null;
         Text name = result.name() != null ? result.name()
                 : (vanillaName != null ? vanillaName : Text.literal(accountName == null ? "" : accountName));
+        name = de.ottoextra.ailments.ConditionsDisplay.decorate(uuid, name);
         return new Lines(result.title(), name, result.account());
     }
 
@@ -240,7 +241,7 @@ public final class NametagService {
         }
 
         boolean knownForDisplay = profile != null
-                && RpNamesServices.isKnownForDisplay(profile);
+                && RpNamesServices.isKnownForNametag(profile);
 
         /*
          * Proaktives Kennenlernen:
@@ -256,14 +257,9 @@ public final class NametagService {
 
             if (cfg.showRpName) {
                 String shown = RpNamesServices.unknownNametagDisplay(accountName);
-                nameIsAccount = RpNamesServices.unknownShowsAccount();
-                name = colored(shown, nameIsAccount
-                        ? RpNamesServices.playerNameColor(
-                                profile != null ? profile.colors.nametagNameColor : null,
-                                profile != null ? profile.title : null)
-                        : firstNonBlank(
-                                profile != null ? profile.colors.nametagNameColor : null,
-                                "#8A8A8A"));
+                name = colored(shown, firstNonBlank(
+                        profile != null ? profile.colors.nametagNameColor : null,
+                        "#8A8A8A"));
             } else if (cfg.showPlayerName) {
                 nameIsAccount = true;
                 name = colored(accountName,
@@ -276,7 +272,7 @@ public final class NametagService {
 
             Text account = null;
             if (cfg.showPlayerName && !nameIsAccount
-                    && RpNamesServices.unknownAccountLineEnabled()) {
+                    && RpNamesServices.unknownNametagAccountLineEnabled()) {
                 account = colored(accountName,
                         accountColor(cfg, RpNamesServices.playerNameColor(
                                 profile != null ? profile.colors.nametagNameColor : null,

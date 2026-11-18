@@ -13,7 +13,7 @@ class RpNamesConfigDefaultsTest {
         assertFalse(config.tablistEnabled);
         assertFalse(config.tablistSortByRegion);
         assertFalse(config.openBookOnClick);
-        assertTrue(config.proactiveMeet);
+        assertFalse(config.proactiveMeet);
     }
 
     @Test
@@ -23,5 +23,16 @@ class RpNamesConfigDefaultsTest {
         config.restoreFrom("{\"rpnames\":{\"tablistEnabled\":true}}");
 
         assertTrue(config.rpnames.tablistEnabled);
+    }
+
+    @Test
+    void legacyEnabledMeetIsSwitchedOffOnce() {
+        OttoExtraConfig legacy = new OttoExtraConfig();
+        legacy.restoreFrom("{\"rpnames\":{\"proactiveMeet\":true}}");
+        assertFalse(legacy.rpnames.proactiveMeet);
+
+        OttoExtraConfig migrated = new OttoExtraConfig();
+        migrated.restoreFrom("{\"rpnames\":{\"proactiveMeet\":true,\"meetDefaultVersion\":1}}");
+        assertTrue(migrated.rpnames.proactiveMeet);
     }
 }
