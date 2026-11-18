@@ -31,6 +31,16 @@ public final class InkTextField extends TextFieldWidget {
         setUneditableColor(slate ? 0xFF8A8A90 : 0xAA7A6248);
     }
 
+    /** True for the dark slate field, false for the ink line on parchment. */
+    public boolean isSlate() {
+        return slate;
+    }
+
+    /** Width of the drawn box left of the text area (3 px plus the icon padding). */
+    public int boxInsetLeft() {
+        return 3 + leftPad;
+    }
+
     @Override
     public void renderWidget(DrawContext context, int mouseX, int mouseY, float deltaTicks) {
         if (!isVisible()) {

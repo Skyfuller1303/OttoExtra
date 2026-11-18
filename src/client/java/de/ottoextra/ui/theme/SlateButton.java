@@ -7,9 +7,16 @@ import net.minecraft.client.gui.widget.ButtonWidget;
 public final class SlateButton extends ButtonWidget {
 
     private boolean danger;
+    private boolean primary;
 
     public SlateButton(int x, int y, int width, int height, net.minecraft.text.Text message, PressAction onPress) {
         super(x, y, width, height, message, onPress, DEFAULT_NARRATION_SUPPLIER);
+    }
+
+    /** Grüne Variante für die bestätigende Hauptaktion. */
+    public SlateButton primary() {
+        this.primary = true;
+        return this;
     }
 
     /** Dunkelrote Variante für zerstörerische Aktionen. */
@@ -23,6 +30,8 @@ public final class SlateButton extends ButtonWidget {
         boolean hover = active && isHovered();
         if (danger) {
             OttonienTheme.dangerButton(context, getX(), getY(), getWidth(), getHeight(), hover);
+        } else if (primary) {
+            OttonienTheme.primaryButton(context, getX(), getY(), getWidth(), getHeight(), hover);
         } else {
             OttonienTheme.slateButton(context, getX(), getY(), getWidth(), getHeight(), hover);
         }

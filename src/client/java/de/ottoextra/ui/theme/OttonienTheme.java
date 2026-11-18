@@ -466,6 +466,14 @@ public final class OttonienTheme {
     }
 
     /** Dunkelroter Gefahren-Knopf (z. B. "Alle vergessen"). */
+    /** Green button for the main confirming action (e.g. "Ja, kenne ich"). */
+    public static void primaryButton(DrawContext ctx, int x, int y, int w, int h, boolean hover) {
+        rect(ctx, x, y, x + w, y + h, hover ? GOLD_HOVER : BLACK);
+        rect(ctx, x + 1, y + 1, x + w - 1, y + h - 1, GREEN_DARK);
+        rect(ctx, x + 1, y + 1, x + w - 1, y + 2, GREEN);
+        rect(ctx, x + 1, y + h - 2, x + w - 1, y + h - 1, shade(GREEN_DARK, .7));
+    }
+
     public static void dangerButton(DrawContext ctx, int x, int y, int w, int h, boolean hover) {
         rect(ctx, x, y, x + w, y + h, hover ? GOLD_HOVER : BLACK);
         rect(ctx, x + 1, y + 1, x + w - 1, y + h - 1, WAX[0]);
