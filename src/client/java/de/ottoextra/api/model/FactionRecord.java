@@ -35,9 +35,10 @@ public record FactionRecord(
     }
 
     public boolean isLanded() {
-        boolean hasRegion = (region_name != null && !region_name.isBlank()
-                && !"-".equals(region_name.trim()))
-                || (region_id != null && !region_id.isBlank());
+        boolean hasRegion = region_id != null
+                ? !region_id.isBlank() && !"-".equals(region_id.trim())
+                : region_name != null && !region_name.isBlank()
+                && !"-".equals(region_name.trim());
         return hasRegion && !"Ungelandet".equalsIgnoreCase(rank_name);
     }
 

@@ -22,7 +22,7 @@ import java.util.function.Supplier;
 
 public final class ApiAuthService {
 
-    static final Duration FAILURE_BACKOFF = Duration.ofMinutes(5);
+    static final Duration FAILURE_BACKOFF = Duration.ofSeconds(60);
 
     static final Duration NOT_DEPLOYED_BACKOFF = Duration.ofMinutes(30);
 

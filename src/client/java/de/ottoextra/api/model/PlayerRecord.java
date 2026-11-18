@@ -13,9 +13,9 @@ public record PlayerRecord(
         String state,
         String faction,
         String faction_name,
-        int money,
-        int warns,
-        int remaining_warns,
+        Integer money,
+        Integer warns,
+        Integer remaining_warns,
         List<String> permissions,
         String joined_at,
         String updated_at
