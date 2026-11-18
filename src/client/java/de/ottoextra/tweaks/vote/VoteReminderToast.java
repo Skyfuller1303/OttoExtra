@@ -1,65 +1,65 @@
 package de.ottoextra.tweaks.vote;
 
 import de.ottoextra.OttoExtra;
+import de.ottoextra.regions.RegionActivityHud;
+import de.ottoextra.ui.hudlayout.TopCenterStack;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.render.RenderTickCounter;
-import net.minecraft.text.OrderedText;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 
-import java.util.List;
-
+/**
+ * Vote reminder card (design C) in the palette of the activity HUD: gold header band "Vote-Erinnerung",
+ * the seal at its native pixel size in a dark inset square, a rotating title and subtitle from
+ * {@link VoteReminderMessageCatalog}, the bound vote key with "Abstimmen", the bound dismiss key with
+ * "Später" and a thin gold remaining-time line. It stands in the top-centre column ({@link TopCenterStack})
+ * below the boss bars, the Werkstatt bar and zone toasts. No text shadows.
+ */
 public final class VoteReminderToast {
 
+    public static final String STACK_ID = "ottoextra:vote";
     private static final long FADE_IN_MILLIS = 260L;
     private static final long FADE_OUT_MILLIS = 360L;
-
-    private static final int MIN_WIDTH = 220;
-    private static final int MAX_WIDTH = 330;
-    private static final int MAX_TEXT_WIDTH = 260;
-    private static final int PADDING_LEFT = 10;
-    private static final int PADDING_RIGHT = 10;
-    private static final int PADDING_TOP = 6;
-    private static final int PADDING_BOTTOM = 6;
-    private static final int TOP_MARGIN = 6;
-    private static final int LINE_GAP = 2;
-    private static final int ICON_SIZE = 24;
-    private static final int ICON_SOURCE_SIZE = 10;
-    private static final int ICON_GAP = 6;
+    /** Native size of siegelshop.png; drawn 1:1, never scaled by a fraction. */
+    private static final int ICON_SIZE = 16;
     private static final Identifier ICON = Identifier.of(
             OttoExtra.MOD_ID,
             "textures/gui/siegelshop.png"
     );
 
-    private static final Palette PALETTE = new Palette(
-            0xFFD0D0D0,
-            0xFF202020,
-            0xFFF2F2F2,
-            0xFF8A8A8A,
-            0xFF111111,
-            0xFF000000,
-            0xFF303030
-    );
+    private static final int OUTL = 0xFF141418;
+    private static final int D2 = 0xFF2E2D35;
+    private static final int D3 = 0xFF3B3A45;
+    private static final int NAME = 0xFFF0EBE0;
+    private static final int OCHRE = 0xFFD6C194;
+    private static final int SUB = 0xFFA9A6B0;
+    private static final int LABEL = 0xFF8F8C96;
+    private static final int GOLD_DARK = 0xFF96752C;
+    private static final int GOLD = 0xFFCD9F3D;
 
     private final long shownAt;
     private final long durationMillis;
     private final VoteReminderMessageCatalog.Variant message;
-    private final boolean openingNoticeRequired;
+    private final KeyBinding openKey;
+    private final KeyBinding dismissKey;
     private final boolean iconAvailable;
     private boolean hidden;
 
     public VoteReminderToast(
             long durationMillis,
             VoteReminderMessageCatalog.Variant message,
-            boolean openingNoticeRequired
+            KeyBinding openKey,
+            KeyBinding dismissKey
     ) {
         this.shownAt = System.currentTimeMillis();
         this.durationMillis = Math.max(1_500L, durationMillis);
         this.message = message;
-        this.openingNoticeRequired = openingNoticeRequired;
+        this.openKey = openKey;
+        this.dismissKey = dismissKey;
         MinecraftClient client = MinecraftClient.getInstance();
         this.iconAvailable = client != null
                 && client.getResourceManager().getResource(ICON).isPresent();
@@ -67,6 +67,7 @@ public final class VoteReminderToast {
 
     public void hide() {
         hidden = true;
+        TopCenterStack.release(STACK_ID);
     }
 
     public void render(DrawContext context, RenderTickCounter tickCounter) {
@@ -76,7 +77,7 @@ public final class VoteReminderToast {
 
         long elapsed = System.currentTimeMillis() - shownAt;
         if (elapsed > durationMillis) {
-            hidden = true;
+            hide();
             return;
         }
 
@@ -95,107 +96,110 @@ public final class VoteReminderToast {
         }
         progress = Math.max(0.0F, Math.min(1.0F, progress));
         float ease = 1.0F - (1.0F - progress) * (1.0F - progress);
-
-        TextRenderer textRenderer = client.textRenderer;
-        List<ScaledLine> lines = List.of(
-                new ScaledLine(
-                        Text.translatable(message.titleKey()).asOrderedText(),
-                        0.72F,
-                        PALETTE.title()
-                ),
-                new ScaledLine(
-                        Text.translatable(message.descriptionKey()).asOrderedText(),
-                        1.0F,
-                        PALETTE.body()
-                ),
-                new ScaledLine(
-                        Text.translatable(openingNoticeRequired
-                                ? "ottoextra.tweaks.vote.toast.hint"
-                                : "ottoextra.tweaks.vote.toast.hint.direct").asOrderedText(),
-                        0.62F,
-                        PALETTE.hint()
-                )
-        );
-
-        int textWidth = 0;
-        int contentHeight = 0;
-        for (ScaledLine line : lines) {
-            textWidth = Math.max(textWidth,
-                    Math.round(textRenderer.getWidth(line.text()) * line.scale()));
-            contentHeight += Math.round(textRenderer.fontHeight * line.scale());
-        }
-        contentHeight += LINE_GAP * (lines.size() - 1);
-        textWidth = Math.min(textWidth, MAX_TEXT_WIDTH);
-
-        int iconArea = iconAvailable ? ICON_SIZE + ICON_GAP : 0;
-        int width = Math.max(MIN_WIDTH, Math.min(
-                MAX_WIDTH,
-                PADDING_LEFT + iconArea + textWidth + PADDING_RIGHT
-        ));
-        int iconHeight = iconAvailable ? PADDING_TOP + ICON_SIZE + PADDING_BOTTOM : 0;
-        int height = Math.max(
-                32,
-                Math.max(PADDING_TOP + contentHeight + PADDING_BOTTOM, iconHeight)
-        );
-        int screenWidth = client.getWindow().getScaledWidth();
-        int x = (screenWidth - width) / 2;
-        int y = Math.round((-height - 4) + (TOP_MARGIN - (-height - 4)) * ease);
         float alpha = progress;
 
-        context.fill(x - 1, y - 1, x + width + 1, y + height + 1,
-                withAlpha(PALETTE.borderOuter(), alpha));
-        context.fill(x, y, x + width, y + height,
-                withAlpha(PALETTE.background(), alpha));
-        context.fill(x, y, x + width, y + 1,
-                withAlpha(PALETTE.borderTopLeft(), alpha));
-        context.fill(x, y, x + 1, y + height,
-                withAlpha(PALETTE.borderTopLeft(), alpha));
-        context.fill(x, y + height - 1, x + width, y + height,
-                withAlpha(PALETTE.borderBottomRight(), alpha));
-        context.fill(x + width - 1, y, x + width, y + height,
-                withAlpha(PALETTE.borderBottomRight(), alpha));
+        TextRenderer font = client.textRenderer;
+        String header = Text.translatable("ottoextra.tweaks.vote.toast.header").getString();
+        String title = message == null ? "" : Text.translatable(message.titleKey()).getString();
+        String subtitle = message == null ? "" : Text.translatable(message.descriptionKey()).getString();
+        String action = Text.translatable("ottoextra.tweaks.vote.toast.action").getString();
+        String later = Text.translatable("ottoextra.tweaks.vote.toast.later").getString();
+        String openLabel = keyLabel(openKey);
+        String laterLabel = keyLabel(dismissKey);
+        VoteToastLayout.Layout layout = VoteToastLayout.compute(
+                openLabel.isEmpty() ? 0 : font.getWidth(openLabel), font.getWidth(action),
+                laterLabel.isEmpty() ? 0 : font.getWidth(laterLabel), font.getWidth(later),
+                context.getScaledWindowWidth());
+        int width = layout.width();
+        int height = VoteToastLayout.H;
+        int x = (context.getScaledWindowWidth() - width) / 2;
+        int targetY = TopCenterStack.claim(STACK_ID, TopCenterStack.ORDER_VOTE, height);
+        int y = Math.round((-height - 4) + (targetY - (-height - 4)) * ease);
 
-        int textX = x + PADDING_LEFT;
-        var matrices = context.getMatrices();
+        RegionActivityHud.drawPanel(context, x, y, width, height, alpha);
+        int inset = VoteToastLayout.BAND_INSET;
+        context.fill(x + inset, y + inset, x + width - inset, y + VoteToastLayout.BAND_BOTTOM,
+                withAlpha(GOLD_DARK, alpha));
+        context.fill(x + inset, y + inset, x + width - inset, y + inset + 1, withAlpha(GOLD, alpha));
+        String headerText = clip(font, header, layout.headerRoom());
+        context.drawText(font, headerText, x + (width - font.getWidth(headerText)) / 2,
+                y + VoteToastLayout.HEADER_TEXT_Y, withAlpha(NAME, alpha), false);
+
+        int bx = x + VoteToastLayout.SEAL_BOX_X;
+        int by = y + VoteToastLayout.SEAL_BOX_Y;
+        int box = VoteToastLayout.SEAL_BOX;
+        context.fill(bx, by, bx + box, by + box, withAlpha(OUTL, alpha));
+        context.fill(bx + 1, by + 1, bx + box - 1, by + box - 1, withAlpha(D3, alpha));
         if (iconAvailable) {
-            int iconY = y + (height - ICON_SIZE) / 2;
-            float iconScale = ICON_SIZE / (float) ICON_SOURCE_SIZE;
-            matrices.pushMatrix();
-            matrices.translate(textX, iconY);
-            matrices.scale(iconScale, iconScale);
             context.drawTexture(
                     RenderPipelines.GUI_TEXTURED,
                     ICON,
-                    0,
-                    0,
+                    x + VoteToastLayout.SEAL_X,
+                    y + VoteToastLayout.SEAL_Y,
                     0.0F,
                     0.0F,
-                    ICON_SOURCE_SIZE,
-                    ICON_SOURCE_SIZE,
-                    ICON_SOURCE_SIZE,
-                    ICON_SOURCE_SIZE,
+                    ICON_SIZE,
+                    ICON_SIZE,
+                    ICON_SIZE,
+                    ICON_SIZE,
                     withAlpha(0xFFFFFFFF, alpha)
             );
-            matrices.popMatrix();
-            textX += ICON_SIZE + ICON_GAP;
+        }
+        int tx = x + VoteToastLayout.TEXT_X;
+        context.drawText(font, clip(font, title, layout.textRoom()), tx, y + VoteToastLayout.TITLE_Y,
+                withAlpha(OCHRE, alpha), false);
+        context.drawText(font, clip(font, subtitle, layout.textRoom()), tx, y + VoteToastLayout.SUBTITLE_Y,
+                withAlpha(SUB, alpha), false);
+
+        int rowY = y + VoteToastLayout.ROW_Y;
+        if (layout.openChipW() > 0) {
+            chip(context, font, tx, rowY, layout.openChipW(), openLabel, alpha);
+            context.drawText(font, clip(font, action, layout.actionRoom()),
+                    tx + layout.openChipW() + VoteToastLayout.LABEL_GAP, rowY + 1, withAlpha(NAME, alpha), false);
+        }
+        if (layout.showLater()) {
+            int kx = x + layout.laterX();
+            chip(context, font, kx, rowY, layout.laterChipW(), laterLabel, alpha);
+            context.drawText(font, later, kx + layout.laterChipW() + VoteToastLayout.LABEL_GAP, rowY + 1,
+                    withAlpha(LABEL, alpha), false);
         }
 
-        float textY = y + (height - contentHeight) / 2.0F;
-        for (ScaledLine line : lines) {
-            matrices.pushMatrix();
-            matrices.translate(textX, textY);
-            matrices.scale(line.scale(), line.scale());
-            context.drawText(
-                    textRenderer,
-                    line.text(),
-                    0,
-                    0,
-                    withAlpha(line.color(), alpha),
-                    false
-            );
-            matrices.popMatrix();
-            textY += Math.round(textRenderer.fontHeight * line.scale()) + LINE_GAP;
+        int lineY = y + height - VoteToastLayout.LINE_FROM_BOTTOM;
+        int lineW = layout.lineWidth();
+        context.fill(x + inset, lineY, x + inset + lineW, lineY + 1, withAlpha(D2, alpha));
+        int left = VoteToastLayout.remaining(lineW, elapsed, durationMillis);
+        if (left > 0) {
+            context.fill(x + inset, lineY, x + inset + left, lineY + 1, withAlpha(GOLD, alpha));
         }
+    }
+
+    /** The localized name of a bound key, empty when the key is missing or unbound. */
+    private static String keyLabel(KeyBinding key) {
+        return key == null || key.isUnbound() ? "" : key.getBoundKeyLocalizedText().getString();
+    }
+
+    /** Dark key cap, {@link VoteToastLayout#CHIP_H} high, rounded by leaving out the corner pixels. */
+    private static void chip(DrawContext context, TextRenderer font, int kx, int ky, int kw, String label,
+                             float alpha) {
+        int kh = VoteToastLayout.CHIP_H;
+        context.fill(kx + 1, ky, kx + kw - 1, ky + 1, withAlpha(OUTL, alpha));
+        context.fill(kx + 1, ky + kh - 1, kx + kw - 1, ky + kh, withAlpha(OUTL, alpha));
+        context.fill(kx, ky + 1, kx + 1, ky + kh - 1, withAlpha(OUTL, alpha));
+        context.fill(kx + kw - 1, ky + 1, kx + kw, ky + kh - 1, withAlpha(OUTL, alpha));
+        context.fill(kx + 1, ky + 1, kx + kw - 1, ky + kh - 2, withAlpha(D3, alpha));
+        context.fill(kx + 1, ky + kh - 2, kx + kw - 1, ky + kh - 1, withAlpha(D2, alpha));
+        context.drawText(font, label, kx + VoteToastLayout.CHIP_PAD / 2, ky + 1, withAlpha(NAME, alpha), false);
+    }
+
+    private static String clip(TextRenderer font, String text, int room) {
+        if (font.getWidth(text) <= room) {
+            return text;
+        }
+        int end = text.length();
+        while (end > 0 && font.getWidth(text.substring(0, end) + "…") > room) {
+            end--;
+        }
+        return end == 0 ? "" : text.substring(0, end).stripTrailing() + "…";
     }
 
     private static int withAlpha(int argb, float alpha) {
@@ -205,19 +209,5 @@ public final class VoteReminderToast {
             newAlpha = 0;
         }
         return (newAlpha << 24) | (argb & 0x00FFFFFF);
-    }
-
-    private record ScaledLine(OrderedText text, float scale, int color) {
-    }
-
-    private record Palette(
-            int background,
-            int borderOuter,
-            int borderTopLeft,
-            int borderBottomRight,
-            int title,
-            int body,
-            int hint
-    ) {
     }
 }

@@ -24,10 +24,11 @@ public final class VoteReminderManager {
     private final VoteReminderConfig config;
     private final VoteBrowserOpener browserOpener;
     private final KeyBinding openKey;
+    private final KeyBinding dismissKey;
+    private final VoteReminderMessageCatalog messageCatalog = new VoteReminderMessageCatalog();
     private final Clock clock;
     private final LongSupplier measuringTime;
     private final Runnable save;
-    private final VoteReminderMessageCatalog messageCatalog = new VoteReminderMessageCatalog();
 
     private boolean targetServerConnected;
     private boolean testToast;
@@ -43,15 +44,17 @@ public final class VoteReminderManager {
             VoteReminderConfig config,
             VoteBrowserOpener browserOpener,
             KeyBinding openKey,
+            KeyBinding dismissKey,
             Runnable save
     ) {
-        this(config, browserOpener, openKey, Clock.systemUTC(), Util::getMeasuringTimeMs, save);
+        this(config, browserOpener, openKey, dismissKey, Clock.systemUTC(), Util::getMeasuringTimeMs, save);
     }
 
     VoteReminderManager(
             VoteReminderConfig config,
             VoteBrowserOpener browserOpener,
             KeyBinding openKey,
+            KeyBinding dismissKey,
             Clock clock,
             LongSupplier measuringTime,
             Runnable save
@@ -59,6 +62,7 @@ public final class VoteReminderManager {
         this.config = config;
         this.browserOpener = browserOpener;
         this.openKey = openKey;
+        this.dismissKey = dismissKey;
         this.clock = clock;
         this.measuringTime = measuringTime;
         this.save = save;
@@ -92,6 +96,7 @@ public final class VoteReminderManager {
 
     public void tick(MinecraftClient client) {
         boolean openKeyPressed = consumeOpenKeyPress(client);
+        boolean dismissKeyPressed = consumeDismissKeyPress(client);
         long now = measuringTime.getAsLong();
 
         if (activeToast != null && now >= toastEndsAt) {
@@ -100,6 +105,16 @@ public final class VoteReminderManager {
             if (!expiredTestToast && targetServerConnected) {
                 nextReminderAt = now + minutesToMillis(config.reminderIntervalMinutes);
             }
+        }
+
+        if (activeToast != null && dismissKeyPressed) {
+            // "Später": same as letting the toast run out; the next reminder follows after the interval.
+            boolean dismissedTestToast = testToast;
+            hideToast();
+            if (!dismissedTestToast && targetServerConnected) {
+                nextReminderAt = now + minutesToMillis(config.reminderIntervalMinutes);
+            }
+            return;
         }
 
         if (activeToast != null && openKeyPressed && canOpenVotePages(client)) {
@@ -184,6 +199,18 @@ public final class VoteReminderManager {
         boolean physicalPress = keyDown && !enterKeyDown;
         enterKeyDown = keyDown;
         return queuedPress || physicalPress;
+    }
+
+    /** Presses of the dismiss key; always drained, counted only without an open screen or overlay. */
+    private boolean consumeDismissKeyPress(MinecraftClient client) {
+        if (dismissKey == null) {
+            return false;
+        }
+        boolean pressed = false;
+        while (dismissKey.wasPressed()) {
+            pressed = true;
+        }
+        return pressed && client.currentScreen == null && client.getOverlay() == null;
     }
 
     private boolean isOpenKeyDown(MinecraftClient client) {
@@ -274,11 +301,7 @@ public final class VoteReminderManager {
         suppressOpenKeyUntilRelease = true;
 
         long durationMillis = secondsToMillis(config.toastDurationSeconds);
-        activeToast = new VoteReminderToast(
-                durationMillis,
-                messageCatalog.next(),
-                config.requiresOpeningNotice()
-        );
+        activeToast = new VoteReminderToast(durationMillis, messageCatalog.next(), openKey, dismissKey);
         testToast = test;
         toastEndsAt = now + durationMillis;
         nextReminderAt = NEVER;

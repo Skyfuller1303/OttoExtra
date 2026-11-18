@@ -37,10 +37,17 @@ public final class VoteReminderFeature {
                 GLFW.GLFW_KEY_ENTER,
                 KeyBinding.Category.MISC
         ));
+        KeyBinding dismissKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                "key.ottoextra.tweaks.dismiss_vote",
+                InputUtil.Type.KEYSYM,
+                GLFW.GLFW_KEY_X,
+                KeyBinding.Category.MISC
+        ));
         VoteReminderManager manager = new VoteReminderManager(
                 config,
                 new VoteBrowserOpener(config.validatedVoteUris()),
                 openKey,
+                dismissKey,
                 rootConfig::save
         );
 
