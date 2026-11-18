@@ -6,12 +6,15 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.component.DataComponentTypes;
+import net.minecraft.network.packet.c2s.play.UpdateSelectedSlotC2SPacket;
 import de.ottoextra.letter.recovery.LetterSendContext;
 import java.util.ArrayList;
 
 import java.util.Locale;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.IntPredicate;
+import java.util.function.IntUnaryOperator;
 
 /** Verhindert, dass CourierNew beim Schreiben auf anderes Briefmaterial ausweicht. */
 public final class LetterWriteItemGuard {
@@ -25,6 +28,34 @@ public final class LetterWriteItemGuard {
     }
 
     private LetterWriteItemGuard() {
+    }
+
+    /** Selects the first identical single supply before the send context is captured. */
+    static void prepare(OttoExtraConfig config, LetterDraft draft) {
+        if (check(config, draft) != Result.HOLD_FIRST_SUPPLY) return;
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player == null || client.getNetworkHandler() == null) return;
+        var inventory = client.player.getInventory();
+        ItemStack held = client.player.getMainHandStack();
+        int slot = firstSingleSupplySlot(inventory.getSelectedSlot(), held.getCount(),
+                index -> sameCourierSupply(inventory.getStack(index), held),
+                index -> inventory.getStack(index).getCount());
+        if (slot < 0) return;
+        // Commands do not invoke vanilla's private selected-slot synchronization.
+        client.getNetworkHandler().sendPacket(new UpdateSelectedSlotC2SPacket(slot));
+        inventory.setSelectedSlot(slot);
+    }
+
+    static int firstSingleSupplySlot(int selectedSlot, int heldCount,
+                                    IntPredicate sameSupply, IntUnaryOperator count) {
+        if (selectedSlot < 0 || selectedSlot >= 9 || heldCount != 1) return -1;
+        for (int slot = 0; slot <= selectedSlot; slot++) {
+            if (sameSupply.test(slot)) {
+                // Never skip an earlier stack: Courier would consume it instead.
+                return count.applyAsInt(slot) == 1 ? slot : -1;
+            }
+        }
+        return -1;
     }
 
     static Result check(OttoExtraConfig config, LetterDraft draft) {

@@ -64,11 +64,24 @@ OttoExtra bleibt ihre Schreibkopie erhalten.
 Den Brief in der Haupthand öffnen und **Brief exportieren** anklicken.
 Die Datei verwendet den im Buch gespeicherten Autor, zum Beispiel:
 
-`Skyfuller1303_2026-09-08_18-31-12.txt`
+`2026-09-08_18-31-12_Skyfuller1303.txt`
 
-Der Zeitpunkt ist der lokale Exportzeitpunkt, da Courier kein verlässlich
-auswertbares Empfangsdatum liefert. Unzulässige Dateinamenszeichen werden ersetzt.
+Datum und Uhrzeit stehen zuerst, damit sich manuelle Exporte nach Dateinamen
+chronologisch sortieren lassen.
+
+Oben stehen zusätzlich der im Tooltip angezeigte Titel und alle nichtleeren
+Lore-Zeilen, darunter gegebenenfalls der dort sichtbare ursprüngliche
+Absender- und Datums-/Uhrzeittext. `Exported:` bezeichnet den lokalen
+Exportzeitpunkt; Courier liefert kein verlässlich auswertbares Empfangsdatum.
+Unzulässige Dateinamenszeichen werden ersetzt.
 Bei Kollisionen folgen `_1`, `_2` usw.; vorhandene Dateien werden nicht überschrieben.
+
+Optional lässt sich unter **Einstellungen → Briefe → Basis → Editor** die
+Ablage **Briefexporte nach Spielernamen ablegen** einschalten. Dann landen
+manuelle Exporte im Ordner des Buchautors, zum Beispiel
+`letters/GeicoGecko/2026-09-08_18-31-12_GeicoGecko.txt`. Die Option ist
+standardmäßig aus. Vorhandene Dateien werden nicht verschoben; automatische
+Abschriften bleiben in `sent/`.
 
 Die Chatbestätigung zeigt einen goldenen `[Brief]`-Präfix, den Erfolgstext grün,
 den Dateinamen gold und den Speicherort grau. Exportfehler erscheinen rot.
@@ -90,8 +103,10 @@ gesichert. Kann diese Sicherung nicht überprüft werden, wird der Import abgebr
 Ein beschädigtes TXT verdrängt den aktuellen Entwurf nicht.
 
 Über **Letters-Ordner öffnen** kann man Dateien kopieren oder eigene TXT-Dateien
-ablegen. Die Importliste enthält auch die Abschriften aus **`sent/`** und zeigt
-deren Unterordner im Dateinamen an. Anschließend **Aktualisieren** anklicken.
+ablegen. Die Importliste enthält auch die Abschriften aus **`sent/`** und
+Exporte aus Spielerordnern, selbst wenn die Ablage nach Spielernamen inzwischen
+ausgeschaltet ist. Sie zeigt den Unterordner im Dateinamen an.
+Anschließend **Aktualisieren** anklicken.
 Normale UTF-8-Dateien, auch mit
 BOM und Windows-Zeilenumbrüchen, werden ebenfalls eingelesen. Maximal 256 KiB,
 100 Seiten und 32.767 Zeichen je Quellseite; diese Grenzen schützen den Editor

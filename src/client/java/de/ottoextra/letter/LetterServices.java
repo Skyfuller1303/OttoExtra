@@ -64,6 +64,8 @@ public final class LetterServices {
     }
 
     private static boolean checkWriteItem(OttoExtraConfig config, LetterDraft draft) {
+        draft.repair();
+        LetterWriteItemGuard.prepare(config, draft);
         var problem = writeItemProblem(config, draft);
         if (problem != null) {
             hint(problem);
@@ -94,6 +96,71 @@ public final class LetterServices {
                             + "Der Entwurf bleibt gespeichert."), false);
         }
         return false;
+    }
+
+    /**
+     * Guard während des Versands: bei Abbruch bleibt der Fortschritt im Store erhalten, und der
+     * Chat bietet [Weiter] / [Abbrechen] an.
+     */
+    private static boolean canContinueWhileSending(OttoExtraConfig config, LetterSendContext context) {
+        if (canContinue(config, context)) {
+            return true;
+        }
+        var client = net.minecraft.client.MinecraftClient.getInstance();
+        if (client.player != null) {
+            client.player.sendMessage(interruptedActions(), false);
+        }
+        return false;
+    }
+
+    private static net.minecraft.text.Text interruptedActions() {
+        return net.minecraft.text.Text.literal("[Brief] ").formatted(net.minecraft.util.Formatting.GOLD)
+                .append(interruptedButton("ottoextra.letter.interrupted.resume",
+                        "/ottoextra letter weiter", net.minecraft.util.Formatting.GREEN,
+                        "ottoextra.letter.interrupted.resume.hover"))
+                .append(net.minecraft.text.Text.literal(" "))
+                .append(interruptedButton("ottoextra.letter.interrupted.cancel",
+                        "/ottoextra letter abbrechen", net.minecraft.util.Formatting.RED,
+                        "ottoextra.letter.interrupted.cancel.hover"));
+    }
+
+    private static net.minecraft.text.MutableText interruptedButton(
+            String labelKey, String command, net.minecraft.util.Formatting color, String hoverKey) {
+        return net.minecraft.text.Text.translatable(labelKey).styled(style -> style
+                .withColor(color)
+                .withClickEvent(new net.minecraft.text.ClickEvent.RunCommand(command))
+                .withHoverEvent(new net.minecraft.text.HoverEvent.ShowText(
+                        net.minecraft.text.Text.translatable(hoverKey))));
+    }
+
+    /** Setzt einen im Chat unterbrochenen Versand fort (derselbe Weg wie die Wiederherstellung). */
+    public static boolean resumeInterruptedSend(OttoExtraConfig config) {
+        if (isSending()) {
+            hint("ottoextra.letter.write.wait");
+            return false;
+        }
+        AnnouncementSendProgress announcement = announcementStore().load();
+        if (announcement != null && !announcement.pendingCommands.isEmpty()) {
+            return runAnnouncementQueue(config, announcement, announcement.sentCommands, null);
+        }
+        LetterSendProgress letter = letterStore().load();
+        if (letter != null && !letter.pendingCommands.isEmpty()) {
+            return runLetterQueue(config, letter, letter.sentCommands, null);
+        }
+        hint("ottoextra.letter.interrupted.none");
+        return false;
+    }
+
+    /** Verwirft den gespeicherten Fortschritt; der Entwurf bleibt im Cache erhalten. */
+    public static boolean cancelInterruptedSend() {
+        if (isSending()) {
+            activeSend.cancel();
+        }
+        boolean had = letterStore().load() != null || announcementStore().load() != null;
+        letterStore().clear();
+        announcementStore().clear();
+        hint(had ? "ottoextra.letter.interrupted.cancelled" : "ottoextra.letter.interrupted.none");
+        return had;
     }
 
     public record PendingLetter(LetterDraft draft, long createdAtMs) {
@@ -403,7 +470,7 @@ public final class LetterServices {
             if (onComplete != null) {
                 onComplete.run();
             }
-        }, () -> canContinue(config, progress.context));
+        }, () -> canContinueWhileSending(config, progress.context));
         return true;
     }
 
@@ -412,6 +479,7 @@ public final class LetterServices {
             return false;
         }
         sendCommand(config.letter.postCommand + " " + recipient);
+        RecentRecipients.record(recipient);
         preparedLetter = null;
         DebugLog.debug("[letter] Zustellbefehl für {} gesendet.", recipient);
         return true;
@@ -505,6 +573,7 @@ public final class LetterServices {
         plan.entries().forEach(entry -> pageIndex.add(entry.predictedPage()));
         commands.add(config.letter.postCommand + " " + recipient);
         pageIndex.add(-1);
+        RecentRecipients.record(recipient);
         LetterSendProgress progress = new LetterSendProgress();
         progress.draftId = draft.meta.draftId;
         progress.recipient = recipient;
@@ -538,7 +607,7 @@ public final class LetterServices {
             preparedLetter = progress.context.submitted ? null : progress.context;
             DebugLog.debug("[letter] Briefbefehle an {} gesendet.",
                     progress.recipient);
-        }, () -> canContinue(config, progress.context));
+        }, () -> canContinueWhileSending(config, progress.context));
     }
 
     public static boolean hasSubmitCommand(OttoExtraConfig config) {
@@ -665,7 +734,7 @@ public final class LetterServices {
             }
             DebugLog.debug("[letter] Verkündung {} geschrieben ({} Seiten).",
                     progress.draftId, progress.pageCount);
-        }, () -> canContinue(config, progress.context));
+        }, () -> canContinueWhileSending(config, progress.context));
     }
 
     private static void hint(String key, Object... args) {

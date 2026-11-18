@@ -94,6 +94,23 @@ final class LetterEditorTextOperations {
         return foundWord ? new Range(deleteStart, i) : new Range(origin, origin);
     }
 
+    /** Wort an der Position (für Doppelklick); Formatcodes begrenzen das Wort. Leer, wenn keins. */
+    static Range wordAt(String value, int position, int minimum) {
+        String text = value == null ? "" : value;
+        int lower = Math.max(0, Math.min(minimum, text.length()));
+        int at = Math.max(lower, Math.min(position, text.length()));
+        int start = at;
+        while (start > lower && !formattingCodeEndsAt(text, start)
+                && isWord(text, previousCodePoint(text, start, lower))) {
+            start = previousCodePoint(text, start, lower);
+        }
+        int end = at;
+        while (end < text.length() && !isFormattingCodeAt(text, end) && isWord(text, end)) {
+            end = nextCodePoint(text, end);
+        }
+        return start < end ? new Range(start, end) : new Range(at, at);
+    }
+
     static int previousCharacterStart(String value, int cursor) {
         String text = value == null ? "" : value;
         int end = Math.max(0, Math.min(cursor, text.length()));

@@ -1,6 +1,7 @@
 package de.ottoextra.letter.ui;
 
 import de.ottoextra.config.OttoExtraConfig;
+import de.ottoextra.OttoExtra;
 import de.ottoextra.config.OttoExtraPaths;
 import de.ottoextra.letter.*;
 import de.ottoextra.letter.archive.LetterTextArchive;
@@ -42,7 +43,7 @@ public final class LetterFilesScreen extends Screen {
             try {
                 Files.createDirectories(OttoExtraPaths.lettersDir());
                 Util.getOperatingSystem().open(OttoExtraPaths.lettersDir());
-            } catch (Exception e) { failed(); }
+            } catch (Exception e) { failed(e); }
         }).dimensions(width / 2 - 152, 36, 150, 20).build());
         addDrawableChild(ButtonWidget.builder(Text.translatable("ottoextra.letter.txt.refresh"), b -> reload())
                 .dimensions(width / 2 + 2, 36, 150, 20).build());
@@ -56,17 +57,10 @@ public final class LetterFilesScreen extends Screen {
     private void reload() {
         try {
             Files.createDirectories(OttoExtraPaths.lettersDir());
-            try (var rootFiles = Files.list(OttoExtraPaths.lettersDir());
-                 var sentFiles = Files.isDirectory(OttoExtraPaths.sentLettersDir(), LinkOption.NOFOLLOW_LINKS)
-                         ? Files.list(OttoExtraPaths.sentLettersDir()) : java.util.stream.Stream.<Path>empty()) {
-                files = java.util.stream.Stream.concat(rootFiles, sentFiles)
-                        .filter(path -> Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)
-                                && path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".txt"))
-                        .sorted(Comparator.comparing((Path p) -> p.getFileName().toString()).reversed()).toList();
-            }
+            files = LetterTextArchive.listFiles(OttoExtraPaths.lettersDir());
             if (!files.contains(selected)) selected = null;
             status = files.isEmpty() ? Text.translatable("ottoextra.letter.txt.empty").getString() : "";
-        } catch (Exception e) { files = List.of(); selected = null; failed(); }
+        } catch (Exception e) { files = List.of(); selected = null; failed(e); }
         scroll = Math.min(scroll, Math.max(0, files.size() - rows()));
         importButton.active = selected != null;
     }
@@ -95,10 +89,14 @@ public final class LetterFilesScreen extends Screen {
                 throw new java.io.IOException("Imported draft could not be saved");
             }
             client.setScreen(new LetterEditorScreen(null, config, imported));
-        } catch (Exception e) { failed(); }
+        } catch (Exception e) { failed(e); }
     }
 
-    private void failed() { status = Text.translatable("ottoextra.letter.txt.failed").getString(); }
+    private void failed(Exception error) {
+        OttoExtra.LOGGER.warn("[letter] TXT file operation failed", error);
+        status = Text.translatable("ottoextra.letter.txt.failed",
+                LetterTextArchive.failureReason(error)).getString();
+    }
 
     @Override
     public boolean mouseClicked(Click click, boolean doubled) {

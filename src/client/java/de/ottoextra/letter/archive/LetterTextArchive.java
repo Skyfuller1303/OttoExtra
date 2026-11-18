@@ -17,9 +17,39 @@ public final class LetterTextArchive {
 
     private LetterTextArchive() { }
 
+    public static Path manualExportDirectory(Path root, String author, boolean subfoldersByPlayer) {
+        if (!subfoldersByPlayer) return root;
+        String folder = safeName(author == null ? "" : author.strip());
+        if (folder.equalsIgnoreCase("sent") || folder.matches("(?i)(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])")) {
+            folder = "player-" + folder;
+        }
+        return root.resolve(folder);
+    }
+
+    public static List<Path> listFiles(Path root) throws IOException {
+        try (var paths = Files.walk(root, 2)) {
+            return paths.filter(path -> Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)
+                            && path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".txt"))
+                    .sorted(Comparator.comparing((Path path) -> path.getFileName().toString()).reversed())
+                    .toList();
+        }
+    }
+
     public static String encode(List<String> pages, String author, String recipient, Instant date) {
         return HEADER + "From: " + oneLine(author) + "\nTo: " + oneLine(recipient)
                 + "\nDate: " + date + "\n\n"
+                + String.join("\n\f\n", pages.stream().map(page -> page.replace("\\", "\\\\")
+                .replace("\f", "\\f")).toList());
+    }
+
+    public static String encode(List<String> pages, String author, String recipient, Instant date,
+                                List<String> tooltipLines) {
+        String metadata = tooltipLines == null ? "" : tooltipLines.stream()
+                .map(LetterTextArchive::oneLine).map(line -> line.replaceAll("§[0-9A-FK-ORa-fk-or]", ""))
+                .filter(line -> !line.isBlank())
+                .map(line -> "Tooltip: " + line + "\n").collect(java.util.stream.Collectors.joining());
+        return HEADER + "From: " + oneLine(author) + "\nTo: " + oneLine(recipient) + "\n"
+                + metadata + "Exported: " + date + "\n\n"
                 + String.join("\n\f\n", pages.stream().map(page -> page.replace("\\", "\\\\")
                 .replace("\f", "\\f")).toList());
     }
@@ -68,11 +98,19 @@ public final class LetterTextArchive {
 
     public static Path write(Path directory, String prefix, List<String> pages,
                              String author, String recipient, Instant date) throws IOException {
-        byte[] bytes = encode(pages, author, recipient, date).getBytes(StandardCharsets.UTF_8);
+        return write(directory, prefix, pages, author, recipient, date, null);
+    }
+
+    public static Path write(Path directory, String prefix, List<String> pages,
+                             String author, String recipient, Instant date,
+                             List<String> tooltipLines) throws IOException {
+        byte[] bytes = (tooltipLines == null ? encode(pages, author, recipient, date)
+                : encode(pages, author, recipient, date, tooltipLines)).getBytes(StandardCharsets.UTF_8);
         if (bytes.length > MAX_BYTES) throw new IOException("TXT exceeds 256 KiB");
         decode(new String(bytes, StandardCharsets.UTF_8));
         Files.createDirectories(directory);
-        String stem = safeName(prefix) + "_" + DATE.format(date);
+        String stem = tooltipLines == null ? safeName(prefix) + "_" + DATE.format(date)
+                : DATE.format(date) + "_" + safeName(prefix);
         for (int i = 0; i < 10000; i++) {
             Path file = directory.resolve(stem + (i == 0 ? "" : "_" + i) + ".txt");
             try {
@@ -81,6 +119,14 @@ public final class LetterTextArchive {
             } catch (FileAlreadyExistsException ignored) { }
         }
         throw new IOException("No free TXT filename");
+    }
+
+    /** Includes the actual failure rather than suggesting a text limit for every I/O error. */
+    public static String failureReason(Exception error) {
+        String message = error.getMessage();
+        String type = error.getClass().getSimpleName();
+        return message == null || message.isBlank() ? type
+                : type + ": " + message.replaceAll("[\\p{Cntrl}]", " ");
     }
 
     private static String safeName(String name) {

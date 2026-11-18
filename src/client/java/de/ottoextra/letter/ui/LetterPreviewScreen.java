@@ -109,6 +109,11 @@ public final class LetterPreviewScreen extends Screen {
     }
 
     private List<int[]> lineSpans(String raw) {
+        return lineSpans(textRenderer, raw);
+    }
+
+    /** Zeilenumbruch einer Buchseite; auch vom Buchmodus des Editors genutzt. */
+    static List<int[]> lineSpans(net.minecraft.client.font.TextRenderer textRenderer, String raw) {
         List<int[]> spans = new ArrayList<>();
         int start = 0;
         int lastSpace = -1;

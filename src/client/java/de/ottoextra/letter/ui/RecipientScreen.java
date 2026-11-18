@@ -3,6 +3,7 @@ package de.ottoextra.letter.ui;
 import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.letter.LetterDraft;
 import de.ottoextra.letter.LetterServices;
+import de.ottoextra.letter.RecentRecipients;
 import de.ottoextra.rpnames.RpNamesServices;
 import de.ottoextra.rpnames.model.LocalRpProfile;
 import net.minecraft.client.MinecraftClient;
@@ -14,9 +15,10 @@ import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
 
 import java.util.ArrayList;
-import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 public final class RecipientScreen extends Screen {
 
@@ -58,6 +60,7 @@ public final class RecipientScreen extends Screen {
             refilter();
         });
         addDrawableChild(searchField);
+        de.ottoextra.ui.complete.TabCompletion.attach(searchField, de.ottoextra.ui.complete.TabCompletionSources::people);
         ButtonWidget send = ButtonWidget.builder(
                 Text.translatable("ottoextra.letter.recipient.send"), b -> {
                     if (selected != null) {
@@ -103,9 +106,18 @@ public final class RecipientScreen extends Screen {
             }
         }
 
-        filtered.sort(Comparator
-                .comparing((LocalRpProfile p) -> !isOnline(p))
-                .thenComparing(p -> p.accountName.toLowerCase(Locale.ROOT)));
+        // Zuletzt angeschriebene zuerst, dann Online-Spieler, dann alphabetisch.
+        List<String> recent = RecentRecipients.load();
+        Map<String, LocalRpProfile> byName = new HashMap<>();
+        for (LocalRpProfile p : filtered) {
+            byName.putIfAbsent(p.accountName, p);
+        }
+        List<String> order = RecentRecipients.order(new ArrayList<>(byName.keySet()), recent,
+                name -> isOnline(byName.get(name)));
+        filtered.clear();
+        for (String name : order) {
+            filtered.add(byName.get(name));
+        }
     }
 
     private boolean isOnline(LocalRpProfile p) {

@@ -1,6 +1,7 @@
 package de.ottoextra.letter.archive;
 
 import de.ottoextra.OttoExtra;
+import de.ottoextra.config.OttoExtraConfig;
 import de.ottoextra.config.OttoExtraPaths;
 import de.ottoextra.letter.ui.WrittenLetterImport;
 import net.minecraft.client.MinecraftClient;
@@ -64,8 +65,18 @@ public final class LetterArchiveService {
 
     public static void exportBook(ItemStack stack) {
         var book = stack.get(DataComponentTypes.WRITTEN_BOOK_CONTENT);
-        if (book != null) save(OttoExtraPaths.lettersDir(), book.author(),
-                WrittenLetterImport.toSectionPages(book), book.author(), "", Instant.now());
+        if (book != null) {
+            List<String> tooltipLines = new java.util.ArrayList<>();
+            tooltipLines.add(stack.getName().getString());
+            var lore = stack.get(DataComponentTypes.LORE);
+            if (lore != null) lore.lines().stream().map(Text::getString)
+                    .map(line -> line.replaceAll("§[0-9A-FK-ORa-fk-or]", ""))
+                    .filter(line -> !line.isBlank()).forEach(tooltipLines::add);
+            Path exportDirectory = LetterTextArchive.manualExportDirectory(OttoExtraPaths.lettersDir(),
+                    book.author(), OttoExtraConfig.active().letter.exportSubfoldersByPlayer);
+            save(exportDirectory, book.author(), WrittenLetterImport.toSectionPages(book),
+                    book.author(), "", Instant.now(), tooltipLines);
+        }
     }
 
     /** Called only after the write queue has verified the complete held book. */
@@ -82,8 +93,15 @@ public final class LetterArchiveService {
 
     private static boolean save(Path directory, String prefix, List<String> pages, String author,
                                 String recipient, Instant date) {
+        return save(directory, prefix, pages, author, recipient, date, null);
+    }
+
+    private static boolean save(Path directory, String prefix, List<String> pages, String author,
+                                String recipient, Instant date, List<String> tooltipLines) {
         try {
-            var file = LetterTextArchive.write(directory, prefix, pages, author, recipient, date);
+            var file = tooltipLines == null
+                    ? LetterTextArchive.write(directory, prefix, pages, author, recipient, date)
+                    : LetterTextArchive.write(directory, prefix, pages, author, recipient, date, tooltipLines);
             String location = "(config/ottoextra/"
                     + OttoExtraPaths.root().relativize(directory).toString().replace('\\', '/') + ")";
             hint(Text.translatable("ottoextra.letter.txt.saved",
@@ -93,7 +111,8 @@ public final class LetterArchiveService {
             return true;
         } catch (Exception e) {
             OttoExtra.LOGGER.warn("[letter] TXT archive could not be saved", e);
-            hint(Text.translatable("ottoextra.letter.txt.failed").formatted(Formatting.RED));
+            hint(Text.translatable("ottoextra.letter.txt.saveFailed",
+                    LetterTextArchive.failureReason(e)).formatted(Formatting.RED));
             return false;
         }
     }

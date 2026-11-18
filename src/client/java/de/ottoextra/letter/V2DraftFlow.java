@@ -111,6 +111,21 @@ public final class V2DraftFlow {
         return rebuild(draft, cut + 1, -1, command, width);
     }
 
+    /**
+     * Fügt am Cursor einen manuellen Seitenumbruch ein. Der Text hinter dem Cursor beginnt
+     * danach auf einer neuen Arbeitsseite; der Cursor steht an deren Anfang.
+     */
+    public static EditorPosition splitPageAt(
+            LetterDraft draft, int page, int cursor, String command, ToIntFunction<String> width) {
+        ensureDocument(draft);
+        Layout before = align(draft.meta.flowingDocument, draft.pages);
+        int cut = before.toGlobal(page, cursor);
+        String document = draft.meta.flowingDocument;
+        cut = Math.max(0, Math.min(cut, document.length()));
+        draft.meta.flowingDocument = document.substring(0, cut) + PAGE_BREAK + document.substring(cut);
+        return rebuild(draft, cut + 1, -1, command, width);
+    }
+
     public static EditorPosition deletePage(
             LetterDraft draft, int page, String command, ToIntFunction<String> width) {
         ensureDocument(draft);
@@ -218,7 +233,10 @@ public final class V2DraftFlow {
             String rawPage = safePages.get(i);
             String page = rawPage == null ? "" : rawPage;
             if (i > 0 && searchFrom < source.length()
-                    && source.charAt(searchFrom) == PAGE_BREAK) {
+                    && (source.charAt(searchFrom) == PAGE_BREAK || source.charAt(searchFrom) == '\n')) {
+                // A newline at a page boundary belongs between the pages. An
+                // empty next page must map AFTER it, otherwise typing moves
+                // back into the previous page and duplicates blank lines.
                 searchFrom++;
             }
             Match match = findPage(source, searchable, searchFrom, page,

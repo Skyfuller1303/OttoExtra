@@ -48,6 +48,20 @@ public final class LetterModule implements OttoExtraModule {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, access) ->
                 dispatcher.register(ClientCommandManager.literal("ottoextra")
                         .then(ClientCommandManager.literal("letter")
+                                .then(ClientCommandManager.literal("open").executes(ctx -> {
+                                    // Nach dem Schließen des Chats öffnen, sonst überschreibt dieser den Editor.
+                                    net.minecraft.client.MinecraftClient.getInstance()
+                                            .send(() -> openComposeEditor(config));
+                                    return 1;
+                                }))
+                                .then(ClientCommandManager.literal("weiter").executes(ctx -> {
+                                    LetterServices.resumeInterruptedSend(config);
+                                    return 1;
+                                }))
+                                .then(ClientCommandManager.literal("abbrechen").executes(ctx -> {
+                                    LetterServices.cancelInterruptedSend();
+                                    return 1;
+                                }))
                                 .then(ClientCommandManager.literal("send").executes(ctx -> {
                                     LetterActionPrompt.onSend(config);
                                     return 1;

@@ -11,6 +11,67 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class V2DraftFlowTest {
 
     @Test
+    void firstEnterAtFullPageMovesCaretToEmptyNextPage() {
+        String fullPage = java.util.stream.IntStream.rangeClosed(1, 10)
+                .mapToObj(i -> "Z" + i).collect(java.util.stream.Collectors.joining("\n"));
+        LetterDraft draft = LetterDraft.empty();
+        draft.pages = new ArrayList<>(List.of(fullPage));
+        draft.meta.flowingDocument = fullPage;
+        draft.meta.flowingDocumentVersion = V2DraftFlow.DOCUMENT_VERSION;
+
+        var position = V2DraftFlow.replacePage(draft, 0, fullPage + "\n",
+                fullPage.length() + 1, -1, "letter", value -> value.length() * 6, true);
+        assertEquals(List.of(fullPage, ""), draft.pages);
+        assertEquals(new V2DraftFlow.EditorPosition(1, 0, -1), position);
+
+        position = V2DraftFlow.replacePage(draft, position.page(), "Weiter", 6, -1,
+                "letter", value -> value.length() * 6, true);
+        assertEquals(List.of(fullPage, "Weiter"), draft.pages);
+        assertEquals(new V2DraftFlow.EditorPosition(1, 6, -1), position);
+        assertEquals(fullPage + "\nWeiter", draft.meta.flowingDocument);
+    }
+
+    @Test
+    void secondEnterAddsOnlyOneBlankLineOnNewPage() {
+        String fullPage = "Z\n".repeat(9) + "Z";
+        LetterDraft draft = LetterDraft.empty();
+        draft.pages = new ArrayList<>(List.of(fullPage));
+        draft.meta.flowingDocument = fullPage;
+        draft.meta.flowingDocumentVersion = V2DraftFlow.DOCUMENT_VERSION;
+        var position = V2DraftFlow.replacePage(draft, 0, fullPage + "\n",
+                fullPage.length() + 1, -1, "letter", value -> value.length() * 6, true);
+
+        position = V2DraftFlow.replacePage(draft, position.page(), "\n", 1, -1,
+                "letter", value -> value.length() * 6, true);
+        assertEquals(List.of(fullPage, "\n"), draft.pages);
+        assertEquals(new V2DraftFlow.EditorPosition(1, 1, -1), position);
+        assertEquals(fullPage + "\n\n", draft.meta.flowingDocument);
+    }
+
+    @Test
+    void enterAfterHardWrappedFullPageKeepsFollowingTextOnNewPage() {
+        // 136 glyphs at 6 px exactly fill V2's 816 px page width budget.
+        String original = "a".repeat(136);
+        LetterDraft draft = LetterDraft.empty();
+        draft.meta.flowingDocument = original;
+        draft.meta.flowingDocumentVersion = V2DraftFlow.DOCUMENT_VERSION;
+        draft.pages = new ArrayList<>(List.of(original));
+        V2DraftFlow.reflow(draft, 0, 0, -1, "letter", value -> value.length() * 6);
+        assertEquals(1, draft.pages.size());
+        String first = draft.pages.getFirst();
+        assertEquals(8, first.split("\n", -1).length);
+
+        var position = V2DraftFlow.replacePage(draft, 0, first + "\n", first.length() + 1, -1,
+                "letter", value -> value.length() * 6, true);
+        assertEquals(new V2DraftFlow.EditorPosition(1, 0, -1), position);
+        position = V2DraftFlow.replacePage(draft, position.page(), "X", 1, -1,
+                "letter", value -> value.length() * 6, true);
+        assertEquals(List.of(first, "X"), draft.pages);
+        assertEquals(original + "\nX", draft.meta.flowingDocument);
+        assertEquals(new V2DraftFlow.EditorPosition(1, 1, -1), position);
+    }
+
+    @Test
     void migrationRemovesAutomaticPageAndLineBreaksButKeepsParagraphs() {
         assertEquals("Erste Zeile zweite Zeile Zweite Seite\n\nNeuer Absatz",
                 V2DraftFlow.migratePages(List.of(

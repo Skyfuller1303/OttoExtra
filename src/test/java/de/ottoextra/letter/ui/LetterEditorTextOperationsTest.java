@@ -100,4 +100,14 @@ class LetterEditorTextOperationsTest {
         assertEquals(1, LetterEditorTextOperations.cursorBoundary(text, 2, -1));
         assertEquals(3, LetterEditorTextOperations.cursorBoundary(text, 2, 1));
     }
+
+    @Test
+    void wordAtSelectsWordWithoutFormattingCodes() {
+        String text = "Ein \u00a7lstarkes\u00a7r Wort";
+        LetterEditorTextOperations.Range word = LetterEditorTextOperations.wordAt(text, 8, 0);
+        assertEquals("starkes", text.substring(word.start(), word.end()));
+        assertEquals(new LetterEditorTextOperations.Range(0, 3),
+                LetterEditorTextOperations.wordAt(text, 1, 0));
+        assertTrue(LetterEditorTextOperations.wordAt("Ein  Wort", 4, 0).isEmpty());
+    }
 }

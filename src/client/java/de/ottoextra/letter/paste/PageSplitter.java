@@ -98,7 +98,9 @@ public final class PageSplitter {
             effOnPage += add;
             linesOnPage++;
         }
-        if (page.length() > 0 || pages.isEmpty()) {
+        // The line after Enter can be empty. Keep it so the caret can move to
+        // the next page immediately, without requiring a second newline.
+        if (linesOnPage > 0 || pages.isEmpty()) {
             pages.add(page.toString());
         }
         return pages;

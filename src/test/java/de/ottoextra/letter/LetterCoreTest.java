@@ -47,6 +47,31 @@ class LetterCoreTest {
     }
 
     @Test
+    void enterAfterLastLineCreatesEmptyNextPageImmediately() {
+        String fullPage = java.util.stream.IntStream.rangeClosed(1, 12)
+                .mapToObj(i -> "Zeile " + i)
+                .collect(java.util.stream.Collectors.joining("\n"));
+        PageSplitter splitter = new PageSplitter(value -> value.length() * 6, 108, 12, 248);
+
+        assertEquals(List.of(fullPage), splitter.split(fullPage));
+        assertEquals(List.of(fullPage, ""), splitter.split(fullPage + "\n"));
+        assertEquals(List.of(fullPage, "\n"), splitter.split(fullPage + "\n\n"));
+        assertEquals(List.of(fullPage, "Weiter"), splitter.split(fullPage + "\nWeiter"));
+    }
+
+    @Test
+    void blankOverflowSurvivesWrappingAndCharacterBudgetBoundary() {
+        PageSplitter wrapped = new PageSplitter(4, 2);
+        assertEquals(List.of("abcd\nefgh", ""), wrapped.split("abcdefgh\n"));
+        assertEquals(List.of("abcd\nefgh", "\n"), wrapped.split("abcdefgh\n\n"));
+
+        PageSplitter budget = new PageSplitter(value -> value.length() * 6, 108, 12, 8);
+        assertEquals(List.of("12345678", ""), budget.split("12345678\n"));
+        assertEquals(List.of(""), wrapped.split(""));
+        assertEquals(List.of("\n"), wrapped.split("\n"));
+    }
+
+    @Test
     void splitterNeverLosesLongWords() {
         PageSplitter splitter = new PageSplitter(5, 3);
         String word = "supercalifragilistic";

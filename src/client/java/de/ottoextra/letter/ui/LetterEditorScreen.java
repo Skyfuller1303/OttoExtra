@@ -1,11 +1,13 @@
 package de.ottoextra.letter.ui;
 
 import de.ottoextra.config.OttoExtraConfig;
+import de.ottoextra.ui.theme.OttonienTheme;
 import de.ottoextra.letter.LetterDraft;
 import de.ottoextra.letter.LetterDraftCache;
 import de.ottoextra.letter.LetterSendMode;
 import de.ottoextra.letter.V2DraftFlow;
 import de.ottoextra.letter.LetterServices;
+import de.ottoextra.letter.LetterTextTools;
 import de.ottoextra.letter.send.LetterV2Planner;
 import de.ottoextra.letter.format.LetterFormattingCodes;
 import de.ottoextra.letter.format.LetterFormattingSidebar;
@@ -43,19 +45,24 @@ public final class LetterEditorScreen extends Screen {
     private static final boolean IS_MACOS =
             Util.getOperatingSystem() == Util.OperatingSystem.OSX;
 
-    private static final int PAPER_COLOR = 0xFFC8AC8E;
-    private static final int PAPER_DARK = 0xFFB18F69;
-    private static final int PAPER_LINE = 0x88643C38;
-    private static final int TEXT_COLOR = 0xFF503D29;
-
+    private static final int TEXT_COLOR = OttonienTheme.INK;
+    private static final int MUTED_COLOR = OttonienTheme.INK_MUTED;
     private static final int TEXT_COLOR_LOCKED = 0x66503D29;
     private static final int SELECTION_COLOR = 0x8888AAFF;
-    private static final int PANEL_W = 184;
-    private static final int PANEL_H = 250;
-    private static final int TEXT_X = 28;
-    private static final int TEXT_Y = 48;
+    private static final int BOOK_W = 176;
+    private static final int BOOK_H = 200;
+    /** Dunkle Lederkante um das Buch (px). */
+    private static final int EDGE = 1;
+    /** Platz über dem Buch für das längste (aktive) Lesezeichen. */
+    private static final int RIBBON_TOP = 24;
+    private static final int TILE = 16;
+    private static final int TILE_STEP = 19;
+    private static final int WRITE_W = 70;
+    private static final int WRITE_H = 20;
     private static final int LINE_H = 12;
     private static final int TEXT_LINE_OFFSET = 2;
+    /** Platz unter den Textzeilen für Hinweise (gesperrt, Zeilenbereich, Buchseitenzahl). */
+    private static final int BOTTOM_ZONE = 36;
 
     private static final int BOOK_PAGE_WIDTH = 108;
 
@@ -66,7 +73,6 @@ public final class LetterEditorScreen extends Screen {
     private final PlaceholderResolveService placeholderService =
             new PlaceholderResolveService(new OttoExtraRpIdentityResolver());
 
-    private static final int SIDEBAR_W = LetterFormattingSidebar.WIDTH;
 
     private int page;
     private int cursor;
@@ -100,6 +106,8 @@ public final class LetterEditorScreen extends Screen {
         if (key.equals(previewKey)) return;
         var plan = LetterServices.previewPlan(config, draft);
         previewBookPages = plan.warnings().isEmpty() ? Math.max(1, plan.predictedPages().size()) : -1;
+        bookPages = plan.warnings().isEmpty() ? List.copyOf(plan.predictedPages()) : List.of();
+        bookBreaks = LetterTextTools.bookBreaks(draft.pages, bookPages);
         previewKey = key;
     }
 
@@ -177,18 +185,120 @@ public final class LetterEditorScreen extends Screen {
                 .isCalibrationDraft(draft);
     }
 
-    private int panelHeight() {
-        return Math.max(1, Math.min(PANEL_H, height - footerHeight() - 8));
-    }
+    // ---- Layout (wird in init() berechnet) ----
+
+    private int bx;
+    private int by;
+    private int bh = BOOK_H;
+    private int toolX;
+    private int writeX;
+    private int writeW = WRITE_W;
+    private int inkX;
+    private boolean inkVisible;
+    private boolean bookView;
+    private int viewPage;
+    private List<String> bookPages = List.of();
+    private List<List<int[]>> bookBreaks = List.of();
+    private final List<Tool> tools = new ArrayList<>();
+    private final List<Ribbon> ribbons = new ArrayList<>();
+
+    private enum ToolId { PREV, NEXT, ADD, DELETE, CUT, SIGNATURE, CHECK }
+
+    private record Tool(ToolId id, int x, int y) { }
+
+    private record Ribbon(int id, String labelKey, int color, int x, int w) { }
 
     private int footerHeight() {
         return de.ottoextra.letter.calibration.LetterCalibrationService.hasActiveCase()
-                ? 56 : 34;
+                ? 36 : 14;
+    }
+
+    private int lx() {
+        return bx + 10;
+    }
+
+    private int ly() {
+        return by + 6;
+    }
+
+    private int lw() {
+        return BOOK_W - 16;
+    }
+
+    private int lh() {
+        return bh - 12;
+    }
+
+    private int textLeft() {
+        return lx() + 12;
+    }
+
+    private int textTop() {
+        return ly() + 22;
     }
 
     private int visibleLineCount() {
         return Math.max(1, Math.min(maxLinesPerPage(),
-                (panelHeight() - TEXT_Y - 44) / LINE_H));
+                (lh() - 22 - BOTTOM_ZONE) / LINE_H));
+    }
+
+    private int bookLineHeight() {
+        return Math.max(9, Math.min(LINE_H,
+                (lh() - 22 - 16) / LetterV2Planner.BOOK_MAX_LINES));
+    }
+
+    private void layout() {
+        int rope = EDGE;
+        int avail = height - RIBBON_TOP - 2 - rope - footerHeight();
+        bh = Math.max(80, Math.min(BOOK_H, avail));
+        by = RIBBON_TOP + Math.max(0, (avail - bh) / 2);
+
+        boolean ink = formattingSidebar != null && config.letter.formattingSidebarVisible;
+        int leftNeed = ink ? LetterFormattingSidebar.WIDTH + rope + 6 : 8;
+        int rightNeed = 10 + WRITE_W + 2;
+        writeW = WRITE_W;
+        int right = width - BOOK_W - rightNeed;
+        if (right < leftNeed) {
+            writeW = 24;
+            rightNeed = 10 + writeW + 2;
+            right = width - BOOK_W - rightNeed;
+        }
+        if (right < leftNeed && ink) {
+            ink = false;
+            leftNeed = 8;
+        }
+        inkVisible = ink;
+        bx = Math.max(leftNeed, Math.min((width - BOOK_W) / 2, right));
+        inkX = bx - rope - 4 - LetterFormattingSidebar.WIDTH;
+        toolX = bx + BOOK_W + rope + 4;
+        writeX = toolX;
+
+        // Werkzeugkacheln; bei knappem Platz in mehreren Spalten.
+        tools.clear();
+        ToolId[] order = ToolId.values();
+        int toolTop = by + 10;
+        int writeY = by + bh - 22;
+        int rows = Math.max(1, (writeY - 2 - toolTop + (TILE_STEP - TILE)) / TILE_STEP);
+        for (int i = 0; i < order.length; i++) {
+            tools.add(new Tool(order[i], toolX + (i / rows) * TILE_STEP,
+                    toolTop + (i % rows) * TILE_STEP));
+        }
+
+        // Lesezeichen
+        ribbons.clear();
+        int rx = bx + 18;
+        String[][] labels = {{"ottoextra.letter.tab.letter"}, {"ottoextra.letter.tab.book"},
+                {"ottoextra.letter.tab.drafts"}};
+        int[] colors = {OttonienTheme.TERRACOTTA, OttonienTheme.BRASS,
+                OttonienTheme.SLATE_TAB};
+        for (int i = 0; i < 3; i++) {
+            if (i == 1 && !config.letter.previewEnabled) {
+                continue;
+            }
+            int w = textRenderer.getWidth(Text.translatable(labels[i][0])) + 10;
+            ribbons.add(new Ribbon(i, labels[i][0], colors[i], rx, w));
+            rx += w + 4;
+        }
     }
 
     private PageSplitter splitter() {
@@ -199,14 +309,6 @@ public final class LetterEditorScreen extends Screen {
                     maxLinesPerPage(), effectiveBudget);
         }
         return splitter;
-    }
-
-    private int panelX() {
-        return (width - PANEL_W) / 2;
-    }
-
-    private int panelY() {
-        return Math.max(4, (height - panelHeight() - footerHeight()) / 2);
     }
 
     private StringBuilder pageBuilder() {
@@ -562,7 +664,8 @@ public final class LetterEditorScreen extends Screen {
             return;
         }
         if (!hasSelection()) {
-            status = Text.translatable("ottoextra.letter.fmt.selectFirst").getString();
+            // Ohne Auswahl entspricht Tx der früheren Reset-Kachel: Format ab dem Cursor aus.
+            insertFormattingResetAtCursor();
             return;
         }
 
@@ -647,15 +750,11 @@ public final class LetterEditorScreen extends Screen {
         return out.toString();
     }
 
-    private int sidebarX() {
-        return Math.min(panelX() + PANEL_W + 8, width - SIDEBAR_W - 4);
-    }
-
     private boolean sidebarVisible() {
         return formattingSidebar != null
                 && config.letter.formattingEnabled
                 && config.letter.formattingSidebarVisible
-                && sidebarX() > panelX() + PANEL_W;
+                && inkVisible && !bookView;
     }
 
     private void reflowAllPages() {
@@ -717,6 +816,9 @@ public final class LetterEditorScreen extends Screen {
 
     @Override
     public boolean charTyped(CharInput input) {
+        if (bookView) {
+            return super.charTyped(input);
+        }
         String chr = input.asString();
         if (chr.isEmpty() || !input.isValidChar()) {
             return super.charTyped(input);
@@ -727,8 +829,19 @@ public final class LetterEditorScreen extends Screen {
 
     @Override
     public boolean keyPressed(KeyInput input) {
-        normalizeEditorPosition();
         int key = input.key();
+        if (bookView) {
+            if (key == GLFW.GLFW_KEY_LEFT || key == GLFW.GLFW_KEY_PAGE_UP) {
+                runTool(ToolId.PREV);
+                return true;
+            }
+            if (key == GLFW.GLFW_KEY_RIGHT || key == GLFW.GLFW_KEY_PAGE_DOWN) {
+                runTool(ToolId.NEXT);
+                return true;
+            }
+            return super.keyPressed(input);
+        }
+        normalizeEditorPosition();
 
         int modifiers = input.modifiers();
         boolean shift = (modifiers & GLFW.GLFW_MOD_SHIFT) != 0;
@@ -939,7 +1052,28 @@ public final class LetterEditorScreen extends Screen {
             }
             case GLFW.GLFW_KEY_C -> {
                 if (shortcut && hasSelection()) {
-                    client.keyboard.setClipboard(t.substring(selStart(), selEnd()));
+                    String selected = t.substring(selStart(), selEnd());
+                    // Strg+Umschalt+C kopiert reinen Text ohne Formatcodes.
+                    client.keyboard.setClipboard(shift
+                            ? LetterTextTools.plainText(selected) : selected);
+                    return true;
+                }
+            }
+            case GLFW.GLFW_KEY_B -> {
+                if (shortcut) {
+                    insertFormattingCode("§l");
+                    return true;
+                }
+            }
+            case GLFW.GLFW_KEY_I -> {
+                if (shortcut) {
+                    insertFormattingCode("§o");
+                    return true;
+                }
+            }
+            case GLFW.GLFW_KEY_U -> {
+                if (shortcut) {
+                    insertFormattingCode("§n");
                     return true;
                 }
             }
@@ -1114,6 +1248,10 @@ public final class LetterEditorScreen extends Screen {
 
     @Override
     public boolean mouseClicked(Click click, boolean doubled) {
+        if (click.button() == 0 && handleChromeClick(click.x(), click.y())) {
+            setFocused(null);
+            return true;
+        }
         if (sidebarVisible() && formattingSidebar.contains(click.x(), click.y())) {
 
             setFocused(null);
@@ -1121,7 +1259,14 @@ public final class LetterEditorScreen extends Screen {
         }
         List<int[]> spans = lineSpans();
         if (click.button() == 0 && isInsideTextArea(click.x(), click.y(), spans)) {
-            moveCursor(textPositionAt(click.x(), click.y(), spans), false);
+            int position = textPositionAt(click.x(), click.y(), spans);
+            moveCursor(position, false);
+            if (doubled) {
+                selectWordAt(position);
+                mouseSelecting = false;
+                setFocused(null);
+                return true;
+            }
 
             selAnchor = cursor;
             mouseSelecting = true;
@@ -1136,6 +1281,221 @@ public final class LetterEditorScreen extends Screen {
             setFocused(null);
         }
         return handled;
+    }
+
+    private void selectWordAt(int position) {
+        if (currentLocked()) {
+            return;
+        }
+        String t = text();
+        LetterEditorTextOperations.Range word = LetterEditorTextOperations.wordAt(
+                t, position, Math.min(editableStart(), t.length()));
+        if (word.isEmpty()) {
+            return;
+        }
+        selAnchor = word.start();
+        cursor = word.end();
+    }
+
+    private boolean inRect(double mx, double my, int x, int y, int w, int h) {
+        return mx >= x && mx < x + w && my >= y && my < y + h;
+    }
+
+    /** Lesezeichen, Werkzeugkacheln und Schreiben-Knopf. */
+    private boolean handleChromeClick(double mx, double my) {
+        for (Ribbon ribbon : ribbons) {
+            int h = ribbonHeight(ribbon);
+            if (inRect(mx, my, ribbon.x(), by - h, ribbon.w(), h + 6)) {
+                switchTab(ribbon.id());
+                return true;
+            }
+        }
+        for (Tool tool : tools) {
+            if (inRect(mx, my, tool.x(), tool.y(), TILE, TILE)) {
+                if (toolEnabled(tool.id())) {
+                    runTool(tool.id());
+                }
+                return true;
+            }
+        }
+        if (inRect(mx, my, writeX, by + bh - 22, writeW, WRITE_H)) {
+            startWriting();
+            return true;
+        }
+        return false;
+    }
+
+    private int ribbonHeight(Ribbon ribbon) {
+        boolean active = ribbon.id() == (bookView ? 1 : 0);
+        return active ? 22 : 17;
+    }
+
+    /** Öffnet den Editor in der Buchansicht (z. B. aus dem Entwurfsbildschirm). */
+    public void openBookView() {
+        if (config.letter.previewEnabled && textRenderer != null) {
+            switchTab(1);
+        }
+    }
+
+    private void switchTab(int id) {
+        switch (id) {
+            case 0 -> {
+                if (bookView) {
+                    bookView = false;
+                    mouseSelecting = false;
+                }
+            }
+            case 1 -> {
+                persist();
+                refreshBookPageCount();
+                bookView = true;
+                mouseSelecting = false;
+                viewPage = Math.max(0, Math.min(page, Math.max(0, bookPages.size() - 1)));
+            }
+            default -> {
+                persist();
+                client.setScreen(new SavedDraftsScreen(this, config, draft));
+            }
+        }
+    }
+
+    private boolean toolEnabled(ToolId id) {
+        return switch (id) {
+            case PREV -> bookView ? viewPage > 0 : page > 0;
+            case NEXT -> bookView ? viewPage + 1 < Math.max(1, bookPages.size())
+                    : page + 1 < draft.pages.size();
+            case CHECK -> true;
+            default -> !bookView && !currentLocked();
+        };
+    }
+
+    private void runTool(ToolId id) {
+        switch (id) {
+            case PREV -> {
+                if (bookView) {
+                    viewPage = Math.max(0, viewPage - 1);
+                } else {
+                    switchPage(-1);
+                }
+            }
+            case NEXT -> {
+                if (bookView) {
+                    viewPage = Math.min(Math.max(0, bookPages.size() - 1), viewPage + 1);
+                } else {
+                    switchPage(1);
+                }
+            }
+            case ADD -> addPageAfterCurrent();
+            case DELETE -> deleteCurrentPage();
+            case CUT -> splitPageAtCursor();
+            case SIGNATURE -> {
+                if (net.minecraft.client.util.InputUtil.isKeyPressed(client.getWindow(), GLFW.GLFW_KEY_LEFT_SHIFT)
+                        || net.minecraft.client.util.InputUtil.isKeyPressed(client.getWindow(), GLFW.GLFW_KEY_RIGHT_SHIFT)) {
+                    saveSelectionAsSignature();
+                } else {
+                    insertSignature();
+                }
+            }
+            case CHECK -> checkPlaceholders();
+        }
+    }
+
+    private void addPageAfterCurrent() {
+        if (currentLocked()) {
+            return;
+        }
+        recordUndo();
+        if (flowingV2Draft() && textRenderer != null) {
+            applyFlowPosition(V2DraftFlow.insertPageAfter(draft, page,
+                    config.letter.letterCommand, textRenderer::getWidth));
+        } else {
+            invalidateFlowingDocument();
+            draft.pages.add(page + 1, "");
+            switchPage(1);
+        }
+        persist();
+    }
+
+    /** Fügt am Cursor einen manuellen Seitenumbruch ein (Schere / Strg+Enter). */
+    private void splitPageAtCursor() {
+        if (bookView || currentLocked()) {
+            return;
+        }
+        normalizeEditorPosition();
+        if (cursor < editableStart()) {
+            return;
+        }
+        recordUndo();
+        if (flowingV2Draft() && textRenderer != null) {
+            applyFlowPosition(V2DraftFlow.splitPageAt(draft, page, cursor,
+                    config.letter.letterCommand, textRenderer::getWidth));
+        } else {
+            invalidateFlowingDocument();
+            List<String> split = LetterTextTools.splitPage(draft.pages, page, cursor);
+            draft.pages.clear();
+            draft.pages.addAll(split);
+            page++;
+            cursor = 0;
+            selAnchor = -1;
+        }
+        normalizeEditorPosition();
+        persist();
+        status = Text.translatable("ottoextra.letter.pageSplit").getString();
+    }
+
+    private void insertSignature() {
+        String template = config.letter.signature == null
+                ? de.ottoextra.letter.placeholder.SignatureExpander.DEFAULT_SIGNATURE
+                : config.letter.signature;
+        if (template.isBlank()) {
+            status = Text.translatable("ottoextra.letter.signature.empty").getString();
+            return;
+        }
+        String account = client != null && client.getSession() != null
+                ? client.getSession().getUsername() : "";
+        insert(de.ottoextra.letter.placeholder.SignatureExpander.expand(
+                template, account, new OttoExtraRpIdentityResolver()));
+        status = Text.translatable("ottoextra.letter.signature.inserted").getString();
+    }
+
+    private void saveSelectionAsSignature() {
+        if (!hasSelection()) {
+            status = Text.translatable("ottoextra.letter.fmt.selectFirst").getString();
+            return;
+        }
+        String t = text();
+        String selected = LetterFormattingCodes.activePrefixBefore(t, selStart())
+                + t.substring(selStart(), selEnd());
+        config.letter.signature = selected;
+        config.save();
+        status = Text.translatable("ottoextra.letter.signature.saved").getString();
+    }
+
+    private void startWriting() {
+        persist();
+        if (de.ottoextra.letter.calibration.LetterCalibrationService
+                .isCalibrationDraft(draft)) {
+            de.ottoextra.letter.calibration.LetterCalibrationService
+                    .writeFromEditor(config, draft);
+            client.setScreen(null);
+            return;
+        }
+        draft.meta.mode = LetterOutputMode.BRIEF;
+        if (LetterServices.startWrite(config, draft, () -> {
+            MinecraftClient minecraft = MinecraftClient.getInstance();
+            if (config.letter.openRecipientAfterWrite
+                    && minecraft.player != null && minecraft.world != null) {
+                minecraft.setScreen(new RecipientScreen(null, config, draft));
+            }
+        })) {
+            LetterServices.setPending(draft);
+            client.setScreen(null);
+        } else {
+            Text problem = LetterServices.writeItemProblem(config, draft);
+            status = problem == null
+                    ? Text.translatable("ottoextra.letter.write.failed").getString()
+                    : problem.getString();
+        }
     }
 
     @Override
@@ -1163,16 +1523,16 @@ public final class LetterEditorScreen extends Screen {
     }
 
     private boolean isInsideTextArea(double mouseX, double mouseY, List<int[]> spans) {
-        int tx = panelX() + TEXT_X;
-        int ty = panelY() + TEXT_Y + TEXT_LINE_OFFSET;
+        int tx = textLeft();
+        int ty = textTop() + TEXT_LINE_OFFSET;
         int visibleLines = Math.max(1, Math.min(spans.size(), visibleLineCount()));
-        return mouseX >= tx - 4 && mouseX <= tx + 114
+        return !bookView && mouseX >= tx - 4 && mouseX <= tx + 114
                 && mouseY >= ty - 2 && mouseY <= ty + visibleLines * LINE_H + 2;
     }
 
     private int textPositionAt(double mouseX, double mouseY, List<int[]> spans) {
-        int tx = panelX() + TEXT_X;
-        int ty = panelY() + TEXT_Y + TEXT_LINE_OFFSET;
+        int tx = textLeft();
+        int ty = textTop() + TEXT_LINE_OFFSET;
         int visibleLines = Math.max(1, Math.min(spans.size(), visibleLineCount()));
         int line = Math.max(0, Math.min((int) Math.floor((mouseY - ty) / LINE_H),
                 visibleLines - 1));
@@ -1236,83 +1596,10 @@ public final class LetterEditorScreen extends Screen {
         if (config.letter.formattingEnabled) {
             formattingSidebar = new LetterFormattingSidebar(
                     this::insertFormattingCode, this::clearFormattingFromSelection);
+        } else {
+            formattingSidebar = null;
         }
-        int px = panelX();
-        int py = panelY();
-        int ph = panelHeight();
-        addDrawableChild(ButtonWidget.builder(Text.literal("◀"), b -> switchPage(-1))
-                .dimensions(px + 8, py + ph - 26, 20, 18).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("▶"), b -> switchPage(1))
-                .dimensions(px + 30, py + ph - 26, 20, 18).build());
-        addDrawableChild(ButtonWidget.builder(Text.literal("+"), b -> {
-            if (currentLocked()) {
-                return;
-            }
-            recordUndo();
-            if (flowingV2Draft() && textRenderer != null) {
-                applyFlowPosition(V2DraftFlow.insertPageAfter(draft, page,
-                        config.letter.letterCommand, textRenderer::getWidth));
-            } else {
-                invalidateFlowingDocument();
-                draft.pages.add(page + 1, "");
-                switchPage(1);
-            }
-            persist();
-        }).dimensions(px + 52, py + ph - 26, 20, 18).build());
-        int deleteX = 74;
-        addDrawableChild(ButtonWidget.builder(Text.literal("−"), b -> deleteCurrentPage())
-                .dimensions(px + deleteX, py + ph - 26, 20, 18).build());
-        addDrawableChild(ButtonWidget.builder(
-                Text.translatable("ottoextra.letter.send"), b -> {
-
-                    persist();
-                    if (de.ottoextra.letter.calibration.LetterCalibrationService
-                            .isCalibrationDraft(draft)) {
-                        de.ottoextra.letter.calibration.LetterCalibrationService
-                                .writeFromEditor(config, draft);
-                        client.setScreen(null);
-                        return;
-                    }
-                    draft.meta.mode = LetterOutputMode.BRIEF;
-                    if (LetterServices.startWrite(config, draft, () -> {
-                        MinecraftClient minecraft = MinecraftClient.getInstance();
-                        if (config.letter.openRecipientAfterWrite
-                                && minecraft.player != null && minecraft.world != null) {
-                            minecraft.setScreen(new RecipientScreen(null, config, draft));
-                        }
-                    })) {
-                        LetterServices.setPending(draft);
-                        client.setScreen(null);
-                    } else {
-                        Text problem = LetterServices.writeItemProblem(config, draft);
-                        status = problem == null
-                                ? Text.translatable("ottoextra.letter.write.failed").getString()
-                                : problem.getString();
-                    }
-                })
-                .dimensions(px + PANEL_W - 64, py + ph - 26, 56, 18).build());
-
-        ButtonWidget check = ButtonWidget.builder(Text.empty(), b -> checkPlaceholders())
-                .dimensions(px, py + ph + 4, 18, 16).build();
-        check.setTooltip(net.minecraft.client.gui.tooltip.Tooltip.of(
-                Text.translatable("ottoextra.letter.checkPlaceholders")));
-        addDrawableChild(check);
-        int secondaryX = px + 22;
-        if (config.letter.previewEnabled) {
-            addDrawableChild(ButtonWidget.builder(
-                    Text.translatable("ottoextra.letter.preview"), b -> {
-                        persist();
-                        client.setScreen(new LetterPreviewScreen(this, config, draft, page));
-                    }).dimensions(secondaryX, py + ph + 4, 72, 16).build());
-            secondaryX += 76;
-        }
-        addDrawableChild(ButtonWidget.builder(
-                Text.translatable("ottoextra.letter.drafts"), b -> {
-                    persist();
-                    client.setScreen(new SavedDraftsScreen(this, config, draft));
-                }).dimensions(secondaryX, py + ph + 4,
-                        px + PANEL_W - secondaryX, 16).build());
-
+        layout();
         if (de.ottoextra.letter.calibration.LetterCalibrationService.hasActiveCase()) {
             addDrawableChild(ButtonWidget.builder(
                     Text.literal("§cDebug-Testtext in diesen Brief einsetzen"), b -> {
@@ -1327,7 +1614,7 @@ public final class LetterEditorScreen extends Screen {
                         cursor = text().length();
                         status = id.isBlank() ? "Kalibrierung nicht aktiv"
                                 : id + " eingesetzt — jetzt Schreiben drücken";
-                    }).dimensions(px, py + ph + 24, PANEL_W, 18).build());
+                    }).dimensions(bx, by + bh + EDGE + 14, BOOK_W, 18).build());
         }
     }
 
@@ -1411,27 +1698,164 @@ public final class LetterEditorScreen extends Screen {
 
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
-        int px = panelX();
-        int py = panelY();
-        int ph = panelHeight();
-        ctx.fill(px - 2, py - 2, px + PANEL_W + 2, py + ph + 2, PAPER_DARK);
-        ctx.fill(px, py, px + PANEL_W, py + ph, PAPER_COLOR);
+        OttonienTheme.redBook(ctx, bx, by, BOOK_W, bh);
+        OttonienTheme.parchment(ctx, lx(), ly(), lw(), lh(), 7, true, true);
+        for (int i = 0; i < 4; i++) {
+            ctx.fill(lx() + i, ly() + 1, lx() + i + 1, ly() + lh() - 1,
+                    OttonienTheme.shade(OttonienTheme.PA, .88 + i * .03));
+        }
+        renderRibbons(ctx);
+        if (bookView) {
+            renderBookView(ctx);
+        } else {
+            renderEditPage(ctx);
+        }
+        renderTools(ctx, mouseX, mouseY);
+        renderWriteButton(ctx, mouseX, mouseY);
+        if (!status.isEmpty()) {
+            ctx.drawText(textRenderer, status, bx + BOOK_W / 2 - textRenderer.getWidth(status) / 2,
+                    by + bh + EDGE + 3, 0xFFE6C8A9, false);
+        }
+        super.render(ctx, mouseX, mouseY, delta);
+        if (sidebarVisible()) {
+            formattingSidebar.setBounds(inkX, by + 6);
+            formattingSidebar.render(ctx, textRenderer, mouseX, mouseY);
+        }
+        renderTooltips(ctx, mouseX, mouseY);
+    }
+
+    private void renderRibbons(DrawContext ctx) {
+        int activeId = bookView ? 1 : 0;
+        for (Ribbon ribbon : ribbons) {
+            boolean active = ribbon.id() == activeId;
+            int length = ribbonHeight(ribbon);
+            OttonienTheme.ribbon(ctx, ribbon.x(), by - length, by + 6, ribbon.w(),
+                    active ? ribbon.color() : OttonienTheme.shade(ribbon.color(), .85));
+            ctx.drawText(textRenderer, Text.translatable(ribbon.labelKey()), ribbon.x() + 5,
+                    by - length + 5, active ? OttonienTheme.LABEL : OttonienTheme.LABEL_MUTED,
+                    false);
+        }
+    }
+
+    private void renderTools(DrawContext ctx, int mouseX, int mouseY) {
+        for (Tool tool : tools) {
+            boolean enabled = toolEnabled(tool.id());
+            boolean hover = enabled && inRect(mouseX, mouseY, tool.x(), tool.y(), TILE, TILE);
+            OttonienTheme.tile(ctx, tool.x(), tool.y(), TILE, TILE, hover);
+            int color = enabled ? OttonienTheme.PICTO : 0x66514A3A;
+            int ix = tool.x() + 4;
+            int iy = tool.y() + 4;
+            switch (tool.id()) {
+                case PREV -> OttonienTheme.pictoLeft(ctx, ix, iy, color);
+                case NEXT -> OttonienTheme.pictoRight(ctx, ix, iy, color);
+                case ADD -> OttonienTheme.pictoPlus(ctx, ix, iy, color);
+                case DELETE -> OttonienTheme.pictoMinus(ctx, ix, iy, color);
+                case CUT -> OttonienTheme.pictoScissors(ctx, ix + 1, iy + 1, color);
+                case SIGNATURE -> OttonienTheme.pictoQuill(ctx, ix, iy, color);
+                case CHECK -> ctx.drawTexture(net.minecraft.client.gl.RenderPipelines.GUI_TEXTURED,
+                        CHECK_ICON, tool.x(), tool.y(), 0f, 0f, 16, 16, 16, 16);
+            }
+        }
+    }
+
+    private void renderWriteButton(DrawContext ctx, int mouseX, int mouseY) {
+        int y = by + bh - 22;
+        boolean hover = inRect(mouseX, mouseY, writeX, y, writeW, WRITE_H);
+        OttonienTheme.slateButton(ctx, writeX, y, writeW, WRITE_H, hover);
+        OttonienTheme.pictoSeal(ctx, writeX + 4, y + (WRITE_H - 9) / 2);
+        if (writeW >= WRITE_W) {
+            Text label = Text.translatable("ottoextra.letter.send");
+            ctx.drawText(textRenderer, label, writeX + 16, y + (WRITE_H - 8) / 2,
+                    hover ? OttonienTheme.GOLD_HOVER : OttonienTheme.LABEL, false);
+        }
+    }
+
+    private void renderTooltips(DrawContext ctx, int mouseX, int mouseY) {
+        for (Tool tool : tools) {
+            if (inRect(mouseX, mouseY, tool.x(), tool.y(), TILE, TILE)) {
+                String key = switch (tool.id()) {
+                    case PREV -> "ottoextra.letter.tool.prev";
+                    case NEXT -> "ottoextra.letter.tool.next";
+                    case ADD -> "ottoextra.letter.tool.add";
+                    case DELETE -> "ottoextra.letter.tool.delete";
+                    case CUT -> "ottoextra.letter.tool.cut";
+                    case SIGNATURE -> "ottoextra.letter.tool.signature";
+                    case CHECK -> "ottoextra.letter.checkPlaceholders";
+                };
+                List<Text> lines = new ArrayList<>();
+                lines.add(Text.translatable(key));
+                if (tool.id() == ToolId.SIGNATURE) {
+                    lines.add(Text.translatable("ottoextra.letter.tool.signature.hint"));
+                }
+                ctx.drawTooltip(textRenderer, lines, mouseX, mouseY);
+                return;
+            }
+        }
+        if (inRect(mouseX, mouseY, writeX, by + bh - 22, writeW, WRITE_H) && writeW < WRITE_W) {
+            ctx.drawTooltip(textRenderer, List.of(Text.translatable("ottoextra.letter.send")),
+                    mouseX, mouseY);
+        }
+    }
+
+    /** Buchansicht: die Seiten exakt so, wie sie der Server schreibt (nur lesen). */
+    private void renderBookView(DrawContext ctx) {
+        int lx = lx();
+        int ly = ly();
+        int lw = lw();
+        int pageCount = Math.max(1, bookPages.size());
+        viewPage = Math.max(0, Math.min(viewPage, pageCount - 1));
+        ctx.drawText(textRenderer, Text.translatable("ottoextra.letter.view.title"),
+                textLeft(), ly + 7, TEXT_COLOR, false);
+        String counter = (viewPage + 1) + " / " + pageCount;
+        ctx.drawText(textRenderer, counter, lx + lw - 12 - textRenderer.getWidth(counter),
+                ly + 7, MUTED_COLOR, false);
+        ctx.fill(lx + 10, ly + 17, lx + lw - 10, ly + 18, OttonienTheme.PA_S);
+        if (bookPages.isEmpty()) {
+            ctx.drawText(textRenderer, Text.translatable("ottoextra.letter.bookCountUnavailable"),
+                    textLeft(), textTop(), MUTED_COLOR, false);
+        } else {
+            String raw = bookPages.get(viewPage);
+            List<int[]> spans = LetterPreviewScreen.lineSpans(textRenderer, raw);
+            int lineHeight = bookLineHeight();
+            int maxLines = LetterV2Planner.BOOK_MAX_LINES;
+            for (int i = 0; i < Math.min(maxLines, spans.size()); i++) {
+                int[] span = spans.get(i);
+                int y = textTop() + i * lineHeight;
+                String part = raw.substring(span[0], span[1]);
+                String prefix = LetterFormattingCodes.activePrefixBefore(raw, span[0]);
+                ctx.drawText(textRenderer, prefix + part, textLeft(), y, TEXT_COLOR, false);
+            }
+            if (spans.size() > maxLines) {
+                ctx.drawText(textRenderer, Text.translatable("ottoextra.letter.preview.overflow",
+                        spans.size(), maxLines), textLeft(), ly + lh() - 24, 0xFF992222, false);
+            }
+        }
+        Text readOnly = Text.translatable("ottoextra.letter.preview.readonly");
+        ctx.drawText(textRenderer, readOnly,
+                lx + (lw - textRenderer.getWidth(readOnly)) / 2, ly + lh() - 14, MUTED_COLOR, false);
+    }
+
+    private void renderEditPage(DrawContext ctx) {
+        int lx = lx();
+        int ly = ly();
+        int lw = lw();
+        int lh = lh();
         ctx.drawText(textRenderer, Text.translatable("ottoextra.letter.workingPageIndicator",
-                page + 1, draft.pages.size()), px + TEXT_X, py + 12,
-                TEXT_COLOR, false);
+                page + 1, draft.pages.size()), textLeft(), ly + 7, MUTED_COLOR, false);
+        ctx.fill(lx + 10, ly + 17, lx + lw - 10, ly + 18, OttonienTheme.PA_S);
         Text bookCount = previewBookPages < 0
                 ? Text.translatable("ottoextra.letter.bookCountUnavailable")
                 : Text.translatable("ottoextra.letter.bookCount", previewBookPages);
-        ctx.drawText(textRenderer, bookCount, px + TEXT_X, py + 23, TEXT_COLOR, false);
+        ctx.drawText(textRenderer, bookCount, textLeft(), ly + lh - 14, MUTED_COLOR, false);
         if (de.ottoextra.letter.calibration.LetterCalibrationService
                 .isCalibrationDraft(draft)) {
             ctx.drawText(textRenderer, "§cKalibrierung · "
                             + de.ottoextra.letter.calibration.LetterCalibrationService
                             .activeSendMode() + " · nicht verändern",
-                    px + TEXT_X, py + ph - 40, TEXT_COLOR_LOCKED, false);
+                    textLeft(), ly + lh - 36, TEXT_COLOR_LOCKED, false);
         } else if (hasLockedHere()) {
             ctx.drawText(textRenderer, Text.translatable("ottoextra.letter.book.locked"),
-                    px + TEXT_X, py + 34, TEXT_COLOR_LOCKED, false);
+                    textLeft(), ly + lh - 36, TEXT_COLOR_LOCKED, false);
         }
 
         String t = text();
@@ -1439,25 +1863,27 @@ public final class LetterEditorScreen extends Screen {
         List<int[]> spans = lineSpans();
         int maxLines = visibleLineCount();
         updateViewport(spans);
+        List<int[]> breaks = page < bookBreaks.size() ? bookBreaks.get(page) : List.of();
+        int ruleRight = lx + lw - 10;
         for (int i = firstVisibleLine; i < Math.min(spans.size(), firstVisibleLine + maxLines); i++) {
             int[] span = spans.get(i);
             String lineText = t.substring(span[0], span[1]);
-            int rowY = py + TEXT_Y + (i - firstVisibleLine) * LINE_H;
+            int rowY = textTop() + (i - firstVisibleLine) * LINE_H;
             int y = rowY + TEXT_LINE_OFFSET;
-            ctx.fill(px + TEXT_X - 2, rowY + LINE_H - 2,
-                    px + TEXT_X + 130, rowY + LINE_H - 1, PAPER_LINE);
+            ctx.fill(lx + 10, rowY + LINE_H - 2, ruleRight, rowY + LINE_H - 1,
+                    OttonienTheme.PA_S);
             if (hasSelection() && selEnd() > span[0] && selStart() < span[1]) {
                 int s = Math.max(selStart(), span[0]) - span[0];
                 int e = Math.min(selEnd(), span[1]) - span[0];
-                int x1 = px + TEXT_X + renderedWidthTo(t, span[0], lineText, s);
-                int x2 = px + TEXT_X + renderedWidthTo(t, span[0], lineText, e);
+                int x1 = textLeft() + renderedWidthTo(t, span[0], lineText, s);
+                int x2 = textLeft() + renderedWidthTo(t, span[0], lineText, e);
                 ctx.fill(x1, y - 1, x2, y + 9, SELECTION_COLOR);
             }
 
             int split = lockStart == Integer.MAX_VALUE
                     ? lineText.length()
                     : Math.max(0, Math.min(lockStart - span[0], lineText.length()));
-            int x = px + TEXT_X;
+            int x = textLeft();
             if (split > 0) {
 
                 MutableText locked = desaturatedText(lineText.substring(0, split));
@@ -1476,45 +1902,50 @@ public final class LetterEditorScreen extends Screen {
                     && cursor <= span[1]
                     && i == lineIndexOf(cursor, spans)
                     && (System.currentTimeMillis() / 500) % 2 == 0) {
-                int cx = px + TEXT_X + renderedWidthTo(
+                int cx = textLeft() + renderedWidthTo(
                         t, span[0], lineText, cursor - span[0]);
                 ctx.fill(cx, y - 1, cx + 1, y + 9, TEXT_COLOR);
+            }
+
+            // Voraussichtlicher Buchseitenwechsel direkt über dieser Zeile.
+            if (i > firstVisibleLine) {
+                for (int[] mark : breaks) {
+                    if (mark[0] >= span[0] && mark[0] < span[1]) {
+                        drawPageMarker(ctx, rowY - 1, mark[1], lx + 10, ruleRight);
+                        break;
+                    }
+                }
             }
         }
         if (spans.size() > maxLines && !de.ottoextra.letter.calibration
                 .LetterCalibrationService.isCalibrationDraft(draft)) {
             ctx.drawText(textRenderer, Text.translatable("ottoextra.letter.editor.visibleLines",
                     firstVisibleLine + 1, Math.min(spans.size(), firstVisibleLine + maxLines),
-                    spans.size()), px + TEXT_X, py + ph - 40, TEXT_COLOR, false);
+                    spans.size()), textLeft(), ly + lh - 25, TEXT_COLOR, false);
         }
-        if (!status.isEmpty()) {
-            ctx.drawCenteredTextWithShadow(textRenderer, status, width / 2,
-                    py + ph + (de.ottoextra.letter.calibration
-                            .LetterCalibrationService.hasActiveCase() ? 46 : 24),
-                    0xFFE6C8A9);
-        }
-        renderSuggestions(ctx, px, py, spans);
-        super.render(ctx, mouseX, mouseY, delta);
-
-        ctx.drawTexture(net.minecraft.client.gl.RenderPipelines.GUI_TEXTURED, CHECK_ICON,
-                px + 1, py + ph + 4, 0f, 0f, 16, 16, 16, 16);
-
-        if (sidebarVisible()) {
-            formattingSidebar.setBounds(sidebarX(), py);
-            formattingSidebar.render(ctx, textRenderer, mouseX, mouseY);
-        }
+        renderSuggestions(ctx, spans);
     }
 
-    private void renderSuggestions(DrawContext ctx, int px, int py, List<int[]> spans) {
+    private void drawPageMarker(DrawContext ctx, int y, int number, int left, int right) {
+        Text label = Text.translatable("ottoextra.letter.pageMarker", number);
+        int labelW = textRenderer.getWidth(label) + 9;
+        int labelX = right - labelW;
+        OttonienTheme.dashedLine(ctx, left, y, Math.max(0, labelX - 2 - left),
+                OttonienTheme.PA_S);
+        OttonienTheme.pictoScissors(ctx, labelX, y - 3, OttonienTheme.PICTO);
+        ctx.drawText(textRenderer, label, labelX + 9, y - 4, MUTED_COLOR, false);
+    }
+
+    private void renderSuggestions(DrawContext ctx, List<int[]> spans) {
         java.util.List<String> sugg = suggestions();
         if (sugg.isEmpty()) {
             return;
         }
         suggestIndex = Math.min(suggestIndex, sugg.size() - 1);
         int line = lineIndexOf(cursor, spans);
-        int x = px + TEXT_X + 8;
+        int x = textLeft() + 8;
         if (line < firstVisibleLine || line >= firstVisibleLine + visibleLineCount()) return;
-        int y = py + TEXT_Y + (line - firstVisibleLine + 1) * LINE_H + 2;
+        int y = textTop() + (line - firstVisibleLine + 1) * LINE_H + 2;
         int w = 64;
         int h = sugg.size() * 11 + 4;
         ctx.fill(x - 2, y - 2, x + w + 2, y + h, 0xE0201608);
