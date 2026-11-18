@@ -12,7 +12,7 @@ import org.jspecify.annotations.Nullable;
 import java.util.BitSet;
 import java.util.List;
 
-/** Repairs the nested-OOC duplicate only when Minecraft supplies the signed original. */
+/** Repairs duplicated nested RP suffixes only when Minecraft supplies the signed original. */
 final class RpChatCorruptionRepair {
     private RpChatCorruptionRepair() {
     }
@@ -61,6 +61,14 @@ final class RpChatCorruptionRepair {
     }
 
     private static int repairedLength(String body, String signedOriginal) {
+        // Mixed speech/OOC and parentheses inside emotes keep the original outer structure.
+        // Require an exact original prefix and a complete suffix starting at a nested opener.
+        if (!signedOriginal.isEmpty() && body.length() > signedOriginal.length()
+                && body.startsWith(signedOriginal)
+                && isNestedSuffix(signedOriginal, body.substring(signedOriginal.length()))) {
+            return signedOriginal.length();
+        }
+
         int end = oocEnd(body);
         if (end < 0 || end == body.length()) return -1;
         String kept = body.substring(0, end);
@@ -76,6 +84,18 @@ final class RpChatCorruptionRepair {
         // every character must agree with the original; never infer a correction from repetition alone.
         String originalCore = oocCore(signedOriginal);
         return originalCore != null && originalCore.equals(oocCore(kept)) ? end : -1;
+    }
+
+    private static boolean isNestedSuffix(String original, String duplicate) {
+        int start = original.length() - duplicate.length();
+        if (start <= 0 || !original.endsWith(duplicate)) return false;
+        BitSet delimiters = RpChatSyntax.pairedEmoteDelimiters(original);
+        RpChatSyntax.State before = RpChatSyntax.scan(original, start, delimiters);
+        if (before.stack().isEmpty()) return false;
+        RpChatSyntax.State after = RpChatSyntax.step(before, original.charAt(start),
+                delimiters.get(start)).after();
+        return after.stack().size() == before.stack().size() + 1
+                && RpChatSyntax.scan(original, original.length(), delimiters).stack().isEmpty();
     }
 
     private static @Nullable String oocCore(String text) {

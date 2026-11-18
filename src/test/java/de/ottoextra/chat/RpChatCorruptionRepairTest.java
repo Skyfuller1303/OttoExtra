@@ -66,6 +66,64 @@ class RpChatCorruptionRepairTest {
     }
 
     @Test
+    void repairsParenthesisInsideEmoteFromScreenshot() {
+        String clean = "*lacht und wischt sich eine Träne aus den Augen (vor lachen)*";
+        assertNestedDuplicateRepair(clean, "(vor lachen)*");
+    }
+
+    @Test
+    void repairsTrailingOocEmoteAfterSpokenTextFromScreenshot() {
+        String clean = "*Schmunzelt und nickt* Ich verstehe... "
+                + "Bei eurem Problem.. Kann ich da irgendwie helfen? *besorgt* "
+                + "(*und auf der Suche nach rp oder irgendeinem neuen Plottstrang*)";
+        assertNestedDuplicateRepair(clean,
+                "*und auf der Suche nach rp oder irgendeinem neuen Plottstrang*)");
+    }
+
+    @Test
+    void requiresExactOriginalAndCompleteNestedSuffixForNewRepairs() {
+        String clean = "*lacht (vor lachen)*";
+        Text broken = Text.literal(HEADER + clean + "(vor lachen)*");
+        for (String signed : List.of("*laughs (from laughter)*", "*lacht (leise)*",
+                clean + "(vor lachen)*")) {
+            assertSame(broken, repair(broken, signed), signed);
+        }
+        for (String[] sample : List.of(
+                new String[]{clean, "vor lachen)*"},
+                new String[]{clean, "(vor lachen)"},
+                new String[]{clean, clean},
+                new String[]{"*winkt*", "*winkt*"},
+                new String[]{"Hallo (OOC)", "(OOC)"},
+                new String[]{"*lacht (offen)", "(offen)"})) {
+            Text original = Text.literal(HEADER + sample[0] + sample[1]);
+            assertSame(original, repair(original, sample[0]), original.getString());
+        }
+    }
+
+    private static void assertNestedDuplicateRepair(String clean, String duplicate) {
+        // Exercise cuts inside literal and translated components, not just a flat string.
+        String broken = clean + duplicate;
+        Style bodyStyle = Style.EMPTY.withItalic(true).withColor(0x123456);
+        for (int split = 0; split <= broken.length(); split++) {
+            Text original = Text.literal(HEADER)
+                    .append(Text.literal(broken.substring(0, split)).setStyle(bodyStyle))
+                    .append(Text.translatable("%s", Text.literal(broken.substring(split))
+                            .setStyle(bodyStyle)));
+            Text repaired = repair(original, clean);
+            assertEquals(HEADER + clean, repaired.getString(), "component split " + split);
+            assertEquals(bodyStyle, styleFor(repaired, clean.substring(1, 6)));
+            assertEquals(HEADER + broken, original.getString());
+            assertSame(repaired, repair(repaired, clean));
+            MessageIndicator indicator = MessageIndicator.modified(clean);
+            assertEquals(HEADER + clean,
+                    ChatMessagePipeline.formatIncoming(original, SIGNATURE, indicator).getString());
+            assertEquals(HEADER + clean,
+                    ChatMessagePipeline.formatHistory(original, SIGNATURE, indicator).getString());
+            assertTrue(indicator.text().getString().endsWith(clean));
+        }
+    }
+
+    @Test
     void keepsIntentionalRepetitionsIncludingMalformedOocIfTheyAreTheOriginal() {
         for (String body : List.of("*nickt*??", "*lacht* hahaha", "(1+1)=22",
                 BROKEN, "(*test*)*test*)", "(*winkt* *winkt*)", "(*test*)(*test*)")) {
